@@ -1,0 +1,268 @@
+{
+    "methods": [
+        {
+            "name": "add_instrument",
+            "description": "Add an instrument to the manager's collection.",
+            "parameters": [
+                {
+                    "name": "name",
+                    "type": "str",
+                    "description": "The name of the instrument."
+                },
+                {
+                    "name": "instrument",
+                    "type": "object",
+                    "description": "The instrument object to be added."
+                }
+            ]
+        },
+        {
+            "name": "remove_instrument",
+            "description": "Remove an instrument from the manager's collection.",
+            "parameters": [
+                {
+                    "name": "name",
+                    "type": "str",
+                    "description": "The name of the instrument to be removed."
+                }
+            ]
+        },
+        {
+            "name": "get_instrument",
+            "description": "Get an instrument by name from the manager's collection.",
+            "parameters": [
+                {
+                    "name": "name",
+                    "type": "str",
+                    "description": "The name of the instrument to retrieve."
+                }
+            ]
+        },
+        {
+            "name": "list_instruments",
+            "description": "List all instruments currently added to the manager.",
+            "parameters": []
+        },
+        {
+            "name": "connect_all_instruments",
+            "description": "Connect all instruments in the manager's collection.",
+            "parameters": []
+        },
+        {
+            "name": "disconnect_all_instruments",
+            "description": "Disconnect all instruments in the manager's collection.",
+            "parameters": []
+        },
+        {
+            "name": "is_all_instruments_connected",
+            "description": "Check if all instruments are connected.",
+            "parameters": []
+        },
+        {
+            "name": "is_instrument_connected",
+            "description": "Check if a specific instrument is connected.",
+            "parameters": [
+                {
+                    "name": "name",
+                    "type": "str",
+                    "description": "The name of the instrument to check."
+                }
+            ]
+        },
+        {
+            "name": "measure_voltage",
+            "description": "Perform a voltage measurement.",
+            "parameters": [
+                {
+                    "name": "voltage",
+                    "type": "float",
+                    "description": "The voltage to measure."
+                },
+                {
+                    "name": "channel",
+                    "type": "int",
+                    "description": "The channel number to measure (default: 1)."
+                }
+            ]
+        },
+        {
+            "name": "measure_current",
+            "description": "Perform a current measurement.",
+            "parameters": [
+                {
+                    "name": "current",
+                    "type": "float",
+                    "description": "The current to measure."
+                },
+                {
+                    "name": "channel",
+                    "type": "int",
+                    "description": "The channel number to measure (default: 1)."
+                }
+            ]
+        },
+        {
+            "name": "measure_power",
+            "description": "Perform a power measurement.",
+            "parameters": [
+                {
+                    "name": "power",
+                    "type": "float",
+                    "description": "The power to measure."
+                },
+                {
+                    "name": "channel",
+                    "type": "int",
+                    "description": "The channel number to measure (default: 1)."
+                }
+            ]
+        },
+        {
+            "name": "measure_eye_diagram",
+            "description": "Perform an Eye Diagram measurement.",
+            "parameters": [
+                {
+                    "name": "test_pattern",
+                    "type": "str",
+                    "description": "The test pattern to use."
+                },
+                {
+                    "name": "voltage",
+                    "type": "float",
+                    "description": "The voltage for the power supply (default: 1.0 V)."
+                },
+                {
+                    "name": "current",
+                    "type": "float",
+                    "description": "The current for the power supply (default: 0.5 A)."
+                },
+                {
+                    "name": "channel",
+                    "type": "int",
+                    "description": "The channel number to use (default: 1)."
+                },
+                {
+                    "name": "eye_duration",
+                    "type": "float",
+                    "description": "The duration of the eye diagram measurement (default: 0.1 s)."
+                }
+            ]
+        },
+        {
+            "name": "perform_s21_measurement",
+            "description": "Perform an S21 measurement.",
+            "parameters": [
+                {
+                    "name": "frequency",
+                    "type": "float",
+                    "description": "The frequency for the measurement."
+                },
+                {
+                    "name": "power_level",
+                    "type": "float",
+                    "description": "The power level for the measurement."
+                },
+                {
+                    "name": "channel",
+                    "type": "int",
+                    "description": "The channel number to use (default: 1)."
+                },
+                {
+                    "name": "measurement_time",
+                    "type": "float",
+                    "description": "The measurement time (default: 0.1 s)."
+                }
+            ]
+        },
+        {
+            "name": "calibrate_power_supply",
+            "description": "Calibrate the power supply.",
+            "parameters": []
+        },
+        {
+            "name": "calibrate_oscilloscope",
+            "description": "Calibrate the oscilloscope.",
+            "parameters": []
+        },
+        {
+            "name": "calibrate_vna",
+            "description": "Calibrate the Vector Network Analyzer.",
+            "parameters": []
+        },
+        {
+            "name": "save_measurement_data",
+            "description": "Save measurement data to a file.",
+            "parameters": [
+                {
+                    "name": "data",
+                    "type": "dict",
+                    "description": "The measurement data to save."
+                },
+                {
+                    "name": "file_name",
+                    "type": "str",
+                    "description": "The name of the file to save the data to."
+                }
+            ]
+        },
+        {
+            "name": "load_measurement_data",
+            "description": "Load measurement data from a file.",
+            "parameters": [
+                {
+                    "name": "file_name",
+                    "type": "str",
+                    "description": "The name of the file to load the data from."
+                }
+            ]
+        },
+        {
+            "name": "configure_power_supply",
+            "description": "Configure power supply settings.",
+            "parameters": [
+                {
+                    "name": "settings",
+                    "type": "dict",
+                    "description": "A dictionary containing power supply settings."
+                }
+            ]
+        },
+        {
+            "name": "configure_oscilloscope",
+            "description": "Configure oscilloscope settings.",
+            "parameters": [
+                {
+                    "name": "settings",
+                    "type": "dict",
+                    "description": "A dictionary containing oscilloscope settings."
+                }
+            ]
+        },
+        {
+            "name": "configure_vna",
+            "description": "Configure Vector Network Analyzer settings.",
+            "parameters": [
+                {
+                    "name": "settings",
+                    "type": "dict",
+                    "description": "A dictionary containing VNA settings."
+                }
+            ]
+        },
+        {
+            "name": "check_instrument_compatibility",
+            "description": "Check if the connected instruments are compatible for the planned measurements.",
+            "parameters": []
+        },
+        {
+            "name": "perform_full_system_check",
+            "description": "Perform a comprehensive system check before starting measurements.",
+            "parameters": []
+        },
+        {
+            "name": "report_system_status",
+            "description": "Generate a report on the status of connected instruments and overall system health.",
+            "parameters": []
+        }
+    ]
+}
