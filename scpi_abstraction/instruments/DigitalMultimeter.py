@@ -19,4 +19,23 @@ class DigitalMultimeter(SCPIInstrument):
         current = self._query(f"MEASURE:CURRENT:DC? (@{channel})")
         return float(current)
 
-    # Add more methods for other digital multimeter functionalities as needed
+    def measure_resistance(self, channel=1):
+        if channel not in self.description["resistance_channels"]:
+            raise ValueError(f"Invalid resistance channel {channel}. Supported resistance channels: {self.description['resistance_channels']}")
+
+        resistance = self._query(f"MEASURE:RESISTANCE? (@{channel})")
+        return float(resistance)
+
+    def measure_frequency(self, channel=1):
+        if channel not in self.description["frequency_channels"]:
+            raise ValueError(f"Invalid frequency channel {channel}. Supported frequency channels: {self.description['frequency_channels']}")
+
+        frequency = self._query(f"MEASURE:FREQUENCY? (@{channel})")
+        return float(frequency)
+
+    def test_continuity(self, channel=1):
+        if channel not in self.description["continuity_channels"]:
+            raise ValueError(f"Invalid continuity channel {channel}. Supported continuity channels: {self.description['continuity_channels']}")
+
+        continuity = self._query(f"TEST:CONTINUITY? (@{channel})")
+        return bool(int(continuity)) # Assuming continuity returns 1 for True and 0 for False

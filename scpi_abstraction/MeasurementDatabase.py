@@ -1,5 +1,7 @@
 import sqlite3
 
+from scpi_abstraction.utilities import MeasurementResult
+
 class MeasurementDatabase:
     def __init__(self, db_path):
         self.db_path = db_path
@@ -26,6 +28,8 @@ class MeasurementDatabase:
                 VALUES (DATETIME('now'), ?, ?)
             ''', (instrument_name, measurement_data))
 
+
+    def store_measurement_result(self, measurement_data: MeasurementResult)
     def retrieve_measurement_results(self, instrument_name):
         with self._get_connection() as conn:
             cursor = conn.execute('''

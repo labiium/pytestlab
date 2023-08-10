@@ -18,3 +18,17 @@ class SCPIValueError(ValueError):
     def __init__(self, message="Invalid value for SCPI command."):
         self.message = message
         super().__init__(self.message)
+
+class InstrumentNotFoundError(Exception):
+    """For instrument not found errors."""
+
+    def __init__(self, name):
+        super().__init__(f"Instrument {name} not found in the manager's collection.")
+
+
+class IntrumentConfigurationError(Exception):
+    """For instrument configuration errors."""
+
+    def __init__(self, message="Invalid Instrument configuration."):
+        self.message = message
+        super().__init__(self.message)

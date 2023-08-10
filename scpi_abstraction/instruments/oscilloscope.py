@@ -1,9 +1,17 @@
+import time
+import warnings
+
 from scpi_abstraction.instrument import SCPIInstrument
+from scpi_abstraction.utilities import MeasurementResult
 
 class Oscilloscope(SCPIInstrument):
     def __init__(self, visa_resource, description):
         super().__init__(visa_resource)
         self.description = description
+
+    def __init__(self, visa_resource):
+        super().__init__(visa_resource)
+        warnings.warn("Instrument description not provided. Your commands will not be validated. Using default description.", UserWarning)
 
     def _check_channel_range(self, channel, value, description):
         if channel not in self.description["channels"]:
@@ -14,33 +22,128 @@ class Oscilloscope(SCPIInstrument):
             raise ValueError(f"Invalid value for {description} on Channel {channel}. Supported range: {channel_limits['min']} to {channel_limits['max']}")
 
     def measure_voltage_peak_to_peak(self, channel):
+        measurement_result = MeasurementResult(self.description["model"], "V", "peak to peak voltage")
         self._check_channel_range(channel, channel, "channel")
         response = self._query(f"MEAS:VPP? CHAN{channel}")
-        return float(response)
+        measurement_result.add_measurement(response)
+        return measurement_result
 
     def measure_rms_voltage(self, channel):
+        measurement_result = MeasurementResult(self.description["model"], "V", "rms voltage")
         self._check_channel_range(channel, channel, "channel")
         response = self._query(f"MEAS:VRMS? CHAN{channel}")
-        return float(response)
+        measurement_result.add_measurement(response)
+        return measurement_result
 
     def set_timebase_scale(self, scale):
         self._check_channel_range(1, scale, "timebase scale")
         self._send_command(f"TIM:SCAL {scale}")
 
     def get_timebase_scale(self):
+        measurement_result = MeasurementResult(self.description["model"], "s", "timebase scale")
         response = self._query("TIM:SCAL?")
-        return float(response)
+
+        measurement_result.add_measurement(response)
+        return measurement_result
+
+    # get voltage over time data
+    def get_voltage_stream(self, channel, time_interval, duration):
+
+        measurement_result = MeasurementResult(self.description["model"], "V", "voltage over time")
+        for _ in range(duration):
+            response = self._query(f"CHAN{channel}:DATA?")
+            
+            measurement_result.add_measurement(response)
+            time.sleep(time_interval)
+
+
+        return measurement_result
+
+    def set_acquisition_time(self, time):
+        # Set the total time for acquisition
+        self._send_command(f"ACQuire:TIME {time}")
+
+    def set_sample_rate(self, rate):
+        # Set the sample rate for acquisition
+        self._send_command(f"ACQuire:SRATe {rate}")
+
+    def set_bandwidth_limit(self, channel, bandwidth):
+        # Limit the bandwidth to a specified frequency to reduce noise
+        self._send_command(f"CHANnel{channel}:BANDwidth {bandwidth}")
+
+    def set_filtering(self, channel, filter_type, frequency):
+        # Configure a filter on the channel to isolate the desired frequency components
+        self._send_command(f"CHANnel{channel}:FILTer:{filter_type} {frequency}")
+
+    def set_trigger(self, channel, trigger_level):
+        # Set the trigger level for the specified channel
+        self._send_command(f"TRIGger:LEVel CHANnel{channel},{trigger_level}")
+
+    def set_trigger_mode(self, mode):
+        # Set the trigger mode to either edge or pulse
+        self._send_command(f"TRIGger:MODE {mode}")
+
+    def set_trigger_source(self, channel):
+        # Set the trigger source to the specified channel
+        self._send_command(f"TRIGger:SOURce CHANnel{channel}")
+
+    def set_trigger_edge_slope(self, slope):
+        # Set the edge slope to either rising or falling
+        self._send_command(f"TRIGger:EDGE:SLOPe {slope}")
+
+    def set_trigger_pulse_polarity(self, polarity):
+        # Set the pulse polarity to either positive or negative
+        self._send_command(f"TRIGger:PULSe:POLarity {polarity}")
+
+    def set_trigger_pulse_width(self, width):
+        # Set the pulse width to the specified value
+        self._send_command(f"TRIGger:PULSe:WIDth {width}")
+
+    def set_trigger_pulse_delay(self, delay):
+        # Set the pulse delay to the specified value
+        self._send_command(f"TRIGger:PULSe:DELay {delay}")
+
+    def set_trigger_pulse_transition(self, transition):
+        # Set the pulse transition to either positive or negative
+        self._send_command(f"TRIGger:PULSe:TRANsition {transition}")
+
+    def set_trigger_pulse_condition(self, condition):
+        # Set the pulse condition to either width or delay
+        self._send_command(f"TRIGger:PULSe:CONdition {condition}")
 
     # Add more methods for other oscilloscope functionalities as needed
-class DigitalOscilloscopeWithJitter(SCPIInstrument):
+class DigitalOscilloscopeWithJitter(Oscilloscope):
     def __init__(self, visa_resource, description):
         super().__init__(visa_resource)
         self.description = description
 
-    def setup_jitter_measurement(self, channel):
+    def _available_jitter_measurements(self, jitter_type):
+        if jitter_type not in self.description["jitter_analysis"]["available_types"]:
+            raise ValueError(f"Invalid jitter type {jitter_type}. Supported jitter types: {self.description['jitter_analysis']}")
+
+    def setup_rms_jitter_measurement(self, channel):
+        self._available_jitter_measurements("rms")
         # Implement SCPI commands to set up the oscilloscope for jitter measurement
         self._send_command(f"MEASure:JITTer:SOURce CHANnel{channel}")
         self._send_command("MEASure:JITTer:MODE RMS")
+
+    def setup_peak_to_peak_jitter_measurement(self, channel):
+        self._available_jitter_measurements("peak_to_peak")
+        # Implement SCPI commands to set up the oscilloscope for jitter measurement
+        self._send_command(f"MEASure:JITTer:SOURce CHANnel{channel}")
+        self._send_command("MEASure:JITTer:MODE PK2PK")
+
+    def setup_period_jitter_measurement(self, channel):
+        self._available_jitter_measurements("period")
+        # Implement SCPI commands to set up the oscilloscope for jitter measurement
+        self._send_command(f"MEASure:JITTer:SOURce CHANnel{channel}")
+        self._send_command("MEASure:JITTer:MODE PERiod")
+
+    def setup_cycle_to_cycle_jitter_measurement(self, channel):
+        self._available_jitter_measurements("cycle_to_cycle")
+        # Implement SCPI commands to set up the oscilloscope for jitter measurement
+        self._send_command(f"MEASure:JITTer:SOURce CHANnel{channel}")
+        self._send_command("MEASure:JITTer:MODE CCYCle")
 
     def configure_trigger(self, trigger_source, trigger_level):
         # Implement SCPI commands to configure trigger settings for jitter measurement
@@ -54,6 +157,31 @@ class DigitalOscilloscopeWithJitter(SCPIInstrument):
     def analyze_jitter_data(self):
         # Implement SCPI commands to analyze jitter data and calculate jitter metrics
         # For example, you might read and return the measured jitter values
+        measurement_result = MeasurementResult(self.description["model"], "s", "jitter")
         jitter_value = self._query_command("MEASure:JITTer?")
-        return {"Jitter": float(jitter_value)}
-
+        measurement_result.add_measurement(jitter_value)
+        return measurement_result
+    
+    def perform_rms_jitter_measurement(self, channel, trigger_source, trigger_level) -> MeasurementResult:
+        self.setup_rms_jitter_measurement(channel)
+        self.configure_trigger(trigger_source, trigger_level)
+        self.acquire_jitter_data()
+        return self.analyze_jitter_data()
+    
+    def perform_peak_to_peak_jitter_measurement(self, channel, trigger_source, trigger_level) -> MeasurementResult:
+        self.setup_peak_to_peak_jitter_measurement(channel)
+        self.configure_trigger(trigger_source, trigger_level)
+        self.acquire_jitter_data()
+        return self.analyze_jitter_data()
+    
+    def perform_period_jitter_measurement(self, channel, trigger_source, trigger_level) -> MeasurementResult:
+        self.setup_period_jitter_measurement(channel)
+        self.configure_trigger(trigger_source, trigger_level)
+        self.acquire_jitter_data()
+        return self.analyze_jitter_data()
+    
+    def perform_cycle_to_cycle_jitter_measurement(self, channel, trigger_source, trigger_level) -> MeasurementResult:
+        self.setup_cycle_to_cycle_jitter_measurement(channel)
+        self.configure_trigger(trigger_source, trigger_level)
+        self.acquire_jitter_data()
+        return self.analyze_jitter_data()

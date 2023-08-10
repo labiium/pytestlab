@@ -24,6 +24,9 @@ class SCPIInstrument:
         except pyvisa.Error as e:
             raise SCPICommunicationError(f"Failed to query instrument: {str(e)}")
 
+    def id(self):
+        return self._query("*IDN?")
+    
     def close(self):
         self.instrument.close()
 

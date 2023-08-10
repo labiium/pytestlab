@@ -1,6 +1,8 @@
 oscilloscope_description = {
-    "manufacturer": "XYZ Corp.",    # Manufacturer name
-    "model": "ABC1000",             # Model name/number
+    "manufacturer": "Keysight",    # Manufacturer name
+    "model": "Magic Oscilloscope with 2 Channels",    # Model name/number
+    "device_type": "oscilloscope", # Device type
+    "visa_resource": "USB0::0x0957::0x1799::MY58100838::INSTR",   # VISA resource string
     "channels": {
         1: {
             "description": "Input Channel 1",
@@ -38,5 +40,17 @@ oscilloscope_description = {
     "sampling_rate": "16 GSa/s",           # Oscilloscope sampling rate (in samples per second)
     "standard_memory": "200Mpts/ch",       # Standard memory per channel (in points)
     "waveform_update_rate": ">200,000 wfms/sec",  # Waveform update rate (in waveforms per second)
+    # Jitter analysis
+    "jitter_analysis": {
+        "available_types": ["RMS", "Peak-to-Peak"],   # Types of jitter measurement
+        "jitter_sources": ["Time Interval Error", "Phase Noise"], # List of selectable jitter sources
+        "analysis_depth": 1e6,         # Maximum number of cycles or edges that can be analyzed
+        "histogram_bins": 256,         # Number of histogram bins for jitter distribution
+        "modulation_analysis": True,   # Supports modulation analysis or not
+        "real_time_analysis": True,    # Supports real-time jitter analysis or not
+        "min_jitter_measurement": 1e-12,   # Minimum measurable jitter (in seconds)
+        "max_jitter_measurement": 1e-3,    # Maximum measurable jitter (in seconds)
+        # Add more jitter-related settings and limitations as needed
+    }
     # Add more settings and limitations as needed
 }
