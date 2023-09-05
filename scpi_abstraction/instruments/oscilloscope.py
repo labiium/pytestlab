@@ -155,8 +155,6 @@ class DigitalOscilloscopeWithJitter(Oscilloscope):
         self._send_command("ACQuire:STATE RUN")
 
     def analyze_jitter_data(self):
-        # Implement SCPI commands to analyze jitter data and calculate jitter metrics
-        # For example, you might read and return the measured jitter values
         measurement_result = MeasurementResult(self.description["model"], "s", "jitter")
         jitter_value = self._query_command("MEASure:JITTer?")
         measurement_result.add_measurement(jitter_value)

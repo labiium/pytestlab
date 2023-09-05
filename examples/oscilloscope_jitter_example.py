@@ -15,6 +15,16 @@ print(oscilloscope.get_channel_voltage(1))
 # measure the frequency of channel 1
 print(oscilloscope.measure_frequency(1))
 
-
-# measure the jitter of channel 1
+# rms jitter measurement
 print(oscilloscope.perform_rms_jitter_measurement(1, 0.5))
+
+# peak-to-peak jitter measurement
+print(oscilloscope.perform_peak_to_peak_jitter_measurement(1, 0.5))
+
+# rise time measurement
+print(oscilloscope.perform_rise_time_measurement(1, 0.5))
+
+# fall time measurement
+print(oscilloscope.perform_fall_time_measurement(1, 0.5))
+
+# eye diagram measurement
