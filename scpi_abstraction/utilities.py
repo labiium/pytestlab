@@ -97,7 +97,7 @@ class MeasurementResult:
     def __str__(self):
         string = ""
         for value in self.values:
-            string += f"{value} {self.unit}\n}"
+            string += f"{value} {self.unit}\n"
         return string
 
 class InstrumentCollection:

@@ -34,8 +34,7 @@ class InstrumentManager:
 
     def is_instrument_connected(self, name):
         # Check if a specific instrument is connected
-        
-
+        pass
     # Measurement methods
     def measure_voltage(self, voltage, channel=1):
         # Perform a voltage measurement

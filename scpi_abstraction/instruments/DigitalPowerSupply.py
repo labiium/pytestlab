@@ -1,4 +1,5 @@
-from scpi_abstraction.instrument import SCPIInstrument, SCPIConnectionError, SCPICommunicationError
+from scpi_abstraction.instrument import SCPIInstrument
+from scpi_abstraction.errors import SCPICommunicationError
 
 class DigitalPowerSupply(SCPIInstrument):
     """
