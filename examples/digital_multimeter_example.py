@@ -1,4 +1,4 @@
-from scpi_abstraction.instruments.DigitalMultimeter import DigitalMultimeter
+from pytestlab.instruments.DigitalMultimeter import DigitalMultimeter
 import json
 # connect to the digital multimeter
 path_to_description = "/examples/instrument_descriptions/digital_multi_meter.json"

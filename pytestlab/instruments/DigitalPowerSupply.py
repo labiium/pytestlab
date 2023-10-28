@@ -1,5 +1,5 @@
-from scpi_abstraction.instrument import SCPIInstrument
-from scpi_abstraction.errors import SCPICommunicationError
+from pytestlab.instruments.instrument import SCPIInstrument
+from pytestlab.errors import SCPICommunicationError
 
 class DigitalPowerSupply(SCPIInstrument):
     """

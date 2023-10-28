@@ -1,5 +1,5 @@
 
-oscilloscpe_description = {
+oscilloscope_profile = {
     "MXR054A": {
     "manufacturer": "Keysight",
     "model": "MXR054A", 

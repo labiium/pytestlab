@@ -1,5 +1,5 @@
 import unittest
-from scpi_abstraction.instrument import SCPIInstrument, SCPIConnectionError, SCPICommunicationError
+from pytestlab.instruments.instrument import SCPIInstrument, SCPIConnectionError, SCPICommunicationError
 
 class TestSCPIInstrument(unittest.TestCase):
     def setUp(self):

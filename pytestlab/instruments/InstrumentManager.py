@@ -1,5 +1,5 @@
 import time
-from scpi_abstraction import InstrumentCollection
+from pytestlab import InstrumentCollection
 
 class InstrumentManager:
     def __init__(self):

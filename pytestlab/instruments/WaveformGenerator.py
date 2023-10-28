@@ -1,5 +1,5 @@
-from scpi_abstraction.instrument import SCPIInstrument
-from scpi_abstraction.errors import SCPIConnectionError, SCPICommunicationError, SCPIValueError, InstrumentNotFoundError, IntrumentConfigurationError
+from pytestlab.instruments.instrument import SCPIInstrument
+from pytestlab.errors import SCPIConnectionError, SCPICommunicationError, SCPIValueError, InstrumentNotFoundError, IntrumentConfigurationError
 
 class WaveformGenerator(SCPIInstrument):
     def __init__(self, profile):

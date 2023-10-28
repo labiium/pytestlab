@@ -1,4 +1,4 @@
-from scpi_abstraction.instrument import SCPIInstrument, SCPIConnectionError, SCPICommunicationError
+from pytestlab.instruments.instrument import SCPIInstrument, SCPIConnectionError, SCPICommunicationError
 
 class DigitalMultimeter(SCPIInstrument):
     """

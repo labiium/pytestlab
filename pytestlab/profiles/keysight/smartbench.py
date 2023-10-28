@@ -1,6 +1,8 @@
 oscilloscope_profile = {
     "DSOX1204A":{
     "manufacturer": "Keysight",
+    "vendor_id": 0x2A8D,
+    "product_id": 0x0396,
     "model": "DSOX1204A",
     "device_type": "oscilloscope",
     "channels": {
@@ -58,7 +60,14 @@ oscilloscope_profile = {
         "max": 5,
         "input_coupling": ["DC", "AC"],
         "input_impedance": 1e6,
-        "probe_attenuation": [1, 10]
+        "probe_attenuation": [1, 10],
+        "timebase": {
+            "range": {
+            "min": 5e-9,
+            "max": 50
+            },
+            "horizontal_resolution": 1e-12
+        }
         },
         2: {
         "description": "Analog Channel 2",
@@ -95,7 +104,12 @@ oscilloscope_profile = {
         "max": 50
     },
     "function_generator": {
-        "waveform_types": ["Sine", "Square", "Ramp", "Pulse", "Noise", "DC"],
+        "waveform_types": ["SINusoid", "SQUare", "RAMp", "PULse", "NOISe", "DC"],
+        "supported_states": ["ON", "OFF"],
+        "offset": { 
+        "min": -5,
+        "max": 5
+        },
         "frequency": {
         "min": 0.1,
         "max": 20e6
@@ -110,7 +124,9 @@ oscilloscope_profile = {
 
 power_supply_profile = {
   "EDU36311A": {
-    "manufacturer": "Keysight", 
+    "manufacturer": "Keysight",
+    "vendor_id": 0x2a8d,
+    "product_id": 0x8f01,
     "model": "EDU36311A",
     "device_type": "powersupply",
     
@@ -169,6 +185,8 @@ awg_profile = {
   "EDU33211A": {
     "manufacturer": "Keysight",
     "model": "EDU33211A", 
+    "vendor_id": 0x2a8d,
+    "product_id": 0x8d01,
     "device_type": "Arbitrary Waveform Generator",
     
     "channels": 1,
@@ -210,3 +228,20 @@ awg_profile = {
     "remote_control": ["SCPI", "IVI", "Web Browser"]
   }
 }
+
+multimeter_profile = {
+    "EDU34450A": {
+    "manufacturer": "Keysight",
+    "model": "EDU34450A",
+    "vendor_id": 0x2a8d,
+    "product_id": 0x8e01,
+    "device_type": "multimeter",
+
+    "channels": 1,
+    "resolution": 5.5,
+    "max_voltage": 1000,
+    "max_current": 10,
+    "max_resistance": 100e6,
+    "max_capacitance": 10e-6,
+    "max_frequency": 1e6,
+  }

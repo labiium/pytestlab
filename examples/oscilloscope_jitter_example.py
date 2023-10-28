@@ -1,5 +1,5 @@
-from scpi_abstraction.instruments.Oscilloscope import Oscilloscope
-from scpi_abstraction.InstrumentManager import InstrumentManager
+from pytestlab.instruments.Oscilloscope import Oscilloscope
+from pytestlab.instruments.InstrumentManager import InstrumentManager
 
 # connect to the oscilloscope
 oscilloscope = Oscilloscope("USB0::0x0957::0x1799::MY58100838::INSTR")

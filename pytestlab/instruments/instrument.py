@@ -1,5 +1,5 @@
 import pyvisa
-from scpi_abstraction.errors import SCPIConnectionError, SCPICommunicationError
+from pytestlab.errors import SCPIConnectionError, SCPICommunicationError
 
 class SCPIInstrument:
     """
@@ -9,7 +9,7 @@ class SCPIInstrument:
         visa_resource (str): The VISA resource string that identifies the instrument.
     """
 
-    def __init__(self, visa_resource):
+    def __init__(self, visa_resource, profile):
         """
         Initialize the SCPIInstrument class.
 
@@ -18,6 +18,7 @@ class SCPIInstrument:
         """
         self.visa_resource = visa_resource
         self._connect()
+        self.profile = profile
 
     def _connect(self):
         """Connect to the instrument using the VISA resource string."""
@@ -25,6 +26,7 @@ class SCPIInstrument:
             self.instrument = pyvisa.ResourceManager().open_resource(self.visa_resource)
         except pyvisa.Error as e:
             raise SCPIConnectionError(f"Failed to connect to the instrument: {str(e)}")
+
 
     def _send_command(self, command):
         """
@@ -38,6 +40,7 @@ class SCPIInstrument:
         """
         try:
             self.instrument.write(command)
+            self.instrument._query("*OPC?")
         except pyvisa.Error as e:
             raise SCPICommunicationError(f"Failed to send command: {str(e)}")
 
@@ -55,7 +58,9 @@ class SCPIInstrument:
             SCPICommunicationError: If the query fails.
         """
         try:
-            return self.instrument.query(query)
+            response =  self.instrument.query(query)
+            self.instrument.query("*OPC?")
+            return response
         except pyvisa.Error as e:
             raise SCPICommunicationError(f"Failed to query instrument: {str(e)}")
 
@@ -67,6 +72,14 @@ class SCPIInstrument:
             str: The identification string of the instrument.
         """
         return self._query("*IDN?")
+    
+    def _check_valid_channel(self, selected_channel):
+        valid_channels = self.profile["channels"].keys()
+        min_limit = min(valid_channels)
+        max_limit = max(valid_channels)
+        if selected_channel < min_limit or selected_channel > max_limit:
+            raise ValueError(f"Invalid Channel Selected: {selected_channel}. Available Channels: {min_limit} to {max_limit}")
+
     
     def close(self):
         """Close the connection to the instrument."""
