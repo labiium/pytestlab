@@ -124,7 +124,6 @@ class WaveformGenerator(SCPIInstrument):
         self._send_command(f"SOUR{channel}:OFFS {offset}")
 
 # Similar approach can be taken for PatternGenerator
-
 class PatternGenerator(SCPIInstrument):
     def __init__(self, profile):
         """

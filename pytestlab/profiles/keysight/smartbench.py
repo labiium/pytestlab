@@ -51,7 +51,9 @@ oscilloscope_profile = {
     },
     "DSOX1204G": {
     "manufacturer": "Keysight",
-    "model": "DSOX1204G", 
+    "model": "DSOX1204G",
+    "vendor_id": 0x2A8D,
+    "product_id": 0x0396,
     "device_type": "Oscilloscope",
     "channels": {
         1: {
@@ -98,7 +100,7 @@ oscilloscope_profile = {
     "sampling_rate": 2e9,
     "memory": 2e6,
     "waveform_update_rate": 2e5,
-    "trigger_modes": ["Edge", "Pulse Width", "Video", "I2C", "SPI", "UART/RS232", "CAN", "LIN"],
+    "trigger_modes": ["EDGE", "PULSe", "VIDEo", "I2C", "SPI", "UART/RS232", "CAN", "LIN"],
     "timebase": {
         "min": 5e-9,
         "max": 50
@@ -244,4 +246,5 @@ multimeter_profile = {
     "max_resistance": 100e6,
     "max_capacitance": 10e-6,
     "max_frequency": 1e6,
+    }
   }

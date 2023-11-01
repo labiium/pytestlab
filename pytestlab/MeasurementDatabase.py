@@ -1,8 +1,32 @@
 import sqlite3
 import time
+import numpy as np
+from dataclasses import dataclass
 
-from pytestlab.utilities import MeasurementResult
+@dataclass
+class Preamble:
+    """A class to store the preamble data from the oscilloscope channel.
 
+    :param format: The format of the data
+    :param type: The type of the data
+    :param points: The number of points
+    :param xinc: The x increment
+    :param xorg: The x origin
+    :param xref: The x reference
+    :param yinc: The y increment
+    :param yorg: The y origin
+    :param yref: The y reference
+    """
+
+    format: str
+    type: str
+    points: int
+    xinc: float
+    xorg: float
+    xref: float
+    yinc: float
+    yorg: float
+    yref: float
 
 class MeasurementValue:
     """A class to represent a single measurement value and its timestamp.
@@ -28,14 +52,20 @@ class MeasurementResult:
         measurement_type (str): The type of measurement.
     """
     def __init__(self, instrument, units, measurement_type):
-        self.values = []
+        self.values = np.array([])
         self.unit = units
         self.instrument = instrument
+        self.timestamp = time.time()
         self.measurement_type = measurement_type
 
     def add(self, value):
         """Adds a new MeasurementValue to the collection."""
-        self.values.append(MeasurementValue(value))
+        ## append to numpy array
+        self.values = np.append(self.values, value)
+
+    def set_values(self, values):
+        """Sets the MeasurementValues in the collection."""
+        self.values = values
 
     def get(self, index):
         """Gets the MeasurementValue at a specified index."""

@@ -1,5 +1,7 @@
-import pyvisa
+import numpy as np
 from pytestlab.errors import SCPIConnectionError, SCPICommunicationError
+from pyscpi import usbtmc
+import time
 
 class SCPIInstrument:
     """
@@ -9,24 +11,47 @@ class SCPIInstrument:
         visa_resource (str): The VISA resource string that identifies the instrument.
     """
 
-    def __init__(self, visa_resource, profile):
+    def __init__(self, visa_resource=None, profile=None, debug_mode=False):
         """
         Initialize the SCPIInstrument class.
 
         Args:
             visa_resource (str): The VISA resource string to use for the connection.
         """
-        self.visa_resource = visa_resource
-        self._connect()
+        if visa_resource:
+            self.visa_resource = visa_resource
+            self._connect()
+        elif "vendor_id" in profile and "product_id" in profile:
+            self.instrument = usbtmc.Instrument(profile["vendor_id"], profile["product_id"])
+        else:
+            raise ValueError("Either a VISA resource string or a vendor and product ID must be provided.")
         self.profile = profile
+        self._command_log = []
+        self.debug_mode = debug_mode
 
     def _connect(self):
         """Connect to the instrument using the VISA resource string."""
         try:
+            import pyvisa
             self.instrument = pyvisa.ResourceManager().open_resource(self.visa_resource)
-        except pyvisa.Error as e:
+        except Exception as e:
             raise SCPIConnectionError(f"Failed to connect to the instrument: {str(e)}")
 
+    def _read_to_np(self) -> bytes:
+        chunk_size = 1024
+        data = self.instrument.read_raw(chunk_size)
+        np.frombuffer(data[10:], dtype=np.uint8)
+        header = data[2:10].decode('utf-8')
+        data = np.frombuffer(data[10:], dtype=np.uint8)
+        self._log(header)
+
+        hpoints = int(header)
+
+        while len(data) < hpoints:
+            data = np.append(data, np.frombuffer(
+                self.instrument.read_raw(chunk_size), dtype=np.uint8))
+
+        return data[:-1]
 
     def _send_command(self, command):
         """
@@ -40,8 +65,8 @@ class SCPIInstrument:
         """
         try:
             self.instrument.write(command)
-            self.instrument._query("*OPC?")
-        except pyvisa.Error as e:
+            self._command_log.append({"command": command, "success": True, "type": "write", "timestamp":time.time})
+        except Exception as e:
             raise SCPICommunicationError(f"Failed to send command: {str(e)}")
 
     def _query(self, query):
@@ -59,11 +84,28 @@ class SCPIInstrument:
         """
         try:
             response =  self.instrument.query(query)
+            self._command_log.append({"command": query, "success": True, "type": "query", "timestamp":time.time})
             self.instrument.query("*OPC?")
             return response
-        except pyvisa.Error as e:
+        except Exception as e:
+            self._command_log.append({"command": query, "success": False, "type": "query", "timestamp":time.time})
             raise SCPICommunicationError(f"Failed to query instrument: {str(e)}")
+    def _log(self, message):
+        """
+        Log a message.
 
+        Args:
+            message (str): The message to log.
+        """
+        if self.debug_mode:
+            print(message)
+
+    def _history(self):
+        """
+        Prints history of executed commands
+        """
+        for command in self._command_log:
+            print(command)
     def id(self):
         """
         Query the instrument for its identification.
