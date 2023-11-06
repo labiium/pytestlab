@@ -1,6 +1,6 @@
 import time
 from pytestlab.instruments.instrument import SCPIInstrument
-from pytestlab.MeasurementDatabase import MeasurementResult, Preamble, MeasurementValue
+from pytestlab.MeasurementDatabase import MeasurementResult, Preamble
 from pytestlab.errors import SCPICommunicationError, SCPIValueError, InstrumentNotFoundError, IntrumentConfigurationError
 import numpy as np
 class Oscilloscope(SCPIInstrument):
@@ -69,7 +69,6 @@ class Oscilloscope(SCPIInstrument):
         data = self._read_to_np()
 
         return data
-    
     def auto_scale(self):
         """
         Auto scale the oscilloscope display.
@@ -159,86 +158,48 @@ class Oscilloscope(SCPIInstrument):
 
     def read_channels(self, channels, points=1, runAfter=True, time_interval=None):
         if time_interval is not None:
+        # convert time interval to points
             self._send_command(f":TIMebase:MAIN:RANGe {time_interval}")
             self._send_command(f"ACQuire:SRATe {1/time_interval}")
             points = int(time_interval * 1e9)
-
-        self._log(points)
+        # check channels exist
+        self. _log(points)
         self._log("starting")
-
         for channel in channels:
             self._check_valid_channel(channel)
+        
+        command = ""
+        # set up channels
+        for channel in channels:
+            channel = command + f"CHANnel{channel}, "
 
-        # Prepare the MeasurementResult dictionary
-        sampling_rate = float(self.get_sampling_rate())
-        measurement_results = {channel: MeasurementResult(instrument=f"{self.profile['manufacturer']:self.profile['model']}", units="V", measurement_type="Voltage", sampling_rate=sampling_rate)
-                            for channel in channels}
+        command = command[:-2]
 
-        # Setup and digitize commands
-        channel_commands = ', '.join(f"CHANnel{channel}" for channel in channels)
-        self._send_command(f"DIGitize {channel_commands}")
+        self._send_command(f"DIGitize {command}")
         self._send_command(f':WAVeform:SOURce CHANnel{channels[0]}')
 
-        # Read preamble to get scaling factors
+        # set up points
         pream = self._read_preamble()
 
-        # Prepare the time axis once, as it is the same for all channels
-        time_values = (np.arange(0, pream.points, 1) - pream.xref) * pream.xinc + pream.xorg
+        all_data = np.empty([pream.points, len(channels)])
 
-        for i, channel in enumerate(channels):
-            data = self._read_wave_data(channel, points)
-            if len(data) != pream.points:
+        for i in range(len(channels)):
+            # _log(f'Reading channel {channels[i]}', debug)
+            data = self._read_wave_data(channels[i], points)
+            if len(data) != (pream.points):
                 print('ERROR: points mismatch, please investigate')
+            all_data[:, i] = data
 
-            # Calculate the voltage values
-            voltages = (data - pream.yref) * pream.yinc + pream.yorg
+        voltCH = (all_data-pream.yref) * pream.yinc + pream.yorg
 
-            # Populate the MeasurementResult object for this channel
-            for voltage, time_val in zip(voltages, time_values):
-                measurement_results[channel].add(MeasurementValue(voltage, timestamp=time_val))
+        time = (np.arange(0, pream.points, 1)-pream.xref) * pream.xinc + pream.xorg
 
         if runAfter:
             self._send_command(":RUN")
 
-        return measurement_results
-    
-    # def set_probe_attenuation(self, channel, attenuation):
-    #     """
-    #     Sets the probe attenuation for a given channel.
-
-    #     """
-    #     self._check_valid_channel(channel)
-    #     # Set the probe attenuation for the specified channel
-    #     self._send_command(f"CHANnel{channel}:PROBe {attenuation}")
-
-    def get_sampling_rate(self):
-        # Send the SCPI command to query the current sampling rate
-        response = self._send_query_command(":ACQuire:SRATe?")
-        
-        # Parse the response to get the sampling rate value.
-        sampling_rate = float(response)
-        
-        return MeasurementValue(sampling_rate, "Hz")
-    
-    def set_probe_scale(self, channel, scale):
-        """
-        Sets the probe scale for a given channel.
-
-        Parameters:
-            channel (int): The oscilloscope channel to set the scale for.
-            scale (float): The probe scale value (e.g., 10.0 for 10:1, 1.0 for 1:1).
-        """
-        if not self._check_valid_channel(channel):
-            raise ValueError(f"Channel {channel} is not valid.")
-
-        # The command format is hypothetical and needs to be adjusted 
-        # to match the specific oscilloscope command set.
-        command = f":PROBe:CH{channel}:ATTenuation {scale}"
-        self._send_command(command)
-
-        # Confirm the action to the log
-        self._log(f"Set probe scale to {scale}:1 for channel {channel}.")
-
+        # error = self.profile["channels"][channels[0]]["error"]
+        return time, voltCH
+       
     def set_timebase_scale(self, scale):
         """
         Set the timebase scale of the oscilloscope.
@@ -275,20 +236,14 @@ class Oscilloscope(SCPIInstrument):
 
     def set_acquisition_time(self, time):
         """
-        Set the total acquisition time for the oscilloscope.
-
-        ARGS;
-            time (float): The total acquisition time in seconds.
+        
         """
         # Set the total time for acquisition
         self._send_command(f":TIMebase:MAIN:RANGe {time}")
 
     def set_sample_rate(self, rate):
         """
-        Sets the sample rate for the oscilloscope.
-
-        Args:
-        rate (str): The desired sample rate. Valid values are 'MAX' and 'AUTO'.
+        
         """
         rate = rate.upper()
         valid_values = ["MAX", "AUTO"]
@@ -318,10 +273,7 @@ class Oscilloscope(SCPIInstrument):
 
     def set_trigger(self, channel, trigger_level):
         """
-        Sets the trigger level for a given channel.
-
-        Parameters:
-
+        
         """
         self._check_valid_channel(channel)
         # Set the trigger level for the specified channel
@@ -589,91 +541,6 @@ class Oscilloscope(SCPIInstrument):
         self._send_command(f':WGEN:VOLTage:HIGH {v1}')
         self._send_command(f':WGEN:VOLTage:OFFSet {offset}')
 
-    def display_channel(self, channels, state=True) -> None:
-        """
-        Display the specified channels on the oscilloscope.
-        
-        This method sends an SCPI command to the oscilloscope to display the specified channels.
-        
-        Args:
-        channels (list): A list of channels to display on the oscilloscope.
-        
-        Raises:
-        ValueError: If the oscilloscope model does not support the specified channel(s).
-        
-        Example:
-        >>> display_channel(["CH1", "CH2"])
-        """
-        for channel in channels:
-            self._check_valid_channel(channel)
-        # Implement SCPI commands to display the specified channels
-        self._send_command(f"CHAN:{channels}:DISP {'ON' if state else 'OFF'}")
-
-
-    def _configure_fft(self, source_channel: int, start_freq: float, stop_freq: float, window_type: str = 'HANNing'):
-        """
-        Configure the oscilloscope to perform an FFT on the specified channel with the given parameters.
-
-        :param source_channel: The channel number to perform FFT on.
-        :param start_freq: The start frequency for the FFT.
-        :param stop_freq: The stop frequency for the FFT.
-        :param window_type: The windowing function to apply. Defaults to 'HANNing'.
-        """
-        self._send_command('*RST')
-        self._query('*OPC?')
-
-        # Set up the FFT math function
-        self._send_command(f':FUNCtion:OPERation FFT')
-        self._send_command(f':FUNCtion:SOURce CHANnel{source_channel}')
-        self._send_command(f':FUNCtion:FFT:WINDow {window_type}')
-        self._send_command(f':FUNCtion:FFT:FREQuency:STARt {start_freq}E0')
-        self._send_command(f':FUNCtion:FFT:FREQuency:STOP {stop_freq}E0')
-        self._query('*OPC?')
-
-        self._log(f'FFT configured on Channel {source_channel} from {start_freq} to {stop_freq} Hz using {window_type} window.')
-    
-    def read_fft_data(self) -> MeasurementResult:
-        """
-        Perform the FFT and read the data from the oscilloscope, returning it as a MeasurementResult.
-
-        :return: A MeasurementResult object containing the FFT data.
-        """
-        self._log('Initiating FFT data read.')
-        
-        # The oscilloscope setup for FFT should be done before calling this method
-        # Make sure that the acquisition is already started or in continuous mode
-        
-        # Assuming :FUNCtion:DATA? returns the FFT data from the oscilloscope
-        self._send_command(':FUNCtion:DATA?')
-        fft_data = self._read_to_np()
-        
-        # Now, instead of just returning fft_data, we need to encapsulate it into MeasurementValue objects
-        # and then add these to a MeasurementResult object.
-
-        # For this example, let's assume 'self.sampling_rate' is set and represents the sampling rate used for FFT
-        if self.sampling_rate is None:
-            raise ValueError("Sampling rate must be set to read FFT data.")
-        
-        # Compute the frequency bins for the FFT data
-        freq = np.fft.fftfreq(len(fft_data), 1 / self.sampling_rate)
-        
-        # Create a new MeasurementResult for the FFT results
-        fft_measurement_result = MeasurementResult(
-            instrument=self.instrument,  # Replace with actual attribute, if different
-            units="units",  # Replace with appropriate units (e.g., "Hz" for frequency)
-            measurement_type="Frequency Spectrum",
-            sampling_rate=self.sampling_rate  # Including the sampling rate for reference
-        )
-        
-        # Populate the MeasurementResult with MeasurementValue objects
-        for f, magnitude in zip(freq, fft_data):
-            fft_measurement_value = MeasurementValue(value=magnitude)
-            # Normally, timestamp would be set to the time the measurement was taken
-            # In this case, we can repurpose it to store the frequency, if that's acceptable for your design
-            fft_measurement_value.timestamp = f
-            fft_measurement_result.add(fft_measurement_value)
-        
-        return fft_measurement_result
 
 class DigitalOscilloscopeWithJitter(Oscilloscope):
 

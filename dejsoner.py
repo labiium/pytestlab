@@ -7,14 +7,14 @@ def decompress_directory(input_file_path, output_dir):
 
     for relative_path, content in all_files_data.items():
         # Replace the directory separators to that of the current OS
-        os_compatible_path = relative_path.replace("\\", os.sep)
+        os_compatible_path = relative_path.replace('\\', os.sep)
         
         # Calculate the full path to create
         full_path = os.path.join(output_dir, os_compatible_path)
         directory = os.path.dirname(full_path)
 
-        print(f"Decompressing: {relative_path}")
-        print(f"Creating directory: {directory}")
+        print(f'Decompressing: {relative_path}')
+        print(f'Creating directory: {directory}')
 
         if not os.path.exists(directory):
             os.makedirs(directory)
@@ -22,7 +22,8 @@ def decompress_directory(input_file_path, output_dir):
         with open(full_path, 'w', encoding='utf-8') as f:
             f.write(content)
 
-        os.remove(input_file_path)
+
+    os.remove(input_file_path)
         
 if __name__ == '__main__':
-    decompress_directory("pytestlab.json", "pytestlab")
+    decompress_directory('pytestlab.json', 'test')
