@@ -46,7 +46,7 @@ class MeasurementValue:
     def __str__(self):
         return f"{self.value} {self.units}"
 
-    def __float__(self.value):
+    def __float__(self):
         return self.value
     
 class MeasurementResult:

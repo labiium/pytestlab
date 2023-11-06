@@ -85,6 +85,7 @@ class WaveformGenerator(SCPIInstrument):
             waveform (list): The arbitrary waveform to set.
 
         """
+        self._log(f"Setting arbitrary waveform for channel {channel}")
         waveform_np = np.array(waveform)
         awg_max_voltage = self.profile["amplitude"]["max"]
         awg_min_voltage = self.profile["amplitude"]["min"]
@@ -94,13 +95,18 @@ class WaveformGenerator(SCPIInstrument):
             waveform_normalized = (waveform - np.min(waveform)) / (np.max(waveform) - np.min(waveform))
             waveform_scaled = waveform_normalized * (awg_max_voltage - awg_min_voltage) + awg_min_voltage
             waveform_np = np.array(waveform_scaled)
+            self._log(f"Waveform scaled to {awg_min_voltage} to {awg_max_voltage} V")
             if len(waveform_np) > max_length:
                 # squash into max_length by approximating
                 waveform_np = waveform_np[::int(len(waveform_np) / max_length)] # TODO: improve this approximation
+                self._log(f"Waveform squashed to {max_length} samples")
         else:
+            self._log(f"Waveform not scaled")
             if len(waveform_np) > max_length:
+                self._log(f"Waveform length exceeds maximum length: {max_length}")
                 raise ValueError(f"Waveform length exceeds maximum length: {max_length}")
             if np.max(waveform_np) > awg_max_voltage or np.min(waveform_np) < awg_min_voltage:
+                self._log(f"Waveform exceeds amplitude range: {awg_min_voltage} to {awg_max_voltage}")
                 raise ValueError(f"Waveform exceeds amplitude range: {awg_min_voltage} to {awg_max_voltage}")
 
         binary_waveform = waveform_np.tobytes()
@@ -108,6 +114,8 @@ class WaveformGenerator(SCPIInstrument):
         self._send_command(f"SOURCE{channel}:DATA:VOL:CLEAR")  # Clear the volatile memory
         self._send_command(f"SOURCE{channel}:FUNCTION ARBITRAR")  # Set the source to arbitrary waveform
         self._send_command(f"SOURCE{channel}:DATA:ARB:DAC {binary_waveform}, (@1)")
+
+        self._log(f"Waveform set")
 
     def set_waveform(self, channel, waveform_type):
         """
@@ -120,6 +128,7 @@ class WaveformGenerator(SCPIInstrument):
         """
         self._validate_waveform(waveform_type)
         self._send_command(f"SOUR{channel}:FUNC {waveform_type.upper()}")
+        self._log(f"Waveform set to {waveform_type}")
 
     def set_frequency(self, channel, frequency):
         """
@@ -132,6 +141,7 @@ class WaveformGenerator(SCPIInstrument):
         """
         self._validate_frequency(frequency)
         self._send_command(f"SOUR{channel}:FREQ {frequency}")
+        self._log(f"Frequency set to {frequency} Hz")
 
     def set_amplitude(self, channel, amplitude):
         """
@@ -157,42 +167,42 @@ class WaveformGenerator(SCPIInstrument):
         self._validate_offset(offset)
         self._send_command(f"SOUR{channel}:OFFS {offset}")
 
-# Similar approach can be taken for PatternGenerator
-class PatternGenerator(SCPIInstrument):
-    def __init__(self, profile):
-        """
-        Initialize a PatternGenerator instance with a device profile.
+# # Similar approach can be taken for PatternGenerator
+# class PatternGenerator(SCPIInstrument):
+#     def __init__(self, profile):
+#         """
+#         Initialize a PatternGenerator instance with a device profile.
 
-        Args:
-            profile (dict): A dictionary containing device profile information.
+#         Args:
+#             profile (dict): A dictionary containing device profile information.
 
-        """
-        super().__init__()
-        self.profile = profile
+#         """
+#         super().__init__()
+#         self.profile = profile
 
-    def _validate_pattern(self, pattern):
-        """
-        Validate if the pattern is supported by the device.
+#     def _validate_pattern(self, pattern):
+#         """
+#         Validate if the pattern is supported by the device.
 
-        Args:
-            pattern (str): The type of pattern to validate.
+#         Args:
+#             pattern (str): The type of pattern to validate.
 
-        Raises:
-            ValueError: If the pattern is not supported.
+#         Raises:
+#             ValueError: If the pattern is not supported.
 
-        """
-        standard_patterns = [p.upper() for p in self.profile.get('waveforms', {}).get('standard', [])]
-        if pattern.upper() not in standard_patterns:
-            raise ValueError(f"Invalid pattern: {pattern}. Supported types: {standard_patterns}")
+#         """
+#         standard_patterns = [p.upper() for p in self.profile.get('waveforms', {}).get('standard', [])]
+#         if pattern.upper() not in standard_patterns:
+#             raise ValueError(f"Invalid pattern: {pattern}. Supported types: {standard_patterns}")
 
-    def set_pattern(self, channel, pattern):
-        """
-        Sets the pattern for the specified channel after validation.
+#     def set_pattern(self, channel, pattern):
+#         """
+#         Sets the pattern for the specified channel after validation.
 
-        Args:
-            channel (int or str): The channel for which to set the pattern.
-            pattern (str): The type of pattern to set.
+#         Args:
+#             channel (int or str): The channel for which to set the pattern.
+#             pattern (str): The type of pattern to set.
 
-        """
-        self._validate_pattern(pattern)
-        self._send_command(f"SOUR{channel}:FUNC {pattern.upper()}")
+#         """
+#         self._validate_pattern(pattern)
+#         self._send_command(f"SOUR{channel}:FUNC {pattern.upper()}")
