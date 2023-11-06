@@ -1,5 +1,6 @@
 from pytestlab.instruments.instrument import SCPIInstrument
 from pytestlab.errors import SCPIConnectionError, SCPICommunicationError, SCPIValueError, InstrumentNotFoundError, IntrumentConfigurationError
+import numpy as np
 
 class WaveformGenerator(SCPIInstrument):
     def __init__(self, profile):
@@ -74,6 +75,39 @@ class WaveformGenerator(SCPIInstrument):
         max_offset = self.profile.get('dc_offset', {}).get('max', float('inf'))
         if not min_offset <= offset <= max_offset:
             raise ValueError(f"Offset out of range. Supported range: {min_offset} to {max_offset}")
+
+    def set_arbitrary_waveform(self, channel, waveform, scale=True):
+        """
+        Sets the arbitrary waveform for the specified channel.
+
+        Args:
+            channel (int or str): The channel for which to set the waveform.
+            waveform (list): The arbitrary waveform to set.
+
+        """
+        waveform_np = np.array(waveform)
+        awg_max_voltage = self.profile["amplitude"]["max"]
+        awg_min_voltage = self.profile["amplitude"]["min"]
+
+        max_length = self.profile["waveforms"]["arbitrary"]["max_length"]
+        if scale:
+            waveform_normalized = (waveform - np.min(waveform)) / (np.max(waveform) - np.min(waveform))
+            waveform_scaled = waveform_normalized * (awg_max_voltage - awg_min_voltage) + awg_min_voltage
+            waveform_np = np.array(waveform_scaled)
+            if len(waveform_np) > max_length:
+                # squash into max_length by approximating
+                waveform_np = waveform_np[::int(len(waveform_np) / max_length)] # TODO: improve this approximation
+        else:
+            if len(waveform_np) > max_length:
+                raise ValueError(f"Waveform length exceeds maximum length: {max_length}")
+            if np.max(waveform_np) > awg_max_voltage or np.min(waveform_np) < awg_min_voltage:
+                raise ValueError(f"Waveform exceeds amplitude range: {awg_min_voltage} to {awg_max_voltage}")
+
+        binary_waveform = waveform_np.tobytes()
+
+        self._send_command(f"SOURCE{channel}:DATA:VOL:CLEAR")  # Clear the volatile memory
+        self._send_command(f"SOURCE{channel}:FUNCTION ARBITRAR")  # Set the source to arbitrary waveform
+        self._send_command(f"SOURCE{channel}:DATA:ARB:DAC {binary_waveform}, (@1)")
 
     def set_waveform(self, channel, waveform_type):
         """
