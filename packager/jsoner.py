@@ -16,6 +16,22 @@ def compress_directory(input_dir, output_file_path):
 
     all_files_data = {}
     for root, dirs, files in os.walk(input_dir):
+        # skip setup directory .git
+        if '.git' in dirs:
+            dirs.remove('.git')
+        
+        if 'packager' in dirs:
+            dirs.remove('packager')
+
+        if 'tests' in dirs:
+            dirs.remove('tests')
+
+        if '__pycache__' in dirs:
+            dirs.remove('__pycache__')
+
+        if 'requirements.txt' in files:
+            files.remove('requirements.txt')
+        
         for filename in files:
             filepath = os.path.join(root, filename)
             try:

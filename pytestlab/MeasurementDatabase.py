@@ -35,7 +35,7 @@ class MeasurementValue:
     
     Attributes:
         value (float): The measurement value.
-        units (str): The unit of the measurement value (e.g. "V", "A", "Ohm", "Hz").
+        units (str): The units of the measurement value (e.g. "V", "A", "Ohm", "Hz").
         timestamp (float): The timestamp when the measurement was taken.
     """
     def __init__(self, value, units="units", timestamp=None):
@@ -54,13 +54,13 @@ class MeasurementResult:
     
     Attributes:
         values (list): A list of MeasurementValue objects.
-        unit (str): The unit of the measurements.
+        units (str): The units of the measurements.
         instrument (str): The name of the instrument used for the measurements.
         measurement_type (str): The type of measurement.
     """
     def __init__(self, instrument, units, measurement_type, sampling_rate=None):
         self.values = []
-        self.unit = units
+        self.units = units
         self.instrument = instrument
         self.timestamp = time.time()
         self.measurement_type = measurement_type
@@ -69,7 +69,7 @@ class MeasurementResult:
     def __str__(self):
         string = ""
         for value in self.values:
-            string += f"{value} {self.unit}\n"
+            string += f"{value} {self.units}\n"
 
         # remove last newline
         string = string[:-1]
@@ -81,8 +81,8 @@ class MeasurementResult:
     def add(self, value):
         """Adds a new MeasurementValue to the collection."""
         ## append to numpy array
-        if value.units != self.unit and self.unit != "units" and value.unit != "units":
-            raise ValueError("MeasurementValue unit must match MeasurementResult unit.")
+        if value.units != self.units and self.units != "units" and value.units != "units":
+            raise ValueError("MeasurementValue units must match MeasurementResult units.")
         self.values = np.append(self.values, value)
 
     def set_values(self, values):
@@ -120,7 +120,7 @@ class MeasurementResult:
             plt.title(title)
         
         xlabel = xlabel if xlabel else "Time (s)"
-        ylabel = ylabel if ylabel else f"Measurement ({self.unit})"
+        ylabel = ylabel if ylabel else f"Measurement ({self.units})"
         
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
@@ -204,7 +204,7 @@ class MeasurementDatabase:
                     instrument_id INTEGER NOT NULL,
                     timestamp TIMESTAMP NOT NULL,
                     value REAL NOT NULL,
-                    unit TEXT NOT NULL,
+                    units TEXT NOT NULL,
                     type TEXT NOT NULL, -- 'reading' or 'fft'
                     FOREIGN KEY (instrument_id) REFERENCES instruments(instrument_id)
                 )
@@ -224,10 +224,10 @@ class MeasurementDatabase:
             # Store each MeasurementValue
             for measurement in measurement_result:
                 conn.execute('''
-                    INSERT INTO measurements (instrument_id, timestamp, value, unit, type)
+                    INSERT INTO measurements (instrument_id, timestamp, value, units, type)
                     VALUES (?, ?, ?, ?, ?)
                 ''', (instrument_id, datetime.fromtimestamp(measurement.timestamp),
-                      measurement.value, measurement_result.unit, 'reading'))
+                      measurement.value, measurement_result.units, 'reading'))
 
     def store_fft_result(self, fft_result: MeasurementResult):
         """
@@ -241,10 +241,10 @@ class MeasurementDatabase:
             for measurement in fft_result:
                 # Assuming timestamp field is reused to store frequency
                 conn.execute('''
-                    INSERT INTO measurements (instrument_id, timestamp, value, unit, type)
+                    INSERT INTO measurements (instrument_id, timestamp, value, units, type)
                     VALUES (?, ?, ?, ?, ?)
                 ''', (instrument_id, measurement.timestamp, measurement.value,
-                      fft_result.unit, 'fft'))
+                      fft_result.units, 'fft'))
 
     def _get_or_create_instrument_id(self, conn, instrument_name):
         """
@@ -264,7 +264,7 @@ class MeasurementDatabase:
         """
         with self._get_connection() as conn:
             cursor = conn.execute('''
-                SELECT m.timestamp, m.value, m.unit
+                SELECT m.timestamp, m.value, m.units
                 FROM measurements m
                 JOIN instruments i ON m.instrument_id = i.instrument_id
                 WHERE i.name = ? AND m.type = ?

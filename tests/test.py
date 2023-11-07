@@ -1,7 +1,7 @@
 from pytestlab.instruments.Oscilloscope import Oscilloscope
 from pytestlab.profiles.keysight.smartbench import oscilloscope_profile
 
-visa_resource = "USB0::0x2A8D::0x0396::CN62277127::0::INSTR"
+visa_resource = "USB0::0x2A8D::0x0396::CN63187275::0::INSTR"
 
 osc = Oscilloscope(visa_resource=visa_resource, profile=oscilloscope_profile["DSOX1204G"], debug_mode=True)
 
@@ -26,7 +26,11 @@ osc.set_acquisition_time(0.001)
 
 values = osc.read_channels([1], points=200)
 
-print(values)
+fft_result = osc.configure_fft(1, 1, 2)
+
+fft_result = osc.read_fft_data()
+
+print(fft_result)
 # ### BROKEN
 # # result = osc.get_voltage_stream(1, 0.5, 10)
 

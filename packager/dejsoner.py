@@ -1,5 +1,6 @@
 import os
 import json
+import sys
 
 def decompress_directory(input_file_path, output_dir):
     with open(input_file_path, 'r') as f:
@@ -26,4 +27,7 @@ def decompress_directory(input_file_path, output_dir):
     os.remove(input_file_path)
         
 if __name__ == '__main__':
-    decompress_directory('pytestlab.json', 'test')
+    if len(sys.argv) == 2:
+        decompress_directory('pytestlab.json', sys.argv[1])
+    else:
+        decompress_directory('pytestlab.json', 'pytestlabs')

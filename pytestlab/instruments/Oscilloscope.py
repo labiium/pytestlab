@@ -171,7 +171,7 @@ class Oscilloscope(SCPIInstrument):
 
         # Prepare the MeasurementResult dictionary
         sampling_rate = float(self.get_sampling_rate())
-        measurement_results = {channel: MeasurementResult(instrument=f"{self.profile['manufacturer']:self.profile['model']}", units="V", measurement_type="Voltage", sampling_rate=sampling_rate)
+        measurement_results = {channel: MeasurementResult(instrument=f"{self.profile['manufacturer']}:{self.profile['model']}", units="V", measurement_type="Voltage", sampling_rate=sampling_rate)
                             for channel in channels}
 
         # Setup and digitize commands
@@ -213,7 +213,7 @@ class Oscilloscope(SCPIInstrument):
 
     def get_sampling_rate(self):
         # Send the SCPI command to query the current sampling rate
-        response = self._send_query_command(":ACQuire:SRATe?")
+        response = self._query(":ACQuire:SRATe?")
         
         # Parse the response to get the sampling rate value.
         sampling_rate = float(response)
@@ -267,6 +267,7 @@ class Oscilloscope(SCPIInstrument):
         >>> get_timebase_scale()
         <MeasurementResult object at 0x7f1ec2a4f650>
         """
+
         measurement_result = MeasurementResult(self.profile["model"], "s", "timebase scale")
         response = self._query("TIM:SCAL?")
 
@@ -610,27 +611,57 @@ class Oscilloscope(SCPIInstrument):
         self._send_command(f"CHAN:{channels}:DISP {'ON' if state else 'OFF'}")
 
 
-    def _configure_fft(self, source_channel: int, start_freq: float, stop_freq: float, window_type: str = 'HANNing'):
+    def fft_display(self, state=True):
+        """
+        Switches on the FFT display
+
+        :param state: The state of the FFT display
+        """
+        if "fft" not in self.profile:
+            raise ValueError(f"FFT is not available on this oscilloscope.")
+        self._send_command(f":FFT:DISPlay {'ON' if state else 'OFF'}")]
+        self._log(f"FFT display {'enabled' if state else 'disabled'}.")
+
+    def function_display(self, state=True):
+        """
+        Switches on the function display
+
+        :param state: The state of the function display
+        """
+        
+        self._send_command(f":FUNCtion:DISPlay {'ON' if state else 'OFF'}")]
+    def configure_fft(self, source_channel: int, scale: float = None, offset: float = None, window_type: str = 'HANNing', units: str = 'DECibel'):
         """
         Configure the oscilloscope to perform an FFT on the specified channel with the given parameters.
 
         :param source_channel: The channel number to perform FFT on.
-        :param start_freq: The start frequency for the FFT.
-        :param stop_freq: The stop frequency for the FFT.
+        :param scale: The scale of the FFT display. Defaults to None.
+        :param offset: The offset of the FFT display. If values are outside the display range, they will be clipped to nearest valid value. Defaults to None.
         :param window_type: The windowing function to apply. Defaults to 'HANNing'.
         """
-        self._send_command('*RST')
-        self._query('*OPC?')
+        # self._send_command('*RST')
+        # self._query('*OPC?')
 
         # Set up the FFT math function
+        if "fft" in self.profile:
+            raise ValueError(f"FFT is not available on this oscilloscope.")
+        if window_type in self.profile["fft"]["window_types"]:
+            raise ValueError(f"Invalid window type {window_type}. Supported window types: {self.profile['fft']['window_types']}")
+        if units in self.profile["fft"]["units"]:
+            raise ValueError(f"Invalid units {units}. Supported units: {self.profile['fft']['units']}")
+
         self._send_command(f':FUNCtion:OPERation FFT')
         self._send_command(f':FUNCtion:SOURce CHANnel{source_channel}')
-        self._send_command(f':FUNCtion:FFT:WINDow {window_type}')
-        self._send_command(f':FUNCtion:FFT:FREQuency:STARt {start_freq}E0')
-        self._send_command(f':FUNCtion:FFT:FREQuency:STOP {stop_freq}E0')
-        self._query('*OPC?')
-
-        self._log(f'FFT configured on Channel {source_channel} from {start_freq} to {stop_freq} Hz using {window_type} window.')
+        self._send_command(f':FFT:WINDow {window_type}')
+        self._send_command(f':FFT:VTYPe {units}')
+        self._send_command(f':FFT:SCALe {scale} ') if scale else None
+        self._send_command(f':FFT:OFFSet {offset}') if offset else None
+        # self._send_command(f':MEASure:FFT:STATe ON')
+        # self._send_command(f':FUNCtion:FFT:FREQuency:STARt {start_freq}E0')
+        # self._send_command(f':FUNCtion:FFT:FREQuency:STOP {stop_freq}E0')
+        # self._query('*OPC?')
+        self.fft_display()
+        # self._log(f'FFT configured on Channel {source_channel} from {start_freq} to {stop_freq} Hz using {window_type} window.')
     
     def read_fft_data(self) -> MeasurementResult:
         """
@@ -657,10 +688,11 @@ class Oscilloscope(SCPIInstrument):
         # Compute the frequency bins for the FFT data
         freq = np.fft.fftfreq(len(fft_data), 1 / self.sampling_rate)
         
+        units = self._query(":FFT:VTYPe?")
         # Create a new MeasurementResult for the FFT results
         fft_measurement_result = MeasurementResult(
             instrument=self.instrument,  # Replace with actual attribute, if different
-            units="units",  # Replace with appropriate units (e.g., "Hz" for frequency)
+            units=units,  
             measurement_type="Frequency Spectrum",
             sampling_rate=self.sampling_rate  # Including the sampling rate for reference
         )
@@ -675,104 +707,104 @@ class Oscilloscope(SCPIInstrument):
         
         return fft_measurement_result
 
-class DigitalOscilloscopeWithJitter(Oscilloscope):
+# class DigitalOscilloscopeWithJitter(Oscilloscope):
 
-    def __init__(self, visa_resource, profile):
-        super().__init__(visa_resource, profile)
+#     def __init__(self, visa_resource, profile):
+#         super().__init__(visa_resource, profile)
 
-    def _available_jitter_measurements(self, jitter_type):
-        if jitter_type not in self.profile["jitter_analysis"]["available_types"]:
-            raise ValueError(f"Invalid jitter type {jitter_type}. Supported jitter types: {self.profile['jitter_analysis']}")
+#     def _available_jitter_measurements(self, jitter_type):
+#         if jitter_type not in self.profile["jitter_analysis"]["available_types"]:
+#             raise ValueError(f"Invalid jitter type {jitter_type}. Supported jitter types: {self.profile['jitter_analysis']}")
 
-    def setup_rms_jitter_measurement(self, channel):
-        self._available_jitter_measurements("rms")
-        # Implement SCPI commands to set up the oscilloscope for jitter measurement
-        self._send_command(f"MEASure:JITTer:SOURce CHANnel{channel}")
-        self._send_command("MEASure:JITTer:MODE RMS")
+#     def setup_rms_jitter_measurement(self, channel):
+#         self._available_jitter_measurements("rms")
+#         # Implement SCPI commands to set up the oscilloscope for jitter measurement
+#         self._send_command(f"MEASure:JITTer:SOURce CHANnel{channel}")
+#         self._send_command("MEASure:JITTer:MODE RMS")
 
-    def setup_peak_to_peak_jitter_measurement(self, channel):
-        self._available_jitter_measurements("peak_to_peak")
-        # Implement SCPI commands to set up the oscilloscope for jitter measurement
-        self._send_command(f"MEASure:JITTer:SOURce CHANnel{channel}")
-        self._send_command("MEASure:JITTer:MODE PK2PK")
+#     def setup_peak_to_peak_jitter_measurement(self, channel):
+#         self._available_jitter_measurements("peak_to_peak")
+#         # Implement SCPI commands to set up the oscilloscope for jitter measurement
+#         self._send_command(f"MEASure:JITTer:SOURce CHANnel{channel}")
+#         self._send_command("MEASure:JITTer:MODE PK2PK")
 
-    def setup_period_jitter_measurement(self, channel):
-        self._available_jitter_measurements("period")
-        # Implement SCPI commands to set up the oscilloscope for jitter measurement
-        self._send_command(f"MEASure:JITTer:SOURce CHANnel{channel}")
-        self._send_command("MEASure:JITTer:MODE PERiod")
+#     def setup_period_jitter_measurement(self, channel):
+#         self._available_jitter_measurements("period")
+#         # Implement SCPI commands to set up the oscilloscope for jitter measurement
+#         self._send_command(f"MEASure:JITTer:SOURce CHANnel{channel}")
+#         self._send_command("MEASure:JITTer:MODE PERiod")
 
-    def setup_cycle_to_cycle_jitter_measurement(self, channel):
-        self._available_jitter_measurements("cycle_to_cycle")
-        # Implement SCPI commands to set up the oscilloscope for jitter measurement
-        self._send_command(f"MEASure:JITTer:SOURce CHANnel{channel}")
-        self._send_command("MEASure:JITTer:MODE CCYCle")
+#     def setup_cycle_to_cycle_jitter_measurement(self, channel):
+#         self._available_jitter_measurements("cycle_to_cycle")
+#         # Implement SCPI commands to set up the oscilloscope for jitter measurement
+#         self._send_command(f"MEASure:JITTer:SOURce CHANnel{channel}")
+#         self._send_command("MEASure:JITTer:MODE CCYCle")
 
-    def configure_trigger(self, trigger_source, trigger_level):
-        # Implement SCPI commands to configure trigger settings for jitter measurement
-        self._send_command(f"TRIGger:SOURce CHANnel{trigger_source}")
-        self._send_command(f"TRIGger:LEVel CHANnel{trigger_source},{trigger_level}")
+#     def configure_trigger(self, trigger_source, trigger_level):
+#         # Implement SCPI commands to configure trigger settings for jitter measurement
+#         self._send_command(f"TRIGger:SOURce CHANnel{trigger_source}")
+#         self._send_command(f"TRIGger:LEVel CHANnel{trigger_source},{trigger_level}")
 
-    def acquire_jitter_data(self):
-        # Implement SCPI commands to acquire jitter data from the oscilloscope
-        self._send_command("ACQuire:STATE RUN")
+#     def acquire_jitter_data(self):
+#         # Implement SCPI commands to acquire jitter data from the oscilloscope
+#         self._send_command("ACQuire:STATE RUN")
 
-    def analyze_jitter_data(self):
-        measurement_result = MeasurementResult(self.profile["model"], "s", "jitter")
-        jitter_value = self._query_command("MEASure:JITTer?")
-        measurement_result.add_measurement(jitter_value)
-        return measurement_result
+#     def analyze_jitter_data(self):
+#         measurement_result = MeasurementResult(self.profile["model"], "s", "jitter")
+#         jitter_value = self._query_command("MEASure:JITTer?")
+#         measurement_result.add_measurement(jitter_value)
+#         return measurement_result
     
-    def perform_rms_jitter_measurement(self, channel, trigger_source, trigger_level) -> MeasurementResult:
-        self.setup_rms_jitter_measurement(channel)
-        self.configure_trigger(trigger_source, trigger_level)
-        self.acquire_jitter_data()
-        return self.analyze_jitter_data()
+#     def perform_rms_jitter_measurement(self, channel, trigger_source, trigger_level) -> MeasurementResult:
+#         self.setup_rms_jitter_measurement(channel)
+#         self.configure_trigger(trigger_source, trigger_level)
+#         self.acquire_jitter_data()
+#         return self.analyze_jitter_data()
     
-    def perform_peak_to_peak_jitter_measurement(self, channel, trigger_source, trigger_level) -> MeasurementResult:
-        """
-        Perform a peak-to-peak jitter measurement on a specified channel with given trigger settings.
+#     def perform_peak_to_peak_jitter_measurement(self, channel, trigger_source, trigger_level) -> MeasurementResult:
+#         """
+#         Perform a peak-to-peak jitter measurement on a specified channel with given trigger settings.
         
-        This method sets up the measurement, configures the trigger, acquires the jitter data and 
-        then analyzes the data to return a MeasurementResult object containing the results of 
-        the jitter measurement.
+#         This method sets up the measurement, configures the trigger, acquires the jitter data and 
+#         then analyzes the data to return a MeasurementResult object containing the results of 
+#         the jitter measurement.
         
-        Args:
-        channel (str/int): The identifier for the channel on which the measurement is to be performed.
-                        This could be an integer representing the channel number or a string representing
-                        the channel name, depending on the implementation.
-        trigger_source (str/int): The identifier for the trigger source. This could be an integer or a 
-                                string representing the source depending on the implementation.
-        trigger_level (float): The trigger level for the measurement in volts. This value sets the voltage 
-                            level at which the trigger event occurs.
+#         Args:
+#         channel (str/int): The identifier for the channel on which the measurement is to be performed.
+#                         This could be an integer representing the channel number or a string representing
+#                         the channel name, depending on the implementation.
+#         trigger_source (str/int): The identifier for the trigger source. This could be an integer or a 
+#                                 string representing the source depending on the implementation.
+#         trigger_level (float): The trigger level for the measurement in volts. This value sets the voltage 
+#                             level at which the trigger event occurs.
         
-        Returns:
-        MeasurementResult: An object containing the results of the peak-to-peak jitter measurement.
+#         Returns:
+#         MeasurementResult: An object containing the results of the peak-to-peak jitter measurement.
         
-        Raises:
-        NotImplementedError: If any of the method calls within this function (e.g., setup_peak_to_peak_jitter_measurement, 
-                            configure_trigger, acquire_jitter_data, analyze_jitter_data) are not implemented.
-        MeasurementError: If there is an error during the measurement process.
+#         Raises:
+#         NotImplementedError: If any of the method calls within this function (e.g., setup_peak_to_peak_jitter_measurement, 
+#                             configure_trigger, acquire_jitter_data, analyze_jitter_data) are not implemented.
+#         MeasurementError: If there is an error during the measurement process.
         
-        Example:
-        >>> perform_peak_to_peak_jitter_measurement("CH1", "External", 0.5)
-        <MeasurementResult object at 0x7f9bd8134f50>
-        """
-        self.setup_peak_to_peak_jitter_measurement(channel)
-        self.configure_trigger(trigger_source, trigger_level)
-        self.acquire_jitter_data()
-        return self.analyze_jitter_data()
+#         Example:
+#         >>> perform_peak_to_peak_jitter_measurement("CH1", "External", 0.5)
+#         <MeasurementResult object at 0x7f9bd8134f50>
+#         """
+#         self.setup_peak_to_peak_jitter_measurement(channel)
+#         self.configure_trigger(trigger_source, trigger_level)
+#         self.acquire_jitter_data()
+#         return self.analyze_jitter_data()
 
         
-    def perform_period_jitter_measurement(self, channel, trigger_source, trigger_level) -> MeasurementResult:
-        self.setup_period_jitter_measurement(channel)
-        self.configure_trigger(trigger_source, trigger_level)
-        self.acquire_jitter_data()
-        return self.analyze_jitter_data()
+#     def perform_period_jitter_measurement(self, channel, trigger_source, trigger_level) -> MeasurementResult:
+#         self.setup_period_jitter_measurement(channel)
+#         self.configure_trigger(trigger_source, trigger_level)
+#         self.acquire_jitter_data()
+#         return self.analyze_jitter_data()
 
-    def perform_cycle_to_cycle_jitter_measurement(self, channel, trigger_source, trigger_level) -> MeasurementResult:
-        self.setup_cycle_to_cycle_jitter_measurement(channel)
-        self.configure_trigger(trigger_source, trigger_level)
-        self.acquire_jitter_data()
-        return self.analyze_jitter_data()
+#     def perform_cycle_to_cycle_jitter_measurement(self, channel, trigger_source, trigger_level) -> MeasurementResult:
+#         self.setup_cycle_to_cycle_jitter_measurement(channel)
+#         self.configure_trigger(trigger_source, trigger_level)
+#         self.acquire_jitter_data()
+#         return self.analyze_jitter_data()
         

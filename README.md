@@ -1,3 +1,3 @@
 # PyTestLab
 
-A Python library for instrument automation and measurement data management.
+A Python library for test and measurement  automation and measurement data management.
