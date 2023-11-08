@@ -1,4 +1,5 @@
 import time
+from typing import List
 from pytestlab.instruments.instrument import SCPIInstrument
 from pytestlab.MeasurementDatabase import MeasurementResult, Preamble, MeasurementValue
 from pytestlab.errors import SCPICommunicationError, SCPIValueError, InstrumentNotFoundError, IntrumentConfigurationError
@@ -19,12 +20,11 @@ class Oscilloscope(SCPIInstrument):
         Initialize the Oscilloscope class with the given VISA resource and profile information.
         
         Args:
-        visa_resource (str): The VISA resource string used for identifying the connected oscilloscope.
+        visa_resource (str): The VISA resource string used for identifying the connected oscilloscope. Optional if a profile is provided.
         profile (dict): Information about the instrument model.
         """
         super().__init__(visa_resource=visa_resource, profile=profile, debug_mode=debug_mode)
-        if not self.profile:
-            raise ValueError("Oscilloscope profile not found.")
+        assert "model" in self.profile, "Oscilloscope model not specified in profile."
 
     def _read_preamble(self):
         """Reads the preamble from the oscilloscope.
@@ -46,7 +46,7 @@ class Oscilloscope(SCPIInstrument):
 
     def _read_wave_data(self, channel: int, points: int) -> np.ndarray:
 
-        self._query('*OPC?')
+        self._wait()
         self._send_command(f':WAVeform:SOURce CHANnel{channel}')
         self._query('*OPC?')
         self._log('Reading channel ' + str(channel))
@@ -61,7 +61,7 @@ class Oscilloscope(SCPIInstrument):
         else:
             self._send_command(':WAVeform:POINts MAXimum')
 
-        self._query('*OPC?')
+        self._wait()
 
         self._log('Reading data')
 
@@ -91,7 +91,7 @@ class Oscilloscope(SCPIInstrument):
     
         self._send_command(f':TIMebase:SCALe {scale}')
         self._send_command(f':TIMebase:POSition {position}')
-        self._query('*OPC?')
+        self._wait()
     
     def set_channel_axis(self, channel: int, scale: float, offset: float) -> None:
         """
@@ -103,7 +103,7 @@ class Oscilloscope(SCPIInstrument):
         """
         self._send_command(f':CHANnel{channel}:SCALe {scale}')
         self._send_command(f':CHANnel{channel}:OFFSet {offset}')
-        self._query('*OPC?')
+        self._wait()
         
     def measure_voltage_peak_to_peak(self, channel):
         """
@@ -113,13 +113,13 @@ class Oscilloscope(SCPIInstrument):
         of the given channel, then encapsulates the measurement result into a MeasurementResult object.
         
         Args:
-        channel (int/str): The channel identifier, which can be an integer or string depending on the oscilloscope model.
+        channel (int): The channel identifier, which can be an integer or string depending on the oscilloscope model.
         
         Returns:
         MeasurementResult: An object containing the peak-to-peak voltage measurement for the specified channel.
         
         Example:
-        >>> measure_voltage_peak_to_peak("CH1")
+        >>> measure_voltage_peak_to_peak(1)
         <MeasurementResult object at 0x7f1ec2a4f510>
         """
         self._check_valid_channel(channel)
@@ -128,7 +128,7 @@ class Oscilloscope(SCPIInstrument):
         measurement_result = MeasurementResult(self.profile["model"], "V", "peak to peak voltage")
 
         response = self._query(f"MEAS:VPP? CHAN{channel}")
-        measurement_result.add(response)
+        measurement_result.add()
         return measurement_result
 
     def measure_rms_voltage(self, channel: int) -> MeasurementResult:
@@ -157,11 +157,9 @@ class Oscilloscope(SCPIInstrument):
         measurement_result.add(response)
         return measurement_result
 
-    def read_channels(self, channels, points=1, runAfter=True, time_interval=None):
-        if time_interval is not None:
-            self._send_command(f":TIMebase:MAIN:RANGe {time_interval}")
-            self._send_command(f"ACQuire:SRATe {1/time_interval}")
-            points = int(time_interval * 1e9)
+    def read_channels(self, channels: List[int], points=10000, runAfter=True, timebase=None):
+        if timebase is not None:
+            self.set_timebase_scale(timebase)
 
         self._log(points)
         self._log("starting")
@@ -171,7 +169,7 @@ class Oscilloscope(SCPIInstrument):
 
         # Prepare the MeasurementResult dictionary
         sampling_rate = float(self.get_sampling_rate())
-        measurement_results = {channel: MeasurementResult(instrument=f"{self.profile['manufacturer']}:{self.profile['model']}", units="V", measurement_type="Voltage", sampling_rate=sampling_rate)
+        measurement_results = {channel: MeasurementResult(instrument=f"{self.profile['manufacturer']}:{self.profile['model']}", units="V", measurement_type="Voltage", sampling_rate=sampling_rate, realtime_timestamps=True)
                             for channel in channels}
 
         # Setup and digitize commands
@@ -228,8 +226,7 @@ class Oscilloscope(SCPIInstrument):
             channel (int): The oscilloscope channel to set the scale for.
             scale (float): The probe scale value (e.g., 10.0 for 10:1, 1.0 for 1:1).
         """
-        if not self._check_valid_channel(channel):
-            raise ValueError(f"Channel {channel} is not valid.")
+        self._check_valid_channel(channel)
 
         # The command format is hypothetical and needs to be adjusted 
         # to match the specific oscilloscope command set.
@@ -617,9 +614,9 @@ class Oscilloscope(SCPIInstrument):
 
         :param state: The state of the FFT display
         """
-        if "fft" not in self.profile:
-            raise ValueError(f"FFT is not available on this oscilloscope.")
-        self._send_command(f":FFT:DISPlay {'ON' if state else 'OFF'}")]
+        assert "fft" in self.profile, "FFT is not available on this oscilloscope."
+
+        self._send_command(f":FFT:DISPlay {'ON' if state else 'OFF'}")
         self._log(f"FFT display {'enabled' if state else 'disabled'}.")
 
     def function_display(self, state=True):
@@ -629,39 +626,118 @@ class Oscilloscope(SCPIInstrument):
         :param state: The state of the function display
         """
         
-        self._send_command(f":FUNCtion:DISPlay {'ON' if state else 'OFF'}")]
-    def configure_fft(self, source_channel: int, scale: float = None, offset: float = None, window_type: str = 'HANNing', units: str = 'DECibel'):
+        self._send_command(f":FUNCtion:DISPlay {'ON' if state else 'OFF'}")
+        self._log(f"Function display {'enabled' if state else 'disabled'}.")
+
+    def configure_fft(self, source_channel: int, scale: float = None, offset: float = None, window_type: str = 'HANNing', units: str = 'DECibel', display: bool = True):
         """
         Configure the oscilloscope to perform an FFT on the specified channel with the given parameters.
 
         :param source_channel: The channel number to perform FFT on.
-        :param scale: The scale of the FFT display. Defaults to None.
-        :param offset: The offset of the FFT display. If values are outside the display range, they will be clipped to nearest valid value. Defaults to None.
+        :param scale: The scale of the FFT display in dB. Defaults to None.
+        :param offset: The offset of the FFT display. Defaults to None.
         :param window_type: The windowing function to apply. Defaults to 'HANNing'.
+        :param units: The unit of measurement for the FFT (DECibel or VRMS). Defaults to 'DECibel'.
+        :param display: A boolean to turn the FFT display ON or OFF. Defaults to True.
         """
-        # self._send_command('*RST')
-        # self._query('*OPC?')
 
-        # Set up the FFT math function
-        if "fft" in self.profile:
-            raise ValueError(f"FFT is not available on this oscilloscope.")
-        if window_type in self.profile["fft"]["window_types"]:
-            raise ValueError(f"Invalid window type {window_type}. Supported window types: {self.profile['fft']['window_types']}")
-        if units in self.profile["fft"]["units"]:
-            raise ValueError(f"Invalid units {units}. Supported units: {self.profile['fft']['units']}")
+        # Ensure the oscilloscope supports FFT and the specified channel is valid
+        assert "fft" in self.profile, "FFT is not available on this oscilloscope."
+        assert source_channel in self.profile["channels"], f"Invalid channel {source_channel}. Supported channels: {self.profile['channels']}"
+        assert window_type in self.profile["fft"]["window_types"], f"Invalid window type {window_type}. Supported window types: {self.profile['fft']['window_types']}"
+        assert units in self.profile["fft"]["units"], f"Invalid units {units}. Supported units: {self.profile['fft']['units']}"
 
-        self._send_command(f':FUNCtion:OPERation FFT')
-        self._send_command(f':FUNCtion:SOURce CHANnel{source_channel}')
+        # Set the FFT source to the specified channel
+        self._send_command(f':FFT:SOURce1 CHANnel{source_channel}')
+        # Configure the FFT window type
         self._send_command(f':FFT:WINDow {window_type}')
+        # Configure the FFT vertical type (units)
         self._send_command(f':FFT:VTYPe {units}')
-        self._send_command(f':FFT:SCALe {scale} ') if scale else None
-        self._send_command(f':FFT:OFFSet {offset}') if offset else None
-        # self._send_command(f':MEASure:FFT:STATe ON')
-        # self._send_command(f':FUNCtion:FFT:FREQuency:STARt {start_freq}E0')
-        # self._send_command(f':FUNCtion:FFT:FREQuency:STOP {stop_freq}E0')
-        # self._query('*OPC?')
-        self.fft_display()
-        # self._log(f'FFT configured on Channel {source_channel} from {start_freq} to {stop_freq} Hz using {window_type} window.')
+        # Set the scale if provided
+        if scale is not None:
+            self._send_command(f':FFT:SCALe {scale}dB')
+        # Set the offset if provided
+        if offset is not None:
+            self._send_command(f':FFT:OFFSet {offset}')
+        # Turn the FFT display on or off based on the parameter
+        display_state = '1' if display else '0'
+        self._send_command(f':FFT:DISPlay {display_state}')
+
+        self._log(f"FFT configured for channel {source_channel}.")
+
+    def _convert_binary_block_to_data(self, binary_block):
+        # Process the binary data header to determine the size of the block
+        header_len = int(binary_block[1])  # Assuming the length of the length field itself is 1 byte
+        expected_data_points = int(binary_block[2:2+header_len])
+
+        # Use _read_to_np to read the binary data into a NumPy array
+        data = self._read_to_np()
+
+        # Ensure that we've read the correct number of data points
+        assert len(data) == expected_data_points, "Data size mismatch"
+
+        # Data is now in a NumPy array format and can be reshaped or processed as needed
+        # For FRANalysis, the data often comes in pairs representing frequency and response (magnitude/phase)
+        # so we need to reshape the array accordingly
+        data_points_per_entry = 2  # Assuming each data point consists of a frequency and a corresponding value
+        structured_data = data.reshape((-1, data_points_per_entry))
+        
+    def perform_franalysis(self, input_channel, output_channel, start_freq, stop_freq, points=1000, mode='SWEep'):
+        """
+        Perform a frequency response analysis on the oscilloscope.
+
+        :param input_channel: The channel number to use as the input.
+        :param output_channel: The channel number to use as the output.
+        :param start_freq: The start frequency of the analysis in Hz.
+        :param stop_freq: The stop frequency of the analysis in Hz.
+        :param points: The number of points to use for the analysis.
+        """
+        # Validate input
+        self._check_valid_channel(input_channel)
+        self._check_valid_channel(output_channel)
+        assert mode in ['SWEep', 'SINGle'], 'Mode should be "SWEep" or "SINGle"'
+        assert 10 <= start_freq < stop_freq <= 20000000, 'Frequency range should be within 10 Hz to 20 MHz'
+        assert points > 0, 'Number of points must be positive'
+
+        # Enable FRANalysis
+        self._send_command(":FRANalysis:ENABle 1")
+
+        # Set the start and stop frequencies
+        self._send_command(f":FRANalysis:FREQuency:STARt {start_freq}Hz")
+        self._send_command(f":FRANalysis:FREQuency:STOP {stop_freq}Hz")
+
+        # Set the mode
+        self._send_command(f":FRANalysis:FREQuency:MODE {mode}")
+
+        # If single frequency mode, set the single frequency, otherwise set points for sweep
+        if mode == 'SINGle':
+            self._send_command(f":FRANalysis:FREQuency:SINGle {start_freq}Hz")
+        else:
+            # Not directly provided in the command summary, assuming there's a command for points
+            assert points > 0, 'Number of points must be positive'
+            # TODO remove this hard-coded limit - only for DSOX1204G
+            assert points <= 1000, 'Number of points must be less than 1000'
+            self._send_command(f":FRANalysis:SWEep:POINts {points}")
+
+        # Initiate FRANalysis
+        self._send_command(":FRANalysis:RUN")
+
+        # Wait for analysis to complete and then read the data
+        # The waiting mechanism is not detailed, assuming there's a method for it
+        self._wait()
+        # Read the FRANalysis data (binary block format)
+        franalysis_data = self._query(":FRANalysis:DATA?")
+
+        # Process the binary block data into a structured format
+        # Assuming a helper function to convert binary block to numerical data
+        data = self._read_preamble()
+        # data = self._convert_binary_block_to_data(franalysis_data)
+
+        # Disable FRANalysis after completion
+        self._send_command(":FRANalysis:ENABle 0")
+
+        # Return the processed data
+        return data
     
     def read_fft_data(self) -> MeasurementResult:
         """

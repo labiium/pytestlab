@@ -105,6 +105,10 @@ oscilloscope_profile = {
         "min": 5e-9,
         "max": 50
     },
+    "fft": {
+        "window_types": ["RECTangular", "HANNing", "FLATtop", "BHARris"],
+        "units": ["DECibel", "VRMS"]
+    },
     "function_generator": {
         "waveform_types": ["SINusoid", "SQUare", "RAMp", "PULse", "NOISe", "DC"],
         "supported_states": ["ON", "OFF"],
@@ -184,14 +188,21 @@ power_supply_profile = {
 }
 
 awg_profile = {
-  "EDU33211A": {
+  "EDU33212A": {
     "manufacturer": "Keysight",
-    "model": "EDU33211A", 
+    "model": "EDU33212A", 
     "vendor_id": 0x2a8d,
     "product_id": 0x8d01,
     "device_type": "Arbitrary Waveform Generator",
     
-    "channels": 1,
+    "channels": {
+        1: {
+        "description": "Channel 1",
+        },
+        2: {
+        "description": "Channel 2",
+        },
+    },
     "max_frequency": 20e6, 
     
     "waveforms": {

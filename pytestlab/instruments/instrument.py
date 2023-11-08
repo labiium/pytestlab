@@ -84,12 +84,20 @@ class SCPIInstrument:
         """
         try:
             response =  self.instrument.query(query)
+            print(response)
             self._command_log.append({"command": query, "success": True, "type": "query", "timestamp":time.time})
             self.instrument.query("*OPC?")
             return response
         except Exception as e:
             self._command_log.append({"command": query, "success": False, "type": "query", "timestamp":time.time})
             raise SCPICommunicationError(f"Failed to query instrument: {str(e)}")
+        
+    def _wait(self):
+        """
+        Blocks until all previous commands have been processed by the instrument.
+        """
+        self.instrument.query("*OPC?")
+
     def _log(self, message):
         """
         Log a message.
@@ -119,10 +127,9 @@ class SCPIInstrument:
         valid_channels = self.profile["channels"].keys()
         min_limit = min(valid_channels)
         max_limit = max(valid_channels)
-        if selected_channel < min_limit or selected_channel > max_limit:
-            raise ValueError(f"Invalid Channel Selected: {selected_channel}. Available Channels: {min_limit} to {max_limit}")
+        assert isinstance(selected_channel, int), f"Channel must be an integer. Received: {selected_channel}"
+        assert selected_channel in valid_channels, f"Invalid Channel Selected: {selected_channel}. Available Channels: {min_limit} to {max_limit}"
 
-    
     def close(self):
         """Close the connection to the instrument."""
         self.instrument.close()
@@ -139,6 +146,7 @@ class SCPIInstrument:
             channel (int or str): The channel for which to set the voltage.
             voltage (float): The voltage value to set.
         """
+        self._check_valid_channel(channel)
         self._send_command(f"CHAN{channel}:VOLT {voltage}")
 
     def get_channel_voltage(self, channel):
@@ -151,6 +159,7 @@ class SCPIInstrument:
         Returns:
             float: The voltage value for the channel.
         """
+        self._check_valid_channel(channel)
         response = self._query(f"CHAN{channel}:VOLT?")
         return float(response)
 
@@ -164,5 +173,6 @@ class SCPIInstrument:
         Returns:
             float: The measured frequency value for the channel.
         """
+        self._check_valid_channel(channel)
         response = self._query(f"MEAS:FREQ? CHAN{channel}")
         return float(response)

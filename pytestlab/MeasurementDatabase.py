@@ -44,7 +44,7 @@ class MeasurementValue:
         self.timestamp = timestamp if timestamp else time.time()
 
     def __str__(self):
-        return f"{self.value} {self.units}"
+        return f"{self.value}"
 
     def __float__(self):
         return self.value
@@ -58,11 +58,12 @@ class MeasurementResult:
         instrument (str): The name of the instrument used for the measurements.
         measurement_type (str): The type of measurement.
     """
-    def __init__(self, instrument, units, measurement_type, sampling_rate=None):
+    def __init__(self, instrument, units, measurement_type, sampling_rate=None, realtime_timestamps=False):
         self.values = []
         self.units = units
         self.instrument = instrument
         self.timestamp = time.time()
+        self.realtime_timestamps = realtime_timestamps
         self.measurement_type = measurement_type
         self.sampling_rate = sampling_rate
 
@@ -81,8 +82,8 @@ class MeasurementResult:
     def add(self, value):
         """Adds a new MeasurementValue to the collection."""
         ## append to numpy array
-        if value.units != self.units and self.units != "units" and value.units != "units":
-            raise ValueError("MeasurementValue units must match MeasurementResult units.")
+        # if value.units != self.units and self.units != "units" and value.units != "units":
+        #     raise ValueError("MeasurementValue units must match MeasurementResult units.")
         self.values = np.append(self.values, value)
 
     def set_values(self, values):
@@ -114,8 +115,10 @@ class MeasurementResult:
         measurements = [value.value for value in self.values]
         
         plt.figure(figsize=(10, 5))
-        plt.plot(timestamps, measurements, marker='o')
-        
+        if self.realtime_timestamps:
+            plt.plot(timestamps, measurements, marker='o')
+        else:
+            plt.plot(measurements, marker='o')
         if title:
             plt.title(title)
         
@@ -152,19 +155,21 @@ class MeasurementResult:
         # Calculate the magnitudes
         magnitudes = np.abs(fft_result)
 
+
         # Create a new MeasurementResult for the FFT results
         fft_measurement_result = MeasurementResult(
             instrument=self.instrument,
-            units="units",  # or "dB" if converting to decibels
+            units=self.units,
             measurement_type="Frequency Spectrum",
-            sampling_rate=self.sampling_rate  # We might include the sampling rate for reference
+            sampling_rate=self.sampling_rate,  #  for reference
+            realtime_timestamps=self.realtime_timestamps
         )
 
         # Populate the FFT MeasurementResult with frequency and magnitude pairs
         for f, magnitude in zip(freq, magnitudes):
             fft_measurement_value = MeasurementValue(value=magnitude)
             # Normally we would set the timestamp to the frequency value
-            # Since the MeasurementValue class doesn't support a frequency attribute, we misuse the timestamp here
+            # Misuse the timestamp here for plotting purposes
             fft_measurement_value.timestamp = f
             fft_measurement_result.add(fft_measurement_value)
 

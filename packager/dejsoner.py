@@ -30,4 +30,4 @@ if __name__ == '__main__':
     if len(sys.argv) == 2:
         decompress_directory('pytestlab.json', sys.argv[1])
     else:
-        decompress_directory('pytestlab.json', 'pytestlabs')
+        decompress_directory('pytestlab.json', 'pytestlab')
