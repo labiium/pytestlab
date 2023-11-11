@@ -249,7 +249,6 @@ multimeter_profile = {
     "vendor_id": 0x2a8d,
     "product_id": 0x8e01,
     "device_type": "multimeter",
-
     "channels": 1,
     "resolution": 5.5,
     "max_voltage": 1000,

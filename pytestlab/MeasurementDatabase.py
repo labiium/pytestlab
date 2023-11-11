@@ -82,6 +82,7 @@ class MeasurementResult:
     def add(self, value):
         """Adds a new MeasurementValue to the collection."""
         ## append to numpy array
+        # TODO: check if units match
         # if value.units != self.units and self.units != "units" and value.units != "units":
         #     raise ValueError("MeasurementValue units must match MeasurementResult units.")
         self.values = np.append(self.values, value)
@@ -175,6 +176,12 @@ class MeasurementResult:
 
         return fft_measurement_result
     
+    def _to_numpy(self):
+        """Converts the measurement and timestamp data to numpy arrays."""
+        timestamps = np.array([value.timestamp for value in self.values])
+        measurements = np.array([value.value for value in self.values])
+        return measurements, timestamps
+
     def __len__(self):
         return len(self.values)
 

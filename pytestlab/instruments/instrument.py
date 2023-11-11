@@ -84,8 +84,9 @@ class SCPIInstrument:
         """
         try:
             response =  self.instrument.query(query)
-            print(response)
-            self._command_log.append({"command": query, "success": True, "type": "query", "timestamp":time.time})
+            # self.lo
+            # print(response)
+            self._command_log.append({"command": query, "success": True, "type": "query", "timestamp":time.time, "response": response})
             self.instrument.query("*OPC?")
             return response
         except Exception as e:

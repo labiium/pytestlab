@@ -127,8 +127,9 @@ class Oscilloscope(SCPIInstrument):
 
         measurement_result = MeasurementResult(self.profile["model"], "V", "peak to peak voltage")
 
+
         response = self._query(f"MEAS:VPP? CHAN{channel}")
-        measurement_result.add()
+        measurement_result.add(response)
         return measurement_result
 
     def measure_rms_voltage(self, channel: int) -> MeasurementResult:
@@ -157,9 +158,11 @@ class Oscilloscope(SCPIInstrument):
         measurement_result.add(response)
         return measurement_result
 
-    def read_channels(self, channels: List[int], points=10000, runAfter=True, timebase=None):
+    def read_channels(self, channels: List[int] | int, points=10000, runAfter=True, timebase=None):
         if timebase is not None:
             self.set_timebase_scale(timebase)
+
+
 
         self._log(points)
         self._log("starting")
@@ -600,12 +603,13 @@ class Oscilloscope(SCPIInstrument):
         ValueError: If the oscilloscope model does not support the specified channel(s).
         
         Example:
-        >>> display_channel(["CH1", "CH2"])
+        >>> display_channel([1, 2])
         """
         for channel in channels:
             self._check_valid_channel(channel)
         # Implement SCPI commands to display the specified channels
-        self._send_command(f"CHAN:{channels}:DISP {'ON' if state else 'OFF'}")
+        for channel in channels:
+            self._send_command(f"CHAN{channel}:DISP {'ON' if state else 'OFF'}")
 
 
     def fft_display(self, state=True):
