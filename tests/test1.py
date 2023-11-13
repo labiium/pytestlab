@@ -6,21 +6,22 @@ from pytestlab.profiles.keysight.smartbench import oscilloscope_profile, power_s
 # # # Create an instance of the Oscilloscope class
 
 # visa_resource = "USB0::0x2A8D::0x0396::CN62277315::0::INSTR"
+# visa_resource = "TCPIP0::169.254.70.148::hislip0::INSTR"
+# visa_resource = "TCPIP::169.254.70.148::inst0::INSTR"
+# osc = Oscilloscope(visa_resource=visa_resource, profile=oscilloscope_profile["DSOX1204G"])
 
-visa_resource = "TCPIP0::169.254.70.148::hislip0::INSTR"
-osc = Oscilloscope(visa_resource=visa_resource, profile=oscilloscope_profile["DSOX1204G"])
+# osc.reset()
 
-osc.reset()
+# wave_visa_resource = "TCPIP::169.254.15.60::5025::SOCKET"
 
-wave_visa_resource = "TCPIP0::169.254.106.158::5025::SOCKET"
+# awg = WaveformGenerator(visa_resource=wave_visa_resource, profile=awg_profile["EDU33212A"])
 
-awg = WaveformGenerator(visa_resource=wave_visa_resource, profile=awg_profile["EDU33212A"])
+# awg.reset()
 
-awg.reset()
-
-awg.set_amplitude(1, 3)
-# osc.display_channel([1,2,3,4])
-# values = osc.perform_franalysis(1,2, 50, 1000)
+# awg._send_command("*OCR?")
+# awg.set_amplitude(1, 3)
+# # osc.display_channel([1,2,3,4])
+# # values = osc.perform_franalysis(1,2, 50, 1000)
 
 # # print(values)
 

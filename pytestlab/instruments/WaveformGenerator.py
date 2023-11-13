@@ -1,6 +1,7 @@
 from pytestlab.instruments.instrument import SCPIInstrument
 from pytestlab.errors import SCPIConnectionError, SCPICommunicationError, SCPIValueError, InstrumentNotFoundError, IntrumentConfigurationError
 import numpy as np
+import re
 
 class WaveformGenerator(SCPIInstrument):
     def __init__(self, visa_resource=None, profile=None, debug_mode=False):
@@ -75,44 +76,82 @@ class WaveformGenerator(SCPIInstrument):
         max_offset = self.profile.get('dc_offset', {}).get('max', float('inf'))
         assert min_offset <= offset <= max_offset, f"Offset out of range. Supported range: {min_offset} to {max_offset}"
 
-    def set_arbitrary_waveform(self, channel, waveform, scale=True):
+    def set_arbitrary_waveform(self, channel, waveform, scale=True, name="pytestlabArb"):
         """
         Sets the arbitrary waveform for the specified channel.
 
         Args:
             channel (int or str): The channel for which to set the waveform.
-            waveform (list): The arbitrary waveform to set.
-
+            waveform (list): The arbitrary waveform to set. Max and min values are 32767 to -32768, respectively.
+            scale (bool): Whether to scale the waveform to the max and min values.
+            name (str): The name of the arbitrary waveform, default is "pytestlabArb".
         """
         self._log(f"Setting arbitrary waveform for channel {channel}")
-        waveform_np = np.array(waveform)
-        awg_max_voltage = self.profile["amplitude"]["max"]
-        awg_min_voltage = self.profile["amplitude"]["min"]
-
-        max_length = self.profile["waveforms"]["arbitrary"]["max_length"]
+        
+        max_val = 32767
+        min_val = -32768
         if scale:
-            waveform_normalized = (waveform - np.min(waveform)) / (np.max(waveform) - np.min(waveform))
-            waveform_scaled = waveform_normalized * (awg_max_voltage - awg_min_voltage) + awg_min_voltage
-            waveform_np = np.array(waveform_scaled)
-            self._log(f"Waveform scaled to {awg_min_voltage} to {awg_max_voltage} V")
-            if len(waveform_np) > max_length:
-                # squash into max_length by approximating
-                waveform_np = waveform_np[::int(len(waveform_np) / max_length)] # TODO: improve this approximation
-                self._log(f"Waveform squashed to {max_length} samples")
+            scaled_data = (waveform - np.min(waveform)) / (np.max(waveform) - np.min(waveform))
+            waveform = scaled_data * (max_val - min_val) + min_val
+
         else:
-            self._log(f"Waveform not scaled")
-            if len(waveform_np) > max_length:
-                self._log(f"Waveform length exceeds maximum length: {max_length}")
-                raise ValueError(f"Waveform length exceeds maximum length: {max_length}")
-            if np.max(waveform_np) > awg_max_voltage or np.min(waveform_np) < awg_min_voltage:
-                self._log(f"Waveform exceeds amplitude range: {awg_min_voltage} to {awg_max_voltage}")
-                raise ValueError(f"Waveform exceeds amplitude range: {awg_min_voltage} to {awg_max_voltage}")
+            if np.max(waveform) > max_val or np.min(waveform) < min_val:
+                self._log(f"Waveform exceeds range: {min_val} to {max_val}")
+                raise ValueError(f"Waveform exceeds range: {min_val} to {max_val}")
+            
+        # check name is only alphanumeric
+        if not re.match("^[a-zA-Z0-9_]*$", name):
+            raise ValueError(f"Name must be alphanumeric: {name}")
+            
+        formatted_data = ', '.join(map(str, waveform.astype(int)))
+        # waveform_np = np.normalize(waveform)
+        self._send_command(f"SOUR{channel}:DATA:VOL:CLEAR")
+        self._send_command(f"SOUR{channel}:DATA:ARB:DAC {name}, {formatted_data}")
+        self._send_command(f"SOUR{channel}:FUNC:ARB \"{name}\"")
+        self._send_command(f"SOUR{channel}:FUNC:ARB:FILT NORM")
+        self._send_command(f"SOUR{channel}:FUNC ARB")
+        
+        self._log(f"Waveform set to Arbitrary wave {name}")  
 
-        binary_waveform = waveform_np.tobytes()
 
-        self._send_command(f"SOURCE{channel}:DATA:VOL:CLEAR")  # Clear the volatile memory
-        self._send_command(f"SOURCE{channel}:FUNCTION ARBITRAR")  # Set the source to arbitrary waveform
-        self._send_command(f"SOURCE{channel}:DATA:ARB:DAC {binary_waveform}, (@1)")
+    # def set_arbitrary_waveform(self, channel, waveform, scale=True):
+    #     """
+    #     Sets the arbitrary waveform for the specified channel.
+
+    #     Args:
+    #         channel (int or str): The channel for which to set the waveform.
+    #         waveform (list): The arbitrary waveform to set.
+
+    #     """
+    #     self._log(f"Setting arbitrary waveform for channel {channel}")
+    #     waveform_np = np.array(waveform)
+    #     awg_max_voltage = self.profile["amplitude"]["max"]
+    #     awg_min_voltage = self.profile["amplitude"]["min"]
+
+    #     max_length = self.profile["waveforms"]["arbitrary"]["max_length"]
+    #     if scale:
+    #         waveform_normalized = (waveform - np.min(waveform)) / (np.max(waveform) - np.min(waveform))
+    #         waveform_scaled = waveform_normalized * (awg_max_voltage - awg_min_voltage) + awg_min_voltage
+    #         waveform_np = np.array(waveform_scaled)
+    #         self._log(f"Waveform scaled to {awg_min_voltage} to {awg_max_voltage} V")
+    #         if len(waveform_np) > max_length:
+    #             # squash into max_length by approximating
+    #             waveform_np = waveform_np[::int(len(waveform_np) / max_length)] # TODO: improve this approximation
+    #             self._log(f"Waveform squashed to {max_length} samples")
+    #     else:
+    #         self._log(f"Waveform not scaled")
+    #         if len(waveform_np) > max_length:
+    #             self._log(f"Waveform length exceeds maximum length: {max_length}")
+    #             raise ValueError(f"Waveform length exceeds maximum length: {max_length}")
+    #         if np.max(waveform_np) > awg_max_voltage or np.min(waveform_np) < awg_min_voltage:
+    #             self._log(f"Waveform exceeds amplitude range: {awg_min_voltage} to {awg_max_voltage}")
+    #             raise ValueError(f"Waveform exceeds amplitude range: {awg_min_voltage} to {awg_max_voltage}")
+
+    #     binary_waveform = waveform_np.tobytes()
+
+    #     self._send_command(f"SOURCE{channel}:DATA:VOL:CLEAR")  # Clear the volatile memory
+    #     self._send_command(f"SOURCE{channel}:DATA:ARB:DAC {binary_waveform}, (@1)")
+    #     self._send_command(f"SOURCE{channel}:FUNCTION ARBITRAR")  # Set the source to arbitrary waveform
 
         self._log(f"Waveform set")
 

@@ -221,7 +221,18 @@ class Oscilloscope(SCPIInstrument):
         
         return MeasurementValue(sampling_rate, "Hz")
     
-    def set_probe_scale(self, channel, scale):
+    def get_probe_attenuation(self, channel):
+        """
+        Gets the probe attenuation for a given channel.
+
+        """
+        self._check_valid_channel(channel)
+        # Set the probe attenuation for the specified channel
+        response = self._query(f"CHANnel{channel}:PROBe?")
+        response = f"{response}:1"
+        return MeasurementValue(response, "x")
+    
+    def set_probe_attenuation(self, channel, scale):
         """
         Sets the probe scale for a given channel.
 
@@ -233,8 +244,14 @@ class Oscilloscope(SCPIInstrument):
 
         # The command format is hypothetical and needs to be adjusted 
         # to match the specific oscilloscope command set.
-        command = f":PROBe:CH{channel}:ATTenuation {scale}"
-        self._send_command(command)
+        # TODO - add to profile
+        min_val = 0.1
+        max_val = 1000.0
+        
+        if scale < min_val or scale > max_val:
+            raise ValueError(f"Invalid scale {scale}. Supported scale range: {min_val} to {max_val}")
+        
+        self._send_command(f":CH{channel}:PROBe {scale}")
 
         # Confirm the action to the log
         self._log(f"Set probe scale to {scale}:1 for channel {channel}.")
