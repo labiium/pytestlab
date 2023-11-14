@@ -13,7 +13,8 @@ class WaveformGenerator(SCPIInstrument):
 
         """
         super().__init__(visa_resource=visa_resource, profile=profile, debug_mode=debug_mode)
-        assert "model" in self.profile, "Waveform Generator model not specified in profile."
+        if "model" not in self.profile:
+            raise IntrumentConfigurationError("Waveform Generator model not specified in profile.")
 
     def _validate_waveform(self, waveform_type):
         """
@@ -59,7 +60,8 @@ class WaveformGenerator(SCPIInstrument):
         min_amplitude = self.profile.get('amplitude', {}).get('min', 0)
         max_amplitude = self.profile.get('amplitude', {}).get('max', float('inf'))
         
-        assert min_amplitude <= amplitude <= max_amplitude, f"Amplitude out of range. Supported range: {min_amplitude} to {max_amplitude}"
+        if min_amplitude >= amplitude or amplitude >= max_amplitude:
+            raise ValueError(f"Amplitude out of range. Supported range: {min_amplitude} to {max_amplitude}")
 
     def _validate_offset(self, offset):
         """
@@ -74,8 +76,10 @@ class WaveformGenerator(SCPIInstrument):
         """
         min_offset = self.profile.get('dc_offset', {}).get('min', float('-inf'))
         max_offset = self.profile.get('dc_offset', {}).get('max', float('inf'))
-        assert min_offset <= offset <= max_offset, f"Offset out of range. Supported range: {min_offset} to {max_offset}"
-
+        
+        if min_offset >= offset or offset >= max_offset:
+            raise ValueError(f"Offset out of range. Supported range: {min_offset} to {max_offset}")
+        
     def set_arbitrary_waveform(self, channel, waveform, scale=True, name="pytestlabArb"):
         """
         Sets the arbitrary waveform for the specified channel.
@@ -112,48 +116,6 @@ class WaveformGenerator(SCPIInstrument):
         self._send_command(f"SOUR{channel}:FUNC ARB")
         
         self._log(f"Waveform set to Arbitrary wave {name}")  
-
-
-    # def set_arbitrary_waveform(self, channel, waveform, scale=True):
-    #     """
-    #     Sets the arbitrary waveform for the specified channel.
-
-    #     Args:
-    #         channel (int or str): The channel for which to set the waveform.
-    #         waveform (list): The arbitrary waveform to set.
-
-    #     """
-    #     self._log(f"Setting arbitrary waveform for channel {channel}")
-    #     waveform_np = np.array(waveform)
-    #     awg_max_voltage = self.profile["amplitude"]["max"]
-    #     awg_min_voltage = self.profile["amplitude"]["min"]
-
-    #     max_length = self.profile["waveforms"]["arbitrary"]["max_length"]
-    #     if scale:
-    #         waveform_normalized = (waveform - np.min(waveform)) / (np.max(waveform) - np.min(waveform))
-    #         waveform_scaled = waveform_normalized * (awg_max_voltage - awg_min_voltage) + awg_min_voltage
-    #         waveform_np = np.array(waveform_scaled)
-    #         self._log(f"Waveform scaled to {awg_min_voltage} to {awg_max_voltage} V")
-    #         if len(waveform_np) > max_length:
-    #             # squash into max_length by approximating
-    #             waveform_np = waveform_np[::int(len(waveform_np) / max_length)] # TODO: improve this approximation
-    #             self._log(f"Waveform squashed to {max_length} samples")
-    #     else:
-    #         self._log(f"Waveform not scaled")
-    #         if len(waveform_np) > max_length:
-    #             self._log(f"Waveform length exceeds maximum length: {max_length}")
-    #             raise ValueError(f"Waveform length exceeds maximum length: {max_length}")
-    #         if np.max(waveform_np) > awg_max_voltage or np.min(waveform_np) < awg_min_voltage:
-    #             self._log(f"Waveform exceeds amplitude range: {awg_min_voltage} to {awg_max_voltage}")
-    #             raise ValueError(f"Waveform exceeds amplitude range: {awg_min_voltage} to {awg_max_voltage}")
-
-    #     binary_waveform = waveform_np.tobytes()
-
-    #     self._send_command(f"SOURCE{channel}:DATA:VOL:CLEAR")  # Clear the volatile memory
-    #     self._send_command(f"SOURCE{channel}:DATA:ARB:DAC {binary_waveform}, (@1)")
-    #     self._send_command(f"SOURCE{channel}:FUNCTION ARBITRAR")  # Set the source to arbitrary waveform
-
-        self._log(f"Waveform set")
 
     def set_waveform(self, channel, waveform_type):
         """
@@ -218,43 +180,3 @@ class WaveformGenerator(SCPIInstrument):
 
         """
         self._send_command(f"OUTP{channel} {'ON' if state else 'OFF'}")
-
-# # Similar approach can be taken for PatternGenerator
-# class PatternGenerator(SCPIInstrument):
-#     def __init__(self, profile):
-#         """
-#         Initialize a PatternGenerator instance with a device profile.
-
-#         Args:
-#             profile (dict): A dictionary containing device profile information.
-
-#         """
-#         super().__init__()
-#         self.profile = profile
-
-#     def _validate_pattern(self, pattern):
-#         """
-#         Validate if the pattern is supported by the device.
-
-#         Args:
-#             pattern (str): The type of pattern to validate.
-
-#         Raises:
-#             ValueError: If the pattern is not supported.
-
-#         """
-#         standard_patterns = [p.upper() for p in self.profile.get('waveforms', {}).get('standard', [])]
-#         if pattern.upper() not in standard_patterns:
-#             raise ValueError(f"Invalid pattern: {pattern}. Supported types: {standard_patterns}")
-
-#     def set_pattern(self, channel, pattern):
-#         """
-#         Sets the pattern for the specified channel after validation.
-
-#         Args:
-#             channel (int or str): The channel for which to set the pattern.
-#             pattern (str): The type of pattern to set.
-
-#         """
-#         self._validate_pattern(pattern)
-#         self._send_command(f"SOUR{channel}:FUNC {pattern.upper()}")

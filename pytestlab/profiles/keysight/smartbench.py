@@ -55,6 +55,10 @@ oscilloscope_profile = {
     "vendor_id": 0x2A8D,
     "product_id": 0x0396,
     "device_type": "Oscilloscope",
+    "trigger": {
+      "modes": ["EDGE", "GLITch", "PATTern", "SHOLd", "TRANsition", "TV", "SBUS1"],
+      "slopes": ["POS", "NEG", "EITH", "ALT"],
+    },
     "channels": {
         1: {
         "description": "Analog Channel 1",

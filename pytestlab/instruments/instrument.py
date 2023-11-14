@@ -128,9 +128,12 @@ class SCPIInstrument:
         valid_channels = self.profile["channels"].keys()
         min_limit = min(valid_channels)
         max_limit = max(valid_channels)
-        assert isinstance(selected_channel, int), f"Channel must be an integer. Received: {selected_channel}"
-        assert selected_channel in valid_channels, f"Invalid Channel Selected: {selected_channel}. Available Channels: {min_limit} to {max_limit}"
-
+        
+        if not isinstance(selected_channel, int):
+            raise ValueError(f"Channel must be an integer. Received: {selected_channel}")
+        if selected_channel not in valid_channels:
+            raise ValueError(f"Invalid Channel Selected: {selected_channel}. Available Channels: {min_limit} to {max_limit}")
+        
     def close(self):
         """Close the connection to the instrument."""
         self.instrument.close()

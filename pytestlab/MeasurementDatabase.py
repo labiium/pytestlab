@@ -123,6 +123,9 @@ class MeasurementResult:
         if title:
             plt.title(title)
         
+        if self.measurement_type == "Frequency Spectrum":
+            xlabel = xlabel if xlabel else "Frequency (Hz)"
+            ylabel = ylabel if ylabel else f"Magnitude ({self.units})"
         xlabel = xlabel if xlabel else "Time (s)"
         ylabel = ylabel if ylabel else f"Measurement ({self.units})"
         

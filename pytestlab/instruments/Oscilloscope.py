@@ -4,6 +4,7 @@ from pytestlab.instruments.instrument import SCPIInstrument
 from pytestlab.MeasurementDatabase import MeasurementResult, Preamble, MeasurementValue
 from pytestlab.errors import SCPICommunicationError, SCPIValueError, InstrumentNotFoundError, IntrumentConfigurationError
 import numpy as np
+
 class Oscilloscope(SCPIInstrument):
     """
     Provides an interface for controlling and acquiring data from an oscilloscope using SCPI commands.
@@ -24,7 +25,8 @@ class Oscilloscope(SCPIInstrument):
         profile (dict): Information about the instrument model.
         """
         super().__init__(visa_resource=visa_resource, profile=profile, debug_mode=debug_mode)
-        assert "model" in self.profile, "Oscilloscope model not specified in profile."
+        if "model" not in self.profile:
+            InstrumentNotFoundError("Oscilloscope model not specified in profile.")
 
     def _read_preamble(self):
         """Reads the preamble from the oscilloscope.
@@ -105,6 +107,36 @@ class Oscilloscope(SCPIInstrument):
         self._send_command(f':CHANnel{channel}:OFFSet {offset}')
         self._wait()
         
+        
+    def configure_trigger(self, channel: int, level: float, slope: str = "POS", mode: str = "EDGE") -> None:
+        """
+        Sets the trigger for the oscilloscope.
+        
+        :param channel: The channel to set the trigger for
+        :param slope: The slope of the trigger. Default is 'POS'
+        :param level: The trigger level in volts
+        :param mode: The trigger mode. Default is 'EDGE'
+        """
+        
+        self._check_valid_channel(channel)
+        
+        if slope not in self.profile["trigger"]["slopes"]:
+            raise ValueError(f"Invalid slope {slope}. Supported slopes: {self.profile['trigger']['slopes']}")
+        if mode not in self.profile["trigger"]["modes"]:
+            raise ValueError(f"Invalid mode {mode}. Supported modes: {self.profile['trigger']['modes']}")
+        
+        self._send_command(f':TRIG:SOUR CHAN{channel}')
+        self._send_command(f':TRIGger:LEVel {channel}, {level}')
+        self._send_command(f':TRIGger:SLOPe {slope}')
+        self._send_command(f':TRIGger:MODE {mode}')
+        self._wait()
+        
+        self._log("""Trigger set with the following parameters:
+                  Trigger Source: {channel}
+                  Trigger Level: {level}
+                  Trigger Slope: {slope}
+                  Trigger Mode: {mode}""")
+        
     def measure_voltage_peak_to_peak(self, channel):
         """
         Measure the peak-to-peak voltage for a specified channel.
@@ -130,6 +162,9 @@ class Oscilloscope(SCPIInstrument):
 
         response = self._query(f"MEAS:VPP? CHAN{channel}")
         measurement_result.add(response)
+        
+        self._log("Peak to Peak Voltage: " + str(response))
+        
         return measurement_result
 
     def measure_rms_voltage(self, channel: int) -> MeasurementResult:
@@ -156,6 +191,9 @@ class Oscilloscope(SCPIInstrument):
         measurement_result = MeasurementResult(self.profile["model"], "V", "rms voltage")
         response = self._query(f"MEAS:VRMS? CHAN{channel}")
         measurement_result.add(response)
+        
+        self._log("RMS Voltage: " + str(response))
+        
         return measurement_result
 
     def read_channels(self, channels: List[int] | int, points=10000, runAfter=True, timebase=None):
@@ -167,6 +205,9 @@ class Oscilloscope(SCPIInstrument):
         self._log(points)
         self._log("starting")
 
+        if isinstance(channels, int):#
+            channels = [channels]
+            
         for channel in channels:
             self._check_valid_channel(channel)
 
@@ -607,21 +648,23 @@ class Oscilloscope(SCPIInstrument):
         self._send_command(f':WGEN:VOLTage:HIGH {v1}')
         self._send_command(f':WGEN:VOLTage:OFFSet {offset}')
 
-    def display_channel(self, channels, state=True) -> None:
+    def display_channel(self, channels: list | int, state=True) -> None:
         """
         Display the specified channels on the oscilloscope.
         
         This method sends an SCPI command to the oscilloscope to display the specified channels.
         
         Args:
-        channels (list): A list of channels to display on the oscilloscope.
-        
+        channels (list|int): A list of channel numbers to display.
         Raises:
         ValueError: If the oscilloscope model does not support the specified channel(s).
         
         Example:
         >>> display_channel([1, 2])
         """
+        if isinstance(channels, int):
+            channels = [channels]
+        
         for channel in channels:
             self._check_valid_channel(channel)
         # Implement SCPI commands to display the specified channels
@@ -635,8 +678,10 @@ class Oscilloscope(SCPIInstrument):
 
         :param state: The state of the FFT display
         """
-        assert "fft" in self.profile, "FFT is not available on this oscilloscope."
-
+        
+        if "fft" not in self.profile:
+            raise ValueError(f"FFT is not available on this oscilloscope.")
+        
         self._send_command(f":FFT:DISPlay {'ON' if state else 'OFF'}")
         self._log(f"FFT display {'enabled' if state else 'disabled'}.")
 
@@ -663,11 +708,15 @@ class Oscilloscope(SCPIInstrument):
         """
 
         # Ensure the oscilloscope supports FFT and the specified channel is valid
-        assert "fft" in self.profile, "FFT is not available on this oscilloscope."
-        assert source_channel in self.profile["channels"], f"Invalid channel {source_channel}. Supported channels: {self.profile['channels']}"
-        assert window_type in self.profile["fft"]["window_types"], f"Invalid window type {window_type}. Supported window types: {self.profile['fft']['window_types']}"
-        assert units in self.profile["fft"]["units"], f"Invalid units {units}. Supported units: {self.profile['fft']['units']}"
-
+        if "fft" not in self.profile:
+            raise ValueError(f"FFT is not available on this oscilloscope.")
+        if source_channel not in self.profile["channels"]:
+            raise ValueError(f"Invalid channel {source_channel}. Supported channels: {self.profile['channels']}")
+        if window_type not in self.profile["fft"]["window_types"]:
+            raise ValueError(f"Invalid window type {window_type}. Supported window types: {self.profile['fft']['window_types']}")
+        if units not in self.profile["fft"]["units"]:
+            raise ValueError(f"Invalid units {units}. Supported units: {self.profile['fft']['units']}")
+        
         # Set the FFT source to the specified channel
         self._send_command(f':FFT:SOURce1 CHANnel{source_channel}')
         # Configure the FFT window type
@@ -695,8 +744,9 @@ class Oscilloscope(SCPIInstrument):
         data = self._read_to_np()
 
         # Ensure that we've read the correct number of data points
-        assert len(data) == expected_data_points, "Data size mismatch"
-
+        if len(data) != expected_data_points:
+            raise ValueError("Data size mismatch")
+        
         # Data is now in a NumPy array format and can be reshaped or processed as needed
         # For FRANalysis, the data often comes in pairs representing frequency and response (magnitude/phase)
         # so we need to reshape the array accordingly
@@ -716,10 +766,14 @@ class Oscilloscope(SCPIInstrument):
         # Validate input
         self._check_valid_channel(input_channel)
         self._check_valid_channel(output_channel)
-        assert mode in ['SWEep', 'SINGle'], 'Mode should be "SWEep" or "SINGle"'
-        assert 10 <= start_freq < stop_freq <= 20000000, 'Frequency range should be within 10 Hz to 20 MHz'
-        assert points > 0, 'Number of points must be positive'
-
+        
+        if mode not in ['SWEep', 'SINGle']:
+            raise ValueError(f"Invalid mode {mode}. Supported modes: 'SWEep', 'SINGle'")
+        if start_freq < 10 or stop_freq > 20000000:
+            raise ValueError(f"Invalid frequency range {start_freq} to {stop_freq}. Supported range: 10 Hz to 20 MHz")
+        if points < 1:
+            raise ValueError(f"Invalid number of points {points}. Number of points must be positive.")
+        
         # Enable FRANalysis
         self._send_command(":FRANalysis:ENABle 1")
 
@@ -735,9 +789,12 @@ class Oscilloscope(SCPIInstrument):
             self._send_command(f":FRANalysis:FREQuency:SINGle {start_freq}Hz")
         else:
             # Not directly provided in the command summary, assuming there's a command for points
-            assert points > 0, 'Number of points must be positive'
+            if points < 1:
+                raise ValueError(f"Invalid number of points {points}. Number of points must be positive.")
             # TODO remove this hard-coded limit - only for DSOX1204G
-            assert points <= 1000, 'Number of points must be less than 1000'
+            if points > 1000:
+                raise ValueError(f"Invalid number of points {points}. Number of points must be less than 1000.")
+
             self._send_command(f":FRANalysis:SWEep:POINts {points}")
 
         # Initiate FRANalysis
