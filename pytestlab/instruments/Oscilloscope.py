@@ -108,12 +108,13 @@ class Oscilloscope(SCPIInstrument):
         self._wait()
         
         
-    def configure_trigger(self, channel: int, level: float, slope: str = "POS", mode: str = "EDGE") -> None:
+    def configure_trigger(self, channel: int, level: float, trigger_type="HIGH", slope: str = "POS", mode: str = "EDGE") -> None:
         """
         Sets the trigger for the oscilloscope.
         
         :param channel: The channel to set the trigger for
         :param slope: The slope of the trigger. Default is 'POS'
+        :param trigger_type: The type of trigger. Default is 'HIGH'
         :param level: The trigger level in volts
         :param mode: The trigger mode. Default is 'EDGE'
         """
@@ -124,9 +125,13 @@ class Oscilloscope(SCPIInstrument):
             raise ValueError(f"Invalid slope {slope}. Supported slopes: {self.profile['trigger']['slopes']}")
         if mode not in self.profile["trigger"]["modes"]:
             raise ValueError(f"Invalid mode {mode}. Supported modes: {self.profile['trigger']['modes']}")
-        
+        # TODO - remove hard coding
+        if trigger_type not in ["HIGH", "LOW"]:
+            raise ValueError(f"Invalid trigger type {trigger_type}. Supported trigger types: 'HIGH', 'LOW'")
+
+
         self._send_command(f':TRIG:SOUR CHAN{channel}')
-        self._send_command(f':TRIGger:LEVel {channel}, {level}')
+        self._send_command(f':TRIGger:LEVel:{trigger_type} {level}, {channel}')
         self._send_command(f':TRIGger:SLOPe {slope}')
         self._send_command(f':TRIGger:MODE {mode}')
         self._wait()
@@ -243,15 +248,6 @@ class Oscilloscope(SCPIInstrument):
             self._send_command(":RUN")
 
         return measurement_results
-    
-    # def set_probe_attenuation(self, channel, attenuation):
-    #     """
-    #     Sets the probe attenuation for a given channel.
-
-    #     """
-    #     self._check_valid_channel(channel)
-    #     # Set the probe attenuation for the specified channel
-    #     self._send_command(f"CHANnel{channel}:PROBe {attenuation}")
 
     def get_sampling_rate(self):
         # Send the SCPI command to query the current sampling rate
@@ -364,17 +360,6 @@ class Oscilloscope(SCPIInstrument):
         # Limit the bandwidth to a specified frequency to reduce noise
         self._send_command(f"CHANnel{channel}:BANDwidth {bandwidth}")
 
-    # def set_filtering(self, channel, filter_type, frequency):
-    #     self._check_valid_channel(channel)
-    #     # Configure a filter on the channel to isolate the desired frequency components
-    #     if self.profile["channels"][channel]["filtering"] != "available":
-    #         raise ValueError(f"Filtering is not available on Channel {channel}.")
-        
-    #     if channel not in self.profile["channels"]:
-    #         raise ValueError(f"Invalid channel {channel}. Supported channels: {self.profile['channels']}")
-
-    #     self._send_command(f"CHANnel{channel}:FILTer:{filter_type} {frequency}")
-
     def set_trigger(self, channel, trigger_level):
         """
         Sets the trigger level for a given channel.
@@ -386,15 +371,6 @@ class Oscilloscope(SCPIInstrument):
         # Set the trigger level for the specified channel
         self._send_command(f"TRIGger:LEVel CHANnel{channel},{trigger_level}")
 
-    # def set_trigger_mode(self, mode):
-    #     """
-        
-    #     """
-    #     if mode not in self.profile["trigger_modes"]:
-    #         raise ValueError(f"Invalid trigger mode {mode}. Supported trigger modes: {self.profile['trigger_modes']}")
-    #     # Set the trigger mode to either edge or pulse
-    #     self._send_command(f"TRIGger:MODE {mode}")
-
     def set_trigger_source(self, channel):
         """
         
@@ -402,31 +378,6 @@ class Oscilloscope(SCPIInstrument):
         self._check_valid_channel(channel)
         # Set the trigger source to the specified channel
         self._send_command(f"TRIGger:SOURce CHANnel{channel}")
-
-    # def set_trigger_edge_slope(self, slope):
-    #     """"""
-    #     # Set the edge slope to either rising or falling
-    #     self._send_command(f"TRIGger:EDGE:SLOPe {slope}")
-
-    # def set_trigger_pulse_polarity(self, polarity):
-    #     # Set the pulse polarity to either positive or negative
-    #     self._send_command(f"TRIGger:PULSe:POLarity {polarity}")
-
-    # def set_trigger_pulse_width(self, width):
-    #     # Set the pulse width to the specified value
-    #     self._send_command(f"TRIGger:PULSe:WIDth {width}")
-
-    # def set_trigger_pulse_delay(self, delay):
-    #     # Set the pulse delay to the specified value
-    #     self._send_command(f"TRIGger:PULSe:DELay {delay}")
-
-    # def set_trigger_pulse_transition(self, transition):
-    #     # Set the pulse transition to either positive or negative
-    #     self._send_command(f"TRIGger:PULSe:TRANsition {transition}")
-
-    # def set_trigger_pulse_condition(self, condition):
-    #     # Set the pulse condition to either width or delay
-    #     self._send_command(f"TRIGger:PULSe:CONdition {condition}")
 
     def wave_gen(self, state: bool):
         """

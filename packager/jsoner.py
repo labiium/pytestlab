@@ -32,6 +32,18 @@ def compress_directory(input_dir, output_file_path):
         if 'requirements.txt' in files:
             files.remove('requirements.txt')
         
+        if ".gitignore" in files:
+            files.remove(".gitignore")
+        
+        if "pytestlab.egg-info" in dirs:
+            dirs.remove("pytestlab.egg-info")
+        
+        if "examples" in dirs:
+            dirs.remove("examples")
+
+        if "pytestlab.json" in files:
+            files.remove("pytestlab.json")
+        
         for filename in files:
             filepath = os.path.join(root, filename)
             try:
