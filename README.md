@@ -34,7 +34,7 @@ Here's a quick example of how to use the library with an oscilloscope:
 from pytestlab.instruments import AutoInstrument
 
 # Connect to an oscilloscope
-osc = AutoInstrument.from_preset("keysight/DSOX1204G")
+osc = AutoInstrument.from_config("keysight/DSOX1204G")
 
 osc.reset()
 
