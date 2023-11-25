@@ -25,7 +25,7 @@ Or, clone this repository and install:
 git clone https://github.com/yourgithub/your-library-name.git
 cd your-library-name
 pip install -e. # install in editable mode
-``
+```
 
 Usage
 Here's a quick example of how to use the library with an oscilloscope:
