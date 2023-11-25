@@ -114,7 +114,7 @@ oscilloscope_profile = {
         "units": ["DECibel", "VRMS"]
     },
     "function_generator": {
-        "waveform_types": ["SINusoid", "SQUare", "RAMp", "PULse", "NOISe", "DC"],
+        "waveform_types": ["SINE", "SQUare", "RAMp", "PULse", "NOISe", "DC"],
         "supported_states": ["ON", "OFF"],
         "offset": { 
         "min": -5,
@@ -138,7 +138,7 @@ power_supply_profile = {
     "vendor_id": 0x2a8d,
     "product_id": 0x8f01,
     "model": "EDU36311A",
-    "device_type": "powersupply",
+    "device_type": "power_supply",
     
     "outputs": {
       1: {
@@ -197,7 +197,7 @@ awg_profile = {
     "model": "EDU33212A", 
     "vendor_id": 0x2a8d,
     "product_id": 0x8d01,
-    "device_type": "Arbitrary Waveform Generator",
+    "device_type": "waveform_generator",
     
     "channels": {
         1: {

@@ -1,21 +1,34 @@
-class SCPIConnectionError(Exception):
+class InstrumentConnectionError(Exception):
     """For SCPI instrument connection errors."""
 
     def __init__(self, message="Failed to connect to the instrument."):
         self.message = message
         super().__init__(self.message)
 
-class SCPICommunicationError(Exception):
+class InstrumentCommunicationError(Exception):
     """For SCPI communication errors."""
 
     def __init__(self, message="Error in SCPI communication."):
         self.message = message
         super().__init__(self.message)
 
-class SCPIValueError(ValueError):
-    """For invalid SCPI values or settings."""
+class FormulationError(Exception):
+    """Error has occuered in a computation"""
 
-    def __init__(self, message="Invalid value for SCPI command."):
+    def __init__(self, message="Given arguments have resulted in an error in Computation"):
+        super().__init__(self.message)
+
+class InstrumentConnectionBusy(Exception):
+    """The instrument is in use somewhere else"""
+
+    def __init__(self, message="The instrument has an open connection elsewhere."):
+        self.message = message
+        super().__init__(self.message)
+
+class InstrumentParameterError(ValueError):
+    """Invalid parameters given to instrument."""
+
+    def __init__(self, message="Invalid parameters given to instrument."):
         self.message = message
         super().__init__(self.message)
 
@@ -26,9 +39,9 @@ class InstrumentNotFoundError(Exception):
         super().__init__(f"Instrument {name} not found in the manager's collection.")
 
 
-class IntrumentConfigurationError(Exception):
+class InstrumentConfigurationError(Exception):
     """For instrument configuration errors."""
 
-    def __init__(self, message="Invalid Instrument configuration."):
+    def __init__(self, message="Invalid instrument profile configuration. Check conformity to Profile Specification"):
         self.message = message
         super().__init__(self.message)

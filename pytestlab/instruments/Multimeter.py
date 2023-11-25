@@ -1,6 +1,8 @@
-from pytestlab.instruments.instrument import SCPIInstrument, SCPIConnectionError, SCPICommunicationError
+from .instrument import Instrument
+from ..errors import InstrumentConfigurationError
+from ..config import MultimeterConfig
 
-class DigitalMultimeter(SCPIInstrument):
+class Multimeter(Instrument):
     """
     A class representing a Digital Multimeter that inherits from the SCPIInstrument class.
 
@@ -8,20 +10,25 @@ class DigitalMultimeter(SCPIInstrument):
 
     Attributes:
         visa_resource (str): The VISA address of the device.
-        description (dict): A dictionary containing additional information about the device, including supported channels.
+        config (MultimeterConfig): A class containing the device configuration.
     """
 
-    def __init__(self, visa_resource, description):
+    def __init__(self, visa_resource=None, config=None):
         """
         Initializes a DigitalMultimeter instance.
 
         Args:
             visa_resource (str): The VISA address of the device.
-            description (dict): A dictionary containing additional information about the device.
+            config (MultimeterConfig): A class containing the device configuration.
         """
-        super().__init__(visa_resource)
-        self.description = description
+        if not isinstance(config, MultimeterConfig):
+            raise InstrumentConfigurationError("MultimeterConfig required to initialize Multimeter")
+        super().__init__(visa_resource=visa_resource, config=config)
 
+    @classmethod
+    def from_config(cls, config: MultimeterConfig, debug_mode=False):
+        return cls(config=MultimeterConfig(**config), debug_mode=debug_mode)
+    
     def measure_voltage(self, channel=1):
         """
         Measures the DC voltage on the specified channel.

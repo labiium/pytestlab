@@ -1,0 +1,77 @@
+{
+    "manufacturer": "Keysight",
+    "model": "EDU33212A",
+    "vendor_id": "0x2a8d",
+    "product_id": "0x8d01",
+    "device_type": "waveform_generator",
+    "channels": {
+        "1": {
+            "description": "Channel 1"
+        },
+        "2": {
+            "description": "Channel 2"
+        }
+    },
+    "max_frequency": 20e6,
+    "waveforms": {
+        "standard": [
+            "sine",
+            "square",
+            "ramp",
+            "pulse",
+            "triangle",
+            "noise",
+            "PRBS",
+            "DC"
+        ],
+        "built_in": [
+            "cardiac",
+            "exponential_fall",
+            "exponential_rise",
+            "gaussian_pulse",
+            "haversine",
+            "lorentz",
+            "dlorentz",
+            "negative_ramp",
+            "sinc"
+        ],
+        "arbitrary": {
+            "memory": 8e6,
+            "max_length": 1e6,
+            "sampling_rate": {
+                "min_val": 1e-6,
+                "max_val": 250e6
+            },
+            "resolution": 16
+        }
+    },
+    "modulation_types": [
+        "AM",
+        "FM",
+        "PM",
+        "FSK",
+        "BPSK",
+        "PWM"
+    ],
+    "amplitude": {
+        "min_val": 1e-3,
+        "max_val": 10
+    },
+    "dc_offset": {
+        "min_val": -5,
+        "max_val": 5
+    },
+    "accuracy": {
+        "amplitude": 0.02,
+        "frequency": 1e-6
+    },
+    "interfaces": [
+        "USB",
+        "LAN"
+    ],
+    "remote_control": [
+        "SCPI",
+        "IVI",
+        "Web Browser"
+    ]
+}

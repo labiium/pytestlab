@@ -1,7 +1,8 @@
-from pytestlab.instruments.instrument import SCPIInstrument
-from pytestlab.errors import SCPICommunicationError
+from .instrument import Instrument
+from ..errors import InstrumentConfigurationError
+from ..config import PowerSupplyConfig
 
-class PowerSupply(SCPIInstrument):
+class PowerSupply(Instrument):
     """
     A class representing a Digital Power Supply that inherits from the SCPIInstrument class.
 
@@ -12,7 +13,7 @@ class PowerSupply(SCPIInstrument):
         profile (dict): A dictionary containing additional information about the device.
     """
 
-    def __init__(self, visa_resource=None, profile=None):
+    def __init__(self, visa_resource=None, config=None):
         """
         Initializes a DigitalPowerSupply instance.
 
@@ -20,11 +21,13 @@ class PowerSupply(SCPIInstrument):
             visa_resource (str): The VISA address of the device.
             description (dict): A dictionary containing additional information about the device.
         """
-        super().__init__(visa_resource=visa_resource, profile=profile)
-        self.profile = profile
-
-    # def _check_valid_channel(self, selected_channel):
-    #     return super()._check_valid_channel(selected_channel)
+        if not isinstance(config, PowerSupplyConfig):
+            raise InstrumentConfigurationError("PowerSupplyConfig required to initialize PowerSupply")
+        super().__init__(visa_resource=visa_resource, config=config)
+    
+    @classmethod
+    def from_config(cls, config: PowerSupplyConfig, debug_mode=False):
+        return cls(config=PowerSupplyConfig(**config), debug_mode=debug_mode)
     
     def set_voltage(self, channel, voltage):
         """

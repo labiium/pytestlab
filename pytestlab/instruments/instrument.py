@@ -1,9 +1,10 @@
 import numpy as np
-from pytestlab.errors import SCPIConnectionError, SCPICommunicationError
+from ..errors import InstrumentConnectionBusy, InstrumentConfigurationError, InstrumentNotFoundError, InstrumentCommunicationError, InstrumentConnectionError, InstrumentParameterError
+from ..config import InstrumentConfig
 from pyscpi import usbtmc
 import time
 
-class SCPIInstrument:
+class Instrument:
     """
     A class representing an SCPI-compliant instrument.
 
@@ -11,7 +12,7 @@ class SCPIInstrument:
         visa_resource (str): The VISA resource string that identifies the instrument.
     """
 
-    def __init__(self, visa_resource=None, profile=None, debug_mode=False):
+    def __init__(self, visa_resource=None, config=None, debug_mode=False):
         """
         Initialize the SCPIInstrument class.
 
@@ -21,13 +22,17 @@ class SCPIInstrument:
         if visa_resource:
             self.visa_resource = visa_resource
             self._connect()
-        elif "vendor_id" in profile and "product_id" in profile:
-            self.instrument = usbtmc.Instrument(profile["vendor_id"], profile["product_id"])
+        elif isinstance(config, InstrumentConfig):
+            self.instrument = usbtmc.Instrument(config.vendor_id, config.product_id)
         else:
-            raise ValueError("Either a VISA resource string or a vendor and product ID must be provided.")
-        self.profile = profile
+            raise InstrumentConfigurationError("Either a VISA resource string or a vendor and product ID must be provided.")
+        self.config = config
         self._command_log = []
         self.debug_mode = debug_mode
+
+    @classmethod
+    def from_config(cls, config: InstrumentConfig, debug_mode=False):
+        return cls(config=InstrumentConfig(**config), debug_mode=debug_mode)
 
     def _connect(self):
         """Connect to the instrument using the VISA resource string."""
@@ -35,7 +40,7 @@ class SCPIInstrument:
             import pyvisa
             self.instrument = pyvisa.ResourceManager().open_resource(self.visa_resource)
         except Exception as e:
-            raise SCPIConnectionError(f"Failed to connect to the instrument: {str(e)}")
+            raise InstrumentNotFoundError(f"Failed to connect to the instrument: {str(e)}")
 
     def _read_to_np(self) -> bytes:
         chunk_size = 1024
@@ -67,7 +72,7 @@ class SCPIInstrument:
             self.instrument.write(command)
             self._command_log.append({"command": command, "success": True, "type": "write", "timestamp":time.time})
         except Exception as e:
-            raise SCPICommunicationError(f"Failed to send command: {str(e)}")
+            raise InstrumentCommunicationError(f"Failed to send command: {str(e)}")
 
     def _query(self, query):
         """
@@ -91,13 +96,15 @@ class SCPIInstrument:
             return response
         except Exception as e:
             self._command_log.append({"command": query, "success": False, "type": "query", "timestamp":time.time})
-            raise SCPICommunicationError(f"Failed to query instrument: {str(e)}")
+            raise InstrumentCommunicationError(f"Failed to query instrument: {str(e)}")
         
     def _wait(self):
         """
         Blocks until all previous commands have been processed by the instrument.
         """
         self.instrument.query("*OPC?")
+        self._log("Waiting for instrument to finish processing commands.")
+        self._command_log.append({"command": "BLOCK", "success": True, "type": "wait", "timestamp":time.time})
 
     def _log(self, message):
         """
@@ -115,6 +122,7 @@ class SCPIInstrument:
         """
         for command in self._command_log:
             print(command)
+
     def id(self):
         """
         Query the instrument for its identification.
@@ -122,18 +130,12 @@ class SCPIInstrument:
         Returns:
             str: The identification string of the instrument.
         """
-        return self._query("*IDN?")
+
+        name = self._query("*IDN?")
+        self._log(f"Connected to {name}")
+        self._command_log.append({"command": "*IDN?", "success": True, "type": "query", "timestamp":time.time, "response": name})
+        return name
     
-    def _check_valid_channel(self, selected_channel):
-        valid_channels = self.profile["channels"].keys()
-        min_limit = min(valid_channels)
-        max_limit = max(valid_channels)
-        
-        if not isinstance(selected_channel, int):
-            raise ValueError(f"Channel must be an integer. Received: {selected_channel}")
-        if selected_channel not in valid_channels:
-            raise ValueError(f"Invalid Channel Selected: {selected_channel}. Available Channels: {min_limit} to {max_limit}")
-        
     def close(self):
         """Close the connection to the instrument."""
         self.instrument.close()
@@ -141,42 +143,55 @@ class SCPIInstrument:
     def reset(self):
         """Reset the instrument to its default settings."""
         self._send_command("*RST")
+        self._log("Resetting instrument to default settings.")
+        self._command_log.append({"command": "RESET", "success": True, "type": "reset", "timestamp":time.time})
 
-    def set_channel_voltage(self, channel, voltage):
-        """
-        Set the voltage for a specific channel.
+    # def set_channel_voltage(self, channel, voltage):
+    #     """
+    #     Set the voltage for a specific channel.
 
-        Args:
-            channel (int or str): The channel for which to set the voltage.
-            voltage (float): The voltage value to set.
-        """
-        self._check_valid_channel(channel)
-        self._send_command(f"CHAN{channel}:VOLT {voltage}")
+    #     Args:
+    #         channel (int or str): The channel for which to set the voltage.
+    #         voltage (float): The voltage value to set.
+    #     """
+    #     self._check_valid_channel(channel)
+    #     self._send_command(f"CHAN{channel}:VOLT {voltage}")
 
-    def get_channel_voltage(self, channel):
-        """
-        Get the voltage for a specific channel.
+    # def get_channel_voltage(self, channel):
+    #     """
+    #     Get the voltage for a specific channel.
 
-        Args:
-            channel (int or str): The channel for which to get the voltage.
+    #     Args:
+    #         channel (int or str): The channel for which to get the voltage.
 
-        Returns:
-            float: The voltage value for the channel.
-        """
-        self._check_valid_channel(channel)
-        response = self._query(f"CHAN{channel}:VOLT?")
-        return float(response)
+    #     Returns:
+    #         float: The voltage value for the channel.
+    #     """
+    #     self._check_valid_channel(channel)
+    #     response = self._query(f"CHAN{channel}:VOLT?")
+    #     return float(response)
 
-    def measure_frequency(self, channel):
-        """
-        Measure the frequency for a specific channel.
+    # def measure_frequency(self, channel):
+    #     """
+    #     Measure the frequency for a specific channel.
 
-        Args:
-            channel (int or str): The channel for which to measure the frequency.
+    #     Args:
+    #         channel (int or str): The channel for which to measure the frequency.
 
-        Returns:
-            float: The measured frequency value for the channel.
-        """
-        self._check_valid_channel(channel)
-        response = self._query(f"MEAS:FREQ? CHAN{channel}")
-        return float(response)
+    #     Returns:
+    #         float: The measured frequency value for the channel.
+    #     """
+    #     self._check_valid_channel(channel)
+    #     response = self._query(f"MEAS:FREQ? CHAN{channel}")
+    #     return float(response)
+
+
+# def error_info(original_exception_type, custom_exception_type):
+#     def decorator(func):
+#         def wrapper(*args, **kwargs):
+#             try:
+#                 return func(*args, **kwargs)
+#             except original_exception_type as e:
+#                 raise custom_exception_type(e) from None
+#         return wrapper
+#     return decorator

@@ -30,25 +30,6 @@ class Preamble:
     yorg: float
     yref: float
 
-class MeasurementValue:
-    """A class to represent a single measurement value and its timestamp.
-    
-    Attributes:
-        value (float): The measurement value.
-        units (str): The units of the measurement value (e.g. "V", "A", "Ohm", "Hz").
-        timestamp (float): The timestamp when the measurement was taken.
-    """
-    def __init__(self, value, units="units", timestamp=None):
-        self.value = float(value)
-        self.units = units
-        self.timestamp = timestamp if timestamp else time.time()
-
-    def __str__(self):
-        return f"{self.value}"
-
-    def __float__(self):
-        return self.value
-    
 class MeasurementResult:
     """A class to represent a collection of measurement values.
     
@@ -58,13 +39,12 @@ class MeasurementResult:
         instrument (str): The name of the instrument used for the measurements.
         measurement_type (str): The type of measurement.
     """
-    def __init__(self, instrument, units, measurement_type, sampling_rate=None, realtime_timestamps=False):
-        self.values = []
+    def __init__(self, values, instrument, units, measurement_type, sampling_rate=None, realtime_timestamps=False):
+        self.values = values
         self.units = units
         self.instrument = instrument
-        self.timestamp = time.time()
-        self.realtime_timestamps = realtime_timestamps
         self.measurement_type = measurement_type
+        self.timestamp = time.time()
         self.sampling_rate = sampling_rate
 
     def __str__(self):
@@ -112,20 +92,14 @@ class MeasurementResult:
             xlabel (str, optional): The label for the x-axis.
             ylabel (str, optional): The label for the y-axis.
         """
-        timestamps = [value.timestamp for value in self.values]
-        measurements = [value.value for value in self.values]
         
-        plt.figure(figsize=(10, 5))
-        if self.realtime_timestamps:
-            plt.plot(timestamps, measurements, marker='o')
-        else:
-            plt.plot(measurements, marker='o')
-        if title:
-            plt.title(title)
-        
-        if self.measurement_type == "Frequency Spectrum":
+        if self.measurement_type == "FFT":
+            plt.plot(self.values[0], self.values[1])
+            ## change grid
             xlabel = xlabel if xlabel else "Frequency (Hz)"
             ylabel = ylabel if ylabel else f"Magnitude ({self.units})"
+
+
         xlabel = xlabel if xlabel else "Time (s)"
         ylabel = ylabel if ylabel else f"Measurement ({self.units})"
         
@@ -164,26 +138,20 @@ class MeasurementResult:
         fft_measurement_result = MeasurementResult(
             instrument=self.instrument,
             units=self.units,
-            measurement_type="Frequency Spectrum",
+            measurement_type="FFT",
             sampling_rate=self.sampling_rate,  #  for reference
+            values = np.array([freq, magnitudes]),
             realtime_timestamps=self.realtime_timestamps
         )
-
-        # Populate the FFT MeasurementResult with frequency and magnitude pairs
-        for f, magnitude in zip(freq, magnitudes):
-            fft_measurement_value = MeasurementValue(value=magnitude)
-            # Normally we would set the timestamp to the frequency value
-            # Misuse the timestamp here for plotting purposes
-            fft_measurement_value.timestamp = f
-            fft_measurement_result.add(fft_measurement_value)
 
         return fft_measurement_result
     
     def _to_numpy(self):
         """Converts the measurement and timestamp data to numpy arrays."""
-        timestamps = np.array([value.timestamp for value in self.values])
-        measurements = np.array([value.value for value in self.values])
-        return measurements, timestamps
+        if isinstance(self.values, np.ndarray):
+            return self.values
+        else:
+            return np.array(self.values)
 
     def __len__(self):
         return len(self.values)

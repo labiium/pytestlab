@@ -1,11 +1,12 @@
 import time
 from typing import List
-from pytestlab.instruments.instrument import SCPIInstrument
-from pytestlab.MeasurementDatabase import MeasurementResult, Preamble, MeasurementValue
-from pytestlab.errors import SCPICommunicationError, SCPIValueError, InstrumentNotFoundError, IntrumentConfigurationError
+from .instrument import Instrument
+from ..config import OscilloscopeConfig
+from ..errors import InstrumentConfigurationError, InstrumentParameterError
+from ..MeasurementDatabase import MeasurementResult, Preamble
 import numpy as np
 
-class Oscilloscope(SCPIInstrument):
+class Oscilloscope(Instrument):
     """
     Provides an interface for controlling and acquiring data from an oscilloscope using SCPI commands.
 
@@ -16,7 +17,7 @@ class Oscilloscope(SCPIInstrument):
     visa_resource (str): The VISA resource string used for identifying the connected oscilloscope.
     profile (dict): Information about the instrument model.
     """
-    def __init__(self, visa_resource=None, profile=None, debug_mode=False):
+    def __init__(self, visa_resource=None, config=None, debug_mode=False):
         """
         Initialize the Oscilloscope class with the given VISA resource and profile information.
         
@@ -24,10 +25,14 @@ class Oscilloscope(SCPIInstrument):
         visa_resource (str): The VISA resource string used for identifying the connected oscilloscope. Optional if a profile is provided.
         profile (dict): Information about the instrument model.
         """
-        super().__init__(visa_resource=visa_resource, profile=profile, debug_mode=debug_mode)
-        if "model" not in self.profile:
-            InstrumentNotFoundError("Oscilloscope model not specified in profile.")
+        if not isinstance(config, OscilloscopeConfig):
+            raise InstrumentConfigurationError("Invalid configuration provided.")
+        super().__init__(visa_resource=visa_resource, config=config, debug_mode=debug_mode)
 
+    @classmethod
+    def from_config(cls, config: OscilloscopeConfig, debug_mode=False):
+        return cls(config=OscilloscopeConfig(**config), debug_mode=debug_mode)
+    
     def _read_preamble(self):
         """Reads the preamble from the oscilloscope.
 
@@ -46,6 +51,10 @@ class Oscilloscope(SCPIInstrument):
 
         return pre
 
+    def _check_valid_channel(self, channel: int) -> None:
+        if channel not in self.config.channels:
+            raise InstrumentParameterError(f"Invalid channel {channel}. Supported channels: {self.config.channels}")
+        
     def _read_wave_data(self, channel: int, points: int) -> np.ndarray:
 
         self._wait()
@@ -103,6 +112,8 @@ class Oscilloscope(SCPIInstrument):
         :param scale: The scale of the channel axis in volts
         :param offset: The offset of the channel in volts
         """
+        self._check_valid_channel(channel)
+        
         self._send_command(f':CHANnel{channel}:SCALe {scale}')
         self._send_command(f':CHANnel{channel}:OFFSet {offset}')
         self._wait()
@@ -120,20 +131,11 @@ class Oscilloscope(SCPIInstrument):
         """
         
         self._check_valid_channel(channel)
-        
-        if slope not in self.profile["trigger"]["slopes"]:
-            raise ValueError(f"Invalid slope {slope}. Supported slopes: {self.profile['trigger']['slopes']}")
-        if mode not in self.profile["trigger"]["modes"]:
-            raise ValueError(f"Invalid mode {mode}. Supported modes: {self.profile['trigger']['modes']}")
-        # TODO - remove hard coding
-        if trigger_type not in ["HIGH", "LOW"]:
-            raise ValueError(f"Invalid trigger type {trigger_type}. Supported trigger types: 'HIGH', 'LOW'")
-
 
         self._send_command(f':TRIG:SOUR CHAN{channel}')
-        self._send_command(f':TRIGger:LEVel:{trigger_type} {level}, {channel}')
-        self._send_command(f':TRIGger:SLOPe {slope}')
-        self._send_command(f':TRIGger:MODE {mode}')
+        self._send_command(f':TRIGger:LEVel:{self.config.trigger.types[trigger_type]} {level}, CHAN{channel}')
+        self._send_command(f':TRIGger:SLOPe {self.config.trigger.slopes[slope]}')
+        self._send_command(f':TRIGger:MODE {self.config.trigger.modes[mode]}')
         self._wait()
         
         self._log("""Trigger set with the following parameters:
@@ -161,13 +163,15 @@ class Oscilloscope(SCPIInstrument):
         """
         self._check_valid_channel(channel)
 
-
-        measurement_result = MeasurementResult(self.profile["model"], "V", "peak to peak voltage")
-
-
         response = self._query(f"MEAS:VPP? CHAN{channel}")
-        measurement_result.add(response)
-        
+
+        measurement_result = MeasurementResult(
+            values=response,
+            units="V",
+            instrument=self.config.model,
+            measurement_type="P2PV",
+        )
+
         self._log("Peak to Peak Voltage: " + str(response))
         
         return measurement_result
@@ -218,8 +222,6 @@ class Oscilloscope(SCPIInstrument):
 
         # Prepare the MeasurementResult dictionary
         sampling_rate = float(self.get_sampling_rate())
-        measurement_results = {channel: MeasurementResult(instrument=f"{self.profile['manufacturer']}:{self.profile['model']}", units="V", measurement_type="Voltage", sampling_rate=sampling_rate, realtime_timestamps=True)
-                            for channel in channels}
 
         # Setup and digitize commands
         channel_commands = ', '.join(f"CHANnel{channel}" for channel in channels)
@@ -232,6 +234,7 @@ class Oscilloscope(SCPIInstrument):
         # Prepare the time axis once, as it is the same for all channels
         time_values = (np.arange(0, pream.points, 1) - pream.xref) * pream.xinc + pream.xorg
 
+        measurement_results = {}
         for i, channel in enumerate(channels):
             data = self._read_wave_data(channel, points)
             if len(data) != pream.points:
@@ -240,10 +243,14 @@ class Oscilloscope(SCPIInstrument):
             # Calculate the voltage values
             voltages = (data - pream.yref) * pream.yinc + pream.yorg
 
-            # Populate the MeasurementResult object for this channel
-            for voltage, time_val in zip(voltages, time_values):
-                measurement_results[channel].add(MeasurementValue(voltage, timestamp=time_val))
-
+            # Populate the 2D numpy array with the voltage values
+            measurement_results[channel] = MeasurementResult(instrument=self.config.model,
+                                                            unit="V",
+                                                            measurement_type="voltage",
+                                                            sampling_rate=sampling_rate,
+                                                            time_values=time_values,
+                                                            voltage_values=voltages,
+                                                            channel=channel)
         if runAfter:
             self._send_command(":RUN")
 
@@ -256,7 +263,7 @@ class Oscilloscope(SCPIInstrument):
         # Parse the response to get the sampling rate value.
         sampling_rate = float(response)
         
-        return MeasurementValue(sampling_rate, "Hz")
+        return MeasurementResult(self.profile["model"], "Hz", "sampling rate", sampling_rate)
     
     def get_probe_attenuation(self, channel):
         """
@@ -267,7 +274,7 @@ class Oscilloscope(SCPIInstrument):
         # Set the probe attenuation for the specified channel
         response = self._query(f"CHANnel{channel}:PROBe?")
         response = f"{response}:1"
-        return MeasurementValue(response, "x")
+        return MeasurementResult(self.profile["model"], "V", "probe attenuation", response)
     
     def set_probe_attenuation(self, channel, scale):
         """
@@ -278,17 +285,8 @@ class Oscilloscope(SCPIInstrument):
             scale (float): The probe scale value (e.g., 10.0 for 10:1, 1.0 for 1:1).
         """
         self._check_valid_channel(channel)
-
-        # The command format is hypothetical and needs to be adjusted 
-        # to match the specific oscilloscope command set.
-        # TODO - add to profile
-        min_val = 0.1
-        max_val = 1000.0
         
-        if scale < min_val or scale > max_val:
-            raise ValueError(f"Invalid scale {scale}. Supported scale range: {min_val} to {max_val}")
-        
-        self._send_command(f":CH{channel}:PROBe {scale}")
+        self._send_command(f":CH{channel}:PROBe {self.config.channels[channel].probe_attenuation[scale]}")
 
         # Confirm the action to the log
         self._log(f"Set probe scale to {scale}:1 for channel {channel}.")
@@ -348,7 +346,7 @@ class Oscilloscope(SCPIInstrument):
         rate = rate.upper()
         valid_values = ["MAX", "AUTO"]
         if rate not in valid_values:
-            raise ValueError(f"Invalid Valid: supported = {valid_values}")
+            raise InstrumentParameterError(f"Invalid Valid: supported = {valid_values}")
         # Set the sample rate for acquisition
         self._send_command(f"ACQuire:SRATe {rate}")
 
@@ -389,15 +387,15 @@ class Oscilloscope(SCPIInstrument):
         state (str): The desired state ('ON' or 'OFF') for the waveform generator.
         
         Raises:
-        ValueError: If the oscilloscope model does not have a waveform generator or if the state is not supported.
+        InstrumentParameterError: If the oscilloscope model does not have a waveform generator or if the state is not supported.
         
         Example:
         >>> set_wave_gen('ON')
         """
         if "function_generator" not in self.profile:
-            raise ValueError(f"Waveform generator is not available on this oscilloscope.")
+            raise InstrumentParameterError(f"Waveform generator is not available on this oscilloscope.")
         # if state not in self.profile["function_generator"]:
-        #     raise ValueError(f"Invalid state {state}. Supported states: {self.profile['function_generator']}")
+        #     raise InstrumentParameterError(f"Invalid state {state}. Supported states: {self.profile['function_generator']}")
         
         self._send_command(f"WGEN:OUTP {'ON' if state else 'OFF'}")
 
@@ -411,15 +409,15 @@ class Oscilloscope(SCPIInstrument):
         state (str): The desired function ('SINE', 'SQUARE', etc.) for the waveform generator.
 
         Raises:
-        ValueError: If the oscilloscope model does not have a waveform generator or if the state is not supported.
+        InstrumentParameterError: If the oscilloscope model does not have a waveform generator or if the state is not supported.
 
         Example:
         >>> set_wave_gen_func('SINE')
         """
         if "function_generator" not in self.profile:
-            raise ValueError(f"Waveform generator is not available on this oscilloscope.")
+            raise InstrumentParameterError(f"Waveform generator is not available on this oscilloscope.")
         if state not in self.profile["function_generator"]["waveform_types"]:
-            raise ValueError(f"Invalid state {state}. Supported states: {self.profile['function_generator']['waveform_types']}")
+            raise InstrumentParameterError(f"Invalid state {state}. Supported states: {self.profile['function_generator']['waveform_types']}")
         
         self._send_command(f"WGEN:FUNC {state}")
 
@@ -433,15 +431,15 @@ class Oscilloscope(SCPIInstrument):
         freq (float): The desired frequency for the waveform generator in Hz.
 
         Raises:
-        ValueError: If the oscilloscope model does not have a waveform generator or if the frequency is out of range.
+        InstrumentParameterError: If the oscilloscope model does not have a waveform generator or if the frequency is out of range.
 
         Example:
         >>> set_wave_gen_freq(1000.0)
         """
         if "function_generator" not in self.profile:
-            raise ValueError(f"Waveform generator is not available on this oscilloscope.")
+            raise InstrumentParameterError(f"Waveform generator is not available on this oscilloscope.")
         if freq < self.profile["function_generator"]["frequency"]["min"] or freq > self.profile["function_generator"]["frequency"]["max"]:
-            raise ValueError(f"Invalid frequency {freq}. Supported frequency range: {self.profile['function_generator']['frequency']['min']} to {self.profile['function_generator']['frequency']['max']}")
+            raise InstrumentParameterError(f"Invalid frequency {freq}. Supported frequency range: {self.profile['function_generator']['frequency']['min']} to {self.profile['function_generator']['frequency']['max']}")
 
         self._send_command(f"WGEN:FREQ {freq}")
 
@@ -455,15 +453,15 @@ class Oscilloscope(SCPIInstrument):
         amp (float): The desired amplitude for the waveform generator in volts.
 
         Raises:
-        ValueError: If the oscilloscope model does not have a waveform generator or if the amplitude is out of range.
+        InstrumentParameterError: If the oscilloscope model does not have a waveform generator or if the amplitude is out of range.
 
         Example:
         >>> set_wave_gen_amp(1.0)
         """
         if "function_generator" not in self.profile:
-            raise ValueError(f"Waveform generator is not available on this oscilloscope.")
+            raise InstrumentParameterError(f"Waveform generator is not available on this oscilloscope.")
         if amp < self.profile["function_generator"]["amplitude"]["min"] or amp > self.profile["function_generator"]["amplitude"]["max"]:
-            raise ValueError(f"Invalid amplitude {amp}. Supported amplitude range: {self.profile['function_generator']['amplitude']['min']} to {self.profile['function_generator']['amplitude']['max']}")
+            raise InstrumentParameterError(f"Invalid amplitude {amp}. Supported amplitude range: {self.profile['function_generator']['amplitude']['min']} to {self.profile['function_generator']['amplitude']['max']}")
 
         self._send_command(f"WGEN:VOLT {amp}")
 
@@ -477,15 +475,15 @@ class Oscilloscope(SCPIInstrument):
         offset (float): The desired voltage offset for the waveform generator in volts.
 
         Raises:
-        ValueError: If the oscilloscope model does not have a waveform generator or if the offset is out of range.
+        InstrumentParameterError: If the oscilloscope model does not have a waveform generator or if the offset is out of range.
 
         Example:
         >>> set_wave_gen_offset(0.1)
         """
         if "function_generator" not in self.profile:
-            raise ValueError(f"Waveform generator is not available on this oscilloscope.")
+            raise InstrumentParameterError(f"Waveform generator is not available on this oscilloscope.")
         if offset < self.profile["function_generator"]["offset"]["min"] or offset > self.profile["function_generator"]["offset"]["max"]:
-            raise ValueError(f"Invalid offset {offset}. Supported offset range: {self.profile['function_generator']['offset']['min']} to {self.profile['function_generator']['offset']['max']}")
+            raise InstrumentParameterError(f"Invalid offset {offset}. Supported offset range: {self.profile['function_generator']['offset']['min']} to {self.profile['function_generator']['offset']['max']}")
         
         self._send_command(f"WGEN:VOLT:OFFSet {offset}")
 
@@ -497,13 +495,13 @@ class Oscilloscope(SCPIInstrument):
         :param freq: The frequency of the sine wave in Hz. The frequency can be adjusted from 100 mHz to 20 MHz.
         """
         if "function_generator" not in self.profile:
-            raise ValueError(f"Waveform generator is not available on this oscilloscope.")
+            raise InstrumentParameterError(f"Waveform generator is not available on this oscilloscope.")
         if offset < self.profile["function_generator"]["offset"]["min"] or offset > self.profile["function_generator"]["offset"]["max"]:
-            raise ValueError(f"Invalid offset {offset}. Supported offset range: {self.profile['function_generator']['offset']['min']} to {self.profile['function_generator']['offset']['max']}")
+            raise InstrumentParameterError(f"Invalid offset {offset}. Supported offset range: {self.profile['function_generator']['offset']['min']} to {self.profile['function_generator']['offset']['max']}")
         if amp < self.profile["function_generator"]["amplitude"]["min"] or amp > self.profile["function_generator"]["amplitude"]["max"]:
-            raise ValueError(f"Invalid amplitude {amp}. Supported amplitude range: {self.profile['function_generator']['amplitude']['min']} to {self.profile['function_generator']['amplitude']['max']}")
+            raise InstrumentParameterError(f"Invalid amplitude {amp}. Supported amplitude range: {self.profile['function_generator']['amplitude']['min']} to {self.profile['function_generator']['amplitude']['max']}")
         if freq < self.profile["function_generator"]["frequency"]["min"] or freq > self.profile["function_generator"]["frequency"]["max"]:
-            raise ValueError(f"Invalid frequency {freq}. Supported frequency range: {self.profile['function_generator']['frequency']['min']} to {self.profile['function_generator']['frequency']['max']}")
+            raise InstrumentParameterError(f"Invalid frequency {freq}. Supported frequency range: {self.profile['function_generator']['frequency']['min']} to {self.profile['function_generator']['frequency']['max']}")
 
         self._send_command('WGEN:FUNCtion SINusoid')
         self._send_command(f':WGEN:VOLTage {amp}')
@@ -521,7 +519,7 @@ class Oscilloscope(SCPIInstrument):
         """
 
         if "function_generator" not in self.profile:
-            raise ValueError(f"Waveform generator is not available on this oscilloscope.")
+            raise InstrumentParameterError(f"Waveform generator is not available on this oscilloscope.")
         
         self._send_command('WGEN:FUNCtion SQUare')
         self._send_command(f':WGEN:VOLTage:LOW {v0}')
@@ -540,7 +538,7 @@ class Oscilloscope(SCPIInstrument):
         """
 
         if "function_generator" not in self.profile:
-            raise ValueError(f"Waveform generator is not available on this oscilloscope.")
+            raise InstrumentParameterError(f"Waveform generator is not available on this oscilloscope.")
         
         self._send_command('WGEN:FUNCtion RAMP')
         self._send_command(f':WGEN:VOLTage:LOW {v0}')
@@ -559,7 +557,7 @@ class Oscilloscope(SCPIInstrument):
         """
 
         if "function_generator" not in self.profile:
-            raise ValueError(f"Waveform generator is not available on this oscilloscope.")
+            raise InstrumentParameterError(f"Waveform generator is not available on this oscilloscope.")
 
         self._send_command('WGEN:FUNCtion PULSe')
         self._send_command(f':WGEN:VOLTage:LOW {v0}')
@@ -575,9 +573,9 @@ class Oscilloscope(SCPIInstrument):
         """
 
         if "function_generator" not in self.profile:
-            raise ValueError(f"Waveform generator is not available on this oscilloscope.")
+            raise InstrumentParameterError(f"Waveform generator is not available on this oscilloscope.")
         if offset < self.profile["function_generator"]["offset"]["min"] or offset > self.profile["function_generator"]["offset"]["max"]:
-            raise ValueError(f"Invalid offset {offset}. Supported offset range: {self.profile['function_generator']['offset']['min']} to {self.profile['function_generator']['offset']['max']}")
+            raise InstrumentParameterError(f"Invalid offset {offset}. Supported offset range: {self.profile['function_generator']['offset']['min']} to {self.profile['function_generator']['offset']['max']}")
         
         self._send_command('WGEN:FUNCtion DC')
         self._send_command(f':WGEN:VOLTage:OFFSet {offset}')
@@ -592,7 +590,7 @@ class Oscilloscope(SCPIInstrument):
         """
         
         if "function_generator" not in self.profile:
-            raise ValueError(f"Waveform generator is not available on this oscilloscope.")
+            raise InstrumentParameterError(f"Waveform generator is not available on this oscilloscope.")
         
         self._send_command('WGEN:FUNCtion NOISe')
         self._send_command(f':WGEN:VOLTage:LOW {v0}')
@@ -608,7 +606,7 @@ class Oscilloscope(SCPIInstrument):
         Args:
         channels (list|int): A list of channel numbers to display.
         Raises:
-        ValueError: If the oscilloscope model does not support the specified channel(s).
+        InstrumentParameterError: If the oscilloscope model does not support the specified channel(s).
         
         Example:
         >>> display_channel([1, 2])
@@ -631,7 +629,7 @@ class Oscilloscope(SCPIInstrument):
         """
         
         if "fft" not in self.profile:
-            raise ValueError(f"FFT is not available on this oscilloscope.")
+            raise InstrumentParameterError(f"FFT is not available on this oscilloscope.")
         
         self._send_command(f":FFT:DISPlay {'ON' if state else 'OFF'}")
         self._log(f"FFT display {'enabled' if state else 'disabled'}.")
@@ -660,18 +658,21 @@ class Oscilloscope(SCPIInstrument):
 
         # Ensure the oscilloscope supports FFT and the specified channel is valid
         if "fft" not in self.profile:
-            raise ValueError(f"FFT is not available on this oscilloscope.")
+            raise InstrumentParameterError(f"FFT is not available on this oscilloscope.")
         if source_channel not in self.profile["channels"]:
-            raise ValueError(f"Invalid channel {source_channel}. Supported channels: {self.profile['channels']}")
+            raise InstrumentParameterError(f"Invalid channel {source_channel}. Supported channels: {self.profile['channels']}")
         if window_type not in self.profile["fft"]["window_types"]:
-            raise ValueError(f"Invalid window type {window_type}. Supported window types: {self.profile['fft']['window_types']}")
+            raise InstrumentParameterError(f"Invalid window type {window_type}. Supported window types: {self.profile['fft']['window_types']}")
         if units not in self.profile["fft"]["units"]:
-            raise ValueError(f"Invalid units {units}. Supported units: {self.profile['fft']['units']}")
+            raise InstrumentParameterError(f"Invalid units {units}. Supported units: {self.profile['fft']['units']}")
+        
         
         # Set the FFT source to the specified channel
         self._send_command(f':FFT:SOURce1 CHANnel{source_channel}')
         # Configure the FFT window type
         self._send_command(f':FFT:WINDow {window_type}')
+        # configure Center span
+        self._send_command(f':FFT:CENTer:SPAn 0')
         # Configure the FFT vertical type (units)
         self._send_command(f':FFT:VTYPe {units}')
         # Set the scale if provided
@@ -696,7 +697,7 @@ class Oscilloscope(SCPIInstrument):
 
         # Ensure that we've read the correct number of data points
         if len(data) != expected_data_points:
-            raise ValueError("Data size mismatch")
+            raise InstrumentParameterError("Data size mismatch")
         
         # Data is now in a NumPy array format and can be reshaped or processed as needed
         # For FRANalysis, the data often comes in pairs representing frequency and response (magnitude/phase)
@@ -719,11 +720,11 @@ class Oscilloscope(SCPIInstrument):
         self._check_valid_channel(output_channel)
         
         if mode not in ['SWEep', 'SINGle']:
-            raise ValueError(f"Invalid mode {mode}. Supported modes: 'SWEep', 'SINGle'")
+            raise InstrumentParameterError(f"Invalid mode {mode}. Supported modes: 'SWEep', 'SINGle'")
         if start_freq < 10 or stop_freq > 20000000:
-            raise ValueError(f"Invalid frequency range {start_freq} to {stop_freq}. Supported range: 10 Hz to 20 MHz")
+            raise InstrumentParameterError(f"Invalid frequency range {start_freq} to {stop_freq}. Supported range: 10 Hz to 20 MHz")
         if points < 1:
-            raise ValueError(f"Invalid number of points {points}. Number of points must be positive.")
+            raise InstrumentParameterError(f"Invalid number of points {points}. Number of points must be positive.")
         
         # Enable FRANalysis
         self._send_command(":FRANalysis:ENABle 1")
@@ -741,10 +742,10 @@ class Oscilloscope(SCPIInstrument):
         else:
             # Not directly provided in the command summary, assuming there's a command for points
             if points < 1:
-                raise ValueError(f"Invalid number of points {points}. Number of points must be positive.")
+                raise InstrumentParameterError(f"Invalid number of points {points}. Number of points must be positive.")
             # TODO remove this hard-coded limit - only for DSOX1204G
             if points > 1000:
-                raise ValueError(f"Invalid number of points {points}. Number of points must be less than 1000.")
+                raise InstrumentParameterError(f"Invalid number of points {points}. Number of points must be less than 1000.")
 
             self._send_command(f":FRANalysis:SWEep:POINts {points}")
 
@@ -788,7 +789,7 @@ class Oscilloscope(SCPIInstrument):
 
         # For this example, let's assume 'self.sampling_rate' is set and represents the sampling rate used for FFT
         if self.sampling_rate is None:
-            raise ValueError("Sampling rate must be set to read FFT data.")
+            raise InstrumentParameterError("Sampling rate must be set to read FFT data.")
         
         # Compute the frequency bins for the FFT data
         freq = np.fft.fftfreq(len(fft_data), 1 / self.sampling_rate)
@@ -798,17 +799,20 @@ class Oscilloscope(SCPIInstrument):
         fft_measurement_result = MeasurementResult(
             instrument=self.instrument,  # Replace with actual attribute, if different
             units=units,  
-            measurement_type="Frequency Spectrum",
-            sampling_rate=self.sampling_rate  # Including the sampling rate for reference
+            measurement_type="FFT",
+            sampling_rate=self.sampling_rate,  # Including the sampling rate for reference
+            values= np.array([freq, fft_data])
         )
         
         # Populate the MeasurementResult with MeasurementValue objects
-        for f, magnitude in zip(freq, fft_data):
-            fft_measurement_value = MeasurementValue(value=magnitude)
-            # Normally, timestamp would be set to the time the measurement was taken
-            # In this case, we can repurpose it to store the frequency, if that's acceptable for your design
-            fft_measurement_value.timestamp = f
-            fft_measurement_result.add(fft_measurement_value)
+        # for f, magnitude in zip(freq, fft_data):
+            # fft_measurement_value = MeasurementValue(value=magnitude)
+            # # Normally, timestamp would be set to the time the measurement was taken
+            # # In this case, we can repurpose it to store the frequency, if that's acceptable for your design
+            # fft_measurement_value.timestamp = f
+
+
+            # fft_measurement_result.add(fft_measurement_value)
         
         return fft_measurement_result
 
@@ -819,7 +823,7 @@ class Oscilloscope(SCPIInstrument):
 
 #     def _available_jitter_measurements(self, jitter_type):
 #         if jitter_type not in self.profile["jitter_analysis"]["available_types"]:
-#             raise ValueError(f"Invalid jitter type {jitter_type}. Supported jitter types: {self.profile['jitter_analysis']}")
+#             raise InstrumentParameterError(f"Invalid jitter type {jitter_type}. Supported jitter types: {self.profile['jitter_analysis']}")
 
 #     def setup_rms_jitter_measurement(self, channel):
 #         self._available_jitter_measurements("rms")

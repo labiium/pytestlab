@@ -1,4 +1,5 @@
 from pytestlab.instruments.Oscilloscope import Oscilloscope
+# from pytestlab.instruments import 
 from pytestlab.instruments.PowerSupply import PowerSupply
 from pytestlab.instruments.WaveformGenerator import WaveformGenerator
 from pytestlab.profiles.keysight.smartbench import oscilloscope_profile, power_supply_profile, awg_profile
@@ -6,22 +7,31 @@ from pytestlab.profiles.keysight.smartbench import oscilloscope_profile, power_s
 # # # Create an instance of the Oscilloscope class
 
 # visa_resource = "USB0::0x2A8D::0x0396::CN62277315::0::INSTR"
-# visa_resource = "TCPIP0::169.254.70.148::hislip0::INSTR"
-# visa_resource = "TCPIP::169.254.70.148::inst0::INSTR"
-# osc = Oscilloscope(visa_resource=visa_resource, profile=oscilloscope_profile["DSOX1204G"])
+
+visa_resource = "USB0::0x2A8D::0x0396::CN63197216::0::INSTR"
+osc = Oscilloscope(visa_resource=visa_resource, profile=oscilloscope_profile["DSOX1204G"])
+
 
 # osc.reset()
 
-# wave_visa_resource = "TCPIP::169.254.15.60::5025::SOCKET"
+# osc.configure_trigger(2, 2)
+
+osc.set_trigger(2, 0.001)
+
+# wave_visa_resource = ""
 
 # awg = WaveformGenerator(visa_resource=wave_visa_resource, profile=awg_profile["EDU33212A"])
 
 # awg.reset()
+# awg.output(1, state=True)
+# awg.set_amplitude(1, 2)
+# awg.set_offset(1, 2)
 
-# awg._send_command("*OCR?")
-# awg.set_amplitude(1, 3)
-# # osc.display_channel([1,2,3,4])
-# # values = osc.perform_franalysis(1,2, 50, 1000)
+
+# awg.o
+# # awg.close()
+# osc.display_channel([1,2,3,4])
+# values = osc.perform_franalysis(1,2, 50, 1000)
 
 # # print(values)
 
@@ -79,15 +89,17 @@ from pytestlab.profiles.keysight.smartbench import oscilloscope_profile, power_s
 # awg_resource = "USB0::0x2A8D::0x8D01::CN62490164::0::INSTR"
 # awg = WaveformGenerator(visa_resource=awg_resource, profile=awg_profile["EDU33212A"])
 
-# awg.set_amplitude(1, 3)
+# # awg.set_amplitude(1, 3)
 # awg.set_frequency(1, 3446)
-# awg.set_offset(1, 0)
+# # awg._wait()
+# awg.set_offset(1, 10)
 
-# ## Generate arbitrary waveform
-# import numpy as np
+# # ## Generate arbitrary waveform
+# # import numpy as np
 
-# waves = np.linspace(-1, 1, 1000)
-# # waves = np.sin(waves)
+# # waves = np.linspace(-1, 1, 1000)
+# # # waves = np.sin(waves)
 
-# awg.set_arbitrary_waveform(1, waves)
-# awg.set_waveform?
+# # awg.set_arbitrary_waveform(1, waves)
+# # awg.set_waveform?
+# awg._wait()

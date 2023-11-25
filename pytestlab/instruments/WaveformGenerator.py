@@ -1,10 +1,11 @@
-from pytestlab.instruments.instrument import SCPIInstrument
-from pytestlab.errors import SCPIConnectionError, SCPICommunicationError, SCPIValueError, InstrumentNotFoundError, IntrumentConfigurationError
+from .instrument import Instrument
+from ..errors import InstrumentConfigurationError
+from ..config import WaveformGeneratorConfig
 import numpy as np
 import re
 
-class WaveformGenerator(SCPIInstrument):
-    def __init__(self, visa_resource=None, profile=None, debug_mode=False):
+class WaveformGenerator(Instrument):
+    def __init__pd(self, visa_resource=None, config=None, debug_mode=False):
         """
         Initialize a WaveformGenerator instance with a device profile.
 
@@ -12,10 +13,14 @@ class WaveformGenerator(SCPIInstrument):
             profile (dict): A dictionary containing device profile information.
 
         """
-        super().__init__(visa_resource=visa_resource, profile=profile, debug_mode=debug_mode)
-        if "model" not in self.profile:
-            raise IntrumentConfigurationError("Waveform Generator model not specified in profile.")
-
+        if not isinstance(config, WaveformGenerator):
+            raise InstrumentConfigurationError("WaveformGeneratorConfig required to initialize WaveformGenerator")
+        super().__init__(visa_resource=visa_resource, config=config, debug_mode=debug_mode)
+        
+    @classmethod
+    def from_config(cls, config: WaveformGeneratorConfig, debug_mode=False):
+        return cls(config=WaveformGeneratorConfig(**config), debug_mode=debug_mode)
+    
     def _validate_waveform(self, waveform_type):
         """
         Validate if the waveform type is supported by the device.
@@ -27,9 +32,8 @@ class WaveformGenerator(SCPIInstrument):
             ValueError: If the waveform type is not supported.
 
         """
-        standard_waveforms = [w.upper() for w in self.profile.get('waveforms', {}).get('standard', [])]
-        if waveform_type.upper() not in standard_waveforms:
-            raise ValueError(f"Invalid waveform type: {waveform_type}. Supported types: {standard_waveforms}")
+        # TODO: MERGE STANDARD AND BUILT-IN WAVEFORMS
+        pass
 
     def _validate_frequency(self, frequency):
         """
@@ -42,44 +46,11 @@ class WaveformGenerator(SCPIInstrument):
             ValueError: If the frequency is out of range.
 
         """
-        max_frequency = self.profile.get('max_frequency')
+        # TODO: add frequency range to config
+        max_frequency = self.config.max_frequency
         if frequency > max_frequency:
             raise ValueError(f"Frequency out of range. Max supported frequency: {max_frequency}")
 
-    def _validate_amplitude(self, amplitude):
-        """
-        Validate if the amplitude is within the device's supported range.
-
-        Args:
-            amplitude (float): The amplitude to validate.
-
-        Raises:
-            ValueError: If the amplitude is out of range.
-
-        """
-        min_amplitude = self.profile.get('amplitude', {}).get('min', 0)
-        max_amplitude = self.profile.get('amplitude', {}).get('max', float('inf'))
-        
-        if min_amplitude >= amplitude or amplitude >= max_amplitude:
-            raise ValueError(f"Amplitude out of range. Supported range: {min_amplitude} to {max_amplitude}")
-
-    def _validate_offset(self, offset):
-        """
-        Validate if the offset is within the device's supported range.
-
-        Args:
-            offset (float): The offset to validate.
-
-        Raises:
-            ValueError: If the offset is out of range.
-
-        """
-        min_offset = self.profile.get('dc_offset', {}).get('min', float('-inf'))
-        max_offset = self.profile.get('dc_offset', {}).get('max', float('inf'))
-        
-        if min_offset >= offset or offset >= max_offset:
-            raise ValueError(f"Offset out of range. Supported range: {min_offset} to {max_offset}")
-        
     def set_arbitrary_waveform(self, channel, waveform, scale=True, name="pytestlabArb"):
         """
         Sets the arbitrary waveform for the specified channel.
@@ -125,7 +96,8 @@ class WaveformGenerator(SCPIInstrument):
             channel (int or str): The channel for which to set the waveform.
             waveform_type (str): The type of waveform to set.
 
-        """
+        """ 
+        # TODO: merge standard and built-in waveforms
         self._validate_waveform(waveform_type)
         self._check_valid_channel(channel)
         self._send_command(f"SOUR{channel}:FUNC {waveform_type.upper()}")
@@ -141,7 +113,7 @@ class WaveformGenerator(SCPIInstrument):
 
         """
         self._check_valid_channel(channel)
-        self._validate_frequency(frequency)
+        
         self._send_command(f"SOUR{channel}:FREQ {frequency}")
         self._log(f"Frequency set to {frequency} Hz")
 
@@ -154,8 +126,7 @@ class WaveformGenerator(SCPIInstrument):
             amplitude (float): The amplitude to set.
 
         """
-        self._check_valid_channel(channel)
-        self._validate_amplitude(amplitude)
+        self.config.amplitude.in_range(amplitude)
         self._send_command(f"SOUR{channel}:VOLTage:AMPL {amplitude}")
 
     def set_offset(self, channel, offset):
@@ -167,7 +138,7 @@ class WaveformGenerator(SCPIInstrument):
             offset (float): The offset to set.
 
         """
-        self._validate_offset(offset)
+        self.config.dc_offset.in_range(offset)
         self._send_command(f"SOUR{channel}:VOLTage:OFFSet {offset}")
 
     def output(self, channel, state):
