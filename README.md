@@ -1,5 +1,4 @@
-# PyTestLab 
-![PyTestLab](pytestlab.png)
+# ![PyTestLab](pytestlab_logo.png) PyTestLab
 
 A Python library for test and measurement  automation and measurement data management.
 
