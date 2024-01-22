@@ -99,8 +99,7 @@ class WaveformGenerator(Instrument):
         """ 
         # TODO: merge standard and built-in waveforms
         self._validate_waveform(waveform_type)
-        self._check_valid_channel(channel)
-        self._send_command(f"SOUR{channel}:FUNC {waveform_type.upper()}")
+        self._send_command(f"SOUR{self.config.channels[channel]}:FUNC {waveform_type.upper()}")
         self._log(f"Waveform set to {waveform_type}")
 
     def set_frequency(self, channel, frequency):
@@ -112,9 +111,7 @@ class WaveformGenerator(Instrument):
             frequency (float): The frequency to set.
 
         """
-        self._check_valid_channel(channel)
-        
-        self._send_command(f"SOUR{channel}:FREQ {frequency}")
+        self._send_command(f"SOUR{self.config.channels[channel]}:FREQ {frequency}")
         self._log(f"Frequency set to {frequency} Hz")
 
     def set_amplitude(self, channel, amplitude):

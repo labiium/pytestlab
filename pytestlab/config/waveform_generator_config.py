@@ -24,7 +24,27 @@ class ChannelsConfig(Config):
         for channel, channel_config in kwargs.items():
             self.channels[int(channel)] = channel_config
             self.channels[int(channel)] = channel_config
+    def __getitem__(self, channel):
+        """
+        Validate and return the channel if it is within the range.
 
+        Args:
+            channel (int): The channel to validate.
+
+        Returns:
+            ChannelConfig: The validated channel.
+
+        Raises:
+            InstrumentParameterError: If the channel is not valid.
+        """
+        if not isinstance(channel, int):
+            raise ValueError(f"channel must be an integer. Received: {channel}")
+
+        if channel not in self.channels:
+            raise InstrumentParameterError(f"Invalid channel: {channel}. Valid channels: {list(self.channels.keys())}")
+        # returns the channel
+        return channel
+    
     def to_json(self):
         return self.channels
 class WaveformsConfig(Config):

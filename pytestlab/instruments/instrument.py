@@ -98,6 +98,26 @@ class Instrument:
             self._command_log.append({"command": query, "success": False, "type": "query", "timestamp":time.time})
             raise InstrumentCommunicationError(f"Failed to query instrument: {str(e)}")
         
+    def _error_check(self):
+        """
+        Checks for errors on the instrument
+        """
+        error = self.instrument.query(":SYSTem:ERRor?")
+        if error != "+0,\"No error\"":
+            raise InstrumentCommunicationError(f"Instrument returned error: {error}")
+
+    def lock_panel(self, lock=True):
+        """
+        Locks the panel of the instrument
+
+        Args:
+            lock (bool): True to lock the panel, False to unlock it
+        """
+        if lock:
+            self._send_command(":SYSTem:LOCK ON")
+        else:
+            self._send_command(":SYSTem:LOCK OFF")
+
     def _wait(self):
         """
         Blocks until all previous commands have been processed by the instrument.
@@ -123,6 +143,15 @@ class Instrument:
         for command in self._command_log:
             print(command)
 
+    def _error_check(self):
+        """
+        Checks for errors on the instrument
+        """
+        error = self.instrument.query(":SYSTem:ERRor?")
+        if error != "+0,\"No error\"":
+            raise InstrumentCommunicationError(f"Instrument returned error: {error}")
+
+
     def id(self):
         """
         Query the instrument for its identification.
@@ -145,6 +174,23 @@ class Instrument:
         self._send_command("*RST")
         self._log("Resetting instrument to default settings.")
         self._command_log.append({"command": "RESET", "success": True, "type": "reset", "timestamp":time.time})
+
+    @classmethod
+    def requires(cls, requirement: str):
+        """
+        Decorator that can be used to specify requirements for a method.
+        
+        Args:
+            requirement (str): The requirement that must be met for the method to be executed.
+        """
+        def decorator(func):
+            def wrapped_func(self, *args, **kwargs):
+                if self.config.requires(requirement):
+                    return func(self, *args, **kwargs)
+                else:
+                    raise InstrumentConfigurationError(f"Method '{func.__name__}' requires '{requirement}'. This functionality is not available for this instrument.")
+            return wrapped_func
+        return decorator
 
     # def set_channel_voltage(self, channel, voltage):
     #     """

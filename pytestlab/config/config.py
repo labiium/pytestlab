@@ -1,6 +1,6 @@
 import re
 from typing import Any
-from ..errors import InstrumentParameterError
+from ..errors import InstrumentParameterError, InstrumentConfigurationError
 
 class Config:
     def to_json(self):
@@ -134,3 +134,14 @@ class SelectionConfig(Config):
             dict: The serialized representation.
         """
         return self.options
+    
+    
+def ConfigRequires(requirement):
+    def decorator(func):
+        def wrapped_func(self, *args, **kwargs):
+            if self.config.active or not hasattr(self.config, requirement):
+                return func(self, *args, **kwargs)
+            else:
+                raise InstrumentConfigurationError(f"Method '{func.__name__}' requires '{requirement}'. This functionality is not available for this instrument.")
+        return wrapped_func
+    return decorator

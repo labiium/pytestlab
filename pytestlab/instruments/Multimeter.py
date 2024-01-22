@@ -13,7 +13,7 @@ class Multimeter(Instrument):
         config (MultimeterConfig): A class containing the device configuration.
     """
 
-    def __init__(self, visa_resource=None, config=None):
+    def __init__(self, visa_resource=None, config=None, debug_mode=False):
         """
         Initializes a DigitalMultimeter instance.
 
@@ -23,7 +23,7 @@ class Multimeter(Instrument):
         """
         if not isinstance(config, MultimeterConfig):
             raise InstrumentConfigurationError("MultimeterConfig required to initialize Multimeter")
-        super().__init__(visa_resource=visa_resource, config=config)
+        super().__init__(visa_resource=visa_resource, config=config, debug_mode=debug_mode)
 
     @classmethod
     def from_config(cls, config: MultimeterConfig, debug_mode=False):

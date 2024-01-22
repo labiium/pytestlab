@@ -1,7 +1,7 @@
 import time
 from typing import List
 from .instrument import Instrument
-from ..config import OscilloscopeConfig
+from ..config import OscilloscopeConfig, ConfigRequires
 from ..errors import InstrumentConfigurationError, InstrumentParameterError
 from ..MeasurementDatabase import MeasurementResult, Preamble
 import numpy as np
@@ -196,16 +196,31 @@ class Oscilloscope(Instrument):
         #Error Handling
         self._check_valid_channel(channel)
 
-
-        measurement_result = MeasurementResult(self.profile["model"], "V", "rms voltage")
         response = self._query(f"MEAS:VRMS? CHAN{channel}")
-        measurement_result.add(response)
         
         self._log("RMS Voltage: " + str(response))
         
+        measurement_result = MeasurementResult(float(response),self.config.model, "V", "rms voltage")
         return measurement_result
 
     def read_channels(self, channels: List[int] | int, points=10000, runAfter=True, timebase=None):
+        """
+        Reads the specified channels from the oscilloscope.
+        
+        This method sends an SCPI command to the oscilloscope to read the specified channels.
+        
+        Args:
+        channels (list|int): A list of channel numbers to read.
+        points (int): The number of points to read from each channel.
+        timebase (float): The timebase scale to use for the measurement.
+        
+        Returns:
+        dict: A dictionary containing the measurement results for each channel.
+        
+        Example:
+        >>> read_channels([1, 2, 3, 4])
+
+        """
         if timebase is not None:
             self.set_timebase_scale(timebase)
 
@@ -263,7 +278,7 @@ class Oscilloscope(Instrument):
         # Parse the response to get the sampling rate value.
         sampling_rate = float(response)
         
-        return MeasurementResult(self.profile["model"], "Hz", "sampling rate", sampling_rate)
+        return MeasurementResult(sampling_rate, self.config.model, "Hz", "sampling rate")
     
     def get_probe_attenuation(self, channel):
         """
@@ -274,8 +289,9 @@ class Oscilloscope(Instrument):
         # Set the probe attenuation for the specified channel
         response = self._query(f"CHANnel{channel}:PROBe?")
         response = f"{response}:1"
-        return MeasurementResult(self.profile["model"], "V", "probe attenuation", response)
-    
+        # return MeasurementResult(self.config.model, "V", "probe attenuation", response)
+        return response
+        
     def set_probe_attenuation(self, channel, scale):
         """
         Sets the probe scale for a given channel.
@@ -320,10 +336,9 @@ class Oscilloscope(Instrument):
         <MeasurementResult object at 0x7f1ec2a4f650>
         """
 
-        measurement_result = MeasurementResult(self.profile["model"], "s", "timebase scale")
         response = self._query("TIM:SCAL?")
 
-        measurement_result.add(response)
+        measurement_result = MeasurementResult(response, self.config.model, "s", "timebase scale")
         return measurement_result
 
     def set_acquisition_time(self, time):
@@ -377,6 +392,7 @@ class Oscilloscope(Instrument):
         # Set the trigger source to the specified channel
         self._send_command(f"TRIGger:SOURce CHANnel{channel}")
 
+    @ConfigRequires("function_generator")
     def wave_gen(self, state: bool):
         """
         Enable or disable the waveform generator of the oscilloscope.
@@ -392,13 +408,9 @@ class Oscilloscope(Instrument):
         Example:
         >>> set_wave_gen('ON')
         """
-        if "function_generator" not in self.profile:
-            raise InstrumentParameterError(f"Waveform generator is not available on this oscilloscope.")
-        # if state not in self.profile["function_generator"]:
-        #     raise InstrumentParameterError(f"Invalid state {state}. Supported states: {self.profile['function_generator']}")
-        
         self._send_command(f"WGEN:OUTP {'ON' if state else 'OFF'}")
 
+    @ConfigRequires("function_generator")
     def set_wave_gen_func(self, state):
         """
         Set the waveform function for the oscilloscope's waveform generator.
@@ -414,13 +426,10 @@ class Oscilloscope(Instrument):
         Example:
         >>> set_wave_gen_func('SINE')
         """
-        if "function_generator" not in self.profile:
-            raise InstrumentParameterError(f"Waveform generator is not available on this oscilloscope.")
-        if state not in self.profile["function_generator"]["waveform_types"]:
-            raise InstrumentParameterError(f"Invalid state {state}. Supported states: {self.profile['function_generator']['waveform_types']}")
         
-        self._send_command(f"WGEN:FUNC {state}")
+        self._send_command(f"WGEN:FUNC {self.config.function_generator.waveform_types[state]}")
 
+    @ConfigRequires("function_generator")
     def set_wave_gen_freq(self, freq):
         """
         Set the frequency for the waveform generator.
@@ -436,13 +445,10 @@ class Oscilloscope(Instrument):
         Example:
         >>> set_wave_gen_freq(1000.0)
         """
-        if "function_generator" not in self.profile:
-            raise InstrumentParameterError(f"Waveform generator is not available on this oscilloscope.")
-        if freq < self.profile["function_generator"]["frequency"]["min"] or freq > self.profile["function_generator"]["frequency"]["max"]:
-            raise InstrumentParameterError(f"Invalid frequency {freq}. Supported frequency range: {self.profile['function_generator']['frequency']['min']} to {self.profile['function_generator']['frequency']['max']}")
 
-        self._send_command(f"WGEN:FREQ {freq}")
+        self._send_command(f"WGEN:FREQ {self.config.fucntion_generator.frequency.in_range(freq)}")
 
+    @ConfigRequires("function_generator")
     def set_wave_gen_amp(self, amp):
         """
         Set the amplitude for the waveform generator.
@@ -458,13 +464,10 @@ class Oscilloscope(Instrument):
         Example:
         >>> set_wave_gen_amp(1.0)
         """
-        if "function_generator" not in self.profile:
-            raise InstrumentParameterError(f"Waveform generator is not available on this oscilloscope.")
-        if amp < self.profile["function_generator"]["amplitude"]["min"] or amp > self.profile["function_generator"]["amplitude"]["max"]:
-            raise InstrumentParameterError(f"Invalid amplitude {amp}. Supported amplitude range: {self.profile['function_generator']['amplitude']['min']} to {self.profile['function_generator']['amplitude']['max']}")
 
-        self._send_command(f"WGEN:VOLT {amp}")
+        self._send_command(f"WGEN:VOLT {self.config.model.function_generator.amplitude.in_range(amp)}")
 
+    @ConfigRequires("function_generator")
     def set_wave_gen_offset(self, offset):
         """
         Set the voltage offset for the waveform generator.
@@ -480,13 +483,10 @@ class Oscilloscope(Instrument):
         Example:
         >>> set_wave_gen_offset(0.1)
         """
-        if "function_generator" not in self.profile:
-            raise InstrumentParameterError(f"Waveform generator is not available on this oscilloscope.")
-        if offset < self.profile["function_generator"]["offset"]["min"] or offset > self.profile["function_generator"]["offset"]["max"]:
-            raise InstrumentParameterError(f"Invalid offset {offset}. Supported offset range: {self.profile['function_generator']['offset']['min']} to {self.profile['function_generator']['offset']['max']}")
         
-        self._send_command(f"WGEN:VOLT:OFFSet {offset}")
+        self._send_command(f"WGEN:VOLT:OFFSet {self.config.function_generator.offset.in_range(offset)}")
 
+    @ConfigRequires("function_generator")
     def set_wgen_sin(self, amp: float, offset: float, freq: float) -> None:
         """Sets the waveform generator to a sine wave. (Only available on specific models)
 
@@ -494,21 +494,14 @@ class Oscilloscope(Instrument):
         :param offset: The offset of the sine wave in volts
         :param freq: The frequency of the sine wave in Hz. The frequency can be adjusted from 100 mHz to 20 MHz.
         """
-        if "function_generator" not in self.profile:
-            raise InstrumentParameterError(f"Waveform generator is not available on this oscilloscope.")
-        if offset < self.profile["function_generator"]["offset"]["min"] or offset > self.profile["function_generator"]["offset"]["max"]:
-            raise InstrumentParameterError(f"Invalid offset {offset}. Supported offset range: {self.profile['function_generator']['offset']['min']} to {self.profile['function_generator']['offset']['max']}")
-        if amp < self.profile["function_generator"]["amplitude"]["min"] or amp > self.profile["function_generator"]["amplitude"]["max"]:
-            raise InstrumentParameterError(f"Invalid amplitude {amp}. Supported amplitude range: {self.profile['function_generator']['amplitude']['min']} to {self.profile['function_generator']['amplitude']['max']}")
-        if freq < self.profile["function_generator"]["frequency"]["min"] or freq > self.profile["function_generator"]["frequency"]["max"]:
-            raise InstrumentParameterError(f"Invalid frequency {freq}. Supported frequency range: {self.profile['function_generator']['frequency']['min']} to {self.profile['function_generator']['frequency']['max']}")
 
         self._send_command('WGEN:FUNCtion SINusoid')
-        self._send_command(f':WGEN:VOLTage {amp}')
-        self._send_command(f':WGEN:VOLTage:OFFSet {offset}')
-        self._send_command(f':WGEN:FREQuency {freq}')
+        self._send_command(f':WGEN:VOLTage {self.config.function_generator.amplitude.in_range(amp)}')
+        self._send_command(f':WGEN:VOLTage:OFFSet {self.config.function_generator.offset.in_range(offset)}')
+        self._send_command(f':WGEN:FREQuency {self.config.function_generator.frequency.in_range(freq)}')
 
 
+    @ConfigRequires("function_generator")
     def set_wgen_square(self, v0: float, v1: float, freq: float, dutyCycle: int) -> None:
         """Sets the waveform generator to a square wave. (Only available on specific models)
 
@@ -517,17 +510,19 @@ class Oscilloscope(Instrument):
         :param freq: The frequency of the square wave in Hz. The frequency can be adjusted from 100 mHz to 10 MHz.
         :param dutyCycle: The duty cycle can be adjusted from 1% to 99% up to 500 kHz. At higher frequencies, the adjustment range narrows so as not to allow pulse widths less than 20 ns.
         """
+        def clamp(number):
+            number = min(number, 99)
+            number = max(number, 1)
+            return number
 
-        if "function_generator" not in self.profile:
-            raise InstrumentParameterError(f"Waveform generator is not available on this oscilloscope.")
-        
         self._send_command('WGEN:FUNCtion SQUare')
-        self._send_command(f':WGEN:VOLTage:LOW {v0}')
-        self._send_command(f':WGEN:VOLTage:HIGH {v1}')
-        self._send_command(f':WGEN:FREQuency {freq}')
-        self._send_command(f':WGEN:FUNCtion:SQUare:DCYCle {dutyCycle}')
+        self._send_command(f':WGEN:VOLTage:LOW {self.config.function_generator.voltage.in_range(v0)}')
+        self._send_command(f':WGEN:VOLTage:HIGH {self.config.function_generator.voltage.in_range(v1)}')
+        self._send_command(f':WGEN:FREQuency {self.config.fun}')
+        self._send_command(f':WGEN:FUNCtion:SQUare:DCYCle {clamp(dutyCycle)}')
 
 
+    @ConfigRequires("function_generator")
     def set_wgen_ramp(self, v0: float, v1: float, freq: float, symmetry: int) -> None:
         """Sets the waveform generator to a ramp wave. (Only available on specific models)
 
@@ -536,17 +531,21 @@ class Oscilloscope(Instrument):
         :param freq: The frequency of the ramp wave in Hz. The frequency can be adjusted from 100 mHz to 100 kHz.
         :param symmetry: Symmetry represents the amount of time per cycle that the ramp waveform is rising and can be adjusted from 0% to 100%.
         """
-
-        if "function_generator" not in self.profile:
-            raise InstrumentParameterError(f"Waveform generator is not available on this oscilloscope.")
         
+        def clamp(number):
+            number = min(number, 100)
+            number = max(number, 0)
+            return number
+
+
         self._send_command('WGEN:FUNCtion RAMP')
-        self._send_command(f':WGEN:VOLTage:LOW {v0}')
-        self._send_command(f':WGEN:VOLTage:HIGH {v1}')
-        self._send_command(f':WGEN:FREQuency {freq}')
-        self._send_command(f':WGEN:FUNCtion:RAMP:SYMMetry {symmetry}')
+        self._send_command(f':WGEN:VOLTage:LOW {self.config.function_generator.voltage.in_range(v0)}')
+        self._send_command(f':WGEN:VOLTage:HIGH {self.config.function_generator.voltage.in_range(v1)}')
+        self._send_command(f':WGEN:FREQuency {self.config.function_generator.frequency.in_range(freq)}')
+        self._send_command(f':WGEN:FUNCtion:RAMP:SYMMetry {clamp(symmetry)}')
 
 
+    @ConfigRequires("function_generator")
     def set_wgen_pulse(self, v0: float, v1: float, period: float, pulseWidth: float) -> None:
         """Sets the waveform generator to a pulse wave. (Only available on specific models)
 
@@ -555,32 +554,31 @@ class Oscilloscope(Instrument):
         :param period: The period of the pulse wave in seconds. The period can be adjusted from 10 ns to 10 s.
         :param pulseWidth: The pulse width can be adjusted from 20 ns to the period minus 20 ns.
         """
-
-        if "function_generator" not in self.profile:
-            raise InstrumentParameterError(f"Waveform generator is not available on this oscilloscope.")
+        
+        def clamp(number):
+            number = min(number, 10)
+            number = max(number, 0.00000001)
+            return number
 
         self._send_command('WGEN:FUNCtion PULSe')
-        self._send_command(f':WGEN:VOLTage:LOW {v0}')
-        self._send_command(f':WGEN:VOLTage:HIGH {v1}')
+        self._send_command(f':WGEN:VOLTage:LOW {self.config.function_generator.voltage.in_range(v0)}')
+        self._send_command(f':WGEN:VOLTage:HIGH {self.config.function_generator.voltage.in_range(v1)}')
         self._send_command(f':WGEN:PERiod {period}')
-        self._send_command(f':WGEN:FUNCtion:PULSe:WIDTh {pulseWidth}')
+        self._send_command(f':WGEN:FUNCtion:PULSe:WIDTh {clamp(pulseWidth)}')
 
 
+    @ConfigRequires("function_generator")
     def set_wgen_dc(self, offset: float) -> None:
         """Sets the waveform generator to a DC wave. (Only available on specific models)
 
         :param offset: The offset of the DC wave in volts
         """
-
-        if "function_generator" not in self.profile:
-            raise InstrumentParameterError(f"Waveform generator is not available on this oscilloscope.")
-        if offset < self.profile["function_generator"]["offset"]["min"] or offset > self.profile["function_generator"]["offset"]["max"]:
-            raise InstrumentParameterError(f"Invalid offset {offset}. Supported offset range: {self.profile['function_generator']['offset']['min']} to {self.profile['function_generator']['offset']['max']}")
         
         self._send_command('WGEN:FUNCtion DC')
-        self._send_command(f':WGEN:VOLTage:OFFSet {offset}')
+        self._send_command(f':WGEN:VOLTage:OFFSet {self.config.function_generator.offset.in_range(offset)}')
 
 
+    @ConfigRequires("function_generator")
     def set_wgen_noise(self, v0: float, v1: float, offset: float) -> None:
         """Sets the waveform generator to a noise wave. (Only available on specific models)
 
@@ -589,13 +587,10 @@ class Oscilloscope(Instrument):
         :param offset: The offset of the noise wave in volts
         """
         
-        if "function_generator" not in self.profile:
-            raise InstrumentParameterError(f"Waveform generator is not available on this oscilloscope.")
-        
         self._send_command('WGEN:FUNCtion NOISe')
-        self._send_command(f':WGEN:VOLTage:LOW {v0}')
-        self._send_command(f':WGEN:VOLTage:HIGH {v1}')
-        self._send_command(f':WGEN:VOLTage:OFFSet {offset}')
+        self._send_command(f':WGEN:VOLTage:LOW {self.config.function_generator.voltage.in_range(v0)}')
+        self._send_command(f':WGEN:VOLTage:HIGH {self.config.function_generator.voltage.in_range(v1)}')
+        self._send_command(f':WGEN:VOLTage:OFFSet {self.config.function_generator.offset.in_range(offset)}')
 
     def display_channel(self, channels: list | int, state=True) -> None:
         """
@@ -620,7 +615,7 @@ class Oscilloscope(Instrument):
         for channel in channels:
             self._send_command(f"CHAN{channel}:DISP {'ON' if state else 'OFF'}")
 
-
+    @ConfigRequires("fft")
     def fft_display(self, state=True):
         """
         Switches on the FFT display
@@ -628,12 +623,10 @@ class Oscilloscope(Instrument):
         :param state: The state of the FFT display
         """
         
-        if "fft" not in self.profile:
-            raise InstrumentParameterError(f"FFT is not available on this oscilloscope.")
-        
         self._send_command(f":FFT:DISPlay {'ON' if state else 'OFF'}")
         self._log(f"FFT display {'enabled' if state else 'disabled'}.")
-
+        
+    @ConfigRequires("function_generator")
     def function_display(self, state=True):
         """
         Switches on the function display
@@ -644,6 +637,7 @@ class Oscilloscope(Instrument):
         self._send_command(f":FUNCtion:DISPlay {'ON' if state else 'OFF'}")
         self._log(f"Function display {'enabled' if state else 'disabled'}.")
 
+    @ConfigRequires("fft")
     def configure_fft(self, source_channel: int, scale: float = None, offset: float = None, window_type: str = 'HANNing', units: str = 'DECibel', display: bool = True):
         """
         Configure the oscilloscope to perform an FFT on the specified channel with the given parameters.
@@ -657,14 +651,12 @@ class Oscilloscope(Instrument):
         """
 
         # Ensure the oscilloscope supports FFT and the specified channel is valid
-        if "fft" not in self.profile:
-            raise InstrumentParameterError(f"FFT is not available on this oscilloscope.")
-        if source_channel not in self.profile["channels"]:
-            raise InstrumentParameterError(f"Invalid channel {source_channel}. Supported channels: {self.profile['channels']}")
-        if window_type not in self.profile["fft"]["window_types"]:
-            raise InstrumentParameterError(f"Invalid window type {window_type}. Supported window types: {self.profile['fft']['window_types']}")
-        if units not in self.profile["fft"]["units"]:
-            raise InstrumentParameterError(f"Invalid units {units}. Supported units: {self.profile['fft']['units']}")
+        # if source_channel not in self.profile["channels"]:
+        #     raise InstrumentParameterError(f"Invalid channel {source_channel}. Supported channels: {self.profile['channels']}")
+        # if window_type not in self.profile["fft"]["window_types"]:
+        #     raise InstrumentParameterError(f"Invalid window type {window_type}. Supported window types: {self.profile['fft']['window_types']}")
+        # if units not in self.profile["fft"]["units"]:
+        #     raise InstrumentParameterError(f"Invalid units {units}. Supported units: {self.profile['fft']['units']}")
         
         
         # Set the FFT source to the specified channel
@@ -769,6 +761,7 @@ class Oscilloscope(Instrument):
         # Return the processed data
         return data
     
+    @ConfigRequires("fft")
     def read_fft_data(self) -> MeasurementResult:
         """
         Perform the FFT and read the data from the oscilloscope, returning it as a MeasurementResult.

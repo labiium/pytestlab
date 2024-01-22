@@ -36,8 +36,8 @@ class AutoInstrument:
         preset_path = os.path.join(current_file_directory, "profiles", normalized_identifier + '.json')
 
         # Debugging print statements
-        print("current_file_directory:", os.path.abspath(current_file_directory))
-        print("preset_path:", preset_path)
+        # print("current_file_directory:", os.path.abspath(current_file_directory))
+        # print("preset_path:", preset_path)
         
         if os.path.exists(preset_path):
             with open(preset_path, 'r') as file:
