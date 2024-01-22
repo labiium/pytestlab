@@ -11,7 +11,7 @@ class AutoInstrument:
         'oscilloscope': Oscilloscope,
         'waveform_generator': WaveformGenerator,
         'power_supply': PowerSupply,
-        # ... other instruments
+        'multimeter': Multimeter,
     }
 
     @classmethod

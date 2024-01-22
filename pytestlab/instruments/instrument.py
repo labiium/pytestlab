@@ -70,6 +70,7 @@ class Instrument:
         """
         try:
             self.instrument.write(command)
+            self._error_check()
             self._command_log.append({"command": command, "success": True, "type": "write", "timestamp":time.time})
         except Exception as e:
             raise InstrumentCommunicationError(f"Failed to send command: {str(e)}")
@@ -89,6 +90,7 @@ class Instrument:
         """
         try:
             response =  self.instrument.query(query)
+            self._error_check()
             # self.lo
             # print(response)
             self._command_log.append({"command": query, "success": True, "type": "query", "timestamp":time.time, "response": response})

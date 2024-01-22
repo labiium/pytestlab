@@ -29,6 +29,51 @@ class Multimeter(Instrument):
     def from_config(cls, config: MultimeterConfig, debug_mode=False):
         return cls(config=MultimeterConfig(**config), debug_mode=debug_mode)
     
+    def get_configuration(self):
+        """
+        
+        """
+        result = self._query("CONFigure?").replace('"', '')
+        mode, other = result.split()
+        rang, res = other.split(",")
+        if mode == 'CURR':
+            mode = 'Current'
+        elif mode == 'VOLT':
+            mode = 'Voltage'
+        # Add more cases if there are other modes
+        print(f"Measurement Mode: {mode}")
+
+        # Extract and display the measurement range
+        range_val = float(rang)
+        print(f"Measurement Range: {range_val} A")  # Assuming it's always in Amperes
+
+        # Extract and display the integration time
+        print(f"Integration Time/Resolution: {res}")
+    
+
+    def configure(self, mode="VOLT", ac_dc="DC", rang=None, res=None):
+        """
+        Configures the measurement settings of the multimeter.
+
+        :param mode: Measurement mode (e.g., "VOLT" for voltage, "CURR" for current).
+        :param ac_dc: Type of signal - "AC" or "DC".
+        :param rang: Measurement range. If None, defaults to AUTO.
+        :param res: Resolution (e.g., "SLOW", "MED", "FAST"). If None, defaults to the instrument's default.
+        """
+        valid_ranges = {"VOLT": ["100mV", "1V", "10V", "100V", "750V"],
+                        "CURR": ["10mA", "100mA", "1A", "3A", "10A"]}  # Example ranges; adjust as per the actual specifications
+
+        if rang is not None and rang not in valid_ranges.get(mode, []):
+            raise ValueError(f"Invalid range for mode {mode}. Valid ranges are: {valid_ranges.get(mode)}")
+
+        mode_string = f"{mode}:{ac_dc}" if mode in ["VOLT", "CURR"] else mode
+        rang_str = f"{rang}" if rang is not None else "AUTO"
+        res_str = f",{res}" if res is not None else ""
+
+        command = f"CONF:{mode_string} {rang_str}{res_str}"
+        self._send_command(command)
+
+
     def measure_voltage(self, channel=1):
         """
         Measures the DC voltage on the specified channel.
