@@ -81,6 +81,18 @@ class Oscilloscope(Instrument):
 
         return data
     
+    def lock_panel(self, lock=True):
+        """
+        Locks the panel of the instrument
+
+        Args:
+            lock (bool): True to lock the panel, False to unlock it
+        """
+        if lock:
+            self._send_command(":SYSTem:LOCK ON")
+        else:
+            self._send_command(":SYSTem:LOCK OFF")
+
     def auto_scale(self):
         """
         Auto scale the oscilloscope display.

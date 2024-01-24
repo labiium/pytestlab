@@ -74,7 +74,7 @@ class Multimeter(Instrument):
         self._send_command(command)
 
 
-    def measure_voltage(self, channel=1):
+    def measure_voltage(self, channel=1, mode="DC", ran="AUTO", int_time="SLOW"):
         """
         Measures the DC voltage on the specified channel.
 
@@ -87,12 +87,13 @@ class Multimeter(Instrument):
         Raises:
             ValueError: If an invalid channel is specified.
         """
-        if channel not in self.description["voltage_channels"]:
-            raise ValueError(f"Invalid voltage channel {channel}. Supported voltage channels: {self.description['voltage_channels']}")
-        voltage = self._query(f"MEASURE:VOLTAGE:DC? (@{channel})")
+        # TODO: REMOVE AND UPDATE
+        # if channel not in self.description["voltage_channels"]:
+        #     raise ValueError(f"Invalid voltage channel {channel}. Supported voltage channels: {self.description['voltage_channels']}")
+        voltage = self._query(f"MEASURE:VOLTAGE:{mode}? {ran},{int_time}")
         return float(voltage)
 
-    def measure_current(self, channel=1):
+    def measure_current(self, channel=1, mode="DC"):
         """
         Measures the DC current on the specified channel.
 
@@ -105,9 +106,9 @@ class Multimeter(Instrument):
         Raises:
             ValueError: If an invalid channel is specified.
         """
-        if channel not in self.description["current_channels"]:
-            raise ValueError(f"Invalid current channel {channel}. Supported current channels: {self.description['current_channels']}")
-        current = self._query(f"MEASURE:CURRENT:DC? (@{channel})")
+        # if channel not in self.description["current_channels"]:
+        #     raise ValueError(f"Invalid current channel {channel}. Supported current channels: {self.description['current_channels']}")
+        current = self._query(f"MEASURE:CURRENT:${mode}?")
         return float(current)
 
     def measure_resistance(self, channel=1):

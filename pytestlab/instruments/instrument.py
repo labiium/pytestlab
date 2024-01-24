@@ -1,6 +1,5 @@
 import numpy as np
-import warnings
-from ..errors import InstrumentConnectionBusy, InstrumentConfigurationError, InstrumentNotFoundError, InstrumentCommunicationError, InstrumentConnectionError, InstrumentParameterError, CommunicationError
+from ..errors import InstrumentConnectionBusy, InstrumentConfigurationError, InstrumentNotFoundError, InstrumentCommunicationError, InstrumentConnectionError, InstrumentParameterError
 from ..config import InstrumentConfig
 from pyscpi import usbtmc
 import time
@@ -107,7 +106,7 @@ class Instrument:
         """
         error = self.instrument.query(":SYSTem:ERRor?")
         if error != "+0,\"No error\"":
-            warnings.warn(f"Instrument returned error: {error}", CommunicationError)
+            raise InstrumentCommunicationError(f"Instrument returned error: {error}")
 
     def lock_panel(self, lock=True):
         """
@@ -117,9 +116,9 @@ class Instrument:
             lock (bool): True to lock the panel, False to unlock it
         """
         if lock:
-            self._send_command(":SYSTem:LOCK ON")
+            self._send_command(":SYSTem:LOCK")
         else:
-            self._send_command(":SYSTem:LOCK OFF")
+            self._send_command(":SYSTem:LOCal")
 
     def _wait(self):
         """
@@ -145,6 +144,15 @@ class Instrument:
         """
         for command in self._command_log:
             print(command)
+
+    def _error_check(self):
+        """
+        Checks for errors on the instrument
+        """
+        error = self.instrument.query(":SYSTem:ERRor?")
+        if error != "+0,\"No error\"":
+            raise InstrumentCommunicationError(f"Instrument returned error: {error}")
+
 
     def id(self):
         """
