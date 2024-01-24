@@ -13,18 +13,16 @@ A Python library for test and measurement  automation and measurement data manag
 
 ## Installation
 
-You can install Your Library Name using pip:
+You can install the library using inside the folder of the library:
 
 ```bash
-pip install pytestlab
+pip install .
 ```
 
 Or, clone this repository and install:
 
 ```bash
-git clone https://github.com/yourgithub/your-library-name.git
-cd your-library-name
-pip install -e. # install in editable mode
+pip install -e . # install in editable mode
 ```
 
 Usage
@@ -34,7 +32,7 @@ Here's a quick example of how to use the library with an oscilloscope:
 from pytestlab.instruments import AutoInstrument
 
 # Connect to an oscilloscope
-osc = AutoInstrument.from_config("keysight/DSOX1204G")
+"osc = AutoInstrument.from_config("keysight/DSOX1204G")"
 
 osc.reset()
 
