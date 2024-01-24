@@ -7,6 +7,12 @@
     "channels": [1],
     "resolution": 5.5,
     "max_voltage": 1000,
+    // "modes": ["DCV", "DCI", "ACV", "ACI"],
+    "configuration": {
+        "current": [0.001, 0.1, 1, 3, 10],
+        "voltage": [0.1, 1, 10, 100, 750],
+        "resolution": ["FAST", "MEDium", "SLOW"]
+    },
     "max_resistance": 100e6,
     "max_current": 10,
     "max_capacitance": 10e-6,

@@ -1,3 +1,5 @@
+import warnings
+
 class InstrumentConnectionError(Exception):
     """For SCPI instrument connection errors."""
 
@@ -45,3 +47,10 @@ class InstrumentConfigurationError(Exception):
     def __init__(self, message="Invalid instrument profile configuration. Check conformity to Profile Specification"):
         self.message = message
         super().__init__(self.message)
+        
+
+## WARNINGS
+
+class CommunicationError(Warning):
+    """For SCPI communication warnings."""
+    pass
