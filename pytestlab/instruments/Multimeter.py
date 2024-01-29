@@ -74,13 +74,15 @@ class Multimeter(Instrument):
         self._send_command(command)
 
 
-    def measure_voltage(self, channel=1, mode="DC", ran="AUTO", int_time="SLOW"):
+    def measure(self, measurement_type="VOLTAGE", mode="DC", ran="AUTO", int_time="MED"):
         """
         Measures the DC voltage on the specified channel.
 
         Args:
-            channel (int, optional): The channel number. Default is 1.
-
+            measurement_type (str, optional): The type of measurement to perform. Default is "VOLTAGE".
+            mode (str, optional): The measurement mode. Default is "DC".
+            ran (str, optional): The measurement range. Default is "AUTO".
+            int_time (str, optional): The integration time. Default is "SLOW".
         Returns:
             float: The measured voltage.
 
@@ -90,77 +92,89 @@ class Multimeter(Instrument):
         # TODO: REMOVE AND UPDATE
         # if channel not in self.description["voltage_channels"]:
         #     raise ValueError(f"Invalid voltage channel {channel}. Supported voltage channels: {self.description['voltage_channels']}")
-        voltage = self._query(f"MEASURE:VOLTAGE:{mode}? {ran},{int_time}")
-        return float(voltage)
+        
+        if measurement_type not in ["CURRENT", "VOLTAGE"]:
+            raise ValueError(f"Invalid measurement type {measurement_type}. Supported measurement types: ['CURRENT', 'VOLTAGE']")
+        
+        if mode not in ["DC", "AC"]:
+            raise ValueError(f"Invalid measurement mode {mode}. Supported measurement modes: ['DC', 'AC']")
 
-    def measure_current(self, channel=1, mode="DC"):
-        """
-        Measures the DC current on the specified channel.
+        if ran not in ["AUTO", "100mV", "1V", "10V", "100V", "750V"]:
+            raise ValueError(f"Invalid measurement range {ran}. Supported measurement ranges: ['AUTO', '100mV', '1V', '10V', '100V', '750V']")
 
-        Args:
-            channel (int, optional): The channel number. Default is 1.
+        if int_time not in ["SLOW", "MED", "FAST"]:
+            raise ValueError(f"Invalid integration time {int_time}. Supported integration times: ['SLOW', 'MED', 'FAST']")
+        result = self._query(f"MEASURE:VOLTAGE:{mode}? {ran},{int_time}")
+        return float(result)
 
-        Returns:
-            float: The measured current.
+    # def measure_current(self, channel=1, mode="DC"):
+    #     """
+    #     Measures the DC current on the specified channel.
 
-        Raises:
-            ValueError: If an invalid channel is specified.
-        """
-        # if channel not in self.description["current_channels"]:
-        #     raise ValueError(f"Invalid current channel {channel}. Supported current channels: {self.description['current_channels']}")
-        current = self._query(f"MEASURE:CURRENT:${mode}?")
-        return float(current)
+    #     Args:
+    #         channel (int, optional): The channel number. Default is 1.
 
-    def measure_resistance(self, channel=1):
-        """
-        Measures the resistance on the specified channel.
+    #     Returns:
+    #         float: The measured current.
 
-        Args:
-            channel (int, optional): The channel number. Default is 1.
+    #     Raises:
+    #         ValueError: If an invalid channel is specified.
+    #     """
+    #     # if channel not in self.description["current_channels"]:
+    #     #     raise ValueError(f"Invalid current channel {channel}. Supported current channels: {self.description['current_channels']}")
+    #     current = self._query(f"MEASURE:CURRENT:${mode}?")
+    #     return float(current)
 
-        Returns:
-            float: The measured resistance.
+    # def measure_resistance(self, channel=1):
+    #     """
+    #     Measures the resistance on the specified channel.
 
-        Raises:
-            ValueError: If an invalid channel is specified.
-        """
-        if channel not in self.description["resistance_channels"]:
-            raise ValueError(f"Invalid resistance channel {channel}. Supported resistance channels: {self.description['resistance_channels']}")
-        resistance = self._query(f"MEASURE:RESISTANCE? (@{channel})")
-        return float(resistance)
+    #     Args:
+    #         channel (int, optional): The channel number. Default is 1.
 
-    def measure_frequency(self, channel=1):
-        """
-        Measures the frequency on the specified channel.
+    #     Returns:
+    #         float: The measured resistance.
 
-        Args:
-            channel (int, optional): The channel number. Default is 1.
+    #     Raises:
+    #         ValueError: If an invalid channel is specified.
+    #     """
+    #     if channel not in self.description["resistance_channels"]:
+    #         raise ValueError(f"Invalid resistance channel {channel}. Supported resistance channels: {self.description['resistance_channels']}")
+    #     resistance = self._query(f"MEASURE:RESISTANCE? (@{channel})")
+    #     return float(resistance)
 
-        Returns:
-            float: The measured frequency.
+    # def measure_frequency(self, channel=1):
+    #     """
+    #     Measures the frequency on the specified channel.
 
-        Raises:
-            ValueError: If an invalid channel is specified.
-        """
-        if channel not in self.description["frequency_channels"]:
-            raise ValueError(f"Invalid frequency channel {channel}. Supported frequency channels: {self.description['frequency_channels']}")
-        frequency = self._query(f"MEASURE:FREQUENCY? (@{channel})")
-        return float(frequency)
+    #     Args:
+    #         channel (int, optional): The channel number. Default is 1.
 
-    def test_continuity(self, channel=1):
-        """
-        Tests for electrical continuity on the specified channel.
+    #     Returns:
+    #         float: The measured frequency.
 
-        Args:
-            channel (int, optional): The channel number. Default is 1.
+    #     Raises:
+    #         ValueError: If an invalid channel is specified.
+    #     """
+    #     if channel not in self.description["frequency_channels"]:
+    #         raise ValueError(f"Invalid frequency channel {channel}. Supported frequency channels: {self.description['frequency_channels']}")
+    #     frequency = self._query(f"MEASURE:FREQUENCY? (@{channel})")
+    #     return float(frequency)
 
-        Returns:
-            bool: True if continuity is present, False otherwise.
+    # def test_continuity(self, channel=1):
+    #     """
+    #     Tests for electrical continuity on the specified channel.
 
-        Raises:
-            ValueError: If an invalid channel is specified.
-        """
-        if channel not in self.description["continuity_channels"]:
-            raise ValueError(f"Invalid continuity channel {channel}. Supported continuity channels: {self.description['continuity_channels']}")
-        continuity = self._query(f"TEST:CONTINUITY? (@{channel})")
-        return bool(int(continuity))  # Assuming continuity returns 1 for True and 0 for False
+    #     Args:
+    #         channel (int, optional): The channel number. Default is 1.
+
+    #     Returns:
+    #         bool: True if continuity is present, False otherwise.
+
+    #     Raises:
+    #         ValueError: If an invalid channel is specified.
+    #     """
+    #     if channel not in self.description["continuity_channels"]:
+    #         raise ValueError(f"Invalid continuity channel {channel}. Supported continuity channels: {self.description['continuity_channels']}")
+    #     continuity = self._query(f"TEST:CONTINUITY? (@{channel})")
+    #     return bool(int(continuity))  # Assuming continuity returns 1 for True and 0 for False
