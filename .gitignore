@@ -3,3 +3,5 @@ __pycache__/
 pytestlab.json
 pytestlab.egg-info/
 # packager/
+pytestlab.txt
+pytestlab.json
