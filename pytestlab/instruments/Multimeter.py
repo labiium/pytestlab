@@ -29,6 +29,7 @@ class Multimeter(Instrument):
     def from_config(cls, config: MultimeterConfig, debug_mode=False):
         return cls(config=MultimeterConfig(**config), debug_mode=debug_mode)
     
+    
     def get_configuration(self):
         """
         
@@ -76,13 +77,11 @@ class Multimeter(Instrument):
 
     def measure(self, measurement_type="VOLTAGE", mode="DC", ran="AUTO", int_time="MED"):
         """
-        Measures the DC voltage on the specified channel.
+        Makes a measurement on the multimeter on a specificed channel.
 
         Args:
-            measurement_type (str, optional): The type of measurement to perform. Default is "VOLTAGE".
-            mode (str, optional): The measurement mode. Default is "DC".
-            ran (str, optional): The measurement range. Default is "AUTO".
-            int_time (str, optional): The integration time. Default is "SLOW".
+            measure
+
         Returns:
             float: The measured voltage.
 
@@ -93,18 +92,13 @@ class Multimeter(Instrument):
         # if channel not in self.description["voltage_channels"]:
         #     raise ValueError(f"Invalid voltage channel {channel}. Supported voltage channels: {self.description['voltage_channels']}")
         
-        if measurement_type not in ["CURRENT", "VOLTAGE"]:
-            raise ValueError(f"Invalid measurement type {measurement_type}. Supported measurement types: ['CURRENT', 'VOLTAGE']")
+        if measurement_type not in ["VOLTAGE", "CURRENT", "VOLT", "CURR"]:
+            raise ValueError(f"Invalid measurement type {measurement_type}. Valid values: 'VOLTAGE', 'CURRENT'")
         
-        if mode not in ["DC", "AC"]:
-            raise ValueError(f"Invalid measurement mode {mode}. Supported measurement modes: ['DC', 'AC']")
-
-        if ran not in ["AUTO", "100mV", "1V", "10V", "100V", "750V"]:
-            raise ValueError(f"Invalid measurement range {ran}. Supported measurement ranges: ['AUTO', '100mV', '1V', '10V', '100V', '750V']")
-
         if int_time not in ["SLOW", "MED", "FAST"]:
-            raise ValueError(f"Invalid integration time {int_time}. Supported integration times: ['SLOW', 'MED', 'FAST']")
-        result = self._query(f"MEASURE:VOLTAGE:{mode}? {ran},{int_time}")
+            raise ValueError(f"Invalid integration time {int_time}. Valid values: 'SLOW', 'MED', 'FAST'")
+
+        result = self._query(f"MEASURE:{measurement_type}:{mode}? {ran},{int_time}")
         return float(result)
 
     # def measure_current(self, channel=1, mode="DC"):
