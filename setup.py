@@ -6,7 +6,6 @@ setup(
     description='A Python library for instrument automation and measurement data management.',
     author='Emmanuel Olowe',
     author_email='e.a.olowe@ed.ac.uk',
-    packages=['pytestlab'],
     url='https://github.com/labiium/PyTestLab',
     packages=find_packages(),
     # install_requires=[
