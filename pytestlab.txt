@@ -1,16 +1,12 @@
-Import Path: packager.extractor
-  Class: ClassVisitor
-    Method: __init__
+Import Path: tests.oscilloscope_test
+  Class: OscilloscopeTests
+    Method: connection
     Docstring: None
-    Method: visit_ClassDef
+    Method: test_upper
     Docstring: None
-  Docstring: None
-
-Import Path: packager.extractor
-  Class: MethodVisitor
-    Method: __init__
+    Method: test_isupper
     Docstring: None
-    Method: visit_FunctionDef
+    Method: test_split
     Docstring: None
   Docstring: None
 
@@ -154,98 +150,6 @@ Import Path: pytestlab.utilities
 Attributes:
     instruments (dict): A dictionary to store instrument objects by their names.
 
-Import Path: pytestlab.config.config
-  Class: Config
-    Method: to_json
-    Docstring: Serialize instance to a JSON-compatible dictionary.
-
-Returns:
-    dict: The serialized representation.
-    Method: _validate_parameter
-    Docstring: None
-  Docstring: None
-
-Import Path: pytestlab.config.config
-  Class: RangeConfig
-    Method: __init__
-    Docstring: None
-    Method: __repr__
-    Docstring: None
-    Method: in_range
-    Docstring: Validate and return the input value if it is within the range.
-
-Args:
-    input_value (float): The input value to validate.
-
-Returns:
-    float: The validated input value.
-
-Raises:
-    InstrumentParameterError: If the input value is not valid.
-    Method: to_json
-    Docstring: Serialize instance to a JSON-compatible dictionary.
-
-Returns:
-    dict: The serialized representation.
-  Docstring: None
-
-Import Path: pytestlab.config.config
-  Class: SelectionConfig
-    Method: __init__
-    Docstring: None
-    Method: __repr__
-    Docstring: None
-    Method: __getitem__
-    Docstring: Validate and return the SCPI command if it is valid.
-
-Args:
-input_command (str): The SCPI command to validate.
-
-Returns:
-str: The validated SCPI command.
-
-Raises:
-InstrumentParameterError: If the command is not valid.
-    Method: is_valid_command
-    Docstring: Check if the input SCPI command is either the full command or a valid abbreviation.
-
-Args:
-input_command (str): The SCPI command to validate.
-full_command (str): The full SCPI command.
-
-Returns:
-bool: True if valid, False otherwise.
-    Method: to_json
-    Docstring: Serialize instance to a JSON-compatible dictionary.
-
-Returns:
-    dict: The serialized representation.
-  Docstring: None
-
-Import Path: pytestlab.config.instrument_config
-  Class: InstrumentConfig
-    Method: __init__
-    Docstring: None
-    Method: from_json_file
-    Docstring: Create an Oscilloscope instance from a JSON file.
-
-Args:
-    file_path (str): Path to the JSON file.
-
-Returns:
-    Oscilloscope: An instance of Oscilloscope initialized with data from the JSON file.
-  Docstring: None
-
-Import Path: pytestlab.config.multimeter_config
-  Class: MultimeterConfig
-    Method: __init__
-    Docstring: None
-    Method: _validate_channels
-    Docstring: None
-    Method: __repr__
-    Docstring: None
-  Docstring: None
-
 Import Path: pytestlab.config.oscilloscope_config
   Class: OscilloscopeConfig
     Method: __init__
@@ -324,38 +228,86 @@ Import Path: pytestlab.config.oscilloscope_config
     Docstring: None
   Docstring: None
 
-Import Path: pytestlab.config.power_supply_config
-  Class: PowerSupplyConfig
+Import Path: pytestlab.config.instrument_config
+  Class: InstrumentConfig
     Method: __init__
+    Docstring: None
+    Method: from_json_file
+    Docstring: Create an Oscilloscope instance from a JSON file.
+
+Args:
+    file_path (str): Path to the JSON file.
+
+Returns:
+    Oscilloscope: An instance of Oscilloscope initialized with data from the JSON file.
+  Docstring: None
+
+Import Path: pytestlab.config.config
+  Class: Config
+    Method: to_json
+    Docstring: Serialize instance to a JSON-compatible dictionary.
+
+Returns:
+    dict: The serialized representation.
+    Method: _validate_parameter
     Docstring: None
   Docstring: None
 
-Import Path: pytestlab.config.power_supply_config
-  Class: OutputsConfig
+Import Path: pytestlab.config.config
+  Class: RangeConfig
     Method: __init__
+    Docstring: None
+    Method: __repr__
+    Docstring: None
+    Method: in_range
+    Docstring: Validate and return the input value if it is within the range.
+
+Args:
+    input_value (float): The input value to validate.
+
+Returns:
+    float: The validated input value.
+
+Raises:
+    InstrumentParameterError: If the input value is not valid.
+    Method: to_json
+    Docstring: Serialize instance to a JSON-compatible dictionary.
+
+Returns:
+    dict: The serialized representation.
+  Docstring: None
+
+Import Path: pytestlab.config.config
+  Class: SelectionConfig
+    Method: __init__
+    Docstring: None
+    Method: __repr__
     Docstring: None
     Method: __getitem__
-    Docstring: None
-    Method: __repr__
-    Docstring: None
+    Docstring: Validate and return the SCPI command if it is valid.
+
+Args:
+input_command (str): The SCPI command to validate.
+
+Returns:
+str: The validated SCPI command.
+
+Raises:
+InstrumentParameterError: If the command is not valid.
+    Method: is_valid_command
+    Docstring: Check if the input SCPI command is either the full command or a valid abbreviation.
+
+Args:
+input_command (str): The SCPI command to validate.
+full_command (str): The full SCPI command.
+
+Returns:
+bool: True if valid, False otherwise.
     Method: to_json
-    Docstring: None
-  Docstring: None
+    Docstring: Serialize instance to a JSON-compatible dictionary.
 
-Import Path: pytestlab.config.power_supply_config
-  Class: OutputConfig
-    Method: __init__
-    Docstring: None
-    Method: __repr__
-    Docstring: None
-  Docstring: None
-
-Import Path: pytestlab.config.power_supply_config
-  Class: AccuracyConfig
-    Method: __init__
-    Docstring: None
-    Method: __repr__
-    Docstring: None
+Returns:
+    dict: The serialized representation.
   Docstring: None
 
 Import Path: pytestlab.config.waveform_generator_config
@@ -401,22 +353,53 @@ Import Path: pytestlab.config.waveform_generator_config
     Docstring: None
   Docstring: None
 
-Import Path: pytestlab.instruments.AutoInstrument
-  Class: AutoInstrument
-    Method: from_type
-    Docstring: Initializes an instrument from a type.
+Import Path: pytestlab.config.multimeter_config
+  Class: MultimeterConfig
+    Method: __init__
+    Docstring: None
+    Method: _validate_channels
+    Docstring: None
+    Method: __repr__
+    Docstring: None
+  Docstring: None
 
-Args:
-instrument_type (str): The type of the instrument to initialize.
-*args: Arguments to pass to the instrument's constructor.
-**kwargs: Keyword arguments to pass to the instrument's constructor.
-    Method: from_config
-    Docstring: Initializes an instrument from a preset.
+Import Path: pytestlab.config.multimeter_config
+  Class: DMMConf
+    Method: __init__
+    Docstring: None
+  Docstring: None
 
-Args:
-identifier (str): The identifier of the preset. This can either be the name of a preset file in the pytestlab/instruments/profiles directory, or a path to a user-provided preset file.
-debug_mode (bool, optional): Whether to print debug messages. Defaults to False.
-    Method: register_instrument
+Import Path: pytestlab.config.power_supply_config
+  Class: PowerSupplyConfig
+    Method: __init__
+    Docstring: None
+  Docstring: None
+
+Import Path: pytestlab.config.power_supply_config
+  Class: OutputsConfig
+    Method: __init__
+    Docstring: None
+    Method: __getitem__
+    Docstring: None
+    Method: __repr__
+    Docstring: None
+    Method: to_json
+    Docstring: None
+  Docstring: None
+
+Import Path: pytestlab.config.power_supply_config
+  Class: OutputConfig
+    Method: __init__
+    Docstring: None
+    Method: __repr__
+    Docstring: None
+  Docstring: None
+
+Import Path: pytestlab.config.power_supply_config
+  Class: AccuracyConfig
+    Method: __init__
+    Docstring: None
+    Method: __repr__
     Docstring: None
   Docstring: None
 
@@ -468,6 +451,8 @@ Args:
     message (str): The message to log.
     Method: _history
     Docstring: Prints history of executed commands
+    Method: _error_check
+    Docstring: Checks for errors on the instrument
     Method: id
     Docstring: Query the instrument for its identification.
 
@@ -491,140 +476,60 @@ Args:
 Attributes:
     visa_resource (str): The VISA resource string that identifies the instrument.
 
-Import Path: pytestlab.instruments.InstrumentManager
-  Class: InstrumentManager
+Import Path: pytestlab.instruments.PowerSupply
+  Class: PowerSupply
     Method: __init__
-    Docstring: None
-    Method: add_instrument
-    Docstring: None
-    Method: remove_instrument
-    Docstring: None
-    Method: get_instrument
-    Docstring: None
-    Method: list_instruments
-    Docstring: None
-    Method: disconnect_all_instruments
-    Docstring: None
-    Method: is_all_instruments_connected
-    Docstring: None
-    Method: is_instrument_connected
-    Docstring: None
-    Method: measure_voltage
-    Docstring: None
-    Method: measure_current
-    Docstring: None
-    Method: measure_power
-    Docstring: None
-    Method: measure_eye_diagram
-    Docstring: None
-    Method: perform_s21_measurement
-    Docstring: None
-    Method: calibrate_power_supply
-    Docstring: None
-    Method: calibrate_oscilloscope
-    Docstring: None
-    Method: calibrate_vna
-    Docstring: None
-    Method: save_measurement_data
-    Docstring: None
-    Method: load_measurement_data
-    Docstring: None
-    Method: configure_power_supply
-    Docstring: None
-    Method: configure_oscilloscope
-    Docstring: None
-    Method: configure_vna
-    Docstring: None
-    Method: check_instrument_compatibility
-    Docstring: None
-    Method: perform_full_system_check
-    Docstring: None
-    Method: report_system_status
-    Docstring: None
-  Docstring: None
-
-Import Path: pytestlab.instruments.Multimeter
-  Class: Multimeter
-    Method: __init__
-    Docstring: Initializes a DigitalMultimeter instance.
+    Docstring: Initializes a DigitalPowerSupply instance.
 
 Args:
     visa_resource (str): The VISA address of the device.
-    config (MultimeterConfig): A class containing the device configuration.
+    description (dict): A dictionary containing additional information about the device.
     Method: from_config
     Docstring: None
-    Method: get_configuration
-    Docstring:         
-        
-    Method: configure
-    Docstring: Configures the measurement settings of the multimeter.
-
-:param mode: Measurement mode (e.g., "VOLT" for voltage, "CURR" for current).
-:param ac_dc: Type of signal - "AC" or "DC".
-:param rang: Measurement range. If None, defaults to AUTO.
-:param res: Resolution (e.g., "SLOW", "MED", "FAST"). If None, defaults to the instrument's default.
-    Method: measure_voltage
-    Docstring: Measures the DC voltage on the specified channel.
+    Method: set_voltage
+    Docstring: Sets the voltage for the specified channel.
 
 Args:
+    voltage (float): The voltage value to set.
     channel (int, optional): The channel number. Default is 1.
 
-Returns:
-    float: The measured voltage.
-
 Raises:
-    ValueError: If an invalid channel is specified.
-    Method: measure_current
-    Docstring: Measures the DC current on the specified channel.
+    SCPICommunicationError: If there's a failure in sending the SCPI command.
+    Method: set_current
+    Docstring: Sets the current for the specified channel.
 
 Args:
+    current (float): The current value to set.
     channel (int, optional): The channel number. Default is 1.
 
-Returns:
-    float: The measured current.
-
 Raises:
-    ValueError: If an invalid channel is specified.
-    Method: measure_resistance
-    Docstring: Measures the resistance on the specified channel.
+    SCPICommunicationError: If there's a failure in sending the SCPI command.
+    Method: output
+    Docstring: Enables the output for the specified channel.
 
 Args:
-    channel (int, optional): The channel number. Default is 1.
-
-Returns:
-    float: The measured resistance.
+    channel (list | int): The channels to enable.
 
 Raises:
-    ValueError: If an invalid channel is specified.
-    Method: measure_frequency
-    Docstring: Measures the frequency on the specified channel.
+    SCPICommunicationError: If there's a failure in sending the SCPI command.
+    OUTPut[:STATe] ON | 1 | OFF | 0[, (@<chanlist>)]
+    Method: display
+    Docstring: Enables or disables the display.
 
 Args:
-    channel (int, optional): The channel number. Default is 1.
-
-Returns:
-    float: The measured frequency.
+    state (bool): The state to set. True for on, False for off.
 
 Raises:
-    ValueError: If an invalid channel is specified.
-    Method: test_continuity
-    Docstring: Tests for electrical continuity on the specified channel.
+    SCPICommunicationError: If there's a failure in sending the SCPI command.
 
-Args:
-    channel (int, optional): The channel number. Default is 1.
+DISPlay[:WINDow][:STATe] ON | OFF | 1 | 0
+  Docstring: A class representing a Digital Power Supply that inherits from the SCPIInstrument class.
 
-Returns:
-    bool: True if continuity is present, False otherwise.
-
-Raises:
-    ValueError: If an invalid channel is specified.
-  Docstring: A class representing a Digital Multimeter that inherits from the SCPIInstrument class.
-
-Provides methods for measuring voltage, current, resistance, frequency, and testing continuity.
+Provides methods for setting voltage and current, and for enabling or disabling the output.
 
 Attributes:
     visa_resource (str): The VISA address of the device.
-    config (MultimeterConfig): A class containing the device configuration.
+    profile (dict): A dictionary containing additional information about the device.
 
 Import Path: pytestlab.instruments.Oscilloscope
   Class: Oscilloscope
@@ -646,6 +551,11 @@ profile (dict): Information about the instrument model.
     Docstring: None
     Method: _read_wave_data
     Docstring: None
+    Method: lock_panel
+    Docstring: Locks the panel of the instrument
+
+Args:
+    lock (bool): True to lock the panel, False to unlock it
     Method: auto_scale
     Docstring: Auto scale the oscilloscope display.
 
@@ -929,60 +839,117 @@ Attributes:
 visa_resource (str): The VISA resource string used for identifying the connected oscilloscope.
 profile (dict): Information about the instrument model.
 
-Import Path: pytestlab.instruments.PowerSupply
-  Class: PowerSupply
+Import Path: pytestlab.instruments.Multimeter
+  Class: Multimeter
     Method: __init__
-    Docstring: Initializes a DigitalPowerSupply instance.
+    Docstring: Initializes a DigitalMultimeter instance.
 
 Args:
     visa_resource (str): The VISA address of the device.
-    description (dict): A dictionary containing additional information about the device.
+    config (MultimeterConfig): A class containing the device configuration.
     Method: from_config
     Docstring: None
-    Method: set_voltage
-    Docstring: Sets the voltage for the specified channel.
+    Method: get_configuration
+    Docstring:         
+        
+    Method: configure
+    Docstring: Configures the measurement settings of the multimeter.
+
+:param mode: Measurement mode (e.g., "VOLT" for voltage, "CURR" for current).
+:param ac_dc: Type of signal - "AC" or "DC".
+:param rang: Measurement range. If None, defaults to AUTO.
+:param res: Resolution (e.g., "SLOW", "MED", "FAST"). If None, defaults to the instrument's default.
+    Method: measure
+    Docstring: Measures the DC voltage on the specified channel.
 
 Args:
-    voltage (float): The voltage value to set.
-    channel (int, optional): The channel number. Default is 1.
+    measurement_type (str, optional): The type of measurement to perform. Default is "VOLTAGE".
+    mode (str, optional): The measurement mode. Default is "DC".
+    ran (str, optional): The measurement range. Default is "AUTO".
+    int_time (str, optional): The integration time. Default is "SLOW".
+Returns:
+    float: The measured voltage.
 
 Raises:
-    SCPICommunicationError: If there's a failure in sending the SCPI command.
-    Method: set_current
-    Docstring: Sets the current for the specified channel.
+    ValueError: If an invalid channel is specified.
+  Docstring: A class representing a Digital Multimeter that inherits from the SCPIInstrument class.
 
-Args:
-    current (float): The current value to set.
-    channel (int, optional): The channel number. Default is 1.
-
-Raises:
-    SCPICommunicationError: If there's a failure in sending the SCPI command.
-    Method: output
-    Docstring: Enables the output for the specified channel.
-
-Args:
-    channel (list | int): The channels to enable.
-
-Raises:
-    SCPICommunicationError: If there's a failure in sending the SCPI command.
-    OUTPut[:STATe] ON | 1 | OFF | 0[, (@<chanlist>)]
-    Method: display
-    Docstring: Enables or disables the display.
-
-Args:
-    state (bool): The state to set. True for on, False for off.
-
-Raises:
-    SCPICommunicationError: If there's a failure in sending the SCPI command.
-
-DISPlay[:WINDow][:STATe] ON | OFF | 1 | 0
-  Docstring: A class representing a Digital Power Supply that inherits from the SCPIInstrument class.
-
-Provides methods for setting voltage and current, and for enabling or disabling the output.
+Provides methods for measuring voltage, current, resistance, frequency, and testing continuity.
 
 Attributes:
     visa_resource (str): The VISA address of the device.
-    profile (dict): A dictionary containing additional information about the device.
+    config (MultimeterConfig): A class containing the device configuration.
+
+Import Path: pytestlab.instruments.AutoInstrument
+  Class: AutoInstrument
+    Method: from_type
+    Docstring: Initializes an instrument from a type.
+
+Args:
+instrument_type (str): The type of the instrument to initialize.
+*args: Arguments to pass to the instrument's constructor.
+**kwargs: Keyword arguments to pass to the instrument's constructor.
+    Method: from_config
+    Docstring: Initializes an instrument from a preset.
+
+Args:
+identifier (str): The identifier of the preset. This can either be the name of a preset file in the pytestlab/instruments/profiles directory, or a path to a user-provided preset file.
+debug_mode (bool, optional): Whether to print debug messages. Defaults to False.
+    Method: register_instrument
+    Docstring: None
+  Docstring: None
+
+Import Path: pytestlab.instruments.InstrumentManager
+  Class: InstrumentManager
+    Method: __init__
+    Docstring: None
+    Method: add_instrument
+    Docstring: None
+    Method: remove_instrument
+    Docstring: None
+    Method: get_instrument
+    Docstring: None
+    Method: list_instruments
+    Docstring: None
+    Method: disconnect_all_instruments
+    Docstring: None
+    Method: is_all_instruments_connected
+    Docstring: None
+    Method: is_instrument_connected
+    Docstring: None
+    Method: measure_voltage
+    Docstring: None
+    Method: measure_current
+    Docstring: None
+    Method: measure_power
+    Docstring: None
+    Method: measure_eye_diagram
+    Docstring: None
+    Method: perform_s21_measurement
+    Docstring: None
+    Method: calibrate_power_supply
+    Docstring: None
+    Method: calibrate_oscilloscope
+    Docstring: None
+    Method: calibrate_vna
+    Docstring: None
+    Method: save_measurement_data
+    Docstring: None
+    Method: load_measurement_data
+    Docstring: None
+    Method: configure_power_supply
+    Docstring: None
+    Method: configure_oscilloscope
+    Docstring: None
+    Method: configure_vna
+    Docstring: None
+    Method: check_instrument_compatibility
+    Docstring: None
+    Method: perform_full_system_check
+    Docstring: None
+    Method: report_system_status
+    Docstring: None
+  Docstring: None
 
 Import Path: pytestlab.instruments.WaveformGenerator
   Class: WaveformGenerator
@@ -1049,15 +1016,19 @@ Args:
     state (str): The state to set.
   Docstring: None
 
-Import Path: tests.oscilloscope_test
-  Class: OscilloscopeTests
-    Method: connection
+Import Path: packager.extractor
+  Class: ClassVisitor
+    Method: __init__
     Docstring: None
-    Method: test_upper
+    Method: visit_ClassDef
     Docstring: None
-    Method: test_isupper
+  Docstring: None
+
+Import Path: packager.extractor
+  Class: MethodVisitor
+    Method: __init__
     Docstring: None
-    Method: test_split
+    Method: visit_FunctionDef
     Docstring: None
   Docstring: None
 
