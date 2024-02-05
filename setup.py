@@ -8,6 +8,7 @@ setup(
     author_email='e.a.olowe@ed.ac.uk',
     url='https://github.com/labiium/PyTestLab',
     packages=find_packages(),
+    include_package_data=True,
     # install_requires=[
     #     'numpy',
     #     # 'scipy',
