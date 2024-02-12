@@ -59,7 +59,9 @@ class Oscilloscope(Instrument):
 
         self._wait()
         self._send_command(f':WAVeform:SOURce CHANnel{channel}')
-        self._query('*OPC?')
+        
+        self._wait()
+        
         self._log('Reading channel ' + str(channel))
 
         self._send_command(':WAVeform:FORMat BYTE')
@@ -76,7 +78,7 @@ class Oscilloscope(Instrument):
 
         self._log('Reading data')
 
-        self._send_command(':WAVeform:DATA?')
+        self._send_command(':WAVeform:DATA?', skip_check=True)
         data = self._read_to_np()
 
         return data
@@ -241,7 +243,7 @@ class Oscilloscope(Instrument):
         self._log(points)
         self._log("starting")
 
-        if isinstance(channels, int):#
+        if isinstance(channels, int):
             channels = [channels]
             
         for channel in channels:
@@ -271,17 +273,23 @@ class Oscilloscope(Instrument):
             voltages = (data - pream.yref) * pream.yinc + pream.yorg
 
             # Populate the 2D numpy array with the voltage values
-            measurement_results[channel] = MeasurementResult(instrument=self.config.model,
-                                                            unit="V",
-                                                            measurement_type="voltage",
-                                                            sampling_rate=sampling_rate,
-                                                            time_values=time_values,
-                                                            voltage_values=voltages,
-                                                            channel=channel)
-        if runAfter:
-            self._send_command(":RUN")
+            try:
+                measurement_results[channel] = MeasurementResult(instrument=self.config.model,
+                                                                units="V",
+                                                                measurement_type="VoltageTime",
+                                                                sampling_rate=sampling_rate,
+                                                                values=np.vstack((
+                                                                    time_values,
+                                                                    voltages
+                                                                )))
+                if runAfter:
+                    self._send_command(":RUN")
 
-        return measurement_results
+                return measurement_results
+
+            except:
+                return time_values, voltages
+
 
     def get_sampling_rate(self):
         # Send the SCPI command to query the current sampling rate
@@ -289,8 +297,8 @@ class Oscilloscope(Instrument):
         
         # Parse the response to get the sampling rate value.
         sampling_rate = float(response)
-        
-        return MeasurementResult(sampling_rate, self.config.model, "Hz", "sampling rate")
+        return sampling_rate
+        # return MeasurementResult(sampling_rate, self.config.model, "Hz", "sampling rate")
     
     def get_probe_attenuation(self, channel):
         """

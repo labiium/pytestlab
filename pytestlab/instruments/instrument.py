@@ -58,7 +58,7 @@ class Instrument:
 
         return data[:-1]
 
-    def _send_command(self, command):
+    def _send_command(self, command, skip_check=False):
         """
         Send an SCPI command to the instrument.
 
@@ -70,7 +70,8 @@ class Instrument:
         """
         try:
             self.instrument.write(command)
-            self._error_check()
+            if not skip_check:
+                self._error_check()
             self._command_log.append({"command": command, "success": True, "type": "write", "timestamp":time.time})
         except Exception as e:
             raise InstrumentCommunicationError(f"Failed to send command: {str(e)}")

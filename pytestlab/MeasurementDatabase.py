@@ -98,10 +98,11 @@ class MeasurementResult:
             ## change grid
             xlabel = xlabel if xlabel else "Frequency (Hz)"
             ylabel = ylabel if ylabel else f"Magnitude ({self.units})"
-
-
-        xlabel = xlabel if xlabel else "Time (s)"
-        ylabel = ylabel if ylabel else f"Measurement ({self.units})"
+        
+        if self.measurement_type == "VoltageTime":
+            plt.plot(self.values[0], self.values[1])
+            xlabel = xlabel if xlabel else "Time (s)"
+            ylabel = ylabel if ylabel else f"Voltage ({self.units})"
         
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
