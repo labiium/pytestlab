@@ -139,7 +139,7 @@ class SelectionConfig(Config):
 def ConfigRequires(requirement):
     def decorator(func):
         def wrapped_func(self, *args, **kwargs):
-            if self.config.active or not hasattr(self.config, requirement):
+            if hasattr(self, "config") and hasattr(self.config, requirement):
                 return func(self, *args, **kwargs)
             else:
                 raise InstrumentConfigurationError(f"Method '{func.__name__}' requires '{requirement}'. This functionality is not available for this instrument.")
