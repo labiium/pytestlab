@@ -457,7 +457,7 @@ class Oscilloscope(Instrument):
         Example:
         >>> set_wave_gen_freq(1000.0)
         """
-        print(self.config.function_generator)
+        
         self._send_command(f"WGEN:FREQ {self.config.fucntion_generator.frequency.in_range(freq)}")
 
     @ConfigRequires("function_generator")
@@ -477,7 +477,8 @@ class Oscilloscope(Instrument):
         >>> set_wave_gen_amp(1.0)
         """
 
-        self._send_command(f"WGEN:VOLT {self.config.model.function_generator.amplitude.in_range(amp)}")
+        print(self.config.function_generator)
+        self._send_command(f"WGEN:VOLT {self.config.function_generator.amplitude.in_range(amp)}")
 
     @ConfigRequires("function_generator")
     def set_wave_gen_offset(self, offset):
