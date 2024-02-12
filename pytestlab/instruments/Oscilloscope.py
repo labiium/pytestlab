@@ -457,7 +457,7 @@ class Oscilloscope(Instrument):
         Example:
         >>> set_wave_gen_freq(1000.0)
         """
-
+        print(self.config.function_generator)
         self._send_command(f"WGEN:FREQ {self.config.fucntion_generator.frequency.in_range(freq)}")
 
     @ConfigRequires("function_generator")
