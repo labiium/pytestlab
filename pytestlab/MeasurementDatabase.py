@@ -150,18 +150,18 @@ class MeasurementResult:
     def _to_numpy(self):
         """Converts the measurement and timestamp data to numpy arrays."""
         if isinstance(self.values, np.ndarray):
-            return self.values
+            return self.values.transpose()
         else:
             return np.array(self.values)
 
     def __len__(self):
-        return len(self.values)
+        return len(self.values[0])
 
     def __getitem__(self, index):
         return self.values[index]
 
     def __iter__(self):
-        return iter(self.values)
+        return iter(self.values.transpose())
 
     def __delitem__(self, index):
         del self.values[index]
