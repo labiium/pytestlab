@@ -73,7 +73,7 @@ class MeasurementResult:
 
     def get(self, index):
         """Gets the MeasurementValue at a specified index."""
-        return self.values[index]
+        return self.values.transpose[index]
 
     def get_all(self):
         """Returns all the MeasurementValues in the collection."""
@@ -158,13 +158,14 @@ class MeasurementResult:
         return len(self.values[0])
 
     def __getitem__(self, index):
-        return self.values[index]
+        return self.values.transpose()[index]
 
     def __iter__(self):
         return iter(self.values.transpose())
 
     def __delitem__(self, index):
-        del self.values[index]
+        del self.values[0][index]
+        del self.values[1][index]
 
 class MeasurementDatabase:
     """
