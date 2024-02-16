@@ -264,31 +264,35 @@ class Oscilloscope(Instrument):
         time_values = (np.arange(0, pream.points, 1) - pream.xref) * pream.xinc + pream.xorg
 
         measurement_results = {}
+
         for i, channel in enumerate(channels):
-            data = self._read_wave_data(channel, points)
-            if len(data) != pream.points:
-                print('ERROR: points mismatch, please investigate')
+            voltages = []
+            counter = 0
+            while len(voltages) != len(time_values) and counter < 5:
+                data = self._read_wave_data(channel, points)
+                if len(data) != pream.points:
+                    print('Warning: points mismatch, please investigate')
 
-            # Calculate the voltage values
-            voltages = (data - pream.yref) * pream.yinc + pream.yorg
+                # Calculate the voltage values
+                voltages = (data - pream.yref) * pream.yinc + pream.yorg       
 
-            # Populate the 2D numpy array with the voltage values
-            try:
-                measurement_results[channel] = MeasurementResult(instrument=self.config.model,
-                                                                units="V",
-                                                                measurement_type="VoltageTime",
-                                                                sampling_rate=sampling_rate,
-                                                                values=np.vstack((
-                                                                    time_values,
-                                                                    voltages
-                                                                )))
-                if runAfter:
-                    self._send_command(":RUN")
+                if len(voltages) == len(time_values):
+                    # Populate the 2D numpy array with the voltage values
+                    measurement_results[channel] = MeasurementResult(instrument=self.config.model,
+                                                                        units="V",
+                                                                        measurement_type="VoltageTime",
+                                                                        sampling_rate=sampling_rate,
+                                                                        values=np.vstack((
+                                                                            time_values,
+                                                                            voltages
+                                                                        )))
+                    if runAfter:
+                        self._send_command(":RUN")
+                elif counter >= 5:
+                    print("ERROR: Could not resolve points mismatch")
+                counter = counter + 1
 
-                return measurement_results
-
-            except:
-                return time_values, voltages
+        return measurement_results
 
 
     def get_sampling_rate(self):
