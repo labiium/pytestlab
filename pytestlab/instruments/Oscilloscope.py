@@ -261,7 +261,7 @@ class Oscilloscope(Instrument):
         pream = self._read_preamble()
 
         # Prepare the time axis once, as it is the same for all channels
-        time_values = (np.arange(0, pream.points, 1) - pream.xref) * pream.xinc + pream.xorg
+        time_values = (np.arange(0, points, 1) - pream.xref) * pream.xinc + pream.xorg
 
         measurement_results = {}
 
