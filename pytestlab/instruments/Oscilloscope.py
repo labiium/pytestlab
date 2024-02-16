@@ -267,7 +267,7 @@ class Oscilloscope(Instrument):
 
         for i, channel in enumerate(channels):
             data = self._read_wave_data(channel, points)
-            if len(data) != pream.point and recursive_depth < 5:
+            if len(data) != pream.points and recursive_depth < 5:
                 return self.read_channels(channels, points=points, runAfter=runAfter, timebase=timebase, recursive_depth=recursive_depth+1)
             elif recursive_depth >= 5:
                 raise InstrumentParameterError("Could not resolve point mismatch")
