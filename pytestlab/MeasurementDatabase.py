@@ -31,11 +31,11 @@ class Preamble:
     yref: float
 
 
-@dataclass
-class MeasurementSet:
+# @dataclass
+# class MeasurementSet:
 
 
-    ty
+#     ty
 class MeasurementResult:
     """A class to represent a collection of measurement values.
     
