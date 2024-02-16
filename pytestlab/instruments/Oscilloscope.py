@@ -217,7 +217,7 @@ class Oscilloscope(Instrument):
         measurement_result = MeasurementResult(float(response),self.config.model, "V", "rms voltage")
         return measurement_result
 
-    def read_channels(self, channels: List[int] | int, points=10000, runAfter=True, timebase=None):
+    def read_channels(self, channels: List[int] | int, points=10000, runAfter=True, timebase=None, recursive_depth=0):
         """
         Reads the specified channels from the oscilloscope.
         
@@ -266,28 +266,26 @@ class Oscilloscope(Instrument):
         measurement_results = {}
 
         for i, channel in enumerate(channels):
-            voltages = []
-            counter = 0
-            while len(voltages) != len(time_values) and counter < 5:
-                data = self._read_wave_data(channel, points)
-                if len(data) != pream.points:
-                    return self.read_channels(channels, points=points, runAfter=runAfter, timebase=timebase)
+            data = self._read_wave_data(channel, points)
+            if len(data) != pream.point and recursive_depth < 5:
+                return self.read_channels(channels, points=points, runAfter=runAfter, timebase=timebase, recursive_depth=recursive_depth+1)
+            elif recursive_depth >= 5:
+                raise InstrumentParameterError("Could not resolve point mismatch")
+            # Calculate the voltage values
+            voltages = (data - pream.yref) * pream.yinc + pream.yorg       
 
-                # Calculate the voltage values
-                voltages = (data - pream.yref) * pream.yinc + pream.yorg       
-
-                if len(voltages) == len(time_values):
-                    # Populate the 2D numpy array with the voltage values
-                    measurement_results[channel] = MeasurementResult(instrument=self.config.model,
-                                                                        units="V",
-                                                                        measurement_type="VoltageTime",
-                                                                        sampling_rate=sampling_rate,
-                                                                        values=np.vstack((
-                                                                            time_values,
-                                                                            voltages
-                                                                        )))
-                    if runAfter:
-                        self._send_command(":RUN")
+            if len(voltages) == len(time_values):
+                # Populate the 2D numpy array with the voltage values
+                measurement_results[channel] = MeasurementResult(instrument=self.config.model,
+                                                                    units="V",
+                                                                    measurement_type="VoltageTime",
+                                                                    sampling_rate=sampling_rate,
+                                                                    values=np.vstack((
+                                                                        time_values,
+                                                                        voltages
+                                                                    )))
+                if runAfter:
+                    self._send_command(":RUN")
 
         return measurement_results
 
