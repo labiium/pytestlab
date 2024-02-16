@@ -271,7 +271,7 @@ class Oscilloscope(Instrument):
             while len(voltages) != len(time_values) and counter < 5:
                 data = self._read_wave_data(channel, points)
                 if len(data) != pream.points:
-                    print('Warning: points mismatch, please investigate')
+                    return self.read_channels(channels, points=points, runAfter=runAfter, timebase=timebase)
 
                 # Calculate the voltage values
                 voltages = (data - pream.yref) * pream.yinc + pream.yorg       
@@ -288,9 +288,6 @@ class Oscilloscope(Instrument):
                                                                         )))
                     if runAfter:
                         self._send_command(":RUN")
-                elif counter >= 5:
-                    print("ERROR: Could not resolve points mismatch")
-                counter = counter + 1
 
         return measurement_results
 
