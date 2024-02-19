@@ -1,12 +1,18 @@
 from pytestlab.instruments import AutoInstrument
+from pytestlab.experiments import Experiment, Database
+import numpy as np
 
 # loading the instruments
-osc = AutoInstrument.from_config("keysight/DSOX1204G")
-awg = AutoInstrument.from_config("keysight/EDU33212A")
 psu = AutoInstrument.from_config("keysight/EDU36311A")
 dmm = AutoInstrument.from_config("keysight/EDU34450A")
 
-# print(osc._query("*IDN?"))
+experiment = Experiment(
+    name="sweep",
+    descertion="Sweeping the voltage of the PSU and measuring the voltage with the DMM."
+)
+
+# setting up the experiment
+experiment.add_parameter("psu_voltage", "V", "Voltage of the PSU.")
 
 
 psu.set_voltage(2, 5)
@@ -20,31 +26,21 @@ psu.set_current(3, 0.05)
 psu.output(3)
 
 
-### DM
-# for i in range(10):
-#     psu.set_voltage(1 + i/10)
-#     sleep
+for psu_voltage in np.linspace(0, 5, 100):
+    psu.set_voltage(3, psu_voltage)
+    # DMM measure command is a blocking command
+    experiment.add_trial(dmm.measure(int_time="Fast"), psu_voltage=psu_voltage)
 
 
-import numpy as np
+# saving the results
+db = Database("psu_sweep")
 
-end = 5
-start = 0
-steps = 0.1
-total = (end - start) / steps
-data = np.zeros(int(total))
-counter = 0
-i = 0
-while i <= end:
-    psu.set_voltage(3, i)
-    data[counter] = float(dmm._query("MEAS:VOLT:DC? AUTO,FAST"))
-    i += steps
-    counter += 1
+# A codename is a unique identifier for the experiment
+db.store_experiment("psu_sweep", experiment)
 
-# print(data)
+# A codename is a unique identifier for the experiment
+experiment_data = db.retrieve_experiment("psu_sweep")
 
-import matplotlib.pyplot as plt
 
-x = np.linspace(0, 5, total + 1)
-
-plt.plot(x, data)
+for trial in experiment:
+    print(trial)

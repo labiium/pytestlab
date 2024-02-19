@@ -3,6 +3,12 @@ import time
 import numpy as np
 from datetime import datetime
 
+
+
+# Define the MeasurementResult class
+from .results import MeasurementResult
+from .experiments import Experiment
+
 class Database:
     """
     A class for managing a SQLite database that stores measurement results.
@@ -48,17 +54,39 @@ class Database:
                     description TEXT
                 )
             ''')
+
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS experiment_parameters (
                     parameter_id INTEGER PRIMARY KEY AUTOINCREMENT,
                     experiment_id INTEGER,
                     name TEXT,
-                    value REAL,
                     units TEXT,
+                    value REAL,
                     notes TEXT,
                     FOREIGN KEY (experiment_id) REFERENCES experiments(experiment_id)
                 )
             ''')
+
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS trial_parameters (
+                    trial_parameter_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    trial_id INTEGER,
+                    value REAL,
+                    FOREIGN KEY (trial_id) REFERENCES trials(trial_id)
+                    FOREIGN KEY (parameter_id) REFERENCES experiment_parameters(parameter_id)
+                )
+            ''')
+
+
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS trials (
+                    trial_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    experiment_id INTEGER,
+                    timestamp TIMESTAMP,
+                    FOREIGN KEY (experiment_id) REFERENCES experiments(experiment_id)
+                )
+            ''')
+
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS instruments (
                     instrument_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,15 +96,15 @@ class Database:
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS measurements (
                     measurement_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    trial_id INTEGER,
                     codename TEXT UNIQUE,
-                    experiment_id INTEGER,  -- Added to link measurements to experiments
                     instrument_id INTEGER NOT NULL,
                     timestamp TIMESTAMP NOT NULL,
                     value ARRAY NOT NULL,
                     units TEXT NOT NULL,
                     type TEXT, -- 'reading' or 'fft'
                     FOREIGN KEY (instrument_id) REFERENCES instruments(instrument_id),
-                    FOREIGN KEY (experiment_id) REFERENCES experiments(experiment_id)  -- New foreign key constraint
+                    FOREIGN KEY (trial_id) REFERENCES trials(trial_id)
                 )
             ''')
 
@@ -111,6 +139,7 @@ class Database:
 
             except sqlite3.IntegrityError:
                 print("codename already in use")
+
     def store_fft_result(self, codename, fft_result: MeasurementResult):
         """
         Stores an FFT measurement result in the database.
@@ -199,43 +228,48 @@ class Database:
                 ''', (experiment_id, param.name, param.value, param.units))
 
             # Store measurements linked to the experiment
-            for measurement, params in experiment.measurements:
-                self.store_measurement(measurement, experiment_id)
+            for trial in experiment.trials:
+                trial_id = conn.execute('''
+                    INSERT INTO trials (experiment_id, timestamp)
+                    VALUES (?, ?)
+                ''', (experiment_id, datetime.now())).lastrowid
 
-    def store_measurement(self, measurement_result, experiment_id):
-        """Stores a measurement result linked to an experiment."""
-        with self._get_connection() as conn:
-
-            instrument_id = self._get_or_create_instrument_id(conn, measurement_result.instrument)
-
-            conn.execute('''
-                INSERT INTO measurements (experiment_id, instrument_id, timestamp, value, units, type)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (experiment_id, instrument_id, datetime.now(), measurement_result.values, measurement_result.units, measurement_result.measurement_type))
+                for measurement in trial.measurements:
+                    instrument_id = self._get_or_create_instrument_id(conn, measurement.instrument)
+                    conn.execute('''
+                        INSERT INTO measurements (experiment_id, instrument_id, timestamp, value, units, type)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    ''', (experiment_id, instrument_id, datetime.now(), measurement.values, measurement.units, measurement.measurement_type))
 
     def retrieve_experiment(self, codename):
         """Retrieves an experiment by codename, including its parameters and measurements."""
         with self._get_connection() as conn:
-            cursor = conn.execute('SELECT experiment_id, name, description FROM experiments WHERE codename = ?', (codename,))
-            experiment_row = cursor.fetchone()
-            if not experiment_row:
+            cursor = conn.execute('SELECT * FROM experiments WHERE codename = ?', (codename,))
+            experiment = cursor.fetchone()
+            if not experiment:
                 raise ValueError(f"No experiment found with codename: '{codename}'.")
+            experiment_id, name, description = experiment
 
-            experiment_id, name, description = experiment_row
             experiment = Experiment(name, description)
+    
+            # Retrieve experiment parameters
 
-            # Retrieve and add parameters
-            cursor.execute('SELECT name, value, units FROM experiment_parameters WHERE experiment_id = ?', (experiment_id,))
-            for row in cursor.fetchall():
-                name, value, units = row
-                experiment.add_parameter(name, value, units)
+            cursor = conn.execute('SELECT * FROM experiment_parameters WHERE experiment_id = ?', (experiment_id,))
+            for param in cursor:
+                experiment.add_parameter(param[2], param[3], param[4])
 
-            # Retrieve and add measurements
-            cursor.execute('SELECT value, units, type FROM measurements WHERE experiment_id = ?', (experiment_id,))
-            for row in cursor.fetchall():
-                values, units, measurement_type = row
+            # Retrieve measurements linked to the experiment
+            cursor = conn.execute('''
+                SELECT m.instrument_id, m.timestamp, m.value, m.units, m.type
+                FROM measurements m
+                JOIN trials t ON m.trial_id = t.trial_id
+                WHERE t.experiment_id = ?
+            ''', (experiment_id,))
+
+            for measurement in cursor:
+                instrument_id, timestamp, values, units, measurement_type = measurement
+                instrument_name = conn.execute('SELECT name FROM instruments WHERE instrument_id = ?', (instrument_id,)).fetchone()[0]
                 values = self.convert_array(values)
-                measurement = MeasurementResult(values, "Instrument Name", units, measurement_type)
-                experiment.measurements.append(measurement)
+                experiment.add_measurement(instrument_name, values, units, measurement_type)
 
             return experiment
