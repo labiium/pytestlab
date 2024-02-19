@@ -1,16 +1,16 @@
 from pytestlab.errors import InstrumentNotFoundError
 
-def validate_visa_resource(visa_resource):
-    """Validates the VISA resource string format.
+# def validate_visa_resource(visa_resource):
+#     """Validates the VISA resource string format.
     
-    Args:
-        visa_resource (str): The VISA resource string.
+#     Args:
+#         visa_resource (str): The VISA resource string.
         
-    Raises:
-        ValueError: If the VISA resource string is in an invalid format.
-    """
-    if not visa_resource.startswith("TCPIP0::"):
-        raise ValueError("Invalid VISA resource format. Please use TCPIP0::<IP_ADDRESS>::INSTR format for LAN instruments.")
+#     Raises:
+#         ValueError: If the VISA resource string is in an invalid format.
+#     """
+#     if not visa_resource.startswith("TCPIP0::"):
+#         raise ValueError("Invalid VISA resource format. Please use TCPIP0::<IP_ADDRESS>::INSTR format for LAN instruments.")
 
 class InstrumentCollection:
     """A class to manage a collection of instruments.

@@ -1,10 +1,37 @@
 import time
+import numpy as np
 from typing import List
+from dataclasses import dataclass
 from .instrument import Instrument
 from ..config import OscilloscopeConfig, ConfigRequires
 from ..errors import InstrumentConfigurationError, InstrumentParameterError
-from ..MeasurementDatabase import MeasurementResult, Preamble
-import numpy as np
+from ..experiments import MeasurementResult, Preamble
+
+@dataclass
+class Preamble:
+    """A class to store the preamble data from the oscilloscope channel.
+
+    :param format: The format of the data
+    :param type: The type of the data
+    :param points: The number of points
+    :param xinc: The x increment
+    :param xorg: The x origin
+    :param xref: The x reference
+    :param yinc: The y increment
+    :param yorg: The y origin
+    :param yref: The y reference
+    """
+
+    format: str
+    type: str
+    points: int
+    xinc: float
+    xorg: float
+    xref: float
+    yinc: float
+    yorg: float
+    yref: float
+
 
 class Oscilloscope(Instrument):
     """
@@ -261,7 +288,7 @@ class Oscilloscope(Instrument):
         pream = self._read_preamble()
 
         # Prepare the time axis once, as it is the same for all channels
-        time_values = (np.arange(0, points, 1) - pream.xref) * pream.xinc + pream.xorg
+        time_values = (np.arange(0, pream.points, 1) - pream.xref) * pream.xinc + pream.xorg
 
         measurement_results = {}
 
@@ -269,7 +296,7 @@ class Oscilloscope(Instrument):
             data = self._read_wave_data(channel, points)
             # Calculate the voltage values
             voltages = (data - pream.yref) * pream.yinc + pream.yorg 
-            if len(data) != points and recursive_depth < 5:
+            if len(data) != pream.points and recursive_depth < 5:
                 return self.read_channels(channels, points=points, runAfter=runAfter, timebase=timebase, recursive_depth=recursive_depth+1)
             elif recursive_depth >= 5:
                 raise InstrumentParameterError("Could not resolve point mismatch")
@@ -283,6 +310,8 @@ class Oscilloscope(Instrument):
                                                                         time_values,
                                                                         voltages
                                                                     )))
+                if points != len(voltages):
+                    print("WARNING: points mismatch please investigate configuration")
                 if runAfter:
                     self._send_command(":RUN")
 

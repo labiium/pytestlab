@@ -1,0 +1,241 @@
+import sqlite3
+import time
+import numpy as np
+from datetime import datetime
+
+class Database:
+    """
+    A class for managing a SQLite database that stores measurement results.
+    """
+    def __init__(self, db_path):
+        self.db_path = db_path
+        sqlite3.register_adapter(np.ndarray, self.adapt_array)
+        sqlite3.register_converter("ARRAY", self.convert_array)
+        self._create_tables()
+
+    @staticmethod
+    def adapt_array(arr):
+        """
+        Adapter function to convert a numpy array to a binary format,
+        including shape and dtype.
+        """
+        data = arr.tobytes()
+        dtype = str(arr.dtype)
+        shape = ",".join(map(str, arr.shape))
+        # Use a unique separator that is unlikely to appear in dtype or shape
+        return sqlite3.Binary(data + b";" + dtype.encode() + b";" + shape.encode())
+
+
+    @staticmethod
+    def convert_array(text):
+        """
+        Converter function to convert binary text to a numpy array,
+        including reconstructing shape and dtype.
+        """
+        # Split the binary data to extract the dtype and shape
+        data, dtype_str, shape_str = text.rsplit(b";", 2)
+        dtype = dtype_str.decode()
+        shape = tuple(map(int, shape_str.decode().split(",")))
+        return np.frombuffer(data, dtype=dtype).reshape(shape)
+
+    def _create_tables(self):
+        with self._get_connection() as conn:
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS experiments (
+                    experiment_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    codename TEXT UNIQUE,
+                    name TEXT NOT NULL,
+                    description TEXT
+                )
+            ''')
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS experiment_parameters (
+                    parameter_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    experiment_id INTEGER,
+                    name TEXT,
+                    value REAL,
+                    units TEXT,
+                    notes TEXT,
+                    FOREIGN KEY (experiment_id) REFERENCES experiments(experiment_id)
+                )
+            ''')
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS instruments (
+                    instrument_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL UNIQUE
+                )
+            ''')
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS measurements (
+                    measurement_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    codename TEXT UNIQUE,
+                    experiment_id INTEGER,  -- Added to link measurements to experiments
+                    instrument_id INTEGER NOT NULL,
+                    timestamp TIMESTAMP NOT NULL,
+                    value ARRAY NOT NULL,
+                    units TEXT NOT NULL,
+                    type TEXT, -- 'reading' or 'fft'
+                    FOREIGN KEY (instrument_id) REFERENCES instruments(instrument_id),
+                    FOREIGN KEY (experiment_id) REFERENCES experiments(experiment_id)  -- New foreign key constraint
+                )
+            ''')
+
+
+    def _get_connection(self):
+        return sqlite3.connect(f"{self.db_path}.db")
+
+    def store_reading(self, codename, measurement_result: MeasurementResult, force=False):
+        """
+        Stores a time-domain measurement result in the database.
+        """
+        with self._get_connection() as conn:
+
+            try:
+                # Get or create the instrument_id
+                instrument_id = self._get_or_create_instrument_id(conn, measurement_result.instrument)
+
+                if force:
+                    # Use INSERT OR REPLACE to update an existing record with the same codename
+                    sql_statement = '''
+                        INSERT OR REPLACE INTO measurements (codename, instrument_id, timestamp, value, units, type)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    '''
+                else:
+                    # Regular INSERT to fail on duplicate codename
+                    sql_statement = '''
+                        INSERT INTO measurements (codename, instrument_id, timestamp, value, units, type)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    '''
+                conn.execute(sql_statement, (codename, instrument_id, datetime.fromtimestamp(measurement_result.timestamp),
+                                     measurement_result.values, measurement_result.units, measurement_result.measurement_type))
+
+            except sqlite3.IntegrityError:
+                print("codename already in use")
+    def store_fft_result(self, codename, fft_result: MeasurementResult):
+        """
+        Stores an FFT measurement result in the database.
+        """
+        with self._get_connection() as conn:
+            # Get or create the instrument_id
+            instrument_id = self._get_or_create_instrument_id(conn, fft_result.instrument)
+
+            # Store each FFT result (frequency, magnitude)
+            for measurement in fft_result:
+                # Assuming timestamp field is reused to store frequency
+                conn.execute('''
+                    INSERT INTO measurements (instrument_id, timestamp, value, units, type)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (instrument_id, measurement.timestamp, measurement.value,
+                      fft_result.units, 'fft'))
+
+    def _get_or_create_instrument_id(self, conn, instrument_name):
+        """
+        Retrieves the instrument ID for the given name, or creates it if it doesn't exist.
+        """
+        cursor = conn.execute('SELECT instrument_id FROM instruments WHERE name = ?', (instrument_name,))
+        result = cursor.fetchone()
+        if result:
+            return result[0]
+        else:
+            cursor.execute('INSERT INTO instruments (name) VALUES (?)', (instrument_name,))
+            return cursor.lastrowid
+
+    def retrieve_measurements(self, instrument_name, measurement_type):
+        """
+        Retrieves measurements from the database by instrument name and measurement type.
+        """
+        with self._get_connection() as conn:
+            cursor = conn.execute('''
+                SELECT m.timestamp, m.value, m.units
+                FROM measurements m
+                JOIN instruments i ON m.instrument_id = i.instrument_id
+                WHERE i.name = ? AND m.type = ?
+            ''', (instrument_name, measurement_type))
+            return cursor.fetchall()
+
+
+    def retrieve_from_codename(self, codename):
+        """
+        Retrieves a measurement from a given codename
+        """
+        with self._get_connection() as conn:
+            cursor = conn.execute('''
+                SELECT i.name, m.type, m.value, m.units
+                FROM measurements m
+                JOIN instruments i ON m.instrument_id = i.instrument_id
+                WHERE m.codename = ?
+            ''', (codename,))  # Note the comma here, which makes it a tuple
+
+            rows = cursor.fetchall()
+            if not rows:
+                raise ValueError(f"No measurements found with codename: '{codename}'.")
+
+            # Assuming you want to use the first row's data to construct the MeasurementResult
+            # Note: You had some undefined variables (instrument_name and measurement_type); fixing this:
+            instrument_name, measurement_type, values, units = rows[0]
+
+            values = self.convert_array(values)
+        
+        # Construct and return the MeasurementResult object
+        return MeasurementResult(values=values, instrument=instrument_name,
+                                 units=units, measurement_type=measurement_type)
+
+
+    def store_experiment(self, experiment, codename):
+        """Stores an experiment and its measurements in the database."""
+        with self._get_connection() as conn:
+            # Store the experiment
+            cursor = conn.execute('''
+                INSERT INTO experiments (codename, name, description)
+                VALUES (?, ?, ?)
+            ''', (codename, experiment.name, experiment.description))
+            experiment_id = cursor.lastrowid
+
+            # Store experiment parameters
+            for param in experiment.parameters.values():
+                conn.execute('''
+                    INSERT INTO experiment_parameters (experiment_id, name, value, units)
+                    VALUES (?, ?, ?, ?)
+                ''', (experiment_id, param.name, param.value, param.units))
+
+            # Store measurements linked to the experiment
+            for measurement, params in experiment.measurements:
+                self.store_measurement(measurement, experiment_id)
+
+    def store_measurement(self, measurement_result, experiment_id):
+        """Stores a measurement result linked to an experiment."""
+        with self._get_connection() as conn:
+
+            instrument_id = self._get_or_create_instrument_id(conn, measurement_result.instrument)
+
+            conn.execute('''
+                INSERT INTO measurements (experiment_id, instrument_id, timestamp, value, units, type)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (experiment_id, instrument_id, datetime.now(), measurement_result.values, measurement_result.units, measurement_result.measurement_type))
+
+    def retrieve_experiment(self, codename):
+        """Retrieves an experiment by codename, including its parameters and measurements."""
+        with self._get_connection() as conn:
+            cursor = conn.execute('SELECT experiment_id, name, description FROM experiments WHERE codename = ?', (codename,))
+            experiment_row = cursor.fetchone()
+            if not experiment_row:
+                raise ValueError(f"No experiment found with codename: '{codename}'.")
+
+            experiment_id, name, description = experiment_row
+            experiment = Experiment(name, description)
+
+            # Retrieve and add parameters
+            cursor.execute('SELECT name, value, units FROM experiment_parameters WHERE experiment_id = ?', (experiment_id,))
+            for row in cursor.fetchall():
+                name, value, units = row
+                experiment.add_parameter(name, value, units)
+
+            # Retrieve and add measurements
+            cursor.execute('SELECT value, units, type FROM measurements WHERE experiment_id = ?', (experiment_id,))
+            for row in cursor.fetchall():
+                values, units, measurement_type = row
+                values = self.convert_array(values)
+                measurement = MeasurementResult(values, "Instrument Name", units, measurement_type)
+                experiment.measurements.append(measurement)
+
+            return experiment
