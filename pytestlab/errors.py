@@ -54,3 +54,22 @@ class InstrumentConfigurationError(Exception):
 class CommunicationError(Warning):
     """For SCPI communication warnings."""
     pass
+
+
+# Database errors
+
+class DatabaseError(Exception):
+    """For database errors."""
+
+    def __init__(self, message="Error in database operation."):
+        self.message = message
+        super().__init__(self.message)
+
+# Experiment errors
+        
+class ExperimentError(Exception):
+    """For experiment errors."""
+
+    def __init__(self, message="Error in experiment operation."):
+        self.message = message
+        super().__init__(self.message)

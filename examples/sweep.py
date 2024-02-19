@@ -8,7 +8,7 @@ dmm = AutoInstrument.from_config("keysight/EDU34450A")
 
 experiment = Experiment(
     name="sweep",
-    descertion="Sweeping the voltage of the PSU and measuring the voltage with the DMM."
+    description="Sweeping the voltage of the PSU and measuring the voltage with the DMM."
 )
 
 # setting up the experiment

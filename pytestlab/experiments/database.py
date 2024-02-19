@@ -112,7 +112,37 @@ class Database:
     def _get_connection(self):
         return sqlite3.connect(f"{self.db_path}.db")
 
-    def store_reading(self, codename, measurement_result: MeasurementResult, force=False):
+    # def store_fft_result(self, codename, fft_result: MeasurementResult):
+    #     """
+    #     Stores an FFT measurement result in the database.
+    #     """
+    #     with self._get_connection() as conn:
+    #         # Get or create the instrument_id
+    #         instrument_id = self._get_or_create_instrument_id(conn, fft_result.instrument)
+
+    #         # Store each FFT result (frequency, magnitude)
+    #         for measurement in fft_result:
+    #             # Assuming timestamp field is reused to store frequency
+    #             conn.execute('''
+    #                 INSERT INTO measurements (instrument_id, timestamp, value, units, type)
+    #                 VALUES (?, ?, ?, ?, ?)
+    #             ''', (instrument_id, measurement.timestamp, measurement.value,
+    #                   fft_result.units, 'fft'))
+
+    def _get_or_create_instrument_id(self, conn, instrument_name):
+        """
+        Retrieves the instrument ID for the given name, or creates it if it doesn't exist.
+        """
+        cursor = conn.execute('SELECT instrument_id FROM instruments WHERE name = ?', (instrument_name,))
+        result = cursor.fetchone()
+        if result:
+            return result[0]
+        else:
+            cursor.execute('INSERT INTO instruments (name) VALUES (?)', (instrument_name,))
+            return cursor.lastrowid
+
+
+    def store_measurement(self, codename, measurement_result: MeasurementResult, force=False):
         """
         Stores a time-domain measurement result in the database.
         """
@@ -139,51 +169,8 @@ class Database:
 
             except sqlite3.IntegrityError:
                 print("codename already in use")
-
-    def store_fft_result(self, codename, fft_result: MeasurementResult):
-        """
-        Stores an FFT measurement result in the database.
-        """
-        with self._get_connection() as conn:
-            # Get or create the instrument_id
-            instrument_id = self._get_or_create_instrument_id(conn, fft_result.instrument)
-
-            # Store each FFT result (frequency, magnitude)
-            for measurement in fft_result:
-                # Assuming timestamp field is reused to store frequency
-                conn.execute('''
-                    INSERT INTO measurements (instrument_id, timestamp, value, units, type)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (instrument_id, measurement.timestamp, measurement.value,
-                      fft_result.units, 'fft'))
-
-    def _get_or_create_instrument_id(self, conn, instrument_name):
-        """
-        Retrieves the instrument ID for the given name, or creates it if it doesn't exist.
-        """
-        cursor = conn.execute('SELECT instrument_id FROM instruments WHERE name = ?', (instrument_name,))
-        result = cursor.fetchone()
-        if result:
-            return result[0]
-        else:
-            cursor.execute('INSERT INTO instruments (name) VALUES (?)', (instrument_name,))
-            return cursor.lastrowid
-
-    def retrieve_measurements(self, instrument_name, measurement_type):
-        """
-        Retrieves measurements from the database by instrument name and measurement type.
-        """
-        with self._get_connection() as conn:
-            cursor = conn.execute('''
-                SELECT m.timestamp, m.value, m.units
-                FROM measurements m
-                JOIN instruments i ON m.instrument_id = i.instrument_id
-                WHERE i.name = ? AND m.type = ?
-            ''', (instrument_name, measurement_type))
-            return cursor.fetchall()
-
-
-    def retrieve_from_codename(self, codename):
+            
+    def retrieve_measurement(self, codename):
         """
         Retrieves a measurement from a given codename
         """
