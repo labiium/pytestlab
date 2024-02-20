@@ -220,14 +220,25 @@ class Database:
                     INSERT INTO trials (experiment_id, timestamp)
                     VALUES (?, ?)
                 ''', (experiment_id, datetime.now())).lastrowid
-
-                measurement = trial.data
+                
+                for param_name, value in trial.parameters.items():
+                    param_id = conn.execute('''
+                        SELECT parameter_id FROM experiment_parameters
+                        WHERE experiment_id = ? AND name = ?
+                    ''', (experiment_id, param_name)).fetchone()[0]
+                    conn.execute('''
+                        INSERT INTO trial_parameters (parameter_id, trial_id, value)
+                        VALUES (?, ?, ?)
+                    ''', (param_id, trial_id, value))
+                
+            
+                measurement = trial.data 
                 instrument_id = self._get_or_create_instrument_id(conn, measurement.instrument)
                 conn.execute('''
-                    INSERT INTO measurements (experiment_id, instrument_id, timestamp, value, units, type)
+                    INSERT INTO measurements (trial_id, instrument_id, timestamp, value, units, type)
                     VALUES (?, ?, ?, ?, ?, ?)
-                ''', (experiment_id, instrument_id, datetime.now(), measurement.values, measurement.units, measurement.measurement_type))
-
+                ''', (trial_id, instrument_id, datetime.now(), measurement.values, measurement.units, measurement.measurement_type))
+                
     def retrieve_experiment(self, codename):
         """Retrieves an experiment by codename, including its parameters and measurements."""
         with self._get_connection() as conn:
