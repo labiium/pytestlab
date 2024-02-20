@@ -42,14 +42,14 @@ class Experiment:
         self.parameters = {}  # Stores ExperimentParameter objects
         self.trials = []  # Stores tuples of measurement values and parameter values
 
-    def add_parameter(self, name, units):
+    def add_parameter(self, name, units, notes=""):
         """Adds a base parameter to the experiment.
         
         Args:
             name (str): The name of the parameter.
             units (str): The units of the parameter.
         """
-        self.parameters[name] = ExperimentParameter(name, units)
+        self.parameters[name] = ExperimentParameter(name, units, notes=notes)
 
     def add_trial(self, values, **parameter_values):
         """Adds a measurement with specified parameter values.

@@ -4,12 +4,13 @@ from pytestlab.experiments import Database
 # loading the instruments
 osc = AutoInstrument.from_config("keysight/DSOX1204G")
 
-channel_readings = osc.read_channel(1)
+channel_readings = osc.read_channels(1)
 
 data = channel_readings[1]
 
 db = Database("osc_reading")
 
+print(data)
 # A codename is a unique identifier for the experiment
 db.store_measurement("osc_reading", data)
 

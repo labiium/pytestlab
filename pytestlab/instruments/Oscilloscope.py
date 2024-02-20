@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from .instrument import Instrument
 from ..config import OscilloscopeConfig, ConfigRequires
 from ..errors import InstrumentConfigurationError, InstrumentParameterError
-from ..experiments import MeasurementResult, Preamble
+from ..experiments import MeasurementResult
 
 @dataclass
 class Preamble:

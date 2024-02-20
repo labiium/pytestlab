@@ -61,7 +61,6 @@ class Database:
                     experiment_id INTEGER,
                     name TEXT,
                     units TEXT,
-                    value REAL,
                     notes TEXT,
                     FOREIGN KEY (experiment_id) REFERENCES experiments(experiment_id)
                 )
@@ -70,6 +69,7 @@ class Database:
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS trial_parameters (
                     trial_parameter_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    parameter_id INTEGER,
                     trial_id INTEGER,
                     value REAL,
                     FOREIGN KEY (trial_id) REFERENCES trials(trial_id)
@@ -197,7 +197,7 @@ class Database:
                                  units=units, measurement_type=measurement_type)
 
 
-    def store_experiment(self, experiment, codename):
+    def store_experiment(self, codename, experiment):
         """Stores an experiment and its measurements in the database."""
         with self._get_connection() as conn:
             # Store the experiment
@@ -210,9 +210,9 @@ class Database:
             # Store experiment parameters
             for param in experiment.parameters.values():
                 conn.execute('''
-                    INSERT INTO experiment_parameters (experiment_id, name, value, units)
+                    INSERT INTO experiment_parameters (experiment_id, name, units, notes)
                     VALUES (?, ?, ?, ?)
-                ''', (experiment_id, param.name, param.value, param.units))
+                ''', (experiment_id, param.name, param.units, param.notes))
 
             # Store measurements linked to the experiment
             for trial in experiment.trials:
@@ -221,12 +221,12 @@ class Database:
                     VALUES (?, ?)
                 ''', (experiment_id, datetime.now())).lastrowid
 
-                for measurement in trial.measurements:
-                    instrument_id = self._get_or_create_instrument_id(conn, measurement.instrument)
-                    conn.execute('''
-                        INSERT INTO measurements (experiment_id, instrument_id, timestamp, value, units, type)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    ''', (experiment_id, instrument_id, datetime.now(), measurement.values, measurement.units, measurement.measurement_type))
+                measurement = trial.data
+                instrument_id = self._get_or_create_instrument_id(conn, measurement.instrument)
+                conn.execute('''
+                    INSERT INTO measurements (experiment_id, instrument_id, timestamp, value, units, type)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (experiment_id, instrument_id, datetime.now(), measurement.values, measurement.units, measurement.measurement_type))
 
     def retrieve_experiment(self, codename):
         """Retrieves an experiment by codename, including its parameters and measurements."""
