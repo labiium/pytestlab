@@ -246,7 +246,9 @@ class Database:
             experiment = cursor.fetchone()
             if not experiment:
                 raise ValueError(f"No experiment found with codename: '{codename}'.")
-            experiment_id, name, description = experiment
+            
+            print(experiment)
+            experiment_id, _, name, description = experiment
 
             experiment = Experiment(name, description)
     
