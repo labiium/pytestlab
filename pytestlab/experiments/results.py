@@ -22,6 +22,8 @@ class MeasurementResult:
 
     def __str__(self):
         string = ""
+        if isinstance(self.values, np.float64):
+            return f"{self.values} {self.units}"
         for value in self.values:
             string += f"{value} {self.units}\n"
 
@@ -46,11 +48,11 @@ class MeasurementResult:
 
     def get(self, index):
         """Gets the MeasurementValue at a specified index."""
-        return self.values.transpose[index]
+        return self.values.transpose()[index]
 
     def get_all(self):
         """Returns all the MeasurementValues in the collection."""
-        return self.values
+        return self.values.transpose[index]
 
     def clear(self):
         """Clears all the MeasurementValues from the collection."""
