@@ -1,7 +1,7 @@
 from .instrument import Instrument
 from ..errors import InstrumentConfigurationError
 from ..config import MultimeterConfig
-from ..results import MeasurementResult
+from ..experiments import MeasurementResult
 
 import numpy as np
 

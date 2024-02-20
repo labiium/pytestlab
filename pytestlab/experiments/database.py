@@ -15,8 +15,8 @@ class Database:
     """
     def __init__(self, db_path):
         self.db_path = db_path
-        sqlite3.register_adapter(np.ndarray, self.adapt_array)
-        sqlite3.register_converter("NPDATA", self.convert_array)
+        sqlite3.register_adapter(np.ndarray, self.adapt_npdata)
+        sqlite3.register_converter("NPDATA", self.convert_npdata)
         self._create_tables()
 
     @staticmethod
@@ -32,11 +32,8 @@ class Database:
         # Use a unique separator that is unlikely to appear in dtype or shape
         return sqlite3.Binary(data + b";" + dtype.encode() + b";" + shape.encode())
 
-
-
-
     @staticmethod
-    def convert_array(text):
+    def convert_npdata(text):
         """
         Converter function to convert binary text to a numpy array,
         including reconstructing shape and dtype. Supports np.float64 and matrices.
@@ -193,7 +190,7 @@ class Database:
             # Note: You had some undefined variables (instrument_name and measurement_type); fixing this:
             instrument_name, measurement_type, values, units = rows[0]
 
-            values = self.convert_array(values)
+            values = self.convert_npdata(values)
         
         # Construct and return the MeasurementResult object
         return MeasurementResult(values=values, instrument=instrument_name,
@@ -274,7 +271,7 @@ class Database:
                 cursor = conn.execute('SELECT * FROM measurements WHERE trial_id = ?', (trial_id,))
                 for measurement in cursor:
                     instrument_name = conn.execute('SELECT name FROM instruments WHERE instrument_id = ?', (measurement[3],)).fetchone()[0]
-                    values = self.convert_array(measurement[5])
+                    values = self.convert_npdata(measurement[5])
                     measurement_result = MeasurementResult(
                         values=values,
                         instrument=instrument_name,
