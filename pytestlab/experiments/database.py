@@ -265,7 +265,9 @@ class Database:
                 trial_parameters = {}
                 cursor = conn.execute('SELECT * FROM trial_parameters WHERE trial_id = ?', (trial_id,))
                 for param in cursor:
-                    trial_parameters[param[1]] = param[3]
+                    # Get the parameter name
+                    parameter_name = conn.execute('SELECT name FROM experiment_parameters WHERE parameter_id = ?', (param[1],)).fetchone()[0]
+                    trial_parameters[parameter_name] = param[3]
                 cursor = conn.execute('SELECT * FROM measurements WHERE trial_id = ?', (trial_id,))
                 for measurement in cursor:
                     instrument_name = conn.execute('SELECT name FROM instruments WHERE instrument_id = ?', (measurement[3],)).fetchone()[0]
