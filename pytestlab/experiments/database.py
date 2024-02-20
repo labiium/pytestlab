@@ -269,7 +269,8 @@ class Database:
                 cursor = conn.execute('SELECT * FROM measurements WHERE trial_id = ?', (trial_id,))
                 for measurement in cursor:
                     instrument_name = conn.execute('SELECT name FROM instruments WHERE instrument_id = ?', (measurement[3],)).fetchone()[0]
-                    values = self.convert_array(measurement[4])
+                    print(measurement[5])
+                    values = self.convert_array(measurement[5])
                     measurement_result = MeasurementResult(values, instrument_name, measurement[5], measurement[6])
                     experiment.add_trial(measurement_result, **trial_parameters)
             return experiment
