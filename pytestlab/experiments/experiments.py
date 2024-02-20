@@ -70,7 +70,7 @@ class Experiment:
                 f"Parameters: {', '.join([str(p) for p in self.parameters.values()])}\n"
                 f"Measurements: {len(self.trials)}")
 
-    def list_trial(self):
+    def list_trials(self):
         """Prints out all measurements with their parameters."""
         for trial in self.trials:
             print(trial)
