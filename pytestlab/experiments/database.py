@@ -259,17 +259,17 @@ class Database:
                 experiment.add_parameter(param[2], param[3], param[4])
 
             # Retrieve measurements linked to the experiment
-            cursor = conn.execute('''
-                SELECT m.instrument_id, m.timestamp, m.value, m.units, m.type
-                FROM measurements m
-                JOIN trials t ON m.trial_id = t.trial_id
-                WHERE t.experiment_id = ?
-            ''', (experiment_id,))
-
-            for measurement in cursor:
-                instrument_id, timestamp, values, units, measurement_type = measurement
-                instrument_name = conn.execute('SELECT name FROM instruments WHERE instrument_id = ?', (instrument_id,)).fetchone()[0]
-                values = self.convert_array(values)
-                experiment.add_measurement(instrument_name, values, units, measurement_type)
-
+            cursor = conn.execute('SELECT * FROM trials WHERE experiment_id = ?', (experiment_id,))
+            for trial in cursor:
+                trial_id = trial[0]
+                trial_parameters = {}
+                cursor = conn.execute('SELECT * FROM trial_parameters WHERE trial_id = ?', (trial_id,))
+                for param in cursor:
+                    trial_parameters[param[1]] = param[3]
+                cursor = conn.execute('SELECT * FROM measurements WHERE trial_id = ?', (trial_id,))
+                for measurement in cursor:
+                    instrument_name = conn.execute('SELECT name FROM instruments WHERE instrument_id = ?', (measurement[3],)).fetchone()[0]
+                    values = self.convert_array(measurement[4])
+                    measurement_result = MeasurementResult(values, instrument_name, measurement[5], measurement[6])
+                    experiment.add_trial(measurement_result, **trial_parameters)
             return experiment
