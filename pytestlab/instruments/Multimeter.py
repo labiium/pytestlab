@@ -1,6 +1,9 @@
 from .instrument import Instrument
 from ..errors import InstrumentConfigurationError
 from ..config import MultimeterConfig
+from ..results import MeasurementResult
+
+import numpy as np
 
 class Multimeter(Instrument):
     """
@@ -99,8 +102,13 @@ class Multimeter(Instrument):
             raise ValueError(f"Invalid integration time {int_time}. Valid values: 'SLOW', 'MED', 'FAST'")
 
         result = self._query(f"MEASURE:{measurement_type}:{mode}? {ran},{int_time}")
-        return float(result)
-
+        # return np.float64(result)
+        return MeasurementResult(
+            values=np.float64(result),
+            instrument=self.config.name,
+            units=self.config.units,
+            measurement_type="Voltage",
+        )
     # def measure_current(self, channel=1, mode="DC"):
     #     """
     #     Measures the DC current on the specified channel.

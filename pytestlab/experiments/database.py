@@ -16,32 +16,35 @@ class Database:
     def __init__(self, db_path):
         self.db_path = db_path
         sqlite3.register_adapter(np.ndarray, self.adapt_array)
-        sqlite3.register_converter("ARRAY", self.convert_array)
+        sqlite3.register_converter("NPDATA", self.convert_array)
         self._create_tables()
 
     @staticmethod
-    def adapt_array(arr):
+    def adapt_npdata(arr):
         """
-        Adapter function to convert a numpy array to a binary format,
-        including shape and dtype.
+        Adapter function to convert a numpy array (including np.float64 numbers
+        and matrices) to a binary format, including shape and dtype.
+        - arr: A numpy array, which can be a scalar (0D), vector (1D), matrix (2D), or higher-dimensional.
         """
         data = arr.tobytes()
         dtype = str(arr.dtype)
-        shape = ",".join(map(str, arr.shape))
+        shape = ",".join(map(str, arr.shape))  # Works for scalars (0D) with an empty shape tuple
         # Use a unique separator that is unlikely to appear in dtype or shape
         return sqlite3.Binary(data + b";" + dtype.encode() + b";" + shape.encode())
+
+
 
 
     @staticmethod
     def convert_array(text):
         """
         Converter function to convert binary text to a numpy array,
-        including reconstructing shape and dtype.
+        including reconstructing shape and dtype. Supports np.float64 and matrices.
         """
-        # Split the binary data to extract the dtype and shape
         data, dtype_str, shape_str = text.rsplit(b";", 2)
         dtype = dtype_str.decode()
         shape = tuple(map(int, shape_str.decode().split(",")))
+        # np.frombuffer will correctly handle scalar (0D), vector (1D), matrix (2D), etc.
         return np.frombuffer(data, dtype=dtype).reshape(shape)
 
     def _create_tables(self):
@@ -100,7 +103,7 @@ class Database:
                     codename TEXT UNIQUE,
                     instrument_id INTEGER NOT NULL,
                     timestamp TIMESTAMP NOT NULL,
-                    value ARRAY NOT NULL,
+                    value NPDATA NOT NULL,
                     units TEXT NOT NULL,
                     type TEXT, -- 'reading' or 'fft'
                     FOREIGN KEY (instrument_id) REFERENCES instruments(instrument_id),
