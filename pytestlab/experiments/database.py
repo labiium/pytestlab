@@ -38,11 +38,14 @@ class Database:
         Converter function to convert binary text to a numpy array,
         including reconstructing shape and dtype. Supports np.float64 and matrices.
         """
-        data, dtype_str, shape_str = text.rsplit(b";", 2)
-        dtype = dtype_str.decode()
-        shape = tuple(map(int, shape_str.decode().split(",")))
-        # np.frombuffer will correctly handle scalar (0D), vector (1D), matrix (2D), etc.
-        return np.frombuffer(data, dtype=dtype).reshape(shape)
+        if isinstance(text, bytes):
+            data, dtype_str, shape_str = text.rsplit(b";", 2)
+            dtype = dtype_str.decode()
+            shape = tuple(map(int, shape_str.decode().split(",")))
+            # np.frombuffer will correctly handle scalar (0D), vector (1D), matrix (2D), etc.
+            return np.frombuffer(data, dtype=dtype).reshape(shape)
+        else:
+            return np.float64(text)
 
     def _create_tables(self):
         with self._get_connection() as conn:
