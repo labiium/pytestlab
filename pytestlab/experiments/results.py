@@ -54,7 +54,10 @@ class MeasurementResult:
 
     def clear(self):
         """Clears all the MeasurementValues from the collection."""
-        self.values.clear()
+        if isinstance(self.values, np.ndarray):
+            self.values = np.array([])
+        elif isinstance(self.values, np.float64):
+            self.values = np.float64(0)
     
     def plot(self, title=None, xlabel=None, ylabel=None):
         """
@@ -94,12 +97,14 @@ class MeasurementResult:
             raise ValueError("Cannot perform FFT on Frequency Spectrum measurement.")
         if self.sampling_rate is None:
             raise ValueError("Sampling rate must be set to perform FFT.")
-
+        if self.measurement_type == "FFT":
+            raise ValueError("Cannot perform FFT on FFT measurement.")
+        if isinstance(self.values, np.float64):
+            raise ValueError("Cannot perform FFT on single value measurement.")
         # Extract the measurement values and convert them to a numpy array
-        data = np.array([value.value for value in self.values])
 
         # Perform the FFT
-        fft_result = np.fft.fft(data)
+        fft_result = np.fft.fft(self.values)
 
         # Compute the frequency bins
         freq = np.fft.fftfreq(len(fft_result), 1 / self.sampling_rate)
@@ -115,7 +120,7 @@ class MeasurementResult:
             measurement_type="FFT",
             sampling_rate=self.sampling_rate,  #  for reference
             values = np.array([freq, magnitudes]),
-            realtime_timestamps=self.realtime_timestamps
+            realtime_timestamps=self.values[1]
         )
 
         return fft_measurement_result
@@ -128,7 +133,19 @@ class MeasurementResult:
             return np.array(self.values)
 
     def __len__(self):
-        return len(self.values[0])
+        if isinstance(self.values, np.ndarray):
+            if len(self.values) == 0:
+                return 0
+            # check if array is 1D or 2D
+            if len(self.values.shape) == 1:
+                return len(self.values)
+            else:
+                return len(self.values[0])
+            # return len(self.values[0])
+        elif isinstance(self.values, np.float64):
+            return 1
+        else:
+            return len(self.values)
 
     def __getitem__(self, index):
         return self.values.transpose()[index]

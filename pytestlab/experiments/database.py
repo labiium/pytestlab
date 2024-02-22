@@ -15,6 +15,7 @@ class Database:
     """
     def __init__(self, db_path):
         self.db_path = db_path
+        self._conn = None  # Add this line
         sqlite3.register_adapter(np.ndarray, self.adapt_npdata)
         sqlite3.register_converter("NPDATA", self.convert_npdata)
         self._create_tables()
@@ -113,7 +114,9 @@ class Database:
 
 
     def _get_connection(self):
-        return sqlite3.connect(f"{self.db_path}.db")
+        if self._conn is None:
+            self._conn = sqlite3.connect(f"{self.db_path}.db", detect_types=sqlite3.PARSE_DECLTYPES)
+        return self._conn
 
     # def store_fft_result(self, codename, fft_result: MeasurementResult):
     #     """
@@ -283,3 +286,8 @@ class Database:
                     )
                     experiment.add_trial(measurement_result, **trial_parameters)
             return experiment
+        
+    def close(self):
+        if hasattr(self, '_conn') and self._conn:
+            self._conn.close()
+            self._conn = None
