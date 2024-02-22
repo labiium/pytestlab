@@ -253,7 +253,6 @@ class Database:
             if not experiment:
                 raise ValueError(f"No experiment found with codename: '{codename}'.")
             
-            print(experiment)
             experiment_id, _, name, description = experiment
 
             experiment = Experiment(name, description)
