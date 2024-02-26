@@ -105,8 +105,8 @@ class Multimeter(Instrument):
         # return np.float64(result)
         return MeasurementResult(
             values=np.float64(result),
-            instrument=self.config.name,
-            units=self.config.units,
+            instrument=self.config.model,
+            units="V",
             measurement_type="Voltage",
         )
     # def measure_current(self, channel=1, mode="DC"):
