@@ -1,1 +1,3 @@
 recursive-include pytestlab/profiles *
+recursive-include pytestlab/experiments *
+recursive-include pytestlab/instruments *
