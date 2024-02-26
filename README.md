@@ -2,7 +2,7 @@
 
 A Python library for test and measurement  automation and measurement data management.
 
-`PyTestLab` is a Python library for interfacing with electronic instruments such as oscilloscopes, network analyzers, and arbitrary waveform generators. Designed with ease of use and flexibility in mind, it provides a high-level interface for controlling and acquiring data from these instruments using SCPI commands.
+`PyTestLab` is a Python library for interfacing with electronic instruments such as oscilloscopes, network analyzers, and arbitrary waveform generators. Designed with ease of use and flexibility in mind, it provides a high-level interface for controlling and acquiring data from these instruments using SCPI commands under the hood.
 
 ## Features
 
@@ -30,11 +30,26 @@ Here's a quick example of how to use the library with an oscilloscope:
 
 ```python
 from pytestlab.instruments import AutoInstrument
+from pytestlab.experiments import Database
 
-# Connect to an oscilloscope
+# loading the instruments
 osc = AutoInstrument.from_config("keysight/DSOX1204G")
 
-osc.reset()
+channel_readings = osc.read_channels(1)
+
+data = channel_readings[1]
+
+db = Database("osc_reading")
+
+print(data)
+
+# A codename is a unique identifier for the experiment
+db.store_measurement("osc_reading", data)
+
+# A codename is a unique identifier for the experiment
+measurement_data = db.retrieve_measurement("osc_reading")
+
+print(measurement_data)
 
 osc.close()
 ```
