@@ -102,12 +102,22 @@ class Multimeter(Instrument):
             raise ValueError(f"Invalid integration time {int_time}. Valid values: 'SLOW', 'MED', 'FAST'")
 
         result = self._query(f"MEASURE:{measurement_type}:{mode}? {ran},{int_time}")
+
+        # set units
+        units = ""
+        if measurement_type in ["VOLTAGE", "VOLT"]:
+            units = "V"
+        elif measurement_type in ["CURRENT", "CURR"]:
+            units = "A"
+        
+        measurement_name = "Voltage" if measurement_type in ["VOLTAGE", "VOLT"] else "Current"
+
         # return np.float64(result)
         return MeasurementResult(
             values=np.float64(result),
             instrument=self.config.model,
-            units="V",
-            measurement_type="Voltage",
+            units=units,
+            measurement_type=measurement_name,
         )
     # def measure_current(self, channel=1, mode="DC"):
     #     """
