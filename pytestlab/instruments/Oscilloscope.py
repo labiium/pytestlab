@@ -6,6 +6,8 @@ from .instrument import Instrument
 from ..config import OscilloscopeConfig, ConfigRequires
 from ..errors import InstrumentConfigurationError, InstrumentParameterError
 from ..experiments import MeasurementResult
+from PIL import Image
+from io import BytesIO
 
 @dataclass
 class Preamble:
@@ -856,6 +858,20 @@ class Oscilloscope(Instrument):
             # fft_measurement_result.add(fft_measurement_value)
         
         return fft_measurement_result
+    
+
+    def screenshoot(self):
+        """
+        Capture a screenshot of the oscilloscope display.
+
+        :return: The screenshot as a binary string.
+        """
+        binary_data = self.instrument.ask_raw(":DISPlay:DATA? PNG, COLor")
+
+        length_of_length = int(chr(binary_data[1]))  # Convert the length indicator to an integer
+        data_length = int(binary_data[2:2+length_of_length].decode())  # Extract the length of the image data
+        image_data = binary_data[2+length_of_length:2+length_of_length+data_length]  # Extract the image data
+        return Image.open(BytesIO(image_data))
 
 # class DigitalOscilloscopeWithJitter(Oscilloscope):
 

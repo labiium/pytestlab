@@ -9,12 +9,15 @@ setup(
     url='https://github.com/labiium/PyTestLab',
     packages=find_packages(),
     include_package_data=True,
-    # install_requires=[
-    #     'numpy',
+    install_requires=[
+        'numpy',
     #     # 'scipy',
-    #     'pandas',
+        'pandas',
+        'modin[ray]',
+        'pillow',
+        'matplotlib',
     #     # 'pyvisa',
-    # ],
+    ],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',
