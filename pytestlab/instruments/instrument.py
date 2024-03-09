@@ -2,8 +2,10 @@ import numpy as np
 from ..errors import InstrumentConnectionBusy, InstrumentConfigurationError, InstrumentNotFoundError, InstrumentCommunicationError, InstrumentConnectionError, InstrumentParameterError
 from ..config import InstrumentConfig
 from pyscpi import usbtmc
+from .backends.labiium import VisaInstrument
 import time
 
+backend = "usbtmc"
 class Instrument:
     """
     A class representing an SCPI-compliant instrument.
@@ -23,7 +25,13 @@ class Instrument:
             self.visa_resource = visa_resource
             self._connect()
         elif isinstance(config, InstrumentConfig):
-            self.instrument = usbtmc.Instrument(config.vendor_id, config.product_id)
+            match backend:
+                case "usbtmc":
+                    self.instrument = usbtmc.Instrument(config.vendor_id, config.product_id)
+                case "labiium":
+                    self.instrument = VisaInstrument(config.vendor_id, config.product_id)
+                case _:
+                    raise InstrumentConfigurationError("Invalid backend")
         else:
             raise InstrumentConfigurationError("Either a VISA resource string or a vendor and product ID must be provided.")
         self.config = config
@@ -101,6 +109,26 @@ class Instrument:
             self._command_log.append({"command": query, "success": False, "type": "query", "timestamp":time.time})
             raise InstrumentCommunicationError(f"Failed to query instrument: {str(e)}")
         
+    def _query_raw(self, query):
+        """
+        Query the instrument and return the raw response.
+
+        Args:
+            query (str): The SCPI query to send.
+
+        Returns:
+            bytes: The raw instrument response to the query.
+
+        Raises:
+            SCPICommunicationError: If the query fails.
+        """
+        try:
+            response = self.instrument.query_raw(query)
+            self._error_check()
+            return response
+        except Exception as e:
+            raise InstrumentCommunicationError(f"Failed to query instrument: {str(e)}")
+
     def _error_check(self):
         """
         Checks for errors on the instrument
