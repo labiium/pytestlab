@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='pytestlab',
-    version='0.1.0',
+    version='0.1.1',
     description='A Python library for instrument automation and measurement data management.',
     author='Emmanuel Olowe',
     author_email='e.a.olowe@ed.ac.uk',
@@ -10,13 +10,13 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
-        'numpy',
+        # 'numpy',
     #     # 'scipy',
-        'pandas',
-        'modin[ray]',
-        'pyscpi',
+        # 'pandas',
+        # 'modin[ray]',
+        # 'pyscpi',
         'pillow',
-        'matplotlib',
+        # 'matplotlib',
     #     # 'pyvisa',
     ],
     classifiers=[
