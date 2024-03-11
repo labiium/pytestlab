@@ -140,8 +140,8 @@ class Instrument:
         """
         Checks for errors on the instrument
         """
-        error = self.instrument.query(":SYSTem:ERRor?")
-        if error != "+0,\"No error\"" or error != '+0,"No error"':
+        error = self.x  
+        if error.strip() != "+0,\"No error\"":
             raise InstrumentCommunicationError(f"Instrument returned error: {error}")
 
     def lock_panel(self, lock=True):
