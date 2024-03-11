@@ -131,7 +131,7 @@ class Instrument:
                     response = self.instrument.query_raw(query)
                 case _:
                     pass
-            # self._error_check()
+            self._error_check()
             return response
         except Exception as e:
             raise InstrumentCommunicationError(f"Failed to query instrument: {str(e)}")
