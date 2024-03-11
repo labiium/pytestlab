@@ -107,7 +107,7 @@ class Oscilloscope(Instrument):
 
         self._log('Reading data')
 
-        raw_data = self._query_raw(':WAVeform:DATA?', skip_check=True)
+        raw_data = self._query_raw(':WAVeform:DATA?')
         
         data = self._read_to_np(raw_data)
         return data
