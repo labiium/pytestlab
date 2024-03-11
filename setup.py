@@ -2,19 +2,23 @@ from setuptools import setup, find_packages
 
 setup(
     name='pytestlab',
-    version='0.0.2',
+    version='0.1.0',
     description='A Python library for instrument automation and measurement data management.',
     author='Emmanuel Olowe',
     author_email='e.a.olowe@ed.ac.uk',
     url='https://github.com/labiium/PyTestLab',
     packages=find_packages(),
     include_package_data=True,
-    # install_requires=[
-    #     'numpy',
+    install_requires=[
+        'numpy',
     #     # 'scipy',
-    #     'pandas',
+        'pandas',
+        'modin[ray]',
+        'pyscpi',
+        'pillow',
+        'matplotlib',
     #     # 'pyvisa',
-    # ],
+    ],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',
