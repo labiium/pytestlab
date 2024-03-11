@@ -181,15 +181,6 @@ class Instrument:
         for command in self._command_log:
             print(command)
 
-    def _error_check(self):
-        """
-        Checks for errors on the instrument
-        """
-        error = self.instrument.query(":SYSTem:ERRor?")
-        if error != "+0,\"No error\"":
-            raise InstrumentCommunicationError(f"Instrument returned error: {error}")
-
-
     def id(self):
         """
         Query the instrument for its identification.
