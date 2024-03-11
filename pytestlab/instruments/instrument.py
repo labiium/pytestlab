@@ -51,9 +51,8 @@ class Instrument:
         except Exception as e:
             raise InstrumentNotFoundError(f"Failed to connect to the instrument: {str(e)}")
 
-    def _read_to_np(self) -> bytes:
+    def _read_to_np(self, data) -> bytes:
         chunk_size = 1024
-        data = self.instrument.read_raw(chunk_size)
         np.frombuffer(data[10:], dtype=np.uint8)
         header = data[2:10].decode('utf-8')
         data = np.frombuffer(data[10:], dtype=np.uint8)
@@ -131,7 +130,7 @@ class Instrument:
                     response = self.instrument.query_raw(query)
                 case _:
                     pass
-            self._error_check()
+            # self._error_check()
             return response
         except Exception as e:
             raise InstrumentCommunicationError(f"Failed to query instrument: {str(e)}")

@@ -107,9 +107,9 @@ class Oscilloscope(Instrument):
 
         self._log('Reading data')
 
-        self._send_command(':WAVeform:DATA?', skip_check=True)
-        data = self._read_to_np()
-
+        raw_data = self._query_raw(':WAVeform:DATA?', skip_check=True)
+        
+        data = self._read_to_np(raw_data)
         return data
     
     def lock_panel(self, lock=True):
