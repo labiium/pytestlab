@@ -12,7 +12,7 @@ class VisaInstrument:
         response = requests.post(
             f"{self.url}/add", 
             json={"vendor_id": self.vid, "product_id": self.pid},  # Use the json parameter to ensure the payload is properly encoded as JSON
-            headers={"Accept": "application/json"}
+            headers={"Accept": "application/json", 'Accept-Charset': 'utf-8'}
             )
         if response.status_code != 200:
             raise Exception(f"{response.text}")
@@ -21,7 +21,7 @@ class VisaInstrument:
         response = requests.post(
             f"{self.url}/instrument/write", 
             json={"vendor_id": self.vid, "product_id": self.pid, "command": command},  # Use the json parameter to ensure the payload is properly encoded as JSON
-            headers={"Accept": "application/json"}
+            headers={"Accept": "application/json", 'Accept-Charset': 'utf-8'}
             )
         if response.status_code != 200:
             raise Exception(f"{response.text}")
@@ -30,7 +30,7 @@ class VisaInstrument:
         response = requests.post(
             f"{self.url}/instrument/query", 
             json={"vendor_id": self.vid, "product_id": self.pid, "command": command},  # Use the json parameter to ensure the payload is properly encoded as JSON
-            headers={"Accept": "application/json"}
+            headers={"Accept": "application/json", 'Accept-Charset': 'utf-8'}
             )
         if response.status_code != 200:
             raise Exception(f"{response.text}")

@@ -747,6 +747,7 @@ class Oscilloscope(Instrument):
         data_points_per_entry = 2  # Assuming each data point consists of a frequency and a corresponding value
         structured_data = data.reshape((-1, data_points_per_entry))
         
+
     def perform_franalysis(self, input_channel, output_channel, start_freq, stop_freq, points=1000, mode='SWEep'):
         """
         Perform a frequency response analysis on the oscilloscope.
@@ -798,18 +799,17 @@ class Oscilloscope(Instrument):
         # The waiting mechanism is not detailed, assuming there's a method for it
         self._wait()
         # Read the FRANalysis data (binary block format)
-        franalysis_data = self._query(":FRANalysis:DATA?")
+        franalysis_data = self._read_to_np(self._query_raw(":FRANalysis:DATA?"))
 
         # Process the binary block data into a structured format
         # Assuming a helper function to convert binary block to numerical data
-        data = self._read_preamble()
-        # data = self._convert_binary_block_to_data(franalysis_data)
+        # data = self._read_preamble()
 
         # Disable FRANalysis after completion
         self._send_command(":FRANalysis:ENABle 0")
 
         # Return the processed data
-        return data
+        return franalysis_data
     
     @ConfigRequires("fft")
     def read_fft_data(self) -> MeasurementResult:
