@@ -6,6 +6,7 @@ from .backends.labiium import VisaInstrument
 import time
 
 backend = "usbtmc"
+
 class Instrument:
     """
     A class representing an SCPI-compliant instrument.
@@ -123,8 +124,14 @@ class Instrument:
             SCPICommunicationError: If the query fails.
         """
         try:
-            response = self.instrument.query_raw(query)
-            self._error_check()
+            match backend:
+                case "usbtmc":
+                    response = self.instrument.ask_raw(query.encode("utf-8"))
+                case "labiium":
+                    response = self.instrument.query_raw(query)
+                case _:
+                    pass
+            # self._error_check()
             return response
         except Exception as e:
             raise InstrumentCommunicationError(f"Failed to query instrument: {str(e)}")

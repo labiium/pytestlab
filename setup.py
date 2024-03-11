@@ -14,6 +14,7 @@ setup(
     #     # 'scipy',
         'pandas',
         'modin[ray]',
+        'pyscpi',
         'pillow',
         'matplotlib',
     #     # 'pyvisa',

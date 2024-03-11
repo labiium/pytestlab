@@ -860,14 +860,13 @@ class Oscilloscope(Instrument):
         return fft_measurement_result
     
 
-    def screenshoot(self):
+    def screenshot(self):
         """
         Capture a screenshot of the oscilloscope display.
 
         :return: The screenshot as a binary string.
         """
-        binary_data = self.instrument.ask_raw(":DISPlay:DATA? PNG, COLor")
-
+        binary_data = self._query_raw(":DISPlay:DATA? PNG, COLor")
         length_of_length = int(chr(binary_data[1]))  # Convert the length indicator to an integer
         data_length = int(binary_data[2:2+length_of_length].decode())  # Extract the length of the image data
         image_data = binary_data[2+length_of_length:2+length_of_length+data_length]  # Extract the image data
