@@ -160,5 +160,19 @@
             "min_val": 2e-3,
             "max_val": 20
         }
+    },
+    "franalysis": {
+        "frequency_range": {
+            "min_val": 0.1,
+            "max_val": 20e6
+        },
+        "sweep_points": {
+            "min_val": 1,
+            "max_val": 1000
+        },
+        "function_generator": {
+            "load": ["ONEMeg", "FIFTy"],
+            "trace": ["NONE", "ALL", "GAIN", "PHASe"]
+        }
     }
 }

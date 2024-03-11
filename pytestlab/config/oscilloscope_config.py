@@ -16,7 +16,8 @@ class OscilloscopeConfig(InstrumentConfig):
                  memory,
                  waveform_update_rate,
                  fft,
-                 function_generator):
+                 function_generator,
+                 franalysis):
         # Initialize the base class with basic instrument configuration
         super().__init__(manufacturer, model, vendor_id, product_id, device_type)
 
@@ -131,3 +132,11 @@ class FunctionGeneratorConfig(Config):
 
     def __repr__(self):
         return f"FunctionGeneratorConfig(waveform_types={self.waveform_types}, supported_states={self.supported_states}, offset={self.offset}, frequency={self.frequency}, amplitude={self.amplitude})"
+
+
+class FRanalysis(Config):
+    def __init__(self, frequency):
+        self.frequency = RangeConfig(**frequency)
+
+    def __repr__(self):
+        return f"FRanalysis(frequency={self.frequency})"

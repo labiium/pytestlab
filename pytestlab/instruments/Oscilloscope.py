@@ -863,7 +863,7 @@ class Oscilloscope(Instrument):
         """
         Capture a screenshot of the oscilloscope display.
 
-        :return: The screenshot as a binary string.
+        :return Image: A PIL Image object containing the screenshot.
         """
         binary_data = self._query_raw(":DISPlay:DATA? PNG, COLor")
         length_of_length = int(chr(binary_data[1]))  # Convert the length indicator to an integer
@@ -871,6 +871,52 @@ class Oscilloscope(Instrument):
         image_data = binary_data[2+length_of_length:2+length_of_length+data_length]  # Extract the image data
         return Image.open(BytesIO(image_data))
 
+
+    @ConfigRequires("franalysis")
+    def franalysis(self, input_channel, output_channel, start_freq, stop_freq, points=1000, mode='SWEep'):
+        """
+        Perform a frequency response analysis on the oscilloscope.
+
+        :param input_channel: The channel number to use as the input.
+        :param output_channel: The channel number to use as the output.
+        :param start_freq: The start frequency of the analysis in Hz.
+        :param stop_freq: The stop frequency of the analysis in Hz.
+        :param points: The number of points to use for the analysis.
+        """
+        # Validate input
+        self._check_valid_channel(input_channel)
+        self._check_valid_channel(output_channel)
+        
+        if mode not in ['SWEep', 'SINGle']:
+            raise InstrumentParameterError(f"Invalid mode {mode}. Supported modes: 'SWEep', 'SINGle'")
+        if start_freq < 10 or stop_freq > 20000000:
+            raise InstrumentParameterError(f"Invalid frequency range {start_freq} to {stop_freq}. Supported range: 10 Hz to 20 MHz")
+        if points < 1:
+            raise InstrumentParameterError(f"Invalid number of points {points}. Number of points must be positive.")
+        
+        # Enable FRANalysis
+        self._send_command(":FRANalysis:ENABle 1")
+
+        # Set the start and stop frequencies
+        self._send_command(f":FRANalysis:FREQuency:STARt {start_freq}Hz")
+        self._send_command(f":FRANalysis:FREQuency:STOP {stop_freq}Hz")
+
+        # Set the mode
+        self._send_command(f":FRANalysis:FREQuency:MODE {mode}")
+
+        # run
+        self._send_command("FRANalysis:RUN")
+
+        # If single frequency mode, set the single frequency, otherwise set points for sweep
+        if mode == 'SINGle':
+            self._send_command(f":FRANalysis:FREQuency:SINGle {start_freq}Hz")
+        else:
+            # Not directly provided in the command summary, assuming there's a command for points
+            if points < 1:
+                raise InstrumentParameterError(f"Invalid number of points {points}. Number of points must be positive.")
+            # TODO remove this hard-coded limit - only for DSOX1204G
+            if points > 1000:
+                raise InstrumentParameterError(f"Invalid number of points {points}. Number of
 # class DigitalOscilloscopeWithJitter(Oscilloscope):
 
 #     def __init__(self, visa_resource, profile):
