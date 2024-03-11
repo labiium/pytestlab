@@ -5,7 +5,7 @@ from pyscpi import usbtmc
 from .backends.labiium import VisaInstrument
 import time
 
-backend = "usbtmc"
+backend = "labiium"
 
 class Instrument:
     """
