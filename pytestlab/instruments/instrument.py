@@ -136,14 +136,6 @@ class Instrument:
         except Exception as e:
             raise InstrumentCommunicationError(f"Failed to query instrument: {str(e)}")
 
-    def _error_check(self):
-        """
-        Checks for errors on the instrument
-        """
-        error = self.x  
-        if error.strip() != "+0,\"No error\"":
-            raise InstrumentCommunicationError(f"Instrument returned error: {error}")
-
     def lock_panel(self, lock=True):
         """
         Locks the panel of the instrument
@@ -180,6 +172,15 @@ class Instrument:
         """
         for command in self._command_log:
             print(command)
+
+    def _error_check(self):
+        """
+        Checks for errors on the instrument
+        """
+        error = self.instrument.query(":SYSTem:ERRor?")
+        if error.strip() != "+0,\"No error\"":
+            raise InstrumentCommunicationError(f"Instrument returned error: {error}")
+
 
     def id(self):
         """
