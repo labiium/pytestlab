@@ -811,7 +811,7 @@ class Oscilloscope(Instrument):
 
     @ConfigRequires("franalysis")
     @ConfigRequires("function_generator")
-    def franalysis_sweep(self, input_channel, output_channel, start_freq, stop_freq, amplitude, points=1000, trace="none", load="onemeg", disable_on_complete=True):
+    def franalysis_sweep(self, input_channel, output_channel, start_freq, stop_freq, amplitude, points=10, trace="none", load="onemeg", disable_on_complete=True):
         """
         Perform a frequency response analysis sweep on the oscilloscope.
 
@@ -844,7 +844,7 @@ class Oscilloscope(Instrument):
 
         self._send_command(f":FRANalysis:RUN")
 
-        self._wait()
+        # self._wait()
         self._wait_event()
 
         # data = self._convert_binary_block_to_data(self._query_raw(":FRANalysis:DATA?"))
@@ -855,7 +855,7 @@ class Oscilloscope(Instrument):
 
         df = pl.read_csv(StringIO(data))
         # self.
-        return df
+        return df.drop_nulls()
         # if disable_on_complete:
         #     self._send_command(":FRANalysis:ENABle 0")
 
