@@ -38,6 +38,7 @@ class Instrument:
         self.config = config
         self._command_log = []
         self.debug_mode = debug_mode
+        self.clear_errors()
 
     @classmethod
     def from_config(cls, config: InstrumentConfig, debug_mode=False):
@@ -156,6 +157,14 @@ class Instrument:
         self._log("Waiting for instrument to finish processing commands.")
         self._command_log.append({"command": "BLOCK", "success": True, "type": "wait", "timestamp":time.time})
 
+    def _wait_event(self):
+        """
+        Blocks until all previous commands have been processed by the instrument.
+        """
+        self.instrument.query("*ESR?")
+        self._log("Waiting for instrument to finish processing commands.")
+        self._command_log.append({"command": "BLOCK", "success": True, "type": "wait", "timestamp":time.time})
+
     def _log(self, message):
         """
         Log a message.
@@ -222,6 +231,8 @@ class Instrument:
             return wrapped_func
         return decorator
 
+    def clear_errors(self):
+        self._send_command("*CLS")
     # def set_channel_voltage(self, channel, voltage):
     #     """
     #     Set the voltage for a specific channel.
