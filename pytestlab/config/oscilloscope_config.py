@@ -30,6 +30,7 @@ class OscilloscopeConfig(InstrumentConfig):
         self.waveform_update_rate = self._validate_parameter(waveform_update_rate, float, "waveform_update_rate")
         self.fft = FFTConfig(**fft)
         self.function_generator = FunctionGeneratorConfig(**function_generator)
+        self.franalysis = FRanalysis(**franalysis)
 
 class TimebaseConfig(Config):
     def __init__(self, range, horizontal_resolution):
@@ -135,8 +136,12 @@ class FunctionGeneratorConfig(Config):
 
 
 class FRanalysis(Config):
-    def __init__(self, frequency):
+    def __init__(self, frequency, sweep_points, load, trace, mode):
         self.frequency = RangeConfig(**frequency)
+        self.sweep_points = RangeConfig(**sweep_points)
+        self.load = SelectionConfig(load)
+        self.trace = SelectionConfig(trace)
+        self.mode = SelectionConfig(mode)
 
     def __repr__(self):
-        return f"FRanalysis(frequency={self.frequency})"
+        return f"FRanalysis(frequency={self.frequency}, sweep_points={self.sweep_points}, load={self.load}, trace={self.trace}, mode={self.mode})"
