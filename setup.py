@@ -13,7 +13,7 @@ setup(
         # 'numpy',
     #     # 'scipy',
         # 'pandas',
-        # 'modin[ray]',
+        'polars',
         # 'pyscpi',
         'pillow',
         # 'matplotlib',

@@ -160,7 +160,9 @@ class Instrument:
         """
         Blocks until all previous commands have been processed by the instrument.
         """
-        self.instrument.query("*ESR?")
+        result = 0
+        while (result == 0):
+            result =  int(self.instrument.query("*ESR?"))
         self._log("Waiting for instrument to finish processing commands.")
         self._command_log.append({"command": "BLOCK", "success": True, "type": "wait", "timestamp":time.time})
 
