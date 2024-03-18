@@ -158,7 +158,7 @@
         },
         "amplitude": {
             "min_val": 2e-3,
-            "max_val": 20
+            "max_val": 9
         }
     },
     "franalysis": {

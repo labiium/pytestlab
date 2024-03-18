@@ -855,17 +855,16 @@ class Oscilloscope(Instrument):
 
         df = pl.read_csv(StringIO(data))
         # self.
-        return df.drop_nulls()
-        # if disable_on_complete:
-        #     self._send_command(":FRANalysis:ENABle 0")
+        # return df.drop_nulls()
 
-        # freq_points = np.linspace(start_freq, stop_freq, points) 
-        # return MeasurementResult(
-        #     instrument="Oscilloscope",
-        #     units="phase",
-        #     measurement_type="franalysis",
-        #     values=np.vstaskack((freq_points, data))
-        # )
+
+
+        return MeasurementResult(
+            instrument="Oscilloscope",
+            units="Hz,Vpp, db, Phase",
+            measurement_type="franalysis",
+            values=df.drop_nulls()
+        )
 
 # class DigitalOscilloscopeWithJitter(Oscilloscope):
 
@@ -877,7 +876,7 @@ class Oscilloscope(Instrument):
 #             raise InstrumentParameterError(f"Invalid jitter type {jitter_type}. Supported jitter types: {self.profile['jitter_analysis']}")
 
 #     def setup_rms_jitter_measurement(self, channel):
-#         self._available_jitter_measurements("rms")
+#         self._available_jitter_meaWGENsurements("rms")
 #         # Implement SCPI commands to set up the oscilloscope for jitter measurement
 #         self._send_command(f"MEASure:JITTer:SOURce CHANnel{channel}")
 #         self._send_command("MEASure:JITTer:MODE RMS")

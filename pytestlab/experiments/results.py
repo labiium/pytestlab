@@ -1,6 +1,7 @@
 from datetime import datetime
 import time
 import numpy as np
+import polars as pl
 import matplotlib.pyplot as plt
 
 class MeasurementResult:
@@ -24,6 +25,8 @@ class MeasurementResult:
         string = ""
         if isinstance(self.values, np.float64):
             return f"{self.values} {self.units}"
+        elif isinstance(self.values, pl.DataFrame):
+            return str(self.values)
         for value in self.values:
             string += f"{value} {self.units}\n"
 
@@ -76,14 +79,45 @@ class MeasurementResult:
             ## change grid
             xlabel = xlabel if xlabel else "Frequency (Hz)"
             ylabel = ylabel if ylabel else f"Magnitude ({self.units})"
+
+            plt.xlabel(xlabel)
+            plt.ylabel(ylabel)
         
         if self.measurement_type == "VoltageTime":
             plt.plot(self.values[0], self.values[1])
             xlabel = xlabel if xlabel else "Time (s)"
             ylabel = ylabel if ylabel else f"Voltage ({self.units})"
         
-        plt.xlabel(xlabel)
-        plt.ylabel(ylabel)
+            plt.xlabel(xlabel)
+            plt.ylabel(ylabel)
+        if self .measurement_type == "franalysis":
+            plt.figure(figsize=(12, 6))
+
+            frequency = self.values[:,1].to_numpy()
+            gain = self.values[:,2].to_numpy()
+            phase = self.values[:,3].to_numpy()
+
+            # Plotting from Polars data
+            plt.figure(figsize=(12, 6))
+
+            # Plot Gain vs. Frequency
+            plt.subplot(2, 1, 1)
+            plt.semilogx(frequency, gain, 'r-o', label='Gain (dB)')
+            plt.title('Gain and Phase vs. Frequency')
+            plt.ylabel('Gain (dB)')
+            plt.grid(True, which="both", ls="--")
+            plt.legend(loc='upper left')
+
+            # Plot Phase vs. Frequency
+            plt.subplot(2, 1, 2)
+            plt.semilogx(frequency, phase, 'b-o', label='Phase (°)')
+            plt.xlabel('Frequency (Hz)')
+            plt.ylabel('Phase (°)')
+            plt.grid(True, which="both", ls="--")
+            plt.legend(loc='upper left')
+
+            plt.tight_layout()
+
         plt.grid(True)
         plt.show()
 
