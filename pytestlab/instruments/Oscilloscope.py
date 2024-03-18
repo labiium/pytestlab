@@ -147,6 +147,16 @@ class Oscilloscope(Instrument):
         self._send_command(f':TIMebase:SCALe {scale}')
         self._send_command(f':TIMebase:POSition {position}')
         self._wait()
+
+    def get_time_axis(self) -> List[float]:
+        """
+        Gets the time axis of the oscilloscope. (x-axis)
+
+        :return: A list containing the time axis scale and position
+        """
+        scale = self._query(":TIMebase:SCALe?")
+        position = self._query(":TIMebase:POSition?")
+        return [np.float64(scale), np.float64(position)]
     
     def set_channel_axis(self, channel: int, scale: float, offset: float) -> None:
         """
@@ -161,6 +171,19 @@ class Oscilloscope(Instrument):
         self._send_command(f':CHANnel{channel}:SCALe {scale}')
         self._send_command(f':CHANnel{channel}:OFFSet {offset}')
         self._wait()
+
+    def get_channel_axis(self, channel: int) -> List[float]:
+        """
+        Gets the channel axis of the oscilloscope. (y-axis)
+
+        :param channel: The channel to get the axis for
+        :return: A list containing the channel axis scale and offset
+        """
+        self._check_valid_channel(channel)
+        
+        scale = self._query(f":CHANnel{channel}:SCALe?")
+        offset = self._query(f":CHANnel{channel}:OFFSet?")
+        return [np.float64(scale), np.float64(offset)]
         
         
     def configure_trigger(self, channel: int, level: float, trigger_type="HIGH", slope: str = "POS", mode: str = "EDGE") -> None:
@@ -322,11 +345,14 @@ class Oscilloscope(Instrument):
 
 
     def get_sampling_rate(self):
+        """
+        Get the current sampling rate of the oscilloscope.
+        """
         # Send the SCPI command to query the current sampling rate
         response = self._query(":ACQuire:SRATe?")
         
         # Parse the response to get the sampling rate value.
-        sampling_rate = float(response)
+        sampling_rate = np.float64(response)
         return sampling_rate
         # return MeasurementResult(sampling_rate, self.config.model, "Hz", "sampling rate")
     
@@ -334,12 +360,18 @@ class Oscilloscope(Instrument):
         """
         Gets the probe attenuation for a given channel.
 
+        Parameters:
+            channel (int): The oscilloscope channel to get the probe attenuation for.
+
+        Returns:
+            str: The probe attenuation value (e.g., '10:1', '1:1').
+
         """
         self._check_valid_channel(channel)
         # Set the probe attenuation for the specified channel
         response = self._query(f"CHANnel{channel}:PROBe?")
         response = f"{response}:1"
-        # return MeasurementResult(self.config.model, "V", "probe attenuation", response)
+
         return response
         
     def set_probe_attenuation(self, channel, scale):
@@ -356,40 +388,6 @@ class Oscilloscope(Instrument):
 
         # Confirm the action to the log
         self._log(f"Set probe scale to {scale}:1 for channel {channel}.")
-
-    def set_timebase_scale(self, scale):
-        """
-        Set the timebase scale of the oscilloscope.
-        
-        This method sends an SCPI command to adjust the timebase scale on the oscilloscope display.
-        
-        Args:
-        scale (float): The timebase scale in seconds per division.
-        
-        Example:
-        >>> set_timebase_scale(0.002)
-        """
-        self._send_command(f"TIM:SCAL {scale}")
-
-    def get_timebase_scale(self):
-        """
-        Retrieve the current timebase scale setting from the oscilloscope.
-        
-        This method sends an SCPI query to get the current timebase scale and encapsulates 
-        the result into a MeasurementResult object.
-        
-        Returns:
-        MeasurementResult: An object containing the current timebase scale setting.
-        
-        Example:
-        >>> get_timebase_scale()
-        <MeasurementResult object at 0x7f1ec2a4f650>
-        """
-
-        response = self._query("TIM:SCAL?")
-
-        measurement_result = MeasurementResult(response, self.config.model, "s", "timebase scale")
-        return measurement_result
 
     def set_acquisition_time(self, time):
         """
@@ -422,25 +420,6 @@ class Oscilloscope(Instrument):
         self._check_valid_channel(channel)
         # Limit the bandwidth to a specified frequency to reduce noise
         self._send_command(f"CHANnel{channel}:BANDwidth {bandwidth}")
-
-    def set_trigger(self, channel, trigger_level):
-        """
-        Sets the trigger level for a given channel.
-
-        Parameters:
-
-        """
-        self._check_valid_channel(channel)
-        # Set the trigger level for the specified channel
-        self._send_command(f"TRIGger:LEVel CHANnel{channel},{trigger_level}")
-
-    def set_trigger_source(self, channel):
-        """
-        
-        """
-        self._check_valid_channel(channel)
-        # Set the trigger source to the specified channel
-        self._send_command(f"TRIGger:SOURce CHANnel{channel}")
 
     @ConfigRequires("function_generator")
     def wave_gen(self, state: bool):
@@ -761,8 +740,8 @@ class Oscilloscope(Instrument):
         # Make sure that the acquisition is already started or in continuous mode
         
         # Assuming :FUNCtion:DATA? returns the FFT data from the oscilloscope
-        self._send_command(':FUNCtion:DATA?')
-        fft_data = self._read_to_np()
+        data = self._query_raw(':FUNCtion:DATA?')
+        fft_data = self._read_to_np(data)
         
         # Now, instead of just returning fft_data, we need to encapsulate it into MeasurementValue objects
         # and then add these to a MeasurementResult object.
@@ -815,11 +794,15 @@ class Oscilloscope(Instrument):
         """
         Perform a frequency response analysis sweep on the oscilloscope.
 
-        :param input_channel: The channel number to use as the input.
-        :param output_channel: The channel number to use as the output.
-        :param start_freq: The start frequency of the analysis in Hz.
-        :param stop_freq: The stop frequency of the analysis in Hz.
-        :param points: The number of points to use for the analysis.
+        Parameters:
+            :param input_channel: The channel number to use as the input.
+            :param output_channel: The channel number to use as the output.
+            :param start_freq: The start frequency of the analysis in Hz.
+            :param stop_freq: The stop frequency of the analysis in Hz.
+            :param points: The number of points to use for the analysis.
+
+        Returns:
+            MeasurementResult: A MeasurementResult object containing the frequency response analysis data.
         """
         # Validate input
         self._check_valid_channel(input_channel)
@@ -866,104 +849,12 @@ class Oscilloscope(Instrument):
             values=df.drop_nulls()
         )
 
-# class DigitalOscilloscopeWithJitter(Oscilloscope):
-
-#     def __init__(self, visa_resource, profile):
-#         super().__init__(visa_resource, profile)
-
-#     def _available_jitter_measurements(self, jitter_type):
-#         if jitter_type not in self.profile["jitter_analysis"]["available_types"]:
-#             raise InstrumentParameterError(f"Invalid jitter type {jitter_type}. Supported jitter types: {self.profile['jitter_analysis']}")
-
-#     def setup_rms_jitter_measurement(self, channel):
-#         self._available_jitter_meaWGENsurements("rms")
-#         # Implement SCPI commands to set up the oscilloscope for jitter measurement
-#         self._send_command(f"MEASure:JITTer:SOURce CHANnel{channel}")
-#         self._send_command("MEASure:JITTer:MODE RMS")
-
-#     def setup_peak_to_peak_jitter_measurement(self, channel):
-#         self._available_jitter_measurements("peak_to_peak")
-#         # Implement SCPI commands to set up the oscilloscope for jitter measurement
-#         self._send_command(f"MEASure:JITTer:SOURce CHANnel{channel}")
-#         self._send_command("MEASure:JITTer:MODE PK2PK")
-
-#     def setup_period_jitter_measurement(self, channel):
-#         self._available_jitter_measurements("period")
-#         # Implement SCPI commands to set up the oscilloscope for jitter measurement
-#         self._send_command(f"MEASure:JITTer:SOURce CHANnel{channel}")
-#         self._send_command("MEASure:JITTer:MODE PERiod")
-
-#     def setup_cycle_to_cycle_jitter_measurement(self, channel):
-#         self._available_jitter_measurements("cycle_to_cycle")
-#         # Implement SCPI commands to set up the oscilloscope for jitter measurement
-#         self._send_command(f"MEASure:JITTer:SOURce CHANnel{channel}")
-#         self._send_command("MEASure:JITTer:MODE CCYCle")
-
-#     def configure_trigger(self, trigger_source, trigger_level):
-#         # Implement SCPI commands to configure trigger settings for jitter measurement
-#         self._send_command(f"TRIGger:SOURce CHANnel{trigger_source}")
-#         self._send_command(f"TRIGger:LEVel CHANnel{trigger_source},{trigger_level}")
-
-#     def acquire_jitter_data(self):
-#         # Implement SCPI commands to acquire jitter data from the oscilloscope
-#         self._send_command("ACQuire:STATE RUN")
-
-#     def analyze_jitter_data(self):
-#         measurement_result = MeasurementResult(self.profile["model"], "s", "jitter")
-#         jitter_value = self._query_command("MEASure:JITTer?")
-#         measurement_result.add_measurement(jitter_value)
-#         return measurement_result
-    
-#     def perform_rms_jitter_measurement(self, channel, trigger_source, trigger_level) -> MeasurementResult:
-#         self.setup_rms_jitter_measurement(channel)
-#         self.configure_trigger(trigger_source, trigger_level)
-#         self.acquire_jitter_data()
-#         return self.analyze_jitter_data()
-    
-#     def perform_peak_to_peak_jitter_measurement(self, channel, trigger_source, trigger_level) -> MeasurementResult:
-#         """
-#         Perform a peak-to-peak jitter measurement on a specified channel with given trigger settings.
+    @ConfigRequires("franalysis")
+    def franalysis_disable(self, state=True):
+        """
+        Fully disables the frequency response analysis feature of the oscilloscope.
+        :param state: The state of the frequency response analysis feature.
+        """
         
-#         This method sets up the measurement, configures the trigger, acquires the jitter data and 
-#         then analyzes the data to return a MeasurementResult object containing the results of 
-#         the jitter measurement.
-        
-#         Args:
-#         channel (str/int): The identifier for the channel on which the measurement is to be performed.
-#                         This could be an integer representing the channel number or a string representing
-#                         the channel name, depending on the implementation.
-#         trigger_source (str/int): The identifier for the trigger source. This could be an integer or a 
-#                                 string representing the source depending on the implementation.
-#         trigger_level (float): The trigger level for the measurement in volts. This value sets the voltage 
-#                             level at which the trigger event occurs.
-        
-#         Returns:
-#         MeasurementResult: An object containing the results of the peak-to-peak jitter measurement.
-        
-#         Raises:
-#         NotImplementedError: If any of the method calls within this function (e.g., setup_peak_to_peak_jitter_measurement, 
-#                             configure_trigger, acquire_jitter_data, analyze_jitter_data) are not implemented.
-#         MeasurementError: If there is an error during the measurement process.
-        
-#         Example:
-#         >>> perform_peak_to_peak_jitter_measurement("CH1", "External", 0.5)
-#         <MeasurementResult object at 0x7f9bd8134f50>
-#         """
-#         self.setup_peak_to_peak_jitter_measurement(channel)
-#         self.configure_trigger(trigger_source, trigger_level)
-#         self.acquire_jitter_data()
-#         return self.analyze_jitter_data()
-
-        
-#     def perform_period_jitter_measurement(self, channel, trigger_source, trigger_level) -> MeasurementResult:
-#         self.setup_period_jitter_measurement(channel)
-#         self.configure_trigger(trigger_source, trigger_level)
-#         self.acquire_jitter_data()
-#         return self.analyze_jitter_data()
-
-#     def perform_cycle_to_cycle_jitter_measurement(self, channel, trigger_source, trigger_level) -> MeasurementResult:
-#         self.setup_cycle_to_cycle_jitter_measurement(channel)
-#         self.configure_trigger(trigger_source, trigger_level)
-#         self.acquire_jitter_data()
-#         return self.analyze_jitter_data()
-        
+        self._send_command(f":FRANalysis:ENABle {'0' if state else '1'}")
+        self._log(f"Frequency response analysis is {'disabled' if state else 'enabled'}.")
