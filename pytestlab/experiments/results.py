@@ -84,9 +84,9 @@ class MeasurementResult:
             plt.ylabel(ylabel)
         
         if self.measurement_type == "VoltageTime":
-            plt.plot(self.values[0], self.values[1])
+            plt.plot(self.values[:,1], self.values[:,2])
             xlabel = xlabel if xlabel else "Time (s)"
-            ylabel = ylabel if ylabel else f"Voltage ({self.units})"
+            ylabel = ylabel if ylabel else f"Voltage (V)"
         
             plt.xlabel(xlabel)
             plt.ylabel(ylabel)

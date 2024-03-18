@@ -332,10 +332,14 @@ class Oscilloscope(Instrument):
                                                                     units="V",
                                                                     measurement_type="VoltageTime",
                                                                     sampling_rate=sampling_rate,
-                                                                    values=np.vstack((
-                                                                        time_values,
-                                                                        voltages
-                                                                    )))
+                                                                    values=pl.DataFrame(
+                                                                        {
+                                                                        "ID": np.arange(0, len(time_values)),
+                                                                        "Time (s)": time_values,
+                                                                        "Voltage (V)":voltages
+                                                                        }
+                                                                    )
+                                                                    )
                 if points != len(voltages):
                     print("WARNING: points mismatch please investigate configuration")
                 if runAfter:
