@@ -140,7 +140,7 @@ class WaveformGenerator(Instrument):
 
     def output(self, channel, state):
         """
-        Sets the output state for the specified channel.
+        Sets the output state for the specified channel. By default, the output is turned off.
 
         Args:
             channel (int or str): The channel for which to set the output state.

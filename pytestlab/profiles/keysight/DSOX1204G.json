@@ -160,5 +160,14 @@
             "min_val": 2e-3,
             "max_val": 20
         }
+    },
+    "franalysis": {
+        "sweep_points": {
+            "min_val": 1,
+            "max_val": 1000
+        },
+        "load": ["ONEMeg", "FIFTy"],
+        "trace": ["NONE", "ALL", "GAIN", "PHASe"],
+        "mode": ["SWE"]
     }
 }
