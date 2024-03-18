@@ -3,7 +3,8 @@ import numpy as np
 from typing import List
 from dataclasses import dataclass
 from PIL import Image
-from io import BytesIO
+from io import BytesIO, StringIO
+import polars as pl
 from .instrument import Instrument
 from ..config import OscilloscopeConfig, ConfigRequires
 from ..errors import InstrumentConfigurationError, InstrumentParameterError
@@ -816,12 +817,8 @@ class Oscilloscope(Instrument):
         self._send_command(f":FRANalysis:FREQuency:MODE SWEep")
         self._send_command(f":FRANalysis:SWEep:POINts {points}")
         
-        self._send_command(f":FRANalysis:FREQuency:STARt {self.config.franalysis.frequency.in_range(start_freq)}Hz")
-        self._send_command(f":FRANalysis:FREQuency:STOP {self.config.franalysis.frequency.in_range(stop_freq)}Hz")
-
-        
-        self._send_command(f":FRANalysis:WGEN:VOLTage {self.config.franalysis.amplitude}")
-
+        self._send_command(f":FRANalysis:FREQuency:STARt {self.config.function_generator.frequency.in_range(start_freq)}Hz")
+        self._send_command(f":FRANalysis:FREQuency:STOP {self.config.function_generator.frequency.in_range(stop_freq)}Hz")
     
         self._send_command(f":FRANalysis:WGEN:LOAD {self.config.franalysis.load[load]}")
         self._send_command(f":FRANalysis:TRACE {self.config.franalysis.trace[trace]}")
@@ -829,19 +826,33 @@ class Oscilloscope(Instrument):
         self._send_command(f"WGEN:VOLT {self.config.function_generator.amplitude.in_range(amplitude)}")
 
         self._send_command(f":FRANalysis:RUN")
-        data = self._read_to_np(self._query_raw(":FRANalysis:DATA?"))
 
+<<<<<<< HEAD
         self._log(f"Frequency response analysis sweep completed. Data points: {len(data)}")
+=======
+        self._wait()
+        self._wait_event()
+
+        # data = self._convert_binary_block_to_data(self._query_raw(":FRANalysis:DATA?"))
+
+        data = self._query(":FRANalysis:DATA?")
+>>>>>>> 0667221b0eb807572fc2da5757058f81be453ffd
         if disable_on_complete:
             self._send_command(":FRANalysis:ENABle 0")
 
-        freq_points = np.linspace(start_freq, stop_freq, points) 
-        return MeasurementResult(
-            instrument="Oscilloscope",
-            units="phase",
-            measurement_type="franalysis",
-            values=np.vstaskack((freq_points, data))
-        )
+        df = pl.read_csv(StringIO(data))
+        # self.
+        return df
+        # if disable_on_complete:
+        #     self._send_command(":FRANalysis:ENABle 0")
+
+        # freq_points = np.linspace(start_freq, stop_freq, points) 
+        # return MeasurementResult(
+        #     instrument="Oscilloscope",
+        #     units="phase",
+        #     measurement_type="franalysis",
+        #     values=np.vstaskack((freq_points, data))
+        # )
 
     @ConfigRequires("franalysis")
     def franalysis_disable(self, state=True):

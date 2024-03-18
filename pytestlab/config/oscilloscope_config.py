@@ -136,8 +136,7 @@ class FunctionGeneratorConfig(Config):
 
 
 class FRanalysis(Config):
-    def __init__(self, frequency, sweep_points, load, trace, mode):
-        self.frequency = RangeConfig(**frequency)
+    def __init__(self, sweep_points, load, trace, mode):
         self.sweep_points = RangeConfig(**sweep_points)
         self.load = SelectionConfig(load)
         self.trace = SelectionConfig(trace)
