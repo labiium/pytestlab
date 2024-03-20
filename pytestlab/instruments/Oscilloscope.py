@@ -833,7 +833,7 @@ class Oscilloscope(Instrument):
         # data = self._convert_binary_block_to_data(self._query_raw(":FRANalysis:DATA?"))
 
         data = self._query(":FRANalysis:DATA?")
->>>>>>> 0667221b0eb807572fc2da5757058f81be453ffd
+
         if disable_on_complete:
             self._send_command(":FRANalysis:ENABle 0")
 
