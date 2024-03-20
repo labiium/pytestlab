@@ -17,7 +17,7 @@ class OscilloscopeConfig(InstrumentConfig):
                  waveform_update_rate,
                  fft,
                  function_generator,
-                 franalysis):
+                 franalysis=None):
         # Initialize the base class with basic instrument configuration
         super().__init__(manufacturer, model, vendor_id, product_id, device_type)
 
@@ -28,9 +28,12 @@ class OscilloscopeConfig(InstrumentConfig):
         self.sampling_rate = self._validate_parameter(sampling_rate, float, "sampling_rate")
         self.memory = self._validate_parameter(memory, float, "memory")
         self.waveform_update_rate = self._validate_parameter(waveform_update_rate, float, "waveform_update_rate")
-        self.fft = FFTConfig(**fft)
-        self.function_generator = FunctionGeneratorConfig(**function_generator)
-        self.franalysis = FRanalysis(**franalysis)
+        if fft:
+            self.fft = FFTConfig(**fft)
+        if function_generator:
+            self.function_generator = FunctionGeneratorConfig(**function_generator)
+        if franalysis:
+            self.franalysis = FRanalysis(**franalysis)
 
 class TimebaseConfig(Config):
     def __init__(self, range, horizontal_resolution):
