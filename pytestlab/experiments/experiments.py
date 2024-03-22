@@ -1,3 +1,5 @@
+import polars as pl
+
 class ExperimentParameter:
     """Represents a single experiment parameter."""
     def __init__(self, name, units, notes=""):
@@ -7,20 +9,6 @@ class ExperimentParameter:
 
     def __str__(self):
         return f"{self.name} ({self.units})"
-
-class Trial:
-    """Represents an individual measurement with associated parameter values."""
-    def __init__(self, data, parameters):
-        self.data = data
-        self.parameters = parameters
-
-    def __repr__(self):
-        parameters_str = ", ".join(f"{parameter}='{value}'" for parameter, value in self.parameters.items())
-        return f"Trial({{{parameters_str}}}\n{self.data})"
-    
-    def __str__(self):
-        parameters_str = ", ".join(f"{parameter}='{value}'" for parameter, value in self.parameters.items())
-        return f"Trial({{{parameters_str}}}\n{self.data})"
 
 class Experiment:
     """Experiment tracker to store measurements and parameters.
@@ -40,7 +28,7 @@ class Experiment:
         self.name = name
         self.description = description
         self.parameters = {}  # Stores ExperimentParameter objects
-        self.trials = []  # Stores tuples of measurement values and parameter values
+        self.measurements = pl.DataFrame()  
 
     def add_parameter(self, name, units, notes=""):
         """Adds a base parameter to the experiment.
@@ -51,19 +39,32 @@ class Experiment:
         """
         self.parameters[name] = ExperimentParameter(name, units, notes=notes)
 
-    def add_trial(self, values, **parameter_values):
-        """Adds a measurement with specified parameter values.
-        
+    def add_trial(self, measurement_result, **parameter_values):
+        """Adds a trial with measurement results and parameter values to the experiment.
+
         Args:
-            values: Measurement values.
-            **parameter_values: Arbitrary number of parameter values, passed as keyword arguments.
+            measurement_result (polars.DataFrame): A Polars DataFrame with measurement results.
+            **parameter_values: Parameter values for the trial.
         """
         if len(parameter_values) != len(self.parameters):
-            raise ValueError(f"Incorrect number of arguments. {len(parameter_values)} have been supplied but {len(self.parameters)} expected.")
+            raise ValueError(f"Incorrect number of parameters. {len(parameter_values)} provided but {len(self.parameters)} expected.")
         for param in parameter_values:
-            if param not in self.parameters :
+            if param not in self.parameters:
                 raise ValueError(f"Parameter '{param}' not defined.")
-        self.trials.append(Trial(values, parameter_values))
+
+        # Ensure the structure for new trials matches the first one or establish it for the first trial
+        if self.measurements.height == 0:
+            for column in measurement_result.values.columns:
+                self.measurements = self.measurements.with_columns(pl.Series(name=column, values=[]))
+            for param in parameter_values:
+                self.measurements = self.measurements.with_columns(pl.Series(name=param, values=[]))
+        elif set(measurement_result.values.columns) | set(parameter_values.keys()) != set(self.measurements.columns):
+            raise ValueError("The structure of the trial does not match the existing structure of the measurements DataFrame.")
+
+        # Adding each row of the measurement_result as a new trial along with parameter values
+        for row in measurement_result.values.to_dicts():
+            row.update(parameter_values)  # Add parameter values to each row's data
+            self.measurements = self.measurements.vstack(pl.DataFrame([row]))  # Append row to the measurements DataFrame
 
     def __str__(self):
         return (f"Experiment: {self.name}\nDescription: {self.description}\n"

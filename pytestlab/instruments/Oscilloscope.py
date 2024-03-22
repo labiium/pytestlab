@@ -9,6 +9,61 @@ from .instrument import Instrument
 from ..config import OscilloscopeConfig, ConfigRequires
 from ..errors import InstrumentConfigurationError, InstrumentParameterError
 from ..experiments import MeasurementResult
+from matplotlib import pyplot as plt
+
+
+class ChannelReadingResult(MeasurementResult):
+    def plot(self):
+        channel_columns = self.values.columns[2:]
+
+        # Plotting each channel
+        for channel in channel_columns:
+            # Extracting the Time (s) and channel data
+            time_data = self.values['Time (s)']
+            channel_data = self.values[channel]
+
+            # Creating the plot
+            plt.figure(figsize=(10, 6))  # Set the figure size for better visibility
+            plt.plot(time_data, channel_data, label=channel)
+
+            # Adding title and labels
+            plt.title(f"{channel} over Time")
+            plt.xlabel("Time (s)")
+            plt.ylabel("Signal")
+            plt.legend()
+            plt.grid(True)
+
+            # Display the plotf(V)
+            plt.show()
+
+    def __getitem__(self, channel):
+        # extract correct columns of polars dataframe
+        try:
+            df = self.values[["Time (s)", f"Channel {channel} (V)"]]
+            df_renamed = df.rename({f"Channel {channel} (V)": "Voltage (V)"})
+            return VoltageReadingResult(
+                instrument=self.instrument,
+                units="V",
+                measurement_type="VoltageTime",
+                values=df_renamed
+            )
+                
+        except pl.PolarsError as e:
+            raise KeyError(f"Channel {channel} not found in data")
+
+
+class VoltageReadingResult(MeasurementResult):
+    def plot(self):
+        plt.figure(figsize=(10, 6))
+        plt.plot(self.values["Time (s)"], self.values["Voltage (V)"])
+        plt.title("Voltage over Time")
+        plt.xlabel("Time (s)")
+        plt.ylabel("Voltage (V)")
+        plt.grid(True)
+        plt.show()
+
+    def __getitem__(self, key):
+        return self.values[key]
 
 @dataclass
 class Preamble:
@@ -95,14 +150,16 @@ class Oscilloscope(Instrument):
         self._log('Reading channel ' + str(channel))
 
         self._send_command(':WAVeform:FORMat BYTE')
-        self._send_command(':WAVeform:POINts:MODE MAXimum')
+        self._send_command(':WAVeform:POINts:MODE RAW')
 
         self._log('Reading points')
 
-        if points > 0:
-            self._send_command(f':WAVeform:POINts {points}')
-        else:
-            self._send_command(':WAVeform:POINts MAXimum')
+        print(self._query(':WAVeform:POINts?'))
+
+        # if points > 0:
+        #     self._send_command(f':WAVeform:POINts {points}')
+        # else:
+        # self._send_command(':WAVeform:POINts RAW')
 
         self._wait()
 
@@ -270,7 +327,7 @@ class Oscilloscope(Instrument):
         measurement_result = MeasurementResult(float(response),self.config.model, "V", "rms voltage")
         return measurement_result
 
-    def read_channels(self, channels: List[int] | int, points=10000, runAfter=True, timebase=None, recursive_depth=0):
+    def read_channels(self, *channels: List[int] | int, points=10000, runAfter=True, timebase=None, recursive_depth=0):
         """
         Reads the specified channels from the oscilloscope.
         
@@ -296,9 +353,15 @@ class Oscilloscope(Instrument):
         self._log(points)
         self._log("starting")
 
-        if isinstance(channels, int):
-            channels = [channels]
-            
+        if (isinstance(channels[0], list) or isinstance(channels[0], tuple)) and len(channels) == 1:
+            channels = channels[0]            
+        elif not isinstance(channels, list) and not isinstance(channels, tuple):
+            raise InstrumentParameterError("Invalid channel type. Must be an integer or a list of integers.")
+        
+        if isinstance(channels, tuple):
+            if len(channels) == 0:
+                raise InstrumentParameterError("No channels specified")
+
         for channel in channels:
             self._check_valid_channel(channel)
 
@@ -328,24 +391,27 @@ class Oscilloscope(Instrument):
                 raise InstrumentParameterError("Could not resolve point mismatch")
             elif len(voltages) == len(time_values):
                 # Populate the 2D numpy array with the voltage values
-                measurement_results[channel] = MeasurementResult(instrument=self.config.model,
-                                                                    units="V",
-                                                                    measurement_type="VoltageTime",
-                                                                    sampling_rate=sampling_rate,
-                                                                    values=pl.DataFrame(
-                                                                        {
-                                                                        "ID": np.arange(0, len(time_values)),
-                                                                        "Time (s)": time_values,
-                                                                        "Voltage (V)":voltages
-                                                                        }
-                                                                    )
-                                                                    )
+                measurement_results[channel] = voltages
                 if points != len(voltages):
                     print("WARNING: points mismatch please investigate configuration")
                 if runAfter:
                     self._send_command(":RUN")
 
-        return measurement_results
+        
+        # Make series names string and "Channel 1" etc
+        measurement_results = {f"Channel {key} (V)": value for key, value in measurement_results.items()}
+
+        return ChannelReadingResult(
+           instrument=self.config.model,
+           units="V",
+           measurement_type="ChannelVoltageTime",
+           sampling_rate=sampling_rate,
+           values=pl.DataFrame({
+               "ID": np.arange(0, len(time_values)),
+                "Time (s)": time_values,
+                **measurement_results
+           })
+        )
 
 
     def get_sampling_rate(self):

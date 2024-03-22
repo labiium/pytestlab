@@ -34,7 +34,9 @@ class VisaInstrument:
             )
         if response.status_code != 200:
             raise Exception(f"{response.text}")
-        return response.content.decode('utf-8')
+        content = response.content.decode('utf-8')
+        if content.endswith("\n"):
+            return content[:-1]
     
     def query_raw(self, command):
         response = requests.post(
