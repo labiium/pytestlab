@@ -7,14 +7,11 @@ print(osc.id())
 data = osc.read_channels(1,2,3)
 
 print(data)
+from pytestlab.experiments import Experiment
 
-print(data[1])
-# from pytestlab.experiments import Experiment
+experiment = Experiment("Test experiment", "This is a test experiment")
 
-# experiment = Experiment("Test experiment", "This is a test experiment")
-
-# experiment.add_parameter("frequency", "Hz")
+experiment.add_parameter("frequency", "Hz")
 
 
-# experiment.add_trial(osc.read_channels(1)[1], frequency=1000)
-# experiment.add_
+experiment.add_trial(osc.read_channels(1)[1], frequency=1000)

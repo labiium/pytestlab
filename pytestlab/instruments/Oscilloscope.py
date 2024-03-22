@@ -159,7 +159,6 @@ class Oscilloscope(Instrument):
         self._log('Reading data')
 
         raw_data = self._query_raw(':WAVeform:DATA?')
-        
         data = self._read_to_np(raw_data)
         return data
     
@@ -320,7 +319,7 @@ class Oscilloscope(Instrument):
         measurement_result = MeasurementResult(float(response),self.config.model, "V", "rms voltage")
         return measurement_result
 
-    def read_channels(self, *channels: List[int] | int, points=None, runAfter=True, timebase=None, recursive_depth=0):
+    def read_channels(self, *channels: List[int] | int, points=None, runAfter=True, timebase=None):
         """
         Reads the specified channels from the oscilloscope.
         
@@ -328,7 +327,6 @@ class Oscilloscope(Instrument):
         
         Args:
         channels (list|int): A list of channel numbers to read.
-        points (int): The number of points to read from each channel.
         timebase (float): The timebase scale to use for the measurement.
         
         Returns:
@@ -336,7 +334,8 @@ class Oscilloscope(Instrument):
         
         Example:
         >>> read_channels([1, 2, 3, 4])
-
+        >>> read_channels(1,2,3,4)
+        >>> read_channels(1)
         """
         if timebase is not None:
             self.set_timebase_scale(timebase)

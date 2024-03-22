@@ -57,13 +57,13 @@ class Instrument:
         np.frombuffer(data[10:], dtype=np.uint8)
         header = data[2:10].decode('utf-8')
         data = np.frombuffer(data[10:], dtype=np.uint8)
-        self._log(header)
+        # self._log(header)
 
-        hpoints = int(header)
+        # hpoints = int(header)
 
-        while len(data) < hpoints:
-            data = np.append(data, np.frombuffer(
-                self.instrument.read_raw(chunk_size), dtype=np.uint8))
+        # while len(data) < hpoints:
+        #     data = np.append(data, np.frombuffer(
+        #         self.instrument.read_raw(chunk_size), dtype=np.uint8))
 
         return data[:-1]
 

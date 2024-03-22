@@ -54,17 +54,18 @@ class Experiment:
 
         # Ensure the structure for new trials matches the first one or establish it for the first trial
         if self.measurements.height == 0:
-            for column in measurement_result.values.columns:
-                self.measurements = self.measurements.with_columns(pl.Series(name=column, values=[]))
-            for param in parameter_values:
-                self.measurements = self.measurements.with_columns(pl.Series(name=param, values=[]))
-        elif set(measurement_result.values.columns) | set(parameter_values.keys()) != set(self.measurements.columns):
-            raise ValueError("The structure of the trial does not match the existing structure of the measurements DataFrame.")
+            # Initialize measurements DataFrame with the correct schema
+            schema = {name: measurement_result.values.dtypes[i] for i, name in enumerate(measurement_result.values.columns)}
+            print(schema)
+        #     schema.update({name: pl.Float64 for name in parameter_values})  # Assuming parameter values are float
+        #     self.measurements = pl.DataFrame([], schema=schema)
+        # elif set(measurement_result.values.columns) | set(parameter_values.keys()) != set(self.measurements.columns):
+        #     raise ValueError("The structure of the trial does not match the existing structure of the measurements DataFrame.")
 
-        # Adding each row of the measurement_result as a new trial along with parameter values
-        for row in measurement_result.values.to_dicts():
-            row.update(parameter_values)  # Add parameter values to each row's data
-            self.measurements = self.measurements.vstack(pl.DataFrame([row]))  # Append row to the measurements DataFrame
+        # # Adding each row of the measurement_result as a new trial along with parameter values
+        # for row in measurement_result.values.to_dicts():
+        #     row.update(parameter_values)  # Add parameter values to each row's data
+        #     self.measurements = self.measurements.vstack(pl.DataFrame([row]))  # Append row to the measurements DataFrame
 
     def __str__(self):
         return (f"Experiment: {self.name}\nDescription: {self.description}\n"
@@ -73,5 +74,4 @@ class Experiment:
 
     def list_trials(self):
         """Prints out all measurements with their parameters."""
-        for trial in self.trials:
-            print(trial)
+        print(self.measurements)
