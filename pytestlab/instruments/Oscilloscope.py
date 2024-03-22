@@ -379,7 +379,7 @@ class Oscilloscope(Instrument):
         measurement_results = {}
 
         for _, channel in enumerate(channels):
-            voltages = self._read_wave_data(channel)
+            voltages = (self._read_wave_data(channel) - pream.yref) * pream.yinc + pream.yorg
             measurement_results[channel] = voltages
 
         
