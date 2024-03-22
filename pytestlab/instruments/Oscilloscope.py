@@ -140,7 +140,7 @@ class Oscilloscope(Instrument):
         if channel not in self.config.channels:
             raise InstrumentParameterError(f"Invalid channel {channel}. Supported channels: {self.config.channels}")
         
-    def _read_wave_data(self, channel: int, points: int) -> np.ndarray:
+    def _read_wave_data(self, channel: int) -> np.ndarray:
 
         self._wait()
         self._send_command(f':WAVeform:SOURce CHANnel{channel}')
@@ -153,13 +153,6 @@ class Oscilloscope(Instrument):
         self._send_command(':WAVeform:POINts:MODE RAW')
 
         self._log('Reading points')
-
-        print(self._query(':WAVeform:POINts?'))
-
-        # if points > 0:
-        #     self._send_command(f':WAVeform:POINts {points}')
-        # else:
-        # self._send_command(':WAVeform:POINts RAW')
 
         self._wait()
 
@@ -327,7 +320,7 @@ class Oscilloscope(Instrument):
         measurement_result = MeasurementResult(float(response),self.config.model, "V", "rms voltage")
         return measurement_result
 
-    def read_channels(self, *channels: List[int] | int, points=10000, runAfter=True, timebase=None, recursive_depth=0):
+    def read_channels(self, *channels: List[int] | int, points=None, runAfter=True, timebase=None, recursive_depth=0):
         """
         Reads the specified channels from the oscilloscope.
         
@@ -348,6 +341,8 @@ class Oscilloscope(Instrument):
         if timebase is not None:
             self.set_timebase_scale(timebase)
 
+        if points != None:
+            print("DEPRECATED: points argument is deprecated. Use set_timebase_scale instead.")
 
 
         self._log(points)
@@ -373,6 +368,9 @@ class Oscilloscope(Instrument):
         self._send_command(f"DIGitize {channel_commands}")
         self._send_command(f':WAVeform:SOURce CHANnel{channels[0]}')
 
+        self._send_command(':WAVeform:FORMat BYTE')
+        self._send_command(':WAVeform:POINts:MODE RAW')
+        
         # Read preamble to get scaling factors
         pream = self._read_preamble()
 
@@ -381,21 +379,9 @@ class Oscilloscope(Instrument):
 
         measurement_results = {}
 
-        for i, channel in enumerate(channels):
-            data = self._read_wave_data(channel, points)
-            # Calculate the voltage values
-            voltages = (data - pream.yref) * pream.yinc + pream.yorg 
-            if len(data) != pream.points and recursive_depth < 5:
-                return self.read_channels(channels, points=points, runAfter=runAfter, timebase=timebase, recursive_depth=recursive_depth+1)
-            elif recursive_depth >= 5:
-                raise InstrumentParameterError("Could not resolve point mismatch")
-            elif len(voltages) == len(time_values):
-                # Populate the 2D numpy array with the voltage values
-                measurement_results[channel] = voltages
-                if points != len(voltages):
-                    print("WARNING: points mismatch please investigate configuration")
-                if runAfter:
-                    self._send_command(":RUN")
+        for _, channel in enumerate(channels):
+            voltages = self._read_wave_data(channel)
+            measurement_results[channel] = voltages
 
         
         # Make series names string and "Channel 1" etc
