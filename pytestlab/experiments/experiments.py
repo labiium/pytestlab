@@ -28,7 +28,8 @@ class Experiment:
         self.name = name
         self.description = description
         self.parameters = {}  # Stores ExperimentParameter objects
-        self.measurements = pl.DataFrame()  
+        self.measurements = pl.DataFrame()
+        self.schema = {}
 
     def add_parameter(self, name, units, notes=""):
         """Adds a base parameter to the experiment.
@@ -55,17 +56,34 @@ class Experiment:
         # Ensure the structure for new trials matches the first one or establish it for the first trial
         if self.measurements.height == 0:
             # Initialize measurements DataFrame with the correct schema
-            schema = {name: measurement_result.values.dtypes[i] for i, name in enumerate(measurement_result.values.columns)}
-            print(schema)
-        #     schema.update({name: pl.Float64 for name in parameter_values})  # Assuming parameter values are float
-        #     self.measurements = pl.DataFrame([], schema=schema)
+            schema = {name: pl.List(measurement_result.values.dtypes[i]) for i, name in enumerate(measurement_result.values.columns)}
+            schema.update({name: pl.Float64 for name in parameter_values}) 
+            schema = {"ID": pl.UInt64, **schema}
+            self.schema = schema
+            self.measurements = pl.DataFrame([], schema=schema)
         # elif set(measurement_result.values.columns) | set(parameter_values.keys()) != set(self.measurements.columns):
         #     raise ValueError("The structure of the trial does not match the existing structure of the measurements DataFrame.")
+        # exclude the ID column and parameter_values
+        elif set(measurement_result.values.columns) != set(self.measurements.columns[1:len(self.measurements.columns)-len(parameter_values)]):
+            raise ValueError("The structure of the trial does not match the existing structure of the measurements DataFrame.")
+        
+        
+        # Collapse the measurement DataFrame values into a Series
+        experiment_row = pl.DataFrame(
+            {
+                "ID": self.measurements.height + 1,
+                **{name: [value] for name, value in measurement_result.values.to_dict().items()},
+                **{name: [value] for name, value in parameter_values.items()}
+            },
+            schema=self.schema
+        )
 
-        # # Adding each row of the measurement_result as a new trial along with parameter values
-        # for row in measurement_result.values.to_dicts():
-        #     row.update(parameter_values)  # Add parameter values to each row's data
-        #     self.measurements = self.measurements.vstack(pl.DataFrame([row]))  # Append row to the measurements DataFrame
+
+        print(self.measurements)
+        print(experiment_row)
+        # if self.measurements.is_empty():
+        #     self.measurements = experiment_row
+        self.measurements = self.measurements.vstack(experiment_row)
 
     def __str__(self):
         return (f"Experiment: {self.name}\nDescription: {self.description}\n"
