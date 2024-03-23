@@ -38,7 +38,10 @@ class Instrument:
         self.config = config
         self._command_log = []
         self.debug_mode = debug_mode
-        self.clear_errors()
+        try:
+            self.clear_errors()
+        except InstrumentCommunicationError:
+            raise InstrumentConnectionError("Failed to connect to the instrument.")
 
     @classmethod
     def from_config(cls, config: InstrumentConfig, debug_mode=False):
