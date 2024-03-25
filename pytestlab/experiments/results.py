@@ -3,7 +3,7 @@ import time
 import numpy as np
 import polars as pl
 import matplotlib.pyplot as plt
-
+import polars as pl
 class MeasurementResult:
     """A class to represent a collection of measurement values.
     
@@ -63,7 +63,9 @@ class MeasurementResult:
             self.values = np.array([])
         elif isinstance(self.values, np.float64):
             self.values = np.float64(0)
-    
+        else:
+            self.values = np.float64(0)
+        
     def plot(self, title=None, xlabel=None, ylabel=None):
         """
         Generates a plot of the measurement values.
@@ -165,6 +167,8 @@ class MeasurementResult:
         """Converts the measurement and timestamp data to numpy arrays."""
         if isinstance(self.values, np.ndarray):
             return self.values.transpose()
+        elif isinstance(self.values, polars.DataFrame):
+            return self.values.to_numpy()
         else:
             return np.array(self.values)
 

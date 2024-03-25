@@ -67,8 +67,8 @@ class FRanalysisResult(MeasurementResult):
         plt.figure(figsize=(12, 6))
 
         frequency = self.values[:,1].to_numpy()
-        gain = self.values[:,2].to_numpy()
-        phase = self.values[:,3].to_numpy()
+        gain = self.values[:,3].to_numpy()
+        phase = self.values[:,4].to_numpy()
 
         # Plotting from Polars data
         plt.figure(figsize=(12, 6))
@@ -894,7 +894,7 @@ class Oscilloscope(Instrument):
         self._check_valid_channel(output_channel)
 
         # Enable FRANalysis
-        self._send_command(":FRANalysis:ENABle 0")
+        self._send_command(":STOP")
         self._send_command(":FRANalysis:ENABle 1")
 
         self._send_command(f":FRANalysis:SOURce:INPut CHANnel{input_channel}")
