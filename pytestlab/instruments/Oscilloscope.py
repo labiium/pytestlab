@@ -18,7 +18,6 @@ class ChannelReadingResult(MeasurementResult):
         # Plotting each channel
         time_data = self.values['Time (s)']
         plt.figure(figsize=(10, 6))  # Set the figure size for better visibility
-
         for channel in channel_columns:
             channel_data = self.values[channel]
 
@@ -31,7 +30,6 @@ class ChannelReadingResult(MeasurementResult):
         plt.xlabel("Time (s)")
         plt.ylabel("Channel Signal")
         plt.legend()
-        plt.figure(figsize=(10, 6))
         plt.grid(True)
         plt.show()
 
