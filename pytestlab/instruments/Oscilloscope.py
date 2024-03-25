@@ -15,26 +15,25 @@ from matplotlib import pyplot as plt
 class ChannelReadingResult(MeasurementResult):
     def plot(self):
         channel_columns = self.values.columns[2:]
-
         # Plotting each channel
+        time_data = self.values['Time (s)']
+        plt.figure(figsize=(10, 6))  # Set the figure size for better visibility
+
         for channel in channel_columns:
-            # Extracting the Time (s) and channel data
-            time_data = self.values['Time (s)']
             channel_data = self.values[channel]
 
             # Creating the plot
-            plt.figure(figsize=(10, 6))  # Set the figure size for better visibility
             plt.plot(time_data, channel_data, label=channel)
 
-            # Adding title and labels
-            plt.title(f"{channel} over Time")
-            plt.xlabel("Time (s)")
-            plt.ylabel("Signal")
-            plt.legend()
-            plt.grid(True)
 
-            # Display the plotf(V)
-            plt.show()
+        # Display the plotf(V)
+        plt.title(f"Channel Voltages over time ({','.join(channel_columns)})")
+        plt.xlabel("Time (s)")
+        plt.ylabel("Channel Signal")
+        plt.legend()
+        plt.figure(figsize=(10, 6))
+        plt.grid(True)
+        plt.show()
 
     def __getitem__(self, channel):
         # extract correct columns of polars dataframe
@@ -53,13 +52,46 @@ class ChannelReadingResult(MeasurementResult):
 
 
 class VoltageReadingResult(MeasurementResult):
-    def plot(self):
+    def plot(self, title="Voltage over Time"):
         plt.figure(figsize=(10, 6))
         plt.plot(self.values["Time (s)"], self.values["Voltage (V)"])
-        plt.title("Voltage over Time")
+        plt.title(title)
         plt.xlabel("Time (s)")
         plt.ylabel("Voltage (V)")
         plt.grid(True)
+        plt.show()
+
+    def __getitem__(self, key):
+        return self.values[key]
+
+class FRanalysisResult(MeasurementResult):
+    def plot(self, title="Gain and Phase vs. Frequency"):
+        plt.figure(figsize=(12, 6))
+
+        frequency = self.values[:,1].to_numpy()
+        gain = self.values[:,2].to_numpy()
+        phase = self.values[:,3].to_numpy()
+
+        # Plotting from Polars data
+        plt.figure(figsize=(12, 6))
+
+        # Plot Gain vs. Frequency
+        plt.subplot(2, 1, 1)
+        plt.semilogx(frequency, gain, 'r-o', label='Gain (dB)')
+        plt.title(title)
+        plt.ylabel('Gain (dB)')
+        plt.grid(True, which="both", ls="--")
+        plt.legend(loc='upper left')
+
+        # Plot Phase vs. Frequency
+        plt.subplot(2, 1, 2)
+        plt.semilogx(frequency, phase, 'b-o', label='Phase (°)')
+        plt.xlabel('Frequency (Hz)')
+        plt.ylabel('Phase (°)')
+        plt.grid(True, which="both", ls="--")
+        plt.legend(loc='upper left')
+
+        plt.tight_layout()
         plt.show()
 
     def __getitem__(self, key):
@@ -864,6 +896,7 @@ class Oscilloscope(Instrument):
         self._check_valid_channel(output_channel)
 
         # Enable FRANalysis
+        self._send_command(":FRANalysis:ENABle 0")
         self._send_command(":FRANalysis:ENABle 1")
 
         self._send_command(f":FRANalysis:SOURce:INPut CHANnel{input_channel}")
@@ -897,7 +930,7 @@ class Oscilloscope(Instrument):
 
 
 
-        return MeasurementResult(
+        return FRanalysisResult(
             instrument="Oscilloscope",
             units="Hz,Vpp, db, Phase",
             measurement_type="franalysis",
