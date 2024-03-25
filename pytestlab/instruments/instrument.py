@@ -38,7 +38,10 @@ class Instrument:
         self.config = config
         self._command_log = []
         self.debug_mode = debug_mode
-        self.clear_errors()
+        try:
+            self.clear_errors()
+        except InstrumentCommunicationError:
+            raise InstrumentConnectionError("Failed to connect to the instrument.")
 
     @classmethod
     def from_config(cls, config: InstrumentConfig, debug_mode=False):
@@ -57,13 +60,13 @@ class Instrument:
         np.frombuffer(data[10:], dtype=np.uint8)
         header = data[2:10].decode('utf-8')
         data = np.frombuffer(data[10:], dtype=np.uint8)
-        self._log(header)
+        # self._log(header)
 
-        hpoints = int(header)
+        # hpoints = int(header)
 
-        while len(data) < hpoints:
-            data = np.append(data, np.frombuffer(
-                self.instrument.read_raw(chunk_size), dtype=np.uint8))
+        # while len(data) < hpoints:
+        #     data = np.append(data, np.frombuffer(
+        #         self.instrument.read_raw(chunk_size), dtype=np.uint8))
 
         return data[:-1]
 
@@ -83,7 +86,7 @@ class Instrument:
                 self._error_check()
             self._command_log.append({"command": command, "success": True, "type": "write", "timestamp":time.time})
         except Exception as e:
-            raise InstrumentCommunicationError(f"Failed to send command: {str(e)}")
+            raise InstrumentCommunicationError(f"Failed to send command `{str(command)}`\n{str(e)}")
 
     def _query(self, query):
         """

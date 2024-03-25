@@ -9,6 +9,93 @@ from .instrument import Instrument
 from ..config import OscilloscopeConfig, ConfigRequires
 from ..errors import InstrumentConfigurationError, InstrumentParameterError
 from ..experiments import MeasurementResult
+from matplotlib import pyplot as plt
+
+
+class ChannelReadingResult(MeasurementResult):
+    def plot(self):
+        channel_columns = self.values.columns[2:]
+        # Plotting each channel
+        time_data = self.values['Time (s)']
+        plt.figure(figsize=(10, 6))  # Set the figure size for better visibility
+
+        for channel in channel_columns:
+            channel_data = self.values[channel]
+
+            # Creating the plot
+            plt.plot(time_data, channel_data, label=channel)
+
+
+        # Display the plotf(V)
+        plt.title(f"Channel Voltages over time ({','.join(channel_columns)})")
+        plt.xlabel("Time (s)")
+        plt.ylabel("Channel Signal")
+        plt.legend()
+        plt.figure(figsize=(10, 6))
+        plt.grid(True)
+        plt.show()
+
+    def __getitem__(self, channel):
+        # extract correct columns of polars dataframe
+        try:
+            df = self.values[["Time (s)", f"Channel {channel} (V)"]]
+            df_renamed = df.rename({f"Channel {channel} (V)": "Voltage (V)"})
+            return VoltageReadingResult(
+                instrument=self.instrument,
+                units="V",
+                measurement_type="VoltageTime",
+                values=df_renamed
+            )
+                
+        except pl.PolarsError as e:
+            raise KeyError(f"Channel {channel} not found in data")
+
+
+class VoltageReadingResult(MeasurementResult):
+    def plot(self, title="Voltage over Time"):
+        plt.figure(figsize=(10, 6))
+        plt.plot(self.values["Time (s)"], self.values["Voltage (V)"])
+        plt.title(title)
+        plt.xlabel("Time (s)")
+        plt.ylabel("Voltage (V)")
+        plt.grid(True)
+        plt.show()
+
+    def __getitem__(self, key):
+        return self.values[key]
+
+class FRanalysisResult(MeasurementResult):
+    def plot(self, title="Gain and Phase vs. Frequency"):
+        plt.figure(figsize=(12, 6))
+
+        frequency = self.values[:,1].to_numpy()
+        gain = self.values[:,2].to_numpy()
+        phase = self.values[:,3].to_numpy()
+
+        # Plotting from Polars data
+        plt.figure(figsize=(12, 6))
+
+        # Plot Gain vs. Frequency
+        plt.subplot(2, 1, 1)
+        plt.semilogx(frequency, gain, 'r-o', label='Gain (dB)')
+        plt.title(title)
+        plt.ylabel('Gain (dB)')
+        plt.grid(True, which="both", ls="--")
+        plt.legend(loc='upper left')
+
+        # Plot Phase vs. Frequency
+        plt.subplot(2, 1, 2)
+        plt.semilogx(frequency, phase, 'b-o', label='Phase (°)')
+        plt.xlabel('Frequency (Hz)')
+        plt.ylabel('Phase (°)')
+        plt.grid(True, which="both", ls="--")
+        plt.legend(loc='upper left')
+
+        plt.tight_layout()
+        plt.show()
+
+    def __getitem__(self, key):
+        return self.values[key]
 
 @dataclass
 class Preamble:
@@ -85,7 +172,7 @@ class Oscilloscope(Instrument):
         if channel not in self.config.channels:
             raise InstrumentParameterError(f"Invalid channel {channel}. Supported channels: {self.config.channels}")
         
-    def _read_wave_data(self, channel: int, points: int) -> np.ndarray:
+    def _read_wave_data(self, channel: int) -> np.ndarray:
 
         self._wait()
         self._send_command(f':WAVeform:SOURce CHANnel{channel}')
@@ -95,21 +182,15 @@ class Oscilloscope(Instrument):
         self._log('Reading channel ' + str(channel))
 
         self._send_command(':WAVeform:FORMat BYTE')
-        self._send_command(':WAVeform:POINts:MODE MAXimum')
+        self._send_command(':WAVeform:POINts:MODE RAW')
 
         self._log('Reading points')
-
-        if points > 0:
-            self._send_command(f':WAVeform:POINts {points}')
-        else:
-            self._send_command(':WAVeform:POINts MAXimum')
 
         self._wait()
 
         self._log('Reading data')
 
         raw_data = self._query_raw(':WAVeform:DATA?')
-        
         data = self._read_to_np(raw_data)
         return data
     
@@ -270,7 +351,7 @@ class Oscilloscope(Instrument):
         measurement_result = MeasurementResult(float(response),self.config.model, "V", "rms voltage")
         return measurement_result
 
-    def read_channels(self, channels: List[int] | int, points=10000, runAfter=True, timebase=None, recursive_depth=0):
+    def read_channels(self, *channels: List[int] | int, points=None, runAfter=True, timebase=None):
         """
         Reads the specified channels from the oscilloscope.
         
@@ -278,7 +359,6 @@ class Oscilloscope(Instrument):
         
         Args:
         channels (list|int): A list of channel numbers to read.
-        points (int): The number of points to read from each channel.
         timebase (float): The timebase scale to use for the measurement.
         
         Returns:
@@ -286,19 +366,28 @@ class Oscilloscope(Instrument):
         
         Example:
         >>> read_channels([1, 2, 3, 4])
-
+        >>> read_channels(1,2,3,4)
+        >>> read_channels(1)
         """
         if timebase is not None:
             self.set_timebase_scale(timebase)
 
+        if points != None:
+            print("DEPRECATED: points argument is deprecated. Use set_timebase_scale instead.")
 
 
         self._log(points)
         self._log("starting")
 
-        if isinstance(channels, int):
-            channels = [channels]
-            
+        if (isinstance(channels[0], list) or isinstance(channels[0], tuple)) and len(channels) == 1:
+            channels = channels[0]            
+        elif not isinstance(channels, list) and not isinstance(channels, tuple):
+            raise InstrumentParameterError("Invalid channel type. Must be an integer or a list of integers.")
+        
+        if isinstance(channels, tuple):
+            if len(channels) == 0:
+                raise InstrumentParameterError("No channels specified")
+
         for channel in channels:
             self._check_valid_channel(channel)
 
@@ -310,6 +399,9 @@ class Oscilloscope(Instrument):
         self._send_command(f"DIGitize {channel_commands}")
         self._send_command(f':WAVeform:SOURce CHANnel{channels[0]}')
 
+        self._send_command(':WAVeform:FORMat BYTE')
+        self._send_command(':WAVeform:POINts:MODE RAW')
+        
         # Read preamble to get scaling factors
         pream = self._read_preamble()
 
@@ -318,30 +410,25 @@ class Oscilloscope(Instrument):
 
         measurement_results = {}
 
-        for i, channel in enumerate(channels):
-            data = self._read_wave_data(channel, points)
-            # Calculate the voltage values
-            voltages = (data - pream.yref) * pream.yinc + pream.yorg 
-            if len(data) != pream.points and recursive_depth < 5:
-                return self.read_channels(channels, points=points, runAfter=runAfter, timebase=timebase, recursive_depth=recursive_depth+1)
-            elif recursive_depth >= 5:
-                raise InstrumentParameterError("Could not resolve point mismatch")
-            elif len(voltages) == len(time_values):
-                # Populate the 2D numpy array with the voltage values
-                measurement_results[channel] = MeasurementResult(instrument=self.config.model,
-                                                                    units="V",
-                                                                    measurement_type="VoltageTime",
-                                                                    sampling_rate=sampling_rate,
-                                                                    values=np.vstack((
-                                                                        time_values,
-                                                                        voltages
-                                                                    )))
-                if points != len(voltages):
-                    print("WARNING: points mismatch please investigate configuration")
-                if runAfter:
-                    self._send_command(":RUN")
+        for _, channel in enumerate(channels):
+            voltages = (self._read_wave_data(channel) - pream.yref) * pream.yinc + pream.yorg
+            measurement_results[channel] = voltages
 
-        return measurement_results
+        
+        # Make series names string and "Channel 1" etc
+        measurement_results = {f"Channel {key} (V)": value for key, value in measurement_results.items()}
+
+        return ChannelReadingResult(
+           instrument=self.config.model,
+           units="V",
+           measurement_type="ChannelVoltageTime",
+           sampling_rate=sampling_rate,
+           values=pl.DataFrame({
+               "ID": np.arange(0, len(time_values)),
+                "Time (s)": time_values,
+                **measurement_results
+           })
+        )
 
 
     def get_sampling_rate(self):
@@ -809,6 +896,7 @@ class Oscilloscope(Instrument):
         self._check_valid_channel(output_channel)
 
         # Enable FRANalysis
+        self._send_command(":FRANalysis:ENABle 0")
         self._send_command(":FRANalysis:ENABle 1")
 
         self._send_command(f":FRANalysis:SOURce:INPut CHANnel{input_channel}")
@@ -833,23 +921,21 @@ class Oscilloscope(Instrument):
         # data = self._convert_binary_block_to_data(self._query_raw(":FRANalysis:DATA?"))
 
         data = self._query(":FRANalysis:DATA?")
-
         if disable_on_complete:
             self._send_command(":FRANalysis:ENABle 0")
 
         df = pl.read_csv(StringIO(data))
         # self.
-        return df.drop_nulls()
-        # if disable_on_complete:
-        #     self._send_command(":FRANalysis:ENABle 0")
+        # return df.drop_nulls()
 
-        # freq_points = np.linspace(start_freq, stop_freq, points) 
-        # return MeasurementResult(
-        #     instrument="Oscilloscope",
-        #     units="phase",
-        #     measurement_type="franalysis",
-        #     values=np.vstaskack((freq_points, data))
-        # )
+
+
+        return FRanalysisResult(
+            instrument="Oscilloscope",
+            units="Hz,Vpp, db, Phase",
+            measurement_type="franalysis",
+            values=df.drop_nulls()
+        )
 
     @ConfigRequires("franalysis")
     def franalysis_disable(self, state=True):
