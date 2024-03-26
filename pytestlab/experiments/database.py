@@ -4,6 +4,7 @@ import numpy as np
 from datetime import datetime
 from .results import MeasurementResult
 from .experiments import Experiment
+import polars as pl
 
 class Database:
     """
@@ -14,7 +15,29 @@ class Database:
         self._conn = None  # Add this line
         sqlite3.register_adapter(np.ndarray, self.adapt_npdata)
         sqlite3.register_converter("NPDATA", self.convert_npdata)
+        sqlite3.register_adapter("PLDATA", self.adapt_dataframe)
         self._create_tables()
+
+    @staticmethod
+    def adapt_dataframe(df):
+        """
+        Adapter function to convert a Polars DataFrame to a binary format, including schema.
+        """
+        data = df.to_ipc()
+        schema = df.schema.to_json()
+        return sqlite3.Binary(data + b";" + schema.encode())
+    
+    @staticmethod
+    def decode_dataframe(text):
+        """
+        Converter function to convert binary text to a Polars DataFrame.
+        """
+        if isinstance(text, bytes):
+            data, schema = text.rsplit(b";", 1)
+            schema = pl.Schema.parse_json(schema.decode())
+            return pl.read_ipc(data, schema=schema)
+        else:
+            return pl.DataFrame()
 
     @staticmethod
     def adapt_npdata(arr):
@@ -50,6 +73,7 @@ class Database:
                 CREATE TABLE IF NOT EXISTS experiments (
                     experiment_id INTEGER PRIMARY KEY AUTOINCREMENT,
                     codename TEXT UNIQUE,
+                    data PLDATA,
                     name TEXT NOT NULL,
                     description TEXT
                 )
@@ -203,10 +227,11 @@ class Database:
         """Stores an experiment and its measurements in the database."""
         with self._get_connection() as conn:
             # Store the experiment
+            data = self.adapt_dataframe(experiment.data)
             cursor = conn.execute('''
-                INSERT INTO experiments (codename, name, description)
+                INSERT INTO experiments (codename, data, name, description)
                 VALUES (?, ?, ?)
-            ''', (codename, experiment.name, experiment.description))
+            ''', (codename, experiment.data, experiment.name, experiment.description))
             experiment_id = cursor.lastrowid
 
             # Store experiment parameters
@@ -216,31 +241,6 @@ class Database:
                     VALUES (?, ?, ?, ?)
                 ''', (experiment_id, param.name, param.units, param.notes))
 
-            # Store measurements linked to the experiment
-            for trial in experiment.trials:
-                trial_id = conn.execute('''
-                    INSERT INTO trials (experiment_id, timestamp)
-                    VALUES (?, ?)
-                ''', (experiment_id, datetime.now())).lastrowid
-                
-                for param_name, value in trial.parameters.items():
-                    param_id = conn.execute('''
-                        SELECT parameter_id FROM experiment_parameters
-                        WHERE experiment_id = ? AND name = ?
-                    ''', (experiment_id, param_name)).fetchone()[0]
-                    conn.execute('''
-                        INSERT INTO trial_parameters (parameter_id, trial_id, value)
-                        VALUES (?, ?, ?)
-                    ''', (param_id, trial_id, value))
-                
-            
-                measurement = trial.data 
-                instrument_id = self._get_or_create_instrument_id(conn, measurement.instrument)
-                conn.execute('''
-                    INSERT INTO measurements (trial_id, instrument_id, timestamp, value, units, type)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ''', (trial_id, instrument_id, datetime.now(), measurement.values, measurement.units, measurement.measurement_type))
-                
     def retrieve_experiment(self, codename):
         """Retrieves an experiment by codename, including its parameters and measurements."""
         with self._get_connection() as conn:
@@ -249,37 +249,12 @@ class Database:
             if not experiment:
                 raise ValueError(f"No experiment found with codename: '{codename}'.")
             
-            experiment_id, _, name, description = experiment
+            experiment_id, _, data, name, description = experiment
 
             experiment = Experiment(name, description)
-    
-            # Retrieve experiment parameters
+            experiment.data = self.decode_dataframe(data)
 
             cursor = conn.execute('SELECT * FROM experiment_parameters WHERE experiment_id = ?', (experiment_id,))
-            for param in cursor:
-                experiment.add_parameter(param[2], param[3], param[4])
-
-            # Retrieve measurements linked to the experiment
-            cursor = conn.execute('SELECT * FROM trials WHERE experiment_id = ?', (experiment_id,))
-            for trial in cursor:
-                trial_id = trial[0]
-                trial_parameters = {}
-                cursor = conn.execute('SELECT * FROM trial_parameters WHERE trial_id = ?', (trial_id,))
-                for param in cursor:
-                    # Get the parameter name
-                    parameter_name = conn.execute('SELECT name FROM experiment_parameters WHERE parameter_id = ?', (param[1],)).fetchone()[0]
-                    trial_parameters[parameter_name] = param[3]
-                cursor = conn.execute('SELECT * FROM measurements WHERE trial_id = ?', (trial_id,))
-                for measurement in cursor:
-                    instrument_name = conn.execute('SELECT name FROM instruments WHERE instrument_id = ?', (measurement[3],)).fetchone()[0]
-                    values = self.convert_npdata(measurement[5])
-                    measurement_result = MeasurementResult(
-                        values=values,
-                        instrument=instrument_name,
-                        units=measurement[6],
-                        measurement_type=measurement[7]
-                    )
-                    experiment.add_trial(measurement_result, **trial_parameters)
             return experiment
         
     def close(self):

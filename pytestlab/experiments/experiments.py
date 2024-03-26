@@ -28,7 +28,7 @@ class Experiment:
         self.name = name
         self.description = description
         self.parameters = {}  # Stores ExperimentParameter objects
-        self.trials = pl.DataFrame()
+        self.data = pl.DataFrame()
         self.schema = {}
 
     def add_parameter(self, name, units, notes=""):
@@ -54,37 +54,37 @@ class Experiment:
                 raise ValueError(f"Parameter '{param}' not defined.")
 
         # Ensure the structure for new trials matches the first one or establish it for the first trial
-        if self.trials.height == 0:
+        if self.data.height == 0:
             # Initialize measurements DataFrame with the correct schema
             schema = {name: pl.List(measurement_result.values.dtypes[i]) for i, name in enumerate(measurement_result.values.columns)}
             schema.update({name: pl.Float64 for name in parameter_values}) 
             schema = {"ID": pl.UInt64, **schema}
             self.schema = schema
-            self.trials = pl.DataFrame([], schema=schema)
-        # elif set(measurement_result.values.columns) | set(parameter_values.keys()) != set(self.trials.columns):
+            self.data = pl.DataFrame([], schema=schema)
+        # elif set(measurement_result.values.columns) | set(parameter_values.keys()) != set(self.data.columns):
         #     raise ValueError("The structure of the trial does not match the existing structure of the measurements DataFrame.")
         # exclude the ID column and parameter_values
-        elif set(measurement_result.values.columns) != set(self.trials.columns[1:len(self.trials.columns)-len(parameter_values)]):
+        elif set(measurement_result.values.columns) != set(self.data.columns[1:len(self.data.columns)-len(parameter_values)]):
             raise ValueError("The structure of the trial does not match the existing structure of the measurements DataFrame.")
         
         
         # Collapse the measurement DataFrame values into a Series
         experiment_row = pl.DataFrame(
             {
-                "ID": self.trials.height + 1,
+                "ID": self.data.height + 1,
                 **{name: [value] for name, value in measurement_result.values.to_dict().items()},
                 **{name: [value] for name, value in parameter_values.items()}
             },
             schema=self.schema
         )
 
-        self.trials = self.trials.vstack(experiment_row)
+        self.data = self.data.vstack(experiment_row)
 
     def __str__(self):
         return (f"Experiment: {self.name}\nDescription: {self.description}\n"
                 f"Parameters: {', '.join([str(p) for p in self.parameters.values()])}\n"
-                f"Measurements: {len(self.trials)} trials")
+                f"Measurements: {len(self.data)} trials")
 
     def list_trials(self):
         """Prints out all measurements with their parameters."""
-        print(self.trials)
+        print(self.data)
