@@ -54,7 +54,7 @@ class Experiment:
                 raise ValueError(f"Parameter '{param}' not defined.")
         
         # Check reserved column names not in data
-        if "EXPERIMENT_ID" in measurement_result.values.columns:
+        if "TRIAL_ID" in measurement_result.values.columns:
             raise ValueError("Column name 'EXPERIMENT_ID' is reserved for the experiment ID.")
 
         # Ensure the structure for new trials matches the first one or establish it for the first trial
@@ -62,7 +62,7 @@ class Experiment:
             # Initialize measurements DataFrame with the correct schema
             schema = {name: pl.List(measurement_result.values.dtypes[i]) for i, name in enumerate(measurement_result.values.columns)}
             schema.update({name: pl.Float64 for name in parameter_values}) 
-            schema = {"EXPERIMENT_ID": pl.UInt64, **schema}
+            schema = {"TRIAL_ID": pl.UInt64, **schema}
             self.schema = schema
             self.data = pl.DataFrame([], schema=schema)
         # elif set(measurement_result.values.columns) | set(parameter_values.keys()) != set(self.data.columns):
@@ -74,7 +74,7 @@ class Experiment:
         # Collapse the measurement DataFrame values into a Series
         experiment_row = pl.DataFrame(
             {
-                "EXPERIMENT_ID": pl.Series([self.data.height + 1], dtype=pl.UInt64),
+                "TRIAL_ID": pl.Series([self.data.height + 1], dtype=pl.UInt64),
                 **{name: [value] for name, value in measurement_result.values.to_dict().items()},
                 **{name: [value] for name, value in parameter_values.items()}
             },
