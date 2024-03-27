@@ -96,17 +96,6 @@ class Database:
             ''')
 
             conn.execute('''
-                CREATE TABLE IF NOT EXISTS experiment_data (
-                    data_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    experiment_id INTEGER,
-                    column_name TEXT,
-                    data NPDATA,
-                    FOREIGN KEY (experiment_id) REFERENCES experiments(experiment_id)
-                )
-            ''')
-
-
-            conn.execute('''
                 CREATE TABLE IF NOT EXISTS trial_parameters (
                     trial_parameter_id INTEGER PRIMARY KEY AUTOINCREMENT,
                     parameter_id INTEGER,

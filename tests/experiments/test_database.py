@@ -27,18 +27,11 @@ class TestDatabase(unittest.TestCase):
             experiment.add_trial(data)
         
 
-        output = experiment.data.to_arrow()
-
-        attempt = pl.from_arrow(output)
-        print(attempt)
-
         self.db.store_experiment("experiment", experiment)
 
 
         retrieved_data = self.db.retrieve_experiment("experiment")
-        print(retrieved_data.data)
-
         # print(data)
         # print(retrieved_data)
 
-        # assert retrieved_data == data
+        assert retrieved_data.data.schema == experiment.data.schema
