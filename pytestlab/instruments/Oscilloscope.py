@@ -371,7 +371,7 @@ class Oscilloscope(Instrument):
             self.set_timebase_scale(timebase)
 
         if points != None:
-            print("DEPRECATED: points argument is deprecated. Use set_timebase_scale instead.")
+            print("DEPRECATED: points argument is deprecated. Use set_time_axis instead.")
 
 
         self._log(points)

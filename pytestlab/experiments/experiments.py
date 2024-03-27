@@ -71,15 +71,14 @@ class Experiment:
         elif set(measurement_result.values.columns) != set(self.data.columns[1:len(self.data.columns)-len(parameter_values)]):
             raise ValueError("The structure of the trial does not match the existing structure of the measurements DataFrame.")
         
-        
         # Collapse the measurement DataFrame values into a Series
         experiment_row = pl.DataFrame(
             {
-                "EXPERIMENT_ID": self.data.height + 1,
+                "EXPERIMENT_ID": pl.Series([self.data.height + 1], dtype=pl.UInt64),
                 **{name: [value] for name, value in measurement_result.values.to_dict().items()},
                 **{name: [value] for name, value in parameter_values.items()}
             },
-            schema=self.schema
+            # schema=self.schema
         )
 
         self.data = self.data.vstack(experiment_row)

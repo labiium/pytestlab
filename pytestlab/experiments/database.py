@@ -16,34 +16,32 @@ class Database:
     def __init__(self, db_path):
         self.db_path = db_path
         self._conn = None  # Add this line
-        sqlite3.register_adapter(np.ndarray, self.adapt_npdata)
+        sqlite3.register_adapter(np.ndarray, self.convert_npdata)
         sqlite3.register_converter("NPDATA", self.convert_npdata)
-        sqlite3.register_adapter(OrderedDict, self.adapt_schema)
-        sqlite3.register_converter("PLDATA", self.decode_schema)
+        sqlite3.register_adapter(pl.DataFrame, self.encode_data)
+        sqlite3.register_converter("PLDATA", self.decode_data)
         self._create_tables()
 
     @staticmethod
-    def adapt_schema(df):
+    def encode_data(df):
         """
         Adapter function to convert a Polars DataFrame to a binary format, including schema.
         """
         # Check if it is a valid Polars DataFrame
         # Serialize the DataFrame to IPC format
-        data = pickle.dumps(df)
-        compressed_data = lzma.compress(data)
+        data = df.write_ipc(None, future=True)
+        compressed_data = lzma.compress(data.getvalue())
         return sqlite3.Binary(compressed_data)
-        # return sqlite3.Binary(pickle.dumps(df))
 
     @staticmethod
-    def decode_schema(blob):
+    def decode_data(blob):
         """
         Converter function to convert binary text to a Polars DataFrame.
         """
         # Decompress the data
         decompressed_data = lzma.decompress(blob)
-        return pickle.loads(decompressed_data)
-        # return pickle.loads(blob)
-    
+        df = pl.read_ipc(decompressed_data)
+        return df
 
     @staticmethod
     def adapt_npdata(arr):
@@ -67,18 +65,12 @@ class Database:
         Converter function to convert binary text to a numpy array,
         including reconstructing shape and dtype. Supports np.float64 and matrices.
         """
-        if isinstance(text, bytes):
-            data, dtype_str, shape_str = text.rsplit(b";", 2)
-            dtype = dtype_str.decode()
-            print(dtype)
-            print(len(data))
-            if str(dtype) != "uint64":
-                 dtype = pl.Float64
-            shape = tuple(map(int, shape_str.decode().split(",")))
-            # np.frombuffer will correctly handle scalar (0D), vector (1D), matrix (2D), etc.
-            return np.frombuffer(data).reshape(shape)
-        else:
-            return np.float64(text)
+        data, dtype_str, shape_str = text.rsplit(b";", 2)
+        dtype = dtype_str.decode()
+        shape = tuple(map(int, shape_str.decode().split(",")))
+        # np.frombuffer will correctly handle scalar (0D), vector (1D), matrix (2D), etc.
+        print(dtype)
+        return np.frombuffer(data).reshape(shape)
 
     def _create_tables(self):
         with self._get_connection() as conn:
@@ -86,7 +78,7 @@ class Database:
                 CREATE TABLE IF NOT EXISTS experiments (
                     experiment_id INTEGER PRIMARY KEY AUTOINCREMENT,
                     codename TEXT UNIQUE,
-                    schema PLDATA,
+                    data PLDATA,
                     name TEXT NOT NULL,
                     description TEXT
                 )
@@ -240,9 +232,9 @@ class Database:
         with self._get_connection() as conn:
             # Store the experiment
             cursor = conn.execute('''
-                INSERT INTO experiments (codename, schema, name, description)
+                INSERT INTO experiments (codename, data, name, description)
                 VALUES (?, ?, ?, ?)
-            ''', (codename, experiment.data.schema, experiment.name, experiment.description))
+            ''', (codename, experiment.data, experiment.name, experiment.description))
             experiment_id = cursor.lastrowid
 
             # Store experiment parameters
@@ -251,13 +243,6 @@ class Database:
                     INSERT INTO experiment_parameters (experiment_id, name, units, notes)
                     VALUES (?, ?, ?, ?)
                 ''', (experiment_id, param.name, param.units, param.notes))
-
-            for column in experiment.data.columns:
-                conn.execute('''
-                    INSERT INTO experiment_data (experiment_id, column_name, data)
-                    VALUES (?, ?, ?)''', (experiment_id, column, experiment[column].to_numpy()))
-
-            
 
 
     def retrieve_experiment(self, codename):
@@ -268,21 +253,15 @@ class Database:
             if not experiment:
                 raise ValueError(f"No experiment found with codename: '{codename}'.")
             
-            experiment_id, _, schema, name, description = experiment
+            experiment_id, _, data, name, description = experiment
 
             experiment = Experiment(name, description)
+            experiment.data = data
             
             cursor = conn.execute('SELECT * FROM experiment_parameters WHERE experiment_id = ?', (experiment_id,))
 
             for param in cursor.fetchall():
                 experiment.add_parameter(param[2], param[3], param[4])
-
-            cursor = conn.execute('SELECT * FROM experiment_data WHERE experiment_id = ?', (experiment_id,))
-            
-            # Create a DataFrame from the stored data
-            experiment.data = pl.DataFrame({
-                col[2]: col[3] for col in cursor.fetchall()
-            }, schema=schema)
 
             return experiment
         
