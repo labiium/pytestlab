@@ -422,7 +422,6 @@ class Oscilloscope(Instrument):
            measurement_type="ChannelVoltageTime",
            sampling_rate=sampling_rate,
            values=pl.DataFrame({
-               "ID": np.arange(0, len(time_values)),
                 "Time (s)": time_values,
                 **measurement_results
            })

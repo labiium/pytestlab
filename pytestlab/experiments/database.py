@@ -4,7 +4,10 @@ import numpy as np
 from datetime import datetime
 from .results import MeasurementResult
 from .experiments import Experiment
+from collections import OrderedDict
 import polars as pl
+import pickle
+import lzma
 
 class Database:
     """
@@ -15,29 +18,32 @@ class Database:
         self._conn = None  # Add this line
         sqlite3.register_adapter(np.ndarray, self.adapt_npdata)
         sqlite3.register_converter("NPDATA", self.convert_npdata)
-        sqlite3.register_adapter("PLDATA", self.adapt_dataframe)
+        sqlite3.register_adapter(OrderedDict, self.adapt_schema)
+        sqlite3.register_converter("PLDATA", self.decode_schema)
         self._create_tables()
 
     @staticmethod
-    def adapt_dataframe(df):
+    def adapt_schema(df):
         """
         Adapter function to convert a Polars DataFrame to a binary format, including schema.
         """
-        data = df.to_ipc()
-        schema = df.schema.to_json()
-        return sqlite3.Binary(data + b";" + schema.encode())
-    
+        # Check if it is a valid Polars DataFrame
+        # Serialize the DataFrame to IPC format
+        data = pickle.dumps(df)
+        compressed_data = lzma.compress(data)
+        return sqlite3.Binary(compressed_data)
+        # return sqlite3.Binary(pickle.dumps(df))
+
     @staticmethod
-    def decode_dataframe(text):
+    def decode_schema(blob):
         """
         Converter function to convert binary text to a Polars DataFrame.
         """
-        if isinstance(text, bytes):
-            data, schema = text.rsplit(b";", 1)
-            schema = pl.Schema.parse_json(schema.decode())
-            return pl.read_ipc(data, schema=schema)
-        else:
-            return pl.DataFrame()
+        # Decompress the data
+        decompressed_data = lzma.decompress(blob)
+        return pickle.loads(decompressed_data)
+        # return pickle.loads(blob)
+    
 
     @staticmethod
     def adapt_npdata(arr):
@@ -46,6 +52,9 @@ class Database:
         and matrices) to a binary format, including shape and dtype.
         - arr: A numpy array, which can be a scalar (0D), vector (1D), matrix (2D), or higher-dimensional.
         """
+        # Check is np data
+        if not isinstance(arr, np.ndarray):
+            raise ValueError("Unsafe object passed to adapt_npdata expecting numerics.")
         data = arr.tobytes()
         dtype = str(arr.dtype)
         shape = ",".join(map(str, arr.shape))  # Works for scalars (0D) with an empty shape tuple
@@ -61,9 +70,13 @@ class Database:
         if isinstance(text, bytes):
             data, dtype_str, shape_str = text.rsplit(b";", 2)
             dtype = dtype_str.decode()
+            print(dtype)
+            print(len(data))
+            if str(dtype) != "uint64":
+                 dtype = pl.Float64
             shape = tuple(map(int, shape_str.decode().split(",")))
             # np.frombuffer will correctly handle scalar (0D), vector (1D), matrix (2D), etc.
-            return np.frombuffer(data, dtype=dtype).reshape(shape)
+            return np.frombuffer(data).reshape(shape)
         else:
             return np.float64(text)
 
@@ -73,7 +86,7 @@ class Database:
                 CREATE TABLE IF NOT EXISTS experiments (
                     experiment_id INTEGER PRIMARY KEY AUTOINCREMENT,
                     codename TEXT UNIQUE,
-                    data PLDATA,
+                    schema PLDATA,
                     name TEXT NOT NULL,
                     description TEXT
                 )
@@ -91,6 +104,17 @@ class Database:
             ''')
 
             conn.execute('''
+                CREATE TABLE IF NOT EXISTS experiment_data (
+                    data_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    experiment_id INTEGER,
+                    column_name TEXT,
+                    data NPDATA,
+                    FOREIGN KEY (experiment_id) REFERENCES experiments(experiment_id)
+                )
+            ''')
+
+
+            conn.execute('''
                 CREATE TABLE IF NOT EXISTS trial_parameters (
                     trial_parameter_id INTEGER PRIMARY KEY AUTOINCREMENT,
                     parameter_id INTEGER,
@@ -98,16 +122,6 @@ class Database:
                     value REAL,
                     FOREIGN KEY (trial_id) REFERENCES trials(trial_id)
                     FOREIGN KEY (parameter_id) REFERENCES experiment_parameters(parameter_id)
-                )
-            ''')
-
-
-            conn.execute('''
-                CREATE TABLE IF NOT EXISTS trials (
-                    trial_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    experiment_id INTEGER,
-                    timestamp TIMESTAMP,
-                    FOREIGN KEY (experiment_id) REFERENCES experiments(experiment_id)
                 )
             ''')
 
@@ -215,8 +229,6 @@ class Database:
             # Assuming you want to use the first row's data to construct the MeasurementResult
             # Note: You had some undefined variables (instrument_name and measurement_type); fixing this:
             instrument_name, measurement_type, values, units = rows[0]
-
-            values = self.convert_npdata(values)
         
         # Construct and return the MeasurementResult object
         return MeasurementResult(values=values, instrument=instrument_name,
@@ -227,11 +239,10 @@ class Database:
         """Stores an experiment and its measurements in the database."""
         with self._get_connection() as conn:
             # Store the experiment
-            data = self.adapt_dataframe(experiment.data)
             cursor = conn.execute('''
-                INSERT INTO experiments (codename, data, name, description)
-                VALUES (?, ?, ?)
-            ''', (codename, experiment.data, experiment.name, experiment.description))
+                INSERT INTO experiments (codename, schema, name, description)
+                VALUES (?, ?, ?, ?)
+            ''', (codename, experiment.data.schema, experiment.name, experiment.description))
             experiment_id = cursor.lastrowid
 
             # Store experiment parameters
@@ -241,6 +252,14 @@ class Database:
                     VALUES (?, ?, ?, ?)
                 ''', (experiment_id, param.name, param.units, param.notes))
 
+            for column in experiment.data.columns:
+                conn.execute('''
+                    INSERT INTO experiment_data (experiment_id, column_name, data)
+                    VALUES (?, ?, ?)''', (experiment_id, column, experiment[column].to_numpy()))
+
+            
+
+
     def retrieve_experiment(self, codename):
         """Retrieves an experiment by codename, including its parameters and measurements."""
         with self._get_connection() as conn:
@@ -249,12 +268,22 @@ class Database:
             if not experiment:
                 raise ValueError(f"No experiment found with codename: '{codename}'.")
             
-            experiment_id, _, data, name, description = experiment
+            experiment_id, _, schema, name, description = experiment
 
             experiment = Experiment(name, description)
-            experiment.data = self.decode_dataframe(data)
-
+            
             cursor = conn.execute('SELECT * FROM experiment_parameters WHERE experiment_id = ?', (experiment_id,))
+
+            for param in cursor.fetchall():
+                experiment.add_parameter(param[2], param[3], param[4])
+
+            cursor = conn.execute('SELECT * FROM experiment_data WHERE experiment_id = ?', (experiment_id,))
+            
+            # Create a DataFrame from the stored data
+            experiment.data = pl.DataFrame({
+                col[2]: col[3] for col in cursor.fetchall()
+            }, schema=schema)
+
             return experiment
         
     def close(self):

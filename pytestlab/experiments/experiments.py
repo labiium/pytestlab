@@ -17,7 +17,7 @@ class Experiment:
         name (str): The name of the experiment.
         description (str): A description of the experiment.
         parameters (dict): A dictionary of ExperimentParameter objects.
-        trials (list): A list of Trial objects.
+        data (DataFrame): A DataFrame of experiment and parameters.
     """
     def __init__(self, name, description=""):
         """
@@ -52,13 +52,17 @@ class Experiment:
         for param in parameter_values:
             if param not in self.parameters:
                 raise ValueError(f"Parameter '{param}' not defined.")
+        
+        # Check reserved column names not in data
+        if "EXPERIMENT_ID" in measurement_result.values.columns:
+            raise ValueError("Column name 'EXPERIMENT_ID' is reserved for the experiment ID.")
 
         # Ensure the structure for new trials matches the first one or establish it for the first trial
         if self.data.height == 0:
             # Initialize measurements DataFrame with the correct schema
             schema = {name: pl.List(measurement_result.values.dtypes[i]) for i, name in enumerate(measurement_result.values.columns)}
             schema.update({name: pl.Float64 for name in parameter_values}) 
-            schema = {"ID": pl.UInt64, **schema}
+            schema = {"EXPERIMENT_ID": pl.UInt64, **schema}
             self.schema = schema
             self.data = pl.DataFrame([], schema=schema)
         # elif set(measurement_result.values.columns) | set(parameter_values.keys()) != set(self.data.columns):
@@ -71,7 +75,7 @@ class Experiment:
         # Collapse the measurement DataFrame values into a Series
         experiment_row = pl.DataFrame(
             {
-                "ID": self.data.height + 1,
+                "EXPERIMENT_ID": self.data.height + 1,
                 **{name: [value] for name, value in measurement_result.values.to_dict().items()},
                 **{name: [value] for name, value in parameter_values.items()}
             },
@@ -88,3 +92,16 @@ class Experiment:
     def list_trials(self):
         """Prints out all measurements with their parameters."""
         print(self.data)
+
+    def __iter__(self):
+        """Iterate over the trials in the experiment."""
+        for trial in self.data.iterrows():
+            yield trial
+
+
+
+    def __len__(self):
+        return len(self.data)
+    
+    def __getitem__(self, column):
+        return self.data[column]
