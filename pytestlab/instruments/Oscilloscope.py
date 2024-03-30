@@ -14,7 +14,7 @@ from matplotlib import pyplot as plt
 
 class ChannelReadingResult(MeasurementResult):
     def plot(self):
-        channel_columns = self.values.columns[2:]
+        channel_columns = self.values.columns[1:]
         # Plotting each channel
         time_data = self.values['Time (s)']
         plt.figure(figsize=(10, 6))  # Set the figure size for better visibility
@@ -48,6 +48,25 @@ class ChannelReadingResult(MeasurementResult):
         except pl.PolarsError as e:
             raise KeyError(f"Channel {channel} not found in data")
 
+
+class FFTResult(MeasurementResult):
+    def plot(self):
+        channel_columns = self.values.columns[1:]
+        # Plotting each channel
+
+        frequency_data = self.values['Frequency (Hz)']
+        y_label = self.values.columns[1]
+        magnitude_data = self.values[y_label]
+        # Plotting from Polars data
+        plt.figure(figsize=(10, 6))
+        plt.title("FFT Magnitude vs. Frequency")
+        plt.xlabel("Frequency (Hz)")
+        # get column label
+        plt.ylabel(y_label)
+        plt.plot(frequency_data, magnitude_data, 'r-o', label=y_label)
+        plt.grid(True, which="both", ls="--")
+        # plt.legend(loc='upper left')
+        plt.show()
 
 class VoltageReadingResult(MeasurementResult):
     def plot(self, title="Voltage over Time"):
@@ -170,17 +189,19 @@ class Oscilloscope(Instrument):
         if channel not in self.config.channels:
             raise InstrumentParameterError(f"Invalid channel {channel}. Supported channels: {self.config.channels}")
         
-    def _read_wave_data(self, channel: int) -> np.ndarray:
+    def _read_wave_data(self, source: str) -> np.ndarray:
 
         self._wait()
-        self._send_command(f':WAVeform:SOURce CHANnel{channel}')
+        self._send_command(f':WAVeform:SOURce {source}')
         
         self._wait()
         
-        self._log('Reading channel ' + str(channel))
+        self._log(f"Reading data from {source}")
 
         self._send_command(':WAVeform:FORMat BYTE')
-        self._send_command(':WAVeform:POINts:MODE RAW')
+
+        if source != "FFT":
+            self._send_command(':WAVeform:POINts:MODE RAW')
 
         self._log('Reading points')
 
@@ -409,7 +430,7 @@ class Oscilloscope(Instrument):
         measurement_results = {}
 
         for _, channel in enumerate(channels):
-            voltages = (self._read_wave_data(channel) - pream.yref) * pream.yinc + pream.yorg
+            voltages = (self._read_wave_data(f"CHANnel{channel}") - pream.yref) * pream.yinc + pream.yorg
             measurement_results[channel] = voltages
 
         
@@ -428,6 +449,21 @@ class Oscilloscope(Instrument):
         )
 
 
+    # def read_fft(source_channel: int, scale: float = None, offset: float = None, window_type: str = 'HANNing', units: str = 'DECibel', display: bool = True):
+    #     """
+    #     Perform the FFT and read the data from the oscilloscope, returning it as a MeasurementResult.
+
+    #     :return: A MeasurementResult object containing the FFT data.
+    #     """
+    #     self.configure_fft(source_channel, scale, offset, window_type, units, display)
+    #     data = self._read_to_np()
+    #     return FRanalysisResult(
+    #         instrument=self.config.model,
+    #         values=data,
+    #         units="dB",
+    #         measurement_type="FFT"
+    #     )
+    
     def get_sampling_rate(self):
         """
         Get the current sampling rate of the oscilloscope.
@@ -778,12 +814,12 @@ class Oscilloscope(Instrument):
         # Configure the FFT window type
         self._send_command(f':FFT:WINDow {window_type}')
         # configure Center span
-        self._send_command(f':FFT:CENTer:SPAn 0')
+        # self._send_command(f':FFT:CENTer:SPAn 0')
         # Configure the FFT vertical type (units)
         self._send_command(f':FFT:VTYPe {units}')
         # Set the scale if provided
-        if scale is not None:
-            self._send_command(f':FFT:SCALe {scale}dB')
+        # if scale is not None:
+            # self._send_command(f':FFT:SCALe {scale}dB')
         # Set the offset if provided
         if offset is not None:
             self._send_command(f':FFT:OFFSet {offset}')
@@ -824,28 +860,47 @@ class Oscilloscope(Instrument):
         # Make sure that the acquisition is already started or in continuous mode
         
         # Assuming :FUNCtion:DATA? returns the FFT data from the oscilloscope
-        data = self._query_raw(':FUNCtion:DATA?')
-        fft_data = self._read_to_np(data)
+        raw_data = self._read_wave_data("FFT")
+        preamble = self._read_preamble()
+        data = (raw_data - preamble.yref) * preamble.yinc + preamble.yorg
+
+        sampling_rate = self.get_sampling_rate()
+
+        frequency = np.fft.fftfreq(len(data), 1 / sampling_rate)
+
+        # Process the binary data header to determine the size of the block
+        # fft_data = self._read_to_np(data)
+
+        units = self._query(":FFT:VTYPe?")
+
+        label = ""
+
+        if units == "DEC":
+            label = "Magnitude (dB)"
+        elif units == "VRMS":
+            label = "Magnitude (V)"   
+
+        # print(data)
         
         # Now, instead of just returning fft_data, we need to encapsulate it into MeasurementValue objects
         # and then add these to a MeasurementResult object.
 
         # For this example, let's assume 'self.sampling_rate' is set and represents the sampling rate used for FFT
-        if self.sampling_rate is None:
-            raise InstrumentParameterError("Sampling rate must be set to read FFT data.")
+        # if self.sampling_rate is None:
+        #     raise InstrumentParameterError("Sampling rate must be set to read FFT data.")
         
-        # Compute the frequency bins for the FFT data
-        freq = np.fft.fftfreq(len(fft_data), 1 / self.sampling_rate)
+        # # Compute the frequency bins for the FFT data
+        # freq = np.fft.fftfreq(len(fft_data), 1 / self.sampling_rate)
         
-        units = self._query(":FFT:VTYPe?")
-        # Create a new MeasurementResult for the FFT results
-        fft_measurement_result = MeasurementResult(
-            instrument=self.instrument,  # Replace with actual attribute, if different
-            units=units,  
-            measurement_type="FFT",
-            sampling_rate=self.sampling_rate,  # Including the sampling rate for reference
-            values= np.array([freq, fft_data])
-        )
+        # units = self._query(":FFT:VTYPe?")
+        # # Create a new MeasurementResult for the FFT results
+        # fft_measurement_result = MeasurementResult(
+        #     instrument=self.instrument,  # Replace with actual attribute, if different
+        #     units=units,  
+        #     measurement_type="FFT",
+        #     sampling_rate=self.sampling_rate,  # Including the sampling rate for reference
+        #     values= np.array([freq, fft_data])
+        # )
         
         # Populate the MeasurementResult with MeasurementValue objects
         # for f, magnitude in zip(freq, fft_data):
@@ -857,7 +912,17 @@ class Oscilloscope(Instrument):
 
             # fft_measurement_result.add(fft_measurement_value)
         
-        return fft_measurement_result
+        # return fft_measurement_result
+
+        return FFTResult(
+            instrument=self.config.model,
+            units="V",
+            measurement_type="FFT",
+            values=pl.DataFrame({
+                "Frequency (Hz)": frequency,
+                label: data
+            })
+        )
 
     def screenshot(self):
         """
