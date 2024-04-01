@@ -111,6 +111,8 @@ class SelectionConfig(Config):
         bool: True if valid, False otherwise.
         """
         # Check if the input command is exactly the full command
+        input_command = str(input_command)
+        full_command = str(full_command)
         if input_command.upper() == full_command.upper():
             return True
 
