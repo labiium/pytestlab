@@ -1,0 +1,53 @@
+manufacturer: Keysight
+model: EDU33212A
+device_type: waveform_generator
+channels:
+  - 1:
+    description: Channel 1
+    max_frequency: 20.e+6
+    amplitude:
+      min_val: -10
+      max_val: 10
+    dc_offset:
+      min_val: -1.e-3
+      max_val: 10
+    accuracy:
+      amplitude: 0.02
+      frequency: 1.e-6
+  -2:
+    description: Channel 2
+    max_frequency: 20.e+6
+    amplitude:
+      min_val: -10
+      max_val: 10
+    dc_offset:
+      min_val: -1.e-3
+      max_val: 10
+    accuracy:
+      amplitude: 0.02
+      frequency: 1.e-6
+waveforms:
+  standard:
+    - SINe
+    - SQUare
+    - RAMP
+    - PULSe
+    - NOISe
+    - PRBS
+    - DC
+  built_in:
+    - cardiac
+    - exponential_fall
+    - exponential_rise
+    - gaussian_pulse
+    - haversine
+    - lorentz
+    - dlorentz
+    - sinc
+arbitrary:
+  memory: 8.e+6
+  max_length: 1.e+6
+  sampling_rate:
+    min_val: 1.e+3
+    max_val: 1.e+6
+  resolution: 16

@@ -1,0 +1,136 @@
+manufacturer: Keysight
+model: DSOX1204G
+device_type: oscilloscope
+trigger:
+  types:
+    - HIGH
+    - LOW
+  modes:
+    - EDGE
+    - GLITch
+    - PATTern
+    - SHOLd
+    - TRANsition
+    - TV
+    - SBUS1
+  slopes:
+    - POS
+    - NEG
+    - EITH
+    - ALT
+channels:
+  - 1:
+    description: Analog Channel 1
+    channel_range:
+      min_val: -5
+      max_val: 5
+    input_coupling:
+      - DC
+      - AC
+    input_impedance: 1.e+6
+    probe_attenuation:
+      - 1
+      - 10
+    timebase:
+      range:
+        min_val: 5e-9
+        max_val: 50
+      horizontal_resolution: 1e-12
+  - 2:
+    description: Analog Channel 2
+    channel_range:
+      min_val: -5
+      max_val: 5
+    input_coupling:
+      - DC
+      - AC
+    input_impedance: 1.e+6
+    probe_attenuation:
+      - 1
+      - 10
+    timebase:
+      range:
+        min_val: 5.e-9
+        max_val: 50
+      horizontal_resolution: 1.e-12
+  - 3:
+    description: Analog Channel 3
+    channel_range:
+      min_val: -5
+      max_val: 5
+    input_coupling:
+      - DC
+      - AC
+    input_impedance: 1.e+6
+    probe_attenuation:
+      - 1
+      - 10
+    timebase:
+      range:
+        min_val: 5.e-9
+        max_val: 50
+      horizontal_resolution: 1.e-12
+  - 4:
+    description: Analog Channel 4
+    channel_range:
+      min_val: -5
+      max_val: 5
+    input_coupling:
+      - DC
+      - AC
+    input_impedance: 1.e+6
+    probe_attenuation:
+      - 1
+      - 10
+    timebase:
+      range:
+        min_val: 5.e-9
+        max_val: 50
+      horizontal_resolution: 1.e-12
+bandwidth: 7.e+7
+sampling_rate: 2.e+9
+memory: 2.e+6
+waveform_update_rate: 2.e+5
+fft:
+  window_types:
+    - RECTangular
+    - HANNing
+    - FLATtop
+    - BHARris
+  units:
+    - DECibel
+    - VRMS
+function_generator:
+  waveform_types:
+    - SINE
+    - SQUare
+    - RAMp
+    - PULse
+    - NOISe
+    - DC
+  supported_states:
+    - ON
+    - OFF
+  offset:
+    min_val: -5
+    max_val: 5
+  frequency:
+    min_val: 0.1
+    max_val: 2.e-3
+  amplitude:
+    min_val: 2.e-3
+    max_val: 9
+franalysis:
+  sweep_points:
+    min_val: 1
+    max_val: 1.e+3
+  load:
+    - ONEMeg
+    - FIFTy
+  trace:
+    - NONE
+    - ALL
+    - GAIN
+    - PHASe
+  mode:
+    - SWE

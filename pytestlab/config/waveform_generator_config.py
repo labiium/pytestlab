@@ -3,7 +3,7 @@ from .config import Config, RangeConfig, SelectionConfig
 from ..errors import InstrumentParameterError
 
 class WaveformGeneratorConfig(InstrumentConfig):
-    def __init__(self, manufacturer, model, vendor_id, product_id, device_type, channels, max_frequency, waveforms, modulation_types, amplitude, dc_offset, accuracy, interfaces, remote_control):
+    def __init__(self, manufacturer, model, vendor_id, product_id, device_type, channels, max_frequency, waveforms, modulation_types, amplitude, dc_offset, accuracy):
         super().__init__(manufacturer, model, vendor_id, product_id, device_type)
 
         # Validate and assign AWG-specific settings
@@ -14,8 +14,6 @@ class WaveformGeneratorConfig(InstrumentConfig):
         self.amplitude = RangeConfig(**amplitude)
         self.dc_offset = RangeConfig(**dc_offset)
         self.accuracy = AccuracyConfig(**accuracy)
-        self.interfaces = SelectionConfig(interfaces)
-        self.remote_control = SelectionConfig(remote_control)
 
 class ChannelsConfig(Config):
     # Similar to the OscilloscopeConfig ChannelsConfig
