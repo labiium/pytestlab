@@ -2,10 +2,10 @@ import numpy as np
 from ..errors import InstrumentConnectionBusy, InstrumentConfigurationError, InstrumentNotFoundError, InstrumentCommunicationError, InstrumentConnectionError, InstrumentParameterError
 from ..config import InstrumentConfig
 from pyscpi import usbtmc
-from .backends.labiium import VisaInstrument
+from .backends.lamb import VisaInstrument
 import time
 
-backend = "labiium"
+backend = "lamb"
 
 class Instrument:
     """
@@ -27,10 +27,10 @@ class Instrument:
             self._connect()
         elif isinstance(config, InstrumentConfig):
             match backend:
-                case "usbtmc":
-                    self.instrument = usbtmc.Instrument(config.vendor_id, config.product_id)
-                case "labiium":
-                    self.instrument = VisaInstrument(config.vendor_id, config.product_id)
+                # case "usbtmc":
+                #     self.instrument = usbtmc.Instrument(config.vendor_id, config.product_id)
+                case "lamb":
+                    self.instrument = VisaInstrument(config.manufacturer, config.model)
                 case _:
                     raise InstrumentConfigurationError("Invalid backend")
         else:
@@ -130,7 +130,7 @@ class Instrument:
             match backend:
                 case "usbtmc":
                     response = self.instrument.ask_raw(query.encode("utf-8"))
-                case "labiium":
+                case "lamb":
                     response = self.instrument.query_raw(query)
                 case _:
                     pass
@@ -237,45 +237,6 @@ class Instrument:
 
     def clear_errors(self):
         self._send_command("*CLS")
-    # def set_channel_voltage(self, channel, voltage):
-    #     """
-    #     Set the voltage for a specific channel.
-
-    #     Args:
-    #         channel (int or str): The channel for which to set the voltage.
-    #         voltage (float): The voltage value to set.
-    #     """
-    #     self._check_valid_channel(channel)
-    #     self._send_command(f"CHAN{channel}:VOLT {voltage}")
-
-    # def get_channel_voltage(self, channel):
-    #     """
-    #     Get the voltage for a specific channel.
-
-    #     Args:
-    #         channel (int or str): The channel for which to get the voltage.
-
-    #     Returns:
-    #         float: The voltage value for the channel.
-    #     """
-    #     self._check_valid_channel(channel)
-    #     response = self._query(f"CHAN{channel}:VOLT?")
-    #     return float(response)
-
-    # def measure_frequency(self, channel):
-    #     """
-    #     Measure the frequency for a specific channel.
-
-    #     Args:
-    #         channel (int or str): The channel for which to measure the frequency.
-
-    #     Returns:
-    #         float: The measured frequency value for the channel.
-    #     """
-    #     self._check_valid_channel(channel)
-    #     response = self._query(f"MEAS:FREQ? CHAN{channel}")
-    #     return float(response)
-
 
 # def error_info(original_exception_type, custom_exception_type):
 #     def decorator(func):

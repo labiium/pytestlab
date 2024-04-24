@@ -1,13 +1,11 @@
 from .instrument_config import InstrumentConfig
-from .config import Config, RangeConfig, SelectionConfig
+from .config import Config, RangeConfig, SelectionConfig, ChannelsConfig
 from ..errors import InstrumentParameterError
 
 class OscilloscopeConfig(InstrumentConfig):
     def __init__(self,
                  manufacturer,
                  model,
-                 vendor_id,
-                 product_id,
                  device_type,
                  trigger,
                  channels,
@@ -19,11 +17,11 @@ class OscilloscopeConfig(InstrumentConfig):
                  function_generator,
                  franalysis=None):
         # Initialize the base class with basic instrument configuration
-        super().__init__(manufacturer, model, vendor_id, product_id, device_type)
+        super().__init__(manufacturer, model, device_type)
 
         # Validate and assign oscilloscope-specific settings
         self.trigger = TriggerConfig(**trigger)
-        self.channels = ChannelsConfig(**channels)
+        self.channels = ChannelsConfig(*channels, ChannelConfig=OscilloscopeChannelConfig)
         self.bandwidth = self._validate_parameter(bandwidth, float, "bandwidth")
         self.sampling_rate = self._validate_parameter(sampling_rate, float, "sampling_rate")
         self.memory = self._validate_parameter(memory, float, "memory")
@@ -43,35 +41,6 @@ class TimebaseConfig(Config):
     def __repr__(self):
         return f"TimebaseConfig(range={self.range}, horizontal_resolution={self.horizontal_resolution})"
 
-class ChannelsConfig(Config):
-    def __init__(self, **kwargs):
-        self.channels = {}
-        for channel, channel_config in kwargs.items():
-            self.channels[int(channel)] = ChannelConfig(**channel_config)
-
-    def __repr__(self):
-        return f"ChannelsConfig({self.channels})"
-    
-    def __getitem__(self, channel):
-        """
-        Validate and return the channel if it is within the range.
-
-        Args:
-            channel (int): The channel to validate.
-
-        Returns:
-            ChannelConfig: The validated channel.
-
-        Raises:
-            InstrumentParameterError: If the channel is not valid.
-        """
-        if not isinstance(channel, int):
-            raise ValueError(f"channel must be an integer. Received: {channel}")
-
-        if channel not in self.channels:
-            raise InstrumentParameterError(f"Invalid channel: {channel}. Valid channels: {list(self.channels.keys())}")
-
-        return self.channels[channel]
     
     def __contains__(self, channel):
         """
@@ -96,7 +65,7 @@ class ChannelsConfig(Config):
             "channels": {channel: channel_config.to_json() for channel, channel_config in self.channels.items()}
         }
 
-class ChannelConfig(Config):
+class OscilloscopeChannelConfig(Config):
     def __init__(self, description, channel_range, input_coupling, input_impedance, probe_attenuation, timebase):        
         self.description = self._validate_parameter(description, str, "description")
         self.channel_range = RangeConfig(**channel_range)

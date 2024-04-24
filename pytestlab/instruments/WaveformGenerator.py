@@ -5,7 +5,7 @@ import numpy as np
 import re
 
 class WaveformGenerator(Instrument):
-    def __init__pd(self, visa_resource=None, config=None, debug_mode=False):
+    def __init__(self, config=None, debug_mode=False):
         """
         Initialize a WaveformGenerator instance with a device profile.
 
@@ -13,9 +13,9 @@ class WaveformGenerator(Instrument):
             profile (dict): A dictionary containing device profile information.
 
         """
-        if not isinstance(config, WaveformGenerator):
+        if not isinstance(config, WaveformGeneratorConfig):
             raise InstrumentConfigurationError("WaveformGeneratorConfig required to initialize WaveformGenerator")
-        super().__init__(visa_resource=visa_resource, config=config, debug_mode=debug_mode)
+        super().__init__(config=config, debug_mode=debug_mode)
         
     @classmethod
     def from_config(cls, config: WaveformGeneratorConfig, debug_mode=False):
@@ -99,7 +99,7 @@ class WaveformGenerator(Instrument):
         """ 
         # TODO: merge standard and built-in waveforms
         self._validate_waveform(waveform_type)
-        self._send_command(f"SOUR{self.config.channels[channel]}:FUNC {waveform_type.upper()}")
+        self._send_command(f"SOUR{self.config.channels.validate(channel)}:FUNC {self.config.waveforms.built_in[waveform_type]}")
         self._log(f"Waveform set to {waveform_type}")
 
     def set_frequency(self, channel, frequency):
@@ -111,7 +111,7 @@ class WaveformGenerator(Instrument):
             frequency (float): The frequency to set.
 
         """
-        self._send_command(f"SOUR{self.config.channels[channel]}:FREQ {frequency}")
+        self._send_command(f"SOUR{self.config.channels.validate(channel)}:FREQ {self.config.channels[channel].frequency.in_range(frequency)}")
         self._log(f"Frequency set to {frequency} Hz")
 
     def set_amplitude(self, channel, amplitude):
@@ -123,8 +123,7 @@ class WaveformGenerator(Instrument):
             amplitude (float): The amplitude to set.
 
         """
-        self.config.amplitude.in_range(amplitude)
-        self._send_command(f"SOUR{channel}:VOLTage:AMPL {amplitude}")
+        self._send_command(f"SOUR{self.config.channels.validate(channel)}:VOLTage:AMPL {self.config.channels[channel].amplitude.in_range(amplitude)}")
 
     def set_offset(self, channel, offset):
         """
@@ -135,8 +134,8 @@ class WaveformGenerator(Instrument):
             offset (float): The offset to set.
 
         """
-        self.config.dc_offset.in_range(offset)
-        self._send_command(f"SOUR{channel}:VOLTage:OFFSet {offset}")
+        # self.config.dc_offset.in_range(offset)
+        self._send_command(f"SOUR{self.config.channels.validate(channel)}:VOLTage:OFFSet {self.config.channels[channel].dc_offset.in_range(offset)}")
 
     def output(self, channel, state):
         """

@@ -166,9 +166,9 @@ class Oscilloscope(Instrument):
 
         return pre
 
-    def _check_valid_channel(self, channel: int) -> None:
-        if channel not in self.config.channels:
-            raise InstrumentParameterError(f"Invalid channel {channel}. Supported channels: {self.config.channels}")
+    # def _check_valid_channel(self, channel: int) -> None:
+    #     if channel not in self.config.channels:
+    #         raise InstrumentParameterError(f"Invalid channel {channel}. Supported channels: {self.config.channels}")
         
     def _read_wave_data(self, channel: int) -> np.ndarray:
 
@@ -245,7 +245,7 @@ class Oscilloscope(Instrument):
         :param scale: The scale of the channel axis in volts
         :param offset: The offset of the channel in volts
         """
-        self._check_valid_channel(channel)
+        self.config.channels.validate(channel)
         
         self._send_command(f':CHANnel{channel}:SCALe {scale}')
         self._send_command(f':CHANnel{channel}:OFFSet {offset}')
@@ -258,7 +258,7 @@ class Oscilloscope(Instrument):
         :param channel: The channel to get the axis for
         :return: A list containing the channel axis scale and offset
         """
-        self._check_valid_channel(channel)
+        self.config.channels.validate(channel)
         
         scale = self._query(f":CHANnel{channel}:SCALe?")
         offset = self._query(f":CHANnel{channel}:OFFSet?")
@@ -276,7 +276,7 @@ class Oscilloscope(Instrument):
         :param mode: The trigger mode. Default is 'EDGE'
         """
         
-        self._check_valid_channel(channel)
+        self.config.channels.validate(channel)
 
         self._send_command(f':TRIG:SOUR CHAN{channel}')
         self._send_command(f':TRIGger:LEVel:{self.config.trigger.types[trigger_type]} {level}, CHAN{channel}')
@@ -307,7 +307,7 @@ class Oscilloscope(Instrument):
         >>> measure_voltage_peak_to_peak(1)
         <MeasurementResult object at 0x7f1ec2a4f510>
         """
-        self._check_valid_channel(channel)
+        self.config.channels.validate(channel)
 
         response = self._query(f"MEAS:VPP? CHAN{channel}")
 
@@ -340,7 +340,7 @@ class Oscilloscope(Instrument):
         <MeasurementResult object at 0x7f1ec2a4f590>
         """
         #Error Handling
-        self._check_valid_channel(channel)
+        self.config.channels.validate(channel)
 
         response = self._query(f"MEAS:VRMS? CHAN{channel}")
         
@@ -387,7 +387,7 @@ class Oscilloscope(Instrument):
                 raise InstrumentParameterError("No channels specified")
 
         for channel in channels:
-            self._check_valid_channel(channel)
+            self.config.channels.validate(channel)
 
         # Prepare the MeasurementResult dictionary
         sampling_rate = float(self.get_sampling_rate())
@@ -451,7 +451,7 @@ class Oscilloscope(Instrument):
             str: The probe attenuation value (e.g., '10:1', '1:1').
 
         """
-        self._check_valid_channel(channel)
+        self.config.channels.validate(channel)
         # Set the probe attenuation for the specified channel
         response = self._query(f"CHANnel{channel}:PROBe?")
         response = f"{response}:1"
@@ -466,7 +466,7 @@ class Oscilloscope(Instrument):
             channel (int): The oscilloscope channel to set the scale for.
             scale (float): The probe scale value (e.g., 10.0 for 10:1, 1.0 for 1:1).
         """
-        self._check_valid_channel(channel)
+        self.config.channels.validate(channel)
         
         self._send_command(f":CH{channel}:PROBe {self.config.channels[channel].probe_attenuation[scale]}")
 
@@ -501,7 +501,7 @@ class Oscilloscope(Instrument):
         """
         
         """
-        self._check_valid_channel(channel)
+        self.config.channels.validate(channel)
         # Limit the bandwidth to a specified frequency to reduce noise
         self._send_command(f"CHANnel{channel}:BANDwidth {bandwidth}")
 
@@ -724,7 +724,7 @@ class Oscilloscope(Instrument):
             channels = [channels]
         
         for channel in channels:
-            self._check_valid_channel(channel)
+            self.config.channels.validate(channel)
         # Implement SCPI commands to display the specified channels
         for channel in channels:
             self._send_command(f"CHAN{channel}:DISP {'ON' if state else 'OFF'}")
@@ -889,8 +889,8 @@ class Oscilloscope(Instrument):
             MeasurementResult: A MeasurementResult object containing the frequency response analysis data.
         """
         # Validate input
-        self._check_valid_channel(input_channel)
-        self._check_valid_channel(output_channel)
+        self.config.channels.validate(input_channel)
+        self.config.channels.validate(output_channel)
 
         # Enable FRANalysis
         self._send_command(":STOP")

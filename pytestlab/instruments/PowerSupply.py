@@ -13,7 +13,7 @@ class PowerSupply(Instrument):
         profile (dict): A dictionary containing additional information about the device.
     """
 
-    def __init__(self, visa_resource=None, config=None, debug_mode=False):
+    def __init__(self, config=None, debug_mode=False):
         """
         Initializes a DigitalPowerSupply instance.
 
@@ -23,7 +23,7 @@ class PowerSupply(Instrument):
         """
         if not isinstance(config, PowerSupplyConfig):
             raise InstrumentConfigurationError("PowerSupplyConfig required to initialize PowerSupply")
-        super().__init__(visa_resource=visa_resource, config=config, debug_mode=debug_mode)
+        super().__init__(config=config, debug_mode=debug_mode)
     
     @classmethod
     def from_config(cls, config: PowerSupplyConfig, debug_mode=False):

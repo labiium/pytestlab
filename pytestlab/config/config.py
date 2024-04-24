@@ -30,7 +30,62 @@ class Config:
             raise ValueError(f"{parameter_name} must be a non-empty list")
             
         return value
+    
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.__dict__})"
 
+class ChannelsConfig(Config):
+    def __init__(self, *channels, ChannelConfig=None):
+        self.channels = {}
+        for channel in channels:
+            for channel_id, channel_config in channel.items():
+                self.channels[channel_id] = ChannelConfig(**channel_config)
+
+    def __repr__(self):
+        return f"ChannelsConfig({self.channels})"
+    
+    def __getitem__(self, channel):
+        """
+        Validate and return the channel if it is within the range.
+
+        Args:
+            channel (int): The channel to validate.
+
+        Returns:
+            ChannelConfig: The validated channel.
+
+        Raises:
+            InstrumentParameterError: If the channel is not valid.
+        """
+        if not isinstance(channel, int):
+            raise ValueError(f"channel must be an integer. Received: {channel}")
+
+        if channel not in self.channels:
+            raise InstrumentParameterError(f"Invalid channel: {channel}. Valid channels: {list(self.channels.keys())}")
+
+        return self.channels[channel]
+    
+    def validate(self, channel):
+        """
+        Check if the channel is valid.
+
+        Args:
+            channel (int): The channel to validate.
+
+        Returns:
+            int: channel if valid.
+        
+        Exceptions:
+            ValueError: If the channel is not valid.
+        """
+        if not isinstance(channel, int):
+            raise ValueError(f"channel must be an integer. Received: {channel}")
+
+        if channel not in self.channels:
+            raise ValueError(f"Invalid channel: {channel}. Valid channels: {list(self.channels.keys())}")
+
+        return channel
+    
 class RangeConfig(Config):
     def __init__(self, min_val, max_val):
         self.min_val = float(min_val)
