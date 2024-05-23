@@ -1,55 +1,26 @@
 from .instrument_config import InstrumentConfig
-from .config import Config, RangeConfig, SelectionConfig
+from .config import Config, RangeConfig, SelectionConfig, ChannelsConfig
 from ..errors import InstrumentParameterError
 
 class WaveformGeneratorConfig(InstrumentConfig):
-    def __init__(self, manufacturer, model, vendor_id, product_id, device_type, channels, max_frequency, waveforms, modulation_types, amplitude, dc_offset, accuracy, interfaces, remote_control):
-        super().__init__(manufacturer, model, vendor_id, product_id, device_type)
+    def __init__(self, manufacturer, model, device_type, serial_number, channels, waveforms):
+        super().__init__(manufacturer, model, device_type, serial_number)
 
         # Validate and assign AWG-specific settings
-        self.channels = ChannelsConfig(**channels)
-        self.max_frequency = self._validate_parameter(max_frequency, float, "max_frequency")
+        self.channels = ChannelsConfig(*channels, ChannelConfig=AWGChannelConfig)
         self.waveforms = WaveformsConfig(**waveforms)
-        self.modulation_types = SelectionConfig(modulation_types)
+
+
+class AWGChannelConfig(Config):
+    def __init__(self, description, frequency, amplitude, dc_offset, accuracy):
+        self.description = description
         self.amplitude = RangeConfig(**amplitude)
+        self.frequency = RangeConfig(**frequency)
         self.dc_offset = RangeConfig(**dc_offset)
         self.accuracy = AccuracyConfig(**accuracy)
-        self.interfaces = SelectionConfig(interfaces)
-        self.remote_control = SelectionConfig(remote_control)
 
-class ChannelsConfig(Config):
-    # Similar to the OscilloscopeConfig ChannelsConfig
-    def __init__(self, **kwargs):
-        self.channels = {}
-        for channel, channel_config in kwargs.items():
-            self.channels[int(channel)] = channel_config
-            self.channels[int(channel)] = channel_config
-    def __getitem__(self, channel):
-        """
-        Validate and return the channel if it is within the range.
-
-        Args:
-            channel (int): The channel to validate.
-
-        Returns:
-            ChannelConfig: The validated channel.
-
-        Raises:
-            InstrumentParameterError: If the channel is not valid.
-        """
-        if not isinstance(channel, int):
-            raise ValueError(f"channel must be an integer. Received: {channel}")
-
-        if channel not in self.channels:
-            raise InstrumentParameterError(f"Invalid channel: {channel}. Valid channels: {list(self.channels.keys())}")
-        # returns the channel
-        return channel
-    
-    def to_json(self):
-        return self.channels
 class WaveformsConfig(Config):
-    def __init__(self, standard, built_in, arbitrary):
-        self.standard = SelectionConfig(standard)
+    def __init__(self, built_in, arbitrary):
         self.built_in = SelectionConfig(built_in)
         self.arbitrary = ArbitraryConfig(**arbitrary)
 

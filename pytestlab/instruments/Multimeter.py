@@ -26,7 +26,7 @@ class Multimeter(Instrument):
         """
         if not isinstance(config, MultimeterConfig):
             raise InstrumentConfigurationError("MultimeterConfig required to initialize Multimeter")
-        super().__init__(visa_resource=visa_resource, config=config, debug_mode=debug_mode)
+        super().__init__(config=config, debug_mode=debug_mode)
 
     @classmethod
     def from_config(cls, config: MultimeterConfig, debug_mode=False):

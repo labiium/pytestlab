@@ -5,7 +5,7 @@ from .PowerSupply import PowerSupply
 from .instrument import Instrument
 from pytestlab.errors import InstrumentConfigurationError
 import os
-import json
+import yaml
 
 class AutoInstrument:
     _instrument_mapping = {
@@ -32,7 +32,7 @@ class AutoInstrument:
         
     
     @classmethod
-    def from_config(cls, identifier: str, debug_mode=False) -> Instrument:
+    def from_config(cls, identifier: str, serial_number=None, debug_mode=False) -> Instrument:
         """
         Initializes an instrument from a preset.
         
@@ -49,7 +49,7 @@ class AutoInstrument:
         normalized_identifier = os.path.normpath(identifier)
 
         # Constructing the absolute path for the preset file
-        preset_path = os.path.join(current_file_directory, "profiles", normalized_identifier + '.json')
+        preset_path = os.path.join(current_file_directory, "profiles", normalized_identifier + '.yaml')
 
         # Debugging print statements
         # print("current_file_directory:", os.path.abspath(current_file_directory))
@@ -57,13 +57,15 @@ class AutoInstrument:
         
         if os.path.exists(preset_path):
             with open(preset_path, 'r') as file:
-                config_data = json.load(file)
+                config_data = yaml.safe_load(file)
+                config_data["serial_number"] = serial_number
                 return cls._instrument_mapping[config_data["device_type"]].from_config(config=config_data, debug_mode=debug_mode)
         
         # If not found in presets, check if it's a user-provided file path
         elif os.path.exists(identifier) and identifier.endswith('.json'):
             with open(identifier, 'r') as file:
-                config_data = json.load(file)
+                config_data = yaml.safe_load(file)
+                config_data["serial_number"] = serial_number
             return cls._instrument_mapping[config_data["device_type"]].from_config(config=config_data, debug_mode=debug_mode)
 
         else:

@@ -78,9 +78,11 @@ class Experiment:
                 **{name: [value] for name, value in measurement_result.values.to_dict().items()},
                 **{name: [value] for name, value in parameter_values.items()}
             },
-            # schema=self.schema
+            schema=self.schema
         )
 
+        print(experiment_row)
+        print(self.data)
         self.data = self.data.vstack(experiment_row)
 
     def __str__(self):

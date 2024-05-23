@@ -1,0 +1,40 @@
+manufacturer: Keysight
+model: EDU36311A
+device_type: power_supply
+channels:
+  -1:
+    description: Channel 1
+    voltage:
+      min_val: 0
+      max_val: 6
+    current:
+      min_val: 0
+      max_val: 5
+    accuracy:
+      voltage: 0.05
+      current: 0.2
+  -2:
+    description: Channel 2
+    voltage:
+      min_val: 0
+      max_val: 30
+    current:
+      min_val: 0
+      max_val: 1
+    accuracy:
+      voltage: 0.05
+      current: 0.2
+  -3:
+    description: Channel 3
+    voltage:
+      min_val: 0
+      max_val: 30
+    current:
+      min_val: 0
+      max_val: 1
+    accuracy:
+      voltage: 0.05
+      current: 0.2
+total_power: 90
+line_regulation: 0.01
+load_regulation: 0.01

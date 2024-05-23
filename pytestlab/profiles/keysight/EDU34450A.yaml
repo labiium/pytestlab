@@ -1,0 +1,26 @@
+manufacturer: Keysight
+model: EDU34450A
+device_type: multimeter
+resolution: 5.5
+max_voltage: 1000
+max_resistance: 1.e+8
+max_current: 10
+max_capacitance: 1.e-5
+max_frequency: 1.e+6
+resolution:
+  - FAST
+  - MEDium
+  - SLOW
+configuration:
+  current:
+    - 1.e-2
+    - 0.1
+    - 1
+    - 3
+    - 10
+  voltage:
+    - 0.1
+    - 1
+    - 10
+    - 100
+    - 750

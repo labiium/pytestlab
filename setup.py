@@ -10,14 +10,11 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
-        # 'numpy',
-    #     # 'scipy',
-        # 'pandas',
+        'numpy',
+        'pyyaml',
         'polars',
-        # 'pyscpi',
         'pillow',
-        # 'matplotlib',
-    #     # 'pyvisa',
+        'matplotlib',
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',
@@ -29,6 +26,6 @@ setup(
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
-        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.11'
     ],
 )
