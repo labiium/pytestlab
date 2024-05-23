@@ -1,6 +1,6 @@
 from pytestlab.instruments import AutoInstrument
 
-osc = AutoInstrument.from_config("keysight/DSOX1204G")
+osc = AutoInstrument.from_config("keysight/DSOX1202G")
 
 print(osc.id())
 
