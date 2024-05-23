@@ -142,7 +142,7 @@ class Oscilloscope(Instrument):
         """
         if not isinstance(config, OscilloscopeConfig):
             raise InstrumentConfigurationError("Invalid configuration provided.")
-        super().__init__(visa_resource=visa_resource, config=config, debug_mode=debug_mode)
+        super().__init__(config=config, debug_mode=debug_mode)
 
     @classmethod
     def from_config(cls, config: OscilloscopeConfig, debug_mode=False):

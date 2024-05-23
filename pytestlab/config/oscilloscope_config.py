@@ -7,6 +7,7 @@ class OscilloscopeConfig(InstrumentConfig):
                  manufacturer,
                  model,
                  device_type,
+                 serial_number,
                  trigger,
                  channels,
                  bandwidth,
@@ -17,7 +18,7 @@ class OscilloscopeConfig(InstrumentConfig):
                  function_generator,
                  franalysis=None):
         # Initialize the base class with basic instrument configuration
-        super().__init__(manufacturer, model, device_type)
+        super().__init__(manufacturer, model, device_type, serial_number)
 
         # Validate and assign oscilloscope-specific settings
         self.trigger = TriggerConfig(**trigger)

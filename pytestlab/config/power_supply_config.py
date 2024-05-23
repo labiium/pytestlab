@@ -3,9 +3,9 @@ from .config import Config, RangeConfig, SelectionConfig
 from ..errors import InstrumentParameterError
 
 class PowerSupplyConfig(InstrumentConfig):
-    def __init__(self, manufacturer, model, device_type, outputs, total_power, line_regulation, load_regulation, programming_accuracy, readback_accuracy, interfaces, remote_control):
+    def __init__(self, manufacturer, model, device_type, serial_number, outputs, total_power, line_regulation, load_regulation, programming_accuracy, readback_accuracy, interfaces, remote_control):
         # Initialize the base class with basic instrument configuration
-        super().__init__(manufacturer, model, device_type)
+        super().__init__(manufacturer, model, device_type, serial_number)
 
         # Validate and assign power supply specific settings
         self.outputs = OutputsConfig(**outputs)

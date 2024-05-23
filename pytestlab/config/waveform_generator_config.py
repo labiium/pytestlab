@@ -3,8 +3,8 @@ from .config import Config, RangeConfig, SelectionConfig, ChannelsConfig
 from ..errors import InstrumentParameterError
 
 class WaveformGeneratorConfig(InstrumentConfig):
-    def __init__(self, manufacturer, model, device_type, channels, waveforms):
-        super().__init__(manufacturer, model, device_type)
+    def __init__(self, manufacturer, model, device_type, serial_number, channels, waveforms):
+        super().__init__(manufacturer, model, device_type, serial_number)
 
         # Validate and assign AWG-specific settings
         self.channels = ChannelsConfig(*channels, ChannelConfig=AWGChannelConfig)

@@ -4,14 +4,13 @@ osc = AutoInstrument.from_config("keysight/DSOX1204G")
 
 print(osc.id())
 
-awg = AutoInstrument.from_config("keysight/EDU33212A")
+# awg = AutoInstrument.from_config("keysight/EDU33212A")
 
-print(awg.id())
+# print(awg.id())
 
 # print(osc.get_time_axis())
-data = osc.read_channels(1,2,3)
-
-print(data)
+# data = osc.read_channels(1, runAfter=True)
+# print(data)
 
 # print(data)
 # # print(data)

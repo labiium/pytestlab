@@ -15,22 +15,19 @@ class Instrument:
         visa_resource (str): The VISA resource string that identifies the instrument.
     """
 
-    def __init__(self, visa_resource=None, config=None, debug_mode=False):
+    def __init__(self, config=None, debug_mode=False):
         """
         Initialize the SCPIInstrument class.
 
         Args:
             visa_resource (str): The VISA resource string to use for the connection.
         """
-        if visa_resource:
-            self.visa_resource = visa_resource
-            self._connect()
-        elif isinstance(config, InstrumentConfig):
+        if isinstance(config, InstrumentConfig):
             match backend:
                 # case "usbtmc":
                 #     self.instrument = usbtmc.Instrument(config.vendor_id, config.product_id)
                 case "lamb":
-                    self.instrument = VisaInstrument(config.manufacturer, config.model)
+                    self.instrument = VisaInstrument(config.model, config.serial_number)
                 case _:
                     raise InstrumentConfigurationError("Invalid backend")
         else:
@@ -46,14 +43,6 @@ class Instrument:
     @classmethod
     def from_config(cls, config: InstrumentConfig, debug_mode=False):
         return cls(config=InstrumentConfig(**config), debug_mode=debug_mode)
-
-    def _connect(self):
-        """Connect to the instrument using the VISA resource string."""
-        try:
-            import pyvisa
-            self.instrument = pyvisa.ResourceManager().open_resource(self.visa_resource)
-        except Exception as e:
-            raise InstrumentNotFoundError(f"Failed to connect to the instrument: {str(e)}")
 
     def _read_to_np(self, data) -> bytes:
         chunk_size = 1024

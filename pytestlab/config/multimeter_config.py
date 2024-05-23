@@ -3,9 +3,9 @@ from ..errors import InstrumentParameterError
 from .config import SelectionConfig, Config
 
 class MultimeterConfig(InstrumentConfig):
-    def __init__(self, manufacturer, model, device_type, channels, resolution, max_voltage, max_resistance, max_current, max_capacitance, max_frequency, configuration):
+    def __init__(self, manufacturer, model, device_type, serial_number, channels, resolution, max_voltage, max_resistance, max_current, max_capacitance, max_frequency, configuration):
         # Initialize the base class with basic instrument configuration
-        super().__init__(manufacturer, model, device_type)
+        super().__init__(manufacturer, model, device_type, serial_number)
 
         # Validate and assign multimeter-specific settings
         self.channels = self._validate_channels(channels)

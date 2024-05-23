@@ -6,7 +6,8 @@ class InstrumentConfig(Config):
     def __init__(self,
                  manufacturer=None,
                     model=None,
-                    device_type=None):
+                    device_type=None,
+                    serial_number=None):
     
         if manufacturer is None or model is None:
             raise ValueError("Manufacturer, Model cannot be None")
@@ -14,6 +15,7 @@ class InstrumentConfig(Config):
         self.manufacturer = self._validate_parameter(manufacturer, str, "Manufacturer")
         self.model = self._validate_parameter(model, str, "Model")
         self.device_type = self._validate_parameter(device_type, str, "Device Type")
+        self.serial_number = serial_number
 
     @classmethod
     def from_json_file(cls, file_path):
