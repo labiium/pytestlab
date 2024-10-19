@@ -1,0 +1,35 @@
+base:
+  language: python
+  ignore:
+  - packager
+  - tests
+  - "*.png"
+
+prod:
+  language: python
+  docs_comments_only: true
+  output: prod.out
+  ignore:
+  - packager
+  - tests
+  - "*.png"
+  - "*.egg-info"
+  - "*.ipynb"
+  - pytestlab/profiles
+  - pytestlab/config
+
+
+experiments:
+  output: experiments.out
+  path: 
+  language: python
+  ignore:
+  - packager
+  - tests
+  - "*.png"
+  - "*.egg-info"
+  - "*.ipynb"
+  - pytestlab/profiles
+  - pytestlab/config
+  - pytestlab/instruments
+  - "*.npy"

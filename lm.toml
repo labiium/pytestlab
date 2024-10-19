@@ -1,0 +1,19 @@
+default_model = "gemini-1.5-flash-002"
+default_system_prompt = "You are a helpful assistant response in the shortest possible text."
+project_id = "quick-nexus-407000"
+
+[profiles.curly]
+default_files = ["curly.out"]
+
+[profiles.experiments]
+default_files = ["experiments.out"]
+
+[functions]
+
+[functions.find_movies]
+name = "find_movies"
+description = "Find movie titles currently playing in theaters based on any description, genre, title words, etc."
+[functions.find_movies.parameters]
+type = "object"
+required = ["description"]
+[functions.find_movies.parameters.properties]

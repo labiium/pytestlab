@@ -3,25 +3,26 @@ from .config import Config, RangeConfig, SelectionConfig
 from ..errors import InstrumentParameterError
 
 class PowerSupplyConfig(InstrumentConfig):
-    def __init__(self, manufacturer, model, device_type, serial_number, outputs, total_power, line_regulation, load_regulation, programming_accuracy, readback_accuracy, interfaces, remote_control):
+    def __init__(self, manufacturer, model, device_type, serial_number, channels, total_power, line_regulation, load_regulation):
         # Initialize the base class with basic instrument configuration
         super().__init__(manufacturer, model, device_type, serial_number)
 
         # Validate and assign power supply specific settings
-        self.outputs = OutputsConfig(**outputs)
+        self.channels = PSChannelsConfig(*channels)
         self.total_power = self._validate_parameter(total_power, float, "total_power")
         self.line_regulation = self._validate_parameter(line_regulation, float, "line_regulation")
         self.load_regulation = self._validate_parameter(load_regulation, float, "load_regulation")
-        self.programming_accuracy = AccuracyConfig(**programming_accuracy)
-        self.readback_accuracy = AccuracyConfig(**readback_accuracy)
-        self.interfaces = SelectionConfig(interfaces)
-        self.remote_control = SelectionConfig(remote_control)
+        # self.programming_accuracy = AccuracyConfig(**programming_accuracy)
+        # self.readback_accuracy = AccuracyConfig(**readback_accuracy)
+        # self.interfaces = SelectionConfig(interfaces)
+        # self.remote_control = SelectionConfig(remote_control)
 
-class OutputsConfig(Config):
-    def __init__(self, **kwargs):
+class PSChannelsConfig(Config):
+    def __init__(self, *args):
         self.outputs = {}
-        for output, output_config in kwargs.items():
-            self.outputs[int(output)] = OutputConfig(**output_config)
+        # print(args)
+        for i, data in enumerate(args):
+            self.outputs[i] = OutputConfig(**data)
 
     def __getitem__(self, output):
         if not isinstance(output, int):
@@ -40,10 +41,12 @@ class OutputsConfig(Config):
         return {output: output_config.to_json() for output, output_config in self.outputs.items()}
 
 class OutputConfig(Config):
-    def __init__(self, voltage, current):
+    def __init__(self, description, voltage, current, accuracy):
+        # pri
+        self.description = description
         self.voltage = RangeConfig(**voltage)
         self.current = RangeConfig(**current)
-
+        self.accuracy = AccuracyConfig(**accuracy)
     def __repr__(self):
         return f"OutputConfig(voltage={self.voltage}, current={self.current})"
 
@@ -54,3 +57,4 @@ class AccuracyConfig(Config):
 
     def __repr__(self):
         return f"AccuracyConfig(voltage={self.voltage}, current={self.current})"
+

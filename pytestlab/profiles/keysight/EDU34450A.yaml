@@ -7,11 +7,11 @@ max_resistance: 1.e+8
 max_current: 10
 max_capacitance: 1.e-5
 max_frequency: 1.e+6
-resolution:
-  - FAST
-  - MEDium
-  - SLOW
 configuration:
+  resolution:
+    - FAST
+    - MEDium
+    - SLOW
   current:
     - 1.e-2
     - 0.1
