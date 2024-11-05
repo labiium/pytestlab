@@ -102,7 +102,7 @@ fft:
     - VRMS
 function_generator:
   waveform_types:
-    - SINE
+    - SIN
     - SQUare
     - RAMp
     - PULse
@@ -112,13 +112,13 @@ function_generator:
     - ON
     - OFF
   offset:
-    min_val: -5
-    max_val: 5
+    min_val: -11
+    max_val: 11
   frequency:
     min_val: 0.1
-    max_val: 2.e-3
+    max_val: 2.e+3
   amplitude:
-    min_val: 2.e-3
+    min_val: 0
     max_val: 9
 franalysis:
   sweep_points:

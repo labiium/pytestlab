@@ -564,16 +564,16 @@ class Oscilloscope(Instrument):
         """
         Set the waveform function for the oscilloscope's waveform generator.
 
-        This method sends an SCPI command to change the function (e.g., 'SINE', 'SQUARE') of the waveform generator.
+        This method sends an SCPI command to change the function (e.g., 'SIN', 'SQUARE') of the waveform generator.
         
         Args:
-        state (str): The desired function ('SINE', 'SQUARE', etc.) for the waveform generator.
+        state (str): The desired function ('SIN', 'SQUARE', etc.) for the waveform generator.
 
         Raises:
         InstrumentParameterError: If the oscilloscope model does not have a waveform generator or if the state is not supported.
 
         Example:
-        >>> set_wave_gen_func('SINE')
+        >>> set_wave_gen_func('SIN')
         """
         
         self._send_command(f"WGEN:FUNC {self.config.function_generator.waveform_types[state]}")
@@ -614,7 +614,7 @@ class Oscilloscope(Instrument):
         >>> set_wave_gen_amp(1.0)
         """
 
-        print(self.config.function_generator)
+        # print(self.config.function_generator)
         self._send_command(f"WGEN:VOLT {self.config.function_generator.amplitude.in_range(amp)}")
 
     @ConfigRequires("function_generator")
@@ -666,9 +666,9 @@ class Oscilloscope(Instrument):
             return number
 
         self._send_command('WGEN:FUNCtion SQUare')
-        self._send_command(f':WGEN:VOLTage:LOW {self.config.function_generator.voltage.in_range(v0)}')
-        self._send_command(f':WGEN:VOLTage:HIGH {self.config.function_generator.voltage.in_range(v1)}')
-        self._send_command(f':WGEN:FREQuency {self.config.fun}')
+        self._send_command(f':WGEN:VOLTage:LOW {self.config.function_generator.amplitude.in_range(v0)}')
+        self._send_command(f':WGEN:VOLTage:HIGH {self.config.function_generator.amplitude.in_range(v1)}')
+        self._send_command(f':WGEN:FREQuency {self.config.function_generator.frequency.in_range(freq)}')
         self._send_command(f':WGEN:FUNCtion:SQUare:DCYCle {clamp(dutyCycle)}')
 
 
@@ -689,8 +689,8 @@ class Oscilloscope(Instrument):
 
 
         self._send_command('WGEN:FUNCtion RAMP')
-        self._send_command(f':WGEN:VOLTage:LOW {self.config.function_generator.voltage.in_range(v0)}')
-        self._send_command(f':WGEN:VOLTage:HIGH {self.config.function_generator.voltage.in_range(v1)}')
+        self._send_command(f':WGEN:VOLTage:LOW {self.config.function_generator.amplitude.in_range(v0)}')
+        self._send_command(f':WGEN:VOLTage:HIGH {self.config.function_generator.amplitude.in_range(v1)}')
         self._send_command(f':WGEN:FREQuency {self.config.function_generator.frequency.in_range(freq)}')
         self._send_command(f':WGEN:FUNCtion:RAMP:SYMMetry {clamp(symmetry)}')
 
@@ -711,8 +711,8 @@ class Oscilloscope(Instrument):
             return number
 
         self._send_command('WGEN:FUNCtion PULSe')
-        self._send_command(f':WGEN:VOLTage:LOW {self.config.function_generator.voltage.in_range(v0)}')
-        self._send_command(f':WGEN:VOLTage:HIGH {self.config.function_generator.voltage.in_range(v1)}')
+        self._send_command(f':WGEN:VOLTage:LOW {self.config.function_generator.amplitude.in_range(v0)}')
+        self._send_command(f':WGEN:VOLTage:HIGH {self.config.function_generator.amplitude.in_range(v1)}')
         self._send_command(f':WGEN:PERiod {period}')
         self._send_command(f':WGEN:FUNCtion:PULSe:WIDTh {clamp(pulseWidth)}')
 
@@ -738,8 +738,8 @@ class Oscilloscope(Instrument):
         """
         
         self._send_command('WGEN:FUNCtion NOISe')
-        self._send_command(f':WGEN:VOLTage:LOW {self.config.function_generator.voltage.in_range(v0)}')
-        self._send_command(f':WGEN:VOLTage:HIGH {self.config.function_generator.voltage.in_range(v1)}')
+        self._send_command(f':WGEN:VOLTage:LOW {self.config.function_generator.amplitude.in_range(v0)}')
+        self._send_command(f':WGEN:VOLTage:HIGH {self.config.function_generator.amplitude.in_range(v1)}')
         self._send_command(f':WGEN:VOLTage:OFFSet {self.config.function_generator.offset.in_range(offset)}')
 
     def display_channel(self, channels: list | int, state=True) -> None:
@@ -788,7 +788,7 @@ class Oscilloscope(Instrument):
         self._log(f"Function display {'enabled' if state else 'disabled'}.")
 
     @ConfigRequires("fft")
-    def configure_fft(self, source_channel: int, scale: float = None, offset: float = None, window_type: str = 'HANNing', units: str = 'DECibel', display: bool = True):
+    def configure_fft(self, source_channel: int, scale: float = None, offset: float = None, span: float = None,  window_type: str = 'HANNing', units: str = 'DECibel', display: bool = True):
         """
         Configure the oscilloscope to perform an FFT on the specified channel with the given parameters.
 
@@ -814,7 +814,8 @@ class Oscilloscope(Instrument):
         # Configure the FFT window type
         self._send_command(f':FFT:WINDow {window_type}')
         # configure Center span
-        # self._send_command(f':FFT:CENTer:SPAn 0')
+        if span != None:
+            self._send_command(f':FFT:SPAn {span}')
         # Configure the FFT vertical type (units)
         self._send_command(f':FFT:VTYPe {units}')
         # Set the scale if provided
