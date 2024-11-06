@@ -116,7 +116,7 @@ function_generator:
     max_val: 11
   frequency:
     min_val: 0.1
-    max_val: 2.e+4
+    max_val: 2.e+20
   amplitude:
     min_val: 0
     max_val: 9
