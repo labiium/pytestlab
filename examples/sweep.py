@@ -36,7 +36,7 @@ psu.output(V_IN)
 psu.output(V_DD)
 psu.output(V_B)
 
-V_IN_points = 200
+V_IN_points = 10000
 V_B_points = 10
 
 
@@ -67,14 +67,14 @@ def measurement(psu_vin_voltage, psu_vb_voltage):
 def SingleMeasurement(ps_vb_voltage):
     return lambda ps_vin_voltage: measurement(ps_vin_voltage, ps_vb_voltage)
 
-# print("Grid Sweep in progress...")
-# data_grid = []
-# for psu_vb_voltage in tqdm(np.linspace(5, 0, V_B_points)):
-#     results_grid = grid_sweep(SingleMeasurement(psu_vb_voltage), [(0, 5)], [V_IN_points])
-#     results_grid = np.array([[psu_vb_voltage, x[0][0], x[1]] for x in results_grid])
-#     data_grid.append(results_grid)
-# data_grid = np.array(data_grid)
-# np.save(f"data/single/grid_sweep_FAST_{V_IN_points}_{V_B_points}.npy", data_grid)
+print("Grid Sweep in progress...")
+data_grid = []
+for psu_vb_voltage in tqdm(np.linspace(5, 0, V_B_points)):
+    results_grid = grid_sweep(SingleMeasurement(psu_vb_voltage), [(0, 5)], [V_IN_points])
+    results_grid = np.array([[psu_vb_voltage, x[0][0], x[1]] for x in results_grid])
+    data_grid.append(results_grid)
+data_grid = np.array(data_grid)
+np.save(f"data/single/grid_sweep_FAST_{V_IN_points}_{V_B_points}.npy", data_grid)
 
 
 # print("Adaptive Sweep in progress...")
@@ -140,13 +140,13 @@ def SingleMeasurement(ps_vb_voltage):
 # print("Saving data...")
 # np.save(f"data/single/aggro_adagrad_sweep_FAST_{V_IN_points}_{V_B_points}.npy", data_grad)
 
-print("Aggressive Stochastic Based Sweep...")
-data_grad = []
-for psu_vb_voltage in np.linspace(5, 0, V_B_points):
-    results_grad = aggro_stochastic(SingleMeasurement(psu_vb_voltage), [(0, 5)], V_IN_points)
-    results_grad = np.array([[psu_vb_voltage, x[0][0], x[1]] for x in results_grad])
-    print(results_grad.shape)
-    data_grad.append(results_grad)
+# print("Aggressive Stochastic Based Sweep...")
+# data_grad = []
+# for psu_vb_voltage in np.linspace(5, 0, V_B_points):
+#     results_grad = aggro_stochastic(SingleMeasurement(psu_vb_voltage), [(0, 5)], V_IN_points)
+#     results_grad = np.array([[psu_vb_voltage, x[0][0], x[1]] for x in results_grad])
+#     print(results_grad.shape)
+#     data_grad.append(results_grad)
 
 
 print("Saving data...")

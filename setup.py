@@ -15,6 +15,7 @@ setup(
         'polars',
         'pillow',
         'matplotlib',
+        'requests'
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',

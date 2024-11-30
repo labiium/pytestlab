@@ -661,7 +661,7 @@ def grid_sweep(f, param_ranges, q_n):
     param_mesh = np.meshgrid(*grids, indexing='ij')
     params_list = np.array([p.flatten() for p in param_mesh]).T
 
-    results = [(params.tolist(), f(*params)) for params in tqdm(params_list)]
+    results = [(params.tolist(), f(*params)) for params in tqdm(params_list,  miniters=10, maxinterval=float('inf'))]
     results.sort(key=lambda x: x[0])
     return results
 

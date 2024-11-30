@@ -33,7 +33,14 @@ experiments:
   - "*.png"
   - "*.egg-info"
   - "*.ipynb"
+  - MANIFEST.in
   - pytestlab/profiles
   - pytestlab/config
-  - pytestlab/instruments
+  # - pytestlab/instruments
+  - pytestlab/experiments/
   - "*.npy"
+  - examples/*sweep*
+  - examples/data
+  - .gitignore
+  - requirements.txt
+  - pytestlab/instruments/InstrumentManager.py
