@@ -15,7 +15,10 @@ setup(
         'polars',
         'pillow',
         'matplotlib',
-        'requests'
+        'requests',
+        'tqdm',
+        'pyscpi',
+        'pyusb',
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',

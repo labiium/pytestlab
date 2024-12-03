@@ -83,10 +83,14 @@ class Multimeter(Instrument):
         Makes a measurement on the multimeter on a specificed channel.
 
         Args:
-            measure
+            measure_type (str): The type of measurement to make. Valid values: "VOLTAGE", "CURRENT".
+            mode (str): The mode of the measurement. Valid values: "DC", "AC".
+            ran (str): The range of the measurement. Default is "AUTO".
+            int_time (str): The integration time of the measurement. Default is "MED".
 
         Returns:
-            float: The measured voltage.
+            MeasurementResult: The measured value.
+            - MeasurementResult.values (np.float64): The measured value.
 
         Raises:
             ValueError: If an invalid channel is specified.

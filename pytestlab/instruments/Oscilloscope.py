@@ -13,7 +13,18 @@ from matplotlib import pyplot as plt
 
 
 class ChannelReadingResult(MeasurementResult):
+
+    """
+    A class to represent the results of a channel reading from an oscilloscope.
+
+    Attributes:
+    values (polars.DataFrame): A DataFrame containing the channel data.
+    """
     def plot(self):
+        """
+        Plots the channel voltages over time.
+        # For Notebook use
+        """
         channel_columns = self.values.columns[1:]
         # Plotting each channel
         time_data = self.values['Time (s)']
@@ -48,8 +59,13 @@ class ChannelReadingResult(MeasurementResult):
         except pl.PolarsError as e:
             raise KeyError(f"Channel {channel} not found in data")
 
-
 class FFTResult(MeasurementResult):
+    """
+    A class to represent the results of an FFT analysis.
+
+    Attributes:
+    values (polars.DataFrame): A DataFrame containing the FFT data.
+    """
     def plot(self):
         channel_columns = self.values.columns[1:]
         # Plotting each channel
@@ -69,6 +85,14 @@ class FFTResult(MeasurementResult):
         plt.show()
 
 class VoltageReadingResult(MeasurementResult):
+    """
+    
+    A class to represent the results of a voltage reading from an oscilloscope.
+
+    Attributes:
+    values (polars.DataFrame): A DataFrame containing the voltage data.
+    """
+
     def plot(self, title="Voltage over Time"):
         plt.figure(figsize=(10, 6))
         plt.plot(self.values["Time (s)"], self.values["Voltage (V)"])
@@ -82,6 +106,13 @@ class VoltageReadingResult(MeasurementResult):
         return self.values[key]
 
 class FRanalysisResult(MeasurementResult):
+
+    """
+    A class to represent the results of a frequency response analysis from an oscilloscope.
+
+    Attributes:
+    values (polars.DataFrame): A DataFrame containing the frequency response data.
+    """
     def plot(self, title="Gain and Phase vs. Frequency"):
         plt.figure(figsize=(12, 6))
 
@@ -500,7 +531,7 @@ class Oscilloscope(Instrument):
 
         Parameters:
             channel (int): The oscilloscope channel to set the scale for.
-            scale (float): The probe scale value (e.g., 10.0 for 10:1, 1.0 for 1:1).
+            scale (int): The probe scale value (e.g., 10 for 10:1, 1 for 1:1).
         """
         self.config.channels.validate(channel)
         

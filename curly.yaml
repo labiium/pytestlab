@@ -7,9 +7,16 @@ base:
 
 prod:
   language: python
-  # docs_comments_only: true
+  docs_comments_only: true
+  docs_ignore:
+  - examples/*
+  - "*/__init__.py"
   output: prod.out
   ignore:
+  - sweep_test.py
+  - "*.csv"
+  - requirements.txt
+  - .gitignore
   - packager
   - tests
   - "*.png"
@@ -20,6 +27,7 @@ prod:
   - lm.toml
   - pytestlab/profiles
   - examples/data
+  - measurement
   # - pytestlab/config
 
 
@@ -37,7 +45,7 @@ experiments:
   - pytestlab/profiles
   - pytestlab/config
   # - pytestlab/instruments
-  - pytestlab/experiments/
+  - pytestlab/experiments
   - "*.npy"
   - examples/*sweep*
   - examples/data

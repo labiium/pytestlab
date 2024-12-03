@@ -34,6 +34,19 @@ class MeasurementResult:
         string = string[:-1]
         return string
     
+
+    def save(self, path):
+        """Saves the measurement data to a file.
+        
+        If the data is a numpy array, it will be saved as a .npy file.
+        If the data is a Polars DataFrame, it will be saved as a .parquet file.
+        """
+        if isinstance(self.values, np.ndarray):
+            np.save(path, self.values)
+        elif isinstance(self.values, pl.DataFrame):
+            self.values.write_parquet(path)
+        else:
+            np.save(path, np.array(self.values))
     def __repr__(self):
         return str(self)
     
