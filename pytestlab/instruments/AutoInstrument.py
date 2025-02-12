@@ -2,6 +2,7 @@ from .Oscilloscope import Oscilloscope
 from .Multimeter import Multimeter
 from .WaveformGenerator import WaveformGenerator
 from .PowerSupply import PowerSupply
+from .DCActiveLoad import DCActiveLoad
 from .instrument import Instrument
 from pytestlab.errors import InstrumentConfigurationError
 import os
@@ -13,6 +14,7 @@ class AutoInstrument:
         'waveform_generator': WaveformGenerator,
         'power_supply': PowerSupply,
         'multimeter': Multimeter,
+        "dc_active_load": DCActiveLoad
     }
 
     @classmethod

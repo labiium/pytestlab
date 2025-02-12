@@ -1,6 +1,7 @@
 from .instrument_config import InstrumentConfig
 from .oscilloscope_config import OscilloscopeConfig
 from .waveform_generator_config import WaveformGeneratorConfig
+from .dc_active_load_config import DCActiveLoadConfig
 from .power_supply_config import PowerSupplyConfig
 from .multimeter_config import MultimeterConfig
 from .config import ConfigRequires

@@ -8,9 +8,6 @@ base:
 prod:
   language: python
   docs_comments_only: true
-  docs_ignore:
-  - examples/*
-  - "*/__init__.py"
   output: prod.out
   ignore:
   - sweep_test.py
@@ -52,3 +49,22 @@ experiments:
   - .gitignore
   - requirements.txt
   - pytestlab/instruments/InstrumentManager.py
+
+
+instruments:
+  output: instruments.out
+  language: python
+  ignore:
+    - packager
+    - tests
+    - "*.png"
+    - "*.egg-info"
+    - "*.ipynb"
+    - MANIFEST.in
+    - pytestlab/experiments
+    - "*.npy"
+    - examples/*sweep*
+    - examples/data
+    - .gitignore
+    - requirements.txt
+    - pytestlab/instruments/InstrumentManager.py
