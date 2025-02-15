@@ -535,7 +535,7 @@ class Oscilloscope(Instrument):
         """
         self.config.channels.validate(channel)
         
-        self._send_command(f":CH{channel}:PROBe {self.config.channels[channel].probe_attenuation[scale]}")
+        self._send_command(f":CHANnel{channel}:PROBe {self.config.channels[channel].probe_attenuation[scale]}")
 
         # Confirm the action to the log
         self._log(f"Set probe scale to {scale}:1 for channel {channel}.")

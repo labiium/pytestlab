@@ -55,7 +55,7 @@ class Multimeter(Instrument):
         print(f"Integration Time/Resolution: {res}")
     
 
-    def configure(self, mode="VOLT", ac_dc="DC", rang=None, res=None):
+    def configure(self, mode="VOLT", ac_dc="DC", rang="AUTO", res="MED"):
         """
         Configures the measurement settings of the multimeter.
 
@@ -71,7 +71,7 @@ class Multimeter(Instrument):
             raise ValueError(f"Invalid range for mode {mode}. Valid ranges are: {valid_ranges.get(mode)}")
 
         mode_string = f"{mode}:{ac_dc}" if mode in ["VOLT", "CURR"] else mode
-        rang_str = f"{rang}" if rang is not None else "AUTO"
+        rang_str = f"{rang}" if rang is None else "AUTO"
         res_str = f",{res}" if res is not None else ""
 
         command = f"CONF:{mode_string} {rang_str}{res_str}"
