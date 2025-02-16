@@ -2,7 +2,7 @@ import numpy as np
 from ..errors import InstrumentConnectionBusy, InstrumentConfigurationError, InstrumentNotFoundError, InstrumentCommunicationError, InstrumentConnectionError, InstrumentParameterError
 from ..config import InstrumentConfig
 from pyscpi import usbtmc
-from .backends.lamb import VisaInstrument
+from .backends.lamb import LambInstrument
 import time
 
 backend = "lamb"
@@ -27,7 +27,7 @@ class Instrument:
                 # case "usbtmc":
                 #     self.instrument = usbtmc.Instrument(config.vendor_id, config.product_id)
                 case "lamb":
-                    self.instrument = VisaInstrument(config.model, config.serial_number)
+                    self.instrument = LambInstrument(config.model, config.serial_number)
                 case _:
                     raise InstrumentConfigurationError("Invalid backend")
         else:
@@ -207,6 +207,20 @@ class Instrument:
         self._log("Resetting instrument to default settings.")
         self._command_log.append({"command": "RESET", "success": True, "type": "reset", "timestamp":time.time})
 
+    def self_test(self):
+        """Perform a self-test on the instrument.
+        
+        Returns:
+            str: The result of the self-test. Either "Passed" or "Failed with Error Code: <code>".
+        """
+        result = self._query("*TST?")
+        if result == "+0":
+            self._log("Self-test passed.")
+            return "Passed"
+        else:
+            self._log(f"Self-test failed with Error Code: {result}")
+            return f"Failed with Error Code: {result}"
+    
     @classmethod
     def requires(cls, requirement: str):
         """

@@ -1,6 +1,6 @@
 import requests
 
-class VisaInstrument:
+class LambInstrument:
     def __init__(self, model_name, serial_number, url="http://lamb-server:8000"):
         self.url = url
         self.model_name = model_name
