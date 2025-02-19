@@ -27,7 +27,7 @@ from pytestlab.instruments import AutoInstrument
 def main():
     # --- Instrument Instantiation ---
     print("Instantiating Oscilloscope from configuration...")
-    scope = AutoInstrument.from_config("keysight/EDU_OSCILLOSCOPE")
+    scope = AutoInstrument.from_config("keysight/DSOX1204G")
     
     # --- Instrument Identification ---
     idn = scope.id()  # Assuming the instrument implements an id() method.

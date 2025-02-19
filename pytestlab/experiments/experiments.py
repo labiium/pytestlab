@@ -1,5 +1,12 @@
 import polars as pl
 
+# Attempt to import pyarrow; if not available, raise an informative error.
+# try:
+#     import pyarrow as pa
+# except ModuleNotFoundError:
+#     raise ModuleNotFoundError("The module 'pyarrow' is required for exporting to Arrow. "
+#                               "Please install it using 'pip install pyarrow'.")
+
 class ExperimentParameter:
     """Represents a single experiment parameter."""
     def __init__(self, name, units, notes=""):
@@ -11,98 +18,118 @@ class ExperimentParameter:
         return f"{self.name} ({self.units})"
 
 class Experiment:
-    """Experiment tracker to store measurements and parameters.
+    """
+    Experiment tracker to store measurements and parameters.
     
-    Attributes:
-        name (str): The name of the experiment.
-        description (str): A description of the experiment.
-        parameters (dict): A dictionary of ExperimentParameter objects.
-        data (DataFrame): A DataFrame of experiment and parameters.
+    This class maintains an internal Polars DataFrame (self.data) for trial data, regardless
+    of whether the input is provided as a Polars DataFrame, dict, or list.
+    
+    It provides two export functionalities:
+      - save_parquet(file_path): Saves the internal data as a Parquet file.
+    
+    Additionally, printing the Experiment instance (via __str__) shows a
+    summary and the head (first few rows) of the data.
     """
     def __init__(self, name, description=""):
-        """
-        Args:
-            name (str): The name of the experiment.
-            description (str, optional): A description of the experiment.
-        """
         self.name = name
         self.description = description
-        self.parameters = {}  # Stores ExperimentParameter objects
-        self.data = pl.DataFrame()
-        self.schema = {}
+        self.parameters = {}  # key: parameter name, value: ExperimentParameter
+        self.data = pl.DataFrame()  # Always stored as a Polars DataFrame
 
     def add_parameter(self, name, units, notes=""):
-        """Adds a base parameter to the experiment.
+        """
+        Add a new parameter to the experiment.
         
         Args:
-            name (str): The name of the parameter.
-            units (str): The units of the parameter.
+            name (str): Name of the parameter.
+            units (str): Units for the parameter.
+            notes (str, optional): Additional notes.
         """
-        self.parameters[name] = ExperimentParameter(name, units, notes=notes)
+        self.parameters[name] = ExperimentParameter(name, units, notes)
 
     def add_trial(self, measurement_result, **parameter_values):
-        """Adds a trial with measurement results and parameter values to the experiment.
-
-        Args:
-            measurement_result (polars.DataFrame): A Polars DataFrame with measurement results.
-            **parameter_values: Parameter values for the trial.
         """
-        if len(parameter_values) != len(self.parameters):
-            raise ValueError(f"Incorrect number of parameters. {len(parameter_values)} provided but {len(self.parameters)} expected.")
-        for param in parameter_values:
-            if param not in self.parameters:
-                raise ValueError(f"Parameter '{param}' not defined.")
+        Add a new trial to the experiment.
         
-        # Check reserved column names not in data
-        if "TRIAL_ID" in measurement_result.values.columns:
-            raise ValueError("Column name 'EXPERIMENT_ID' is reserved for the experiment ID.")
-
-        # Ensure the structure for new trials matches the first one or establish it for the first trial
-        if self.data.height == 0:
-            # Initialize measurements DataFrame with the correct schema
-            schema = {name: pl.List(measurement_result.values.dtypes[i]) for i, name in enumerate(measurement_result.values.columns)}
-            schema.update({name: pl.Float64 for name in parameter_values}) 
-            schema = {"TRIAL_ID": pl.UInt64, **schema}
-            self.schema = schema
-            self.data = pl.DataFrame([], schema=schema)
-        # elif set(measurement_result.values.columns) | set(parameter_values.keys()) != set(self.data.columns):
-        #     raise ValueError("The structure of the trial does not match the existing structure of the measurements DataFrame.")
-        # exclude the ID column and parameter_values
-        elif set(measurement_result.values.columns) != set(self.data.columns[1:len(self.data.columns)-len(parameter_values)]):
-            raise ValueError("The structure of the trial does not match the existing structure of the measurements DataFrame.")
+        Accepts measurement data in various formats (list, dict, or Polars DataFrame)
+        and converts it into a Polars DataFrame if needed. Additional parameter values
+        are added as new columns.
         
-        # Collapse the measurement DataFrame values into a Series
-        experiment_row = pl.DataFrame(
-            {
-                "TRIAL_ID": pl.Series([self.data.height + 1], dtype=pl.UInt64),
-                **{name: [value] for name, value in measurement_result.values.to_dict().items()},
-                **{name: [value] for name, value in parameter_values.items()}
-            },
-            schema=self.schema
-        )
+        Args:
+            measurement_result (pl.DataFrame, dict, or list): The measurement data.
+            **parameter_values: Additional parameters to include with this trial.
+            
+        Raises:
+            ValueError: If the conversion to a Polars DataFrame fails or if a
+                        provided parameter is not defined.
+        """
+        # Convert non-DataFrame input into a Polars DataFrame.
+        if not isinstance(measurement_result, pl.DataFrame):
+            try:
+                # strict=False allows mixed types (e.g. int and float) in the same column.
+                measurement_result = pl.DataFrame(measurement_result, strict=False)
+            except Exception as e:
+                raise ValueError("Failed to convert measurement_result to a Polars DataFrame") from e
 
-        print(experiment_row)
-        print(self.data)
-        self.data = self.data.vstack(experiment_row)
-
-    def __str__(self):
-        return (f"Experiment: {self.name}\nDescription: {self.description}\n"
-                f"Parameters: {', '.join([str(p) for p in self.parameters.values()])}\n"
-                f"Measurements: {len(self.data)} trials")
+        # Append additional parameter values as new columns.
+        for param_name, value in parameter_values.items():
+            if param_name not in self.parameters:
+                raise ValueError(f"Parameter '{param_name}' is not defined in the experiment.")
+            measurement_result = measurement_result.with_columns(pl.lit(value).alias(param_name))
+        
+        # Stack the new trial onto the existing data.
+        if self.data.is_empty():
+            self.data = measurement_result
+        else:
+            self.data = self.data.vstack(measurement_result)
 
     def list_trials(self):
-        """Prints out all measurements with their parameters."""
+        """Print the full trials DataFrame."""
         print(self.data)
 
     def __iter__(self):
-        """Iterate over the trials in the experiment."""
-        for trial in self.data.iterrows():
-            yield trial
-
-
+        """Iterate over each trial (row) as a dictionary."""
+        for row in self.data.to_dicts():
+            yield row
 
     def __len__(self):
-        return len(self.data)
-    
-    def __getitem__(self, column):
-        return self.data[column]
+        """Return the number of trials."""
+        return self.data.height
+
+    def __str__(self):
+        """
+        Return a string representation of the experiment.
+        
+        This includes a summary of the experiment details and prints the first 5 rows
+        of the trial data (the head).
+        """
+        param_str = ", ".join(str(param) for param in self.parameters.values())
+        head = self.data.head(5) if not self.data.is_empty() else "No trial data available."
+        return (f"Experiment: {self.name}\n"
+                f"Description: {self.description}\n"
+                f"Parameters: {param_str}\n"
+                f"Trial Data (first 5 rows):\n{head}")
+
+    # def save_arrow(self, file_path):
+    #     """
+    #     Save the internal data as an Apache Arrow file to disk.
+        
+    #     Args:
+    #         file_path (str): The file path (including filename) where the Arrow file will be saved.
+            
+    #     This method converts the internal Polars DataFrame to a pyarrow.Table and writes it
+    #     to disk using the Arrow IPC file format.
+    #     """
+    #     arrow_table = self.data.to_arrow()
+    #     pa.ipc.write_table(arrow_table, file_path)
+    #     print(f"Data saved to Arrow file at: {file_path}")
+
+    def save_parquet(self, file_path):
+        """
+        Save the internal Polars DataFrame as a Parquet file.
+        
+        Args:
+            file_path (str): The file path (including filename) where the Parquet file will be saved.
+        """
+        self.data.write_parquet(file_path)
+        print(f"Data saved to Parquet file at: {file_path}")

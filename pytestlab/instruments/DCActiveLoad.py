@@ -9,7 +9,7 @@ from the Keysight EL30000 Series bench DC electronic loads.
 import numpy as np
 from .instrument import Instrument
 from ..errors import InstrumentConfigurationError, InstrumentParameterError
-from ..config.DCActiveLoadConfig import DCActiveLoadConfig
+from ..config import DCActiveLoadConfig
 from ..experiments import MeasurementResult
 
 
