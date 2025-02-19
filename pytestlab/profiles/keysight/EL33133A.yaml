@@ -1,0 +1,94 @@
+manufacturer: Keysight
+model: EL33133A
+device_type: dc_active_load
+serial_number: "SN33133A-001"
+channels:
+  - 1:
+      description: "Primary Channel"
+      min_current: 0.01         # in Amperes
+      max_current: 40.0         # in Amperes
+      current_resolution: 0.001   # in Amperes
+      min_voltage: 0.02         # in Volts
+      max_voltage: 150.0        # in Volts
+      voltage_resolution: 0.005   # in Volts
+supported_modes:
+  CC: "Constant Current"
+  CV: "Constant Voltage"
+  CP: "Constant Power"
+  CR: "Constant Resistance"
+max_current: 40.0             # Overall device capability in Amperes
+max_voltage: 150.0            # Overall device capability in Volts
+max_power: 250.0              # Maximum power in Watts
+calibration:
+  current_calibration_resolution: 0.001  # in Amperes
+  voltage_calibration_resolution: 0.001  # in Volts
+programming_accuracy:
+  CC:
+    low:
+      percent: 0.05         # 0.05%
+      absolute: 0.00082     # 820 µA in Amperes
+    high:
+      percent: 0.05
+      absolute: 0.0072      # 7.2 mA in Amperes
+  CV:
+    low:
+      percent: 0.03
+      absolute: 0.0042      # 4.2 mV in Volts
+    high:
+      percent: 0.03
+      absolute: 0.015       # 15 mV in Volts
+  CP:
+    low:
+      percent: 0.08
+      absolute: 0.018       # 18 mW in Watts
+    medium:
+      percent: 0.08
+      absolute: 0.15        # 150 mW in Watts
+    high:
+      percent: 0.08
+      absolute: 1.5         # 1.5 W
+  CR:
+    low:
+      percent: 0.1
+      absolute: 0.16        # 160 mΩ as 0.16 Ω
+    medium:
+      percent: 0.1
+      absolute: 0.5         # 500 mΩ as 0.5 Ω
+    high:
+      percent: 0.1
+      absolute: 0.0018      # 1.8 mΩ as 0.0018 Ω
+readback_accuracy:
+  CC:
+    low:
+      percent: 0.04
+      absolute: 0.003       # 3 mA in Amperes
+    high:
+      percent: 0.04
+      absolute: 0.01        # 10 mA in Amperes
+  CV:
+    low:
+      percent: 0.02
+      absolute: 0.015       # 15 mV in Volts
+    high:
+      percent: 0.02
+      absolute: 0.015       # 15 mV in Volts
+  CP:
+    low:
+      percent: 0.08
+      absolute: 0.018       # 18 mW in Watts
+    medium:
+      percent: 0.08
+      absolute: 0.15        # 150 mW in Watts
+    high:
+      percent: 0.08
+      absolute: 1.2         # 1.2 W
+  CR:
+    low:
+      percent: 0.1
+      absolute: 0.16        # 160 mΩ as 0.16 Ω
+    medium:
+      percent: 0.1
+      absolute: 0.5         # 500 mΩ as 0.5 Ω
+    high:
+      percent: 0.1
+      absolute: 0.0018      # 1.8 mΩ as 0.0018 Ω
