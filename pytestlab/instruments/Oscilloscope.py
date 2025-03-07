@@ -317,7 +317,7 @@ class Oscilloscope(Instrument):
         return [np.float64(scale), np.float64(offset)]
         
         
-    def configure_trigger(self, channel: int, level: float, trigger_type="HIGH", slope: str = "POS", mode: str = "EDGE") -> None:
+    def configure_trigger(self, channel: int, level: float, source=None, trigger_type="HIGH", slope: str = "POS", mode: str = "EDGE") -> None:
         """
         Sets the trigger for the oscilloscope.
         
@@ -326,12 +326,31 @@ class Oscilloscope(Instrument):
         :param trigger_type: The type of trigger. Default is 'HIGH'
         :param level: The trigger level in volts
         :param mode: The trigger mode. Default is 'EDGE'
+        :param source: The source of the trigger. Default behaviour is to use the channel Valid options CHANnel<n> | EXTernal | LINE | WGEN
         """
         
         self.config.channels.validate(channel)
 
-        self._send_command(f':TRIG:SOUR CHAN{channel}')
-        self._send_command(f':TRIGger:LEVel:{self.config.trigger.types[trigger_type]} {level}, CHAN{channel}')
+
+        if source is None:
+            source = f"CHANnel{channel}"
+        else:
+            source = source.upper()
+            # validate sources
+            # validate in scenario where source is potential a channel
+            if source.startswith("CHAN"):
+                last_char = source[-1]
+                if not last_char.isdigit():
+                    raise InstrumentParameterError(f"Invalid source {source}.")
+                channel = int(last_char)
+                self.config.channels.validate(channel)
+            elif source not in ["EXTernal", "LINE", "WGEN"]:
+                raise InstrumentParameterError(f"Invalid source {source}.")
+
+
+        self._send_command(f':TRIG:SOUR {source}')
+        # self._send_command(f':TRIGger:LEVel:{self.config.trigger.types[trigger_type]} {level}, CHAN{channel}')
+        self._send_command(f':TRIGger:LEVel {level}, CHAN{channel}')
         self._send_command(f':TRIGger:SLOPe {self.config.trigger.slopes[slope]}')
         self._send_command(f':TRIGger:MODE {self.config.trigger.modes[mode]}')
         self._wait()
@@ -341,7 +360,9 @@ class Oscilloscope(Instrument):
                   Trigger Level: {level}
                   Trigger Slope: {slope}
                   Trigger Mode: {mode}""")
-        
+    
+
+    
     def measure_voltage_peak_to_peak(self, channel):
         """
         Measure the peak-to-peak voltage for a specified channel.
