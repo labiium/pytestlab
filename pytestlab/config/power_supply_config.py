@@ -40,6 +40,8 @@ class PSChannelsConfig(Config):
         # export dict and call to_json on each output
         return {output: output_config.to_json() for output, output_config in self.outputs.items()}
 
+    def __len__(self):
+        return len(self.outputs)
 class OutputConfig(Config):
     def __init__(self, description, voltage, current, accuracy):
         # pri

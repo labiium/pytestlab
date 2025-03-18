@@ -96,3 +96,44 @@ class PowerSupply(Instrument):
         DISPlay[:WINDow][:STATe] ON | OFF | 1 | 0
         """
         self._send_command(f"DISP {'ON' if state else 'OFF'}")
+
+
+    def get_configuration(self):
+        """
+        Gets the voltages and currents set for all channel.
+        
+        Returns:
+            dict[int, PSUChanelConfig]: A dictionary containing the configuration for each channel.
+        """
+        results = {}
+        for channel in range(1, len(self.config.channels) + 1):
+            # results[channel] = {
+            #     "voltage": self._query(f"MEAS:VOLT? (@{channel})"),
+            #     "current": self._query(f"MEAS:CURR? (@{channel})"),
+            #     "state": self._query(f"OUTPut:STATe? (@{channel})")
+            # }
+            results[channel] = PSUChannelConfig(
+                voltage=self._query(f"MEAS:VOLT? (@{channel})"),
+                current=self._query(f"MEAS:CURR? (@{channel})"),
+                state=self._query(f"OUTPut:STate? (@{channel})")
+            )
+        return results
+
+
+
+
+class PSUChannelConfig:
+    def __init__(self, voltage, current, state):
+        """
+        
+        Args:
+            voltage (float): The voltage value for the channel.
+            current (float): The current value for the channel.
+            state (int): The state of the channel. 0 for off, 1 for on.
+        """
+        self.voltage = voltage
+        self.current = current
+        self.state = state
+
+    def __repr__(self):
+        return f"PSUChanelConfig(voltage={self.voltage}, current={self.current})"
