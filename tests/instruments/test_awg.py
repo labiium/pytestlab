@@ -85,8 +85,12 @@ def main():
     print("\nCurrent Configuration on Channel 1:")
     print(config)
     
+    # --- Set SQUARE with duty cycle 50% ---
+    print("\n[8] Setting SQUARE waveform on channel 1...")
+    wg.set_waveform(channel=1, waveform_type="SQUare", duty_cycle=50)
+
     # --- Self-Test ---
-    print("\n[8] Running self-test...")
+    print("\n[10] Running self-test...")
     result = wg.self_test()
     print("Self-test result:", result)
     

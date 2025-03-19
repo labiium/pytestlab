@@ -114,7 +114,7 @@ class WaveformGenerator(Instrument):
         
         self._log(f"Waveform set to Arbitrary wave '{name}' on channel {validated_channel}")  
 
-    def set_waveform(self, channel, waveform_type):
+    def set_waveform(self, channel, waveform_type, **kwargs):
         """
         Sets the waveform type for the specified channel after validation.
 
@@ -122,14 +122,34 @@ class WaveformGenerator(Instrument):
             channel (int or str): The channel for which to set the waveform.
             waveform_type (str): The type of waveform to set.
 
+        
+        Keyword Args:
+            duty_cycle (float): The duty cycle for square and pulse waveforms (0 to 100). Only available for square and pulse waveforms.
+
         Raises:
             ValueError: If the waveform type is not supported.
-        """ 
+        """
         self._validate_waveform(waveform_type)
         validated_channel = self.config.channels.validate(channel)
         built_in_cmd = self.config.waveforms.built_in[waveform_type]
         self._send_command(f"SOUR{validated_channel}:FUNC {built_in_cmd}")
         self._log(f"Waveform set to {waveform_type} on channel {validated_channel}")
+
+        if "duty_cycle" in kwargs:
+            duty_cycle = kwargs.pop("duty_cycle")
+            if waveform_type in ["SQUare", "PULSe"]:
+                # Validate duty cycle (assumed percentage: 0 to 100)
+                if not (0 <= duty_cycle <= 100):
+                    raise ValueError("Duty cycle must be between 0 and 100")
+                # Here we assume the command syntax for duty cycle is as follows.
+                self._send_command(f"SOUR{validated_channel}:FUNC:{waveform_type}:DCYC {duty_cycle}")
+                self._log(f"Duty cycle set to {duty_cycle}% on channel {validated_channel}")
+            else:
+                raise ValueError(f"Duty cycle setting is not applicable for waveform type '{waveform_type}'")
+
+        
+        if kwargs:
+            raise ValueError(f"Unsupported keyword arguments: {kwargs.keys()}")
 
     def set_frequency(self, channel, frequency):
         """
