@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='pytestlab',
-    version='0.1.3',
+    version='0.1.4',
     description='A Python library for instrument automation and measurement data management.',
     author='Emmanuel Olowe',
     author_email='e.a.olowe@ed.ac.uk',

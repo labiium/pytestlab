@@ -5,15 +5,6 @@ import numpy as np
 import re
 from dataclasses import dataclass
 
-# @dataclass
-# class WaveformPhase:
-#     """
-#     Data class to store the phase offset of a waveform.
-#     """
-#     minimum: float
-#     maximum: float
-#     default: float
-
 @dataclass
 class WaveformConfigResult:
     """
@@ -28,14 +19,46 @@ class WaveformConfigResult:
     symmetry: float = None
     output_state: bool = None
 
+# Mapping dictionary for built-in waveform extra parameters.
+# For each waveform type (normalized to uppercase) the supported extra parameters
+# are mapped to lambdas that generate the proper SCPI command.
+WAVEFORM_PARAM_COMMANDS = {
+    "PULSE": {
+        "duty_cycle": lambda ch, value: f"SOUR{ch}:FUNC:PULSe:DCYCle {value}",
+        "edge_time": lambda ch, value: f"SOUR{ch}:FUNC:PULSe:TRANsition:LEADing {value}",
+        "transition_both": lambda ch, value: f"SOUR{ch}:FUNC:PULSe:TRANsition:BOTH {value}",
+        "transition_lead": lambda ch, value: f"SOUR{ch}:FUNC:PULSe:TRANsition:LEADing {value}",
+        "transition_trail": lambda ch, value: f"SOUR{ch}:FUNC:PULSe:TRANsition:TRAiling {value}",
+        "period": lambda ch, value: f"SOUR{ch}:FUNC:PULSe:PERiod {value}"
+    },
+    "SQUARE": {
+        "duty_cycle": lambda ch, value: f"SOUR{ch}:FUNC:SQUare:DCYCle {value}",
+        "period": lambda ch, value: f"SOUR{ch}:FUNC:SQUare:PERiod {value}"
+    },
+    "RAMP": {
+        "symmetry": lambda ch, value: f"SOUR{ch}:FUNC:RAMP:SYMMetry {value}"
+    },
+    "TRIANGLE": {
+        "symmetry": lambda ch, value: f"SOUR{ch}:FUNC:RAMP:SYMMetry {value}"
+    },
+    "SINUSOID": {
+        # Sinusoid does not have additional parameters.
+    }
+}
 
 class WaveformGenerator(Instrument):
+    """
+    Provides full control over waveform creation (arbitrary and built-in)
+    including all SCPI-based operations like setting frequency, amplitude, offset,
+    phase, symmetry, voltage limits, impedance, output polarity, voltage unit and coupling,
+    as well as waveform-specific extra parameters (duty cycle, edge/transition times, etc.).
+    """
     def __init__(self, config=None, debug_mode=False):
         """
         Initialize a WaveformGenerator instance with a device profile.
 
         Args:
-            config (WaveformGeneratorConfig): A configuration object containing device-specific settings.
+            config (WaveformGeneratorConfig): Configuration object with device-specific settings.
             debug_mode (bool): If True, enable debug logging.
         """
         if not isinstance(config, WaveformGeneratorConfig):
@@ -48,44 +71,27 @@ class WaveformGenerator(Instrument):
     
     def _validate_waveform(self, waveform_type):
         """
-        Validate if the waveform type is supported by the device.
+        Validates that the requested waveform type is supported by the instrument.
 
         Args:
-            waveform_type (str): The type of waveform to validate.
+            waveform_type (str): The waveform type to validate.
 
         Raises:
             ValueError: If the waveform type is not supported.
         """
-        # TODO: MERGE STANDARD AND BUILT-IN WAVEFORMS
-        pass
-
-    def _validate_frequency(self, frequency):
-        """
-        Validate if the frequency is within the device's supported range.
-
-        Args:
-            frequency (float): The frequency to validate.
-
-        Raises:
-            ValueError: If the frequency is out of range.
-        """
-        # TODO: add frequency range to config
-        max_frequency = self.config.max_frequency
-        if frequency > max_frequency:
-            raise ValueError(f"Frequency out of range. Max supported frequency: {max_frequency}")
-
+        self.config.waveforms.built_in[waveform_type]
     def set_arbitrary_waveform(self, channel, waveform, scale=True, name="pytestlabArb"):
         """
-        Sets the arbitrary waveform for the specified channel.
+        Sets an arbitrary waveform for the specified channel.
 
         Args:
-            channel (int or str): The channel for which to set the waveform.
-            waveform (numpy.ndarray or list): The arbitrary waveform data. Values are expected to be within [-32768, 32767].
-            scale (bool): If True, the waveform is linearly scaled to fill the available DAC range.
-            name (str): The identifier for the arbitrary waveform. Must be alphanumeric (underscores allowed).
+            channel (int or str): The channel to configure.
+            waveform (numpy.ndarray or list): Waveform data, expected within [-32768, 32767].
+            scale (bool): If True, scale waveform data to fully use the DAC range.
+            name (str): Identifier for the arbitrary waveform (alphanumeric, underscores allowed).
 
         Raises:
-            ValueError: If the waveform exceeds the allowable range or if the name is not alphanumeric.
+            ValueError: If the waveform data is out of range or the name is invalid.
         """
         self._log(f"Setting arbitrary waveform for channel {channel}")
         
@@ -100,9 +106,8 @@ class WaveformGenerator(Instrument):
                 self._log(f"Waveform exceeds range: {min_val} to {max_val}")
                 raise ValueError(f"Waveform exceeds range: {min_val} to {max_val}")
             
-        # check that the name is alphanumeric (underscores allowed)
         if not re.match("^[a-zA-Z0-9_]*$", name):
-            raise ValueError(f"Name must be alphanumeric: {name}")
+            raise ValueError(f"Name must be alphanumeric (underscores allowed): {name}")
             
         formatted_data = ', '.join(map(str, waveform_np.astype(int)))
         validated_channel = self.config.channels.validate(channel)
@@ -112,294 +117,306 @@ class WaveformGenerator(Instrument):
         self._send_command(f"SOUR{validated_channel}:FUNC:ARB:FILT NORM")
         self._send_command(f"SOUR{validated_channel}:FUNC ARB")
         
-        self._log(f"Waveform set to Arbitrary wave '{name}' on channel {validated_channel}")  
-
+        self._log(f"Arbitrary waveform '{name}' set on channel {validated_channel}")
+    
     def set_waveform(self, channel, waveform_type, **kwargs):
         """
-        Sets the waveform type for the specified channel after validation.
+        Sets a built-in waveform for the specified channel and applies extra parameters
+        (e.g., duty cycle, edge times, symmetry) if supported.
 
         Args:
-            channel (int or str): The channel for which to set the waveform.
-            waveform_type (str): The type of waveform to set.
+            channel (int or str): The channel to configure.
+            waveform_type (str): The built-in waveform type to set.
 
-        
         Keyword Args:
-            duty_cycle (float): The duty cycle for square and pulse waveforms (0 to 100). Only available for square and pulse waveforms.
+            duty_cycle (float): For pulse/square waveforms, percentage (0-100).
+            edge_time (float): For pulse waveform, applied as transition leading time. 
+            transition_both (float): For pulse waveform, set both leading and trailing transition times.
+            transition_lead (float): For pulse waveform, set leading transition time.
+            transition_trail (float): For pulse waveform, set trailing transition time.
+            period (float): For pulse or square waveform, period in seconds.
+            symmetry (float): For ramp/triangle waveforms, symmetry percentage (0-100).
 
         Raises:
-            ValueError: If the waveform type is not supported.
+            ValueError: If the waveform type or any parameter is invalid or not supported.
         """
+        print(waveform_type)
         self._validate_waveform(waveform_type)
         validated_channel = self.config.channels.validate(channel)
         built_in_cmd = self.config.waveforms.built_in[waveform_type]
         self._send_command(f"SOUR{validated_channel}:FUNC {built_in_cmd}")
         self._log(f"Waveform set to {waveform_type} on channel {validated_channel}")
 
-        if "duty_cycle" in kwargs:
-            duty_cycle = kwargs.pop("duty_cycle")
-            if waveform_type in ["SQUare", "PULSe"]:
-                # Validate duty cycle (assumed percentage: 0 to 100)
-                if not (0 <= duty_cycle <= 100):
-                    raise ValueError("Duty cycle must be between 0 and 100")
-                # Here we assume the command syntax for duty cycle is as follows.
-                self._send_command(f"SOUR{validated_channel}:FUNC:{waveform_type}:DCYC {duty_cycle}")
-                self._log(f"Duty cycle set to {duty_cycle}% on channel {validated_channel}")
-            else:
-                raise ValueError(f"Duty cycle setting is not applicable for waveform type '{waveform_type}'")
-
-        
+        # Normalize waveform type to uppercase for mapping lookup.
+        waveform_key = waveform_type.upper()
         if kwargs:
-            raise ValueError(f"Unsupported keyword arguments: {kwargs.keys()}")
-
+            param_cmds = WAVEFORM_PARAM_COMMANDS.get(waveform_key)
+            if not param_cmds:
+                raise ValueError(f"No extra parameters are supported for waveform type '{waveform_type}'")
+            for param, value in kwargs.items():
+                if param in param_cmds:
+                    if param == "duty_cycle" and not (0 <= value <= 100):
+                        raise ValueError("Duty cycle must be between 0 and 100")
+                    if param == "symmetry" and not (0 <= value <= 100):
+                        raise ValueError("Symmetry must be between 0 and 100")
+                    cmd = param_cmds[param](validated_channel, value)
+                    self._send_command(cmd)
+                    self._log(f"{param.replace('_', ' ').capitalize()} set to {value} on channel {validated_channel}")
+                else:
+                    raise ValueError(f"Parameter '{param}' is not supported for waveform type '{waveform_type}'")
+    
     def set_frequency(self, channel, frequency):
         """
-        Sets the frequency for the specified channel after validation.
+        Sets the frequency for the specified channel.
 
         Args:
-            channel (int or str): The channel for which to set the frequency.
-            frequency (float): The frequency in Hz.
+            channel (int or str): The channel to configure.
+            frequency (float): Frequency in Hz.
 
         Raises:
-            ValueError: If the frequency is out of range.
+            ValueError: If frequency is out of the valid range.
         """
         validated_channel = self.config.channels.validate(channel)
         freq_value = self.config.channels[validated_channel].frequency.in_range(frequency)
         self._send_command(f"SOUR{validated_channel}:FREQ {freq_value}")
         self._log(f"Frequency set to {frequency} Hz on channel {validated_channel}")
-
+    
     def set_amplitude(self, channel, amplitude):
         """
-        Sets the amplitude for the specified channel after validation.
+        Sets the amplitude for the specified channel.
 
         Args:
-            channel (int or str): The channel for which to set the amplitude.
-            amplitude (float): The amplitude value.
+            channel (int or str): The channel to configure.
+            amplitude (float): Amplitude value.
         """
         validated_channel = self.config.channels.validate(channel)
         amp_value = self.config.channels[validated_channel].amplitude.in_range(amplitude)
         self._send_command(f"SOUR{validated_channel}:VOLTage:AMPL {amp_value}")
         self._log(f"Amplitude set to {amplitude} on channel {validated_channel}")
-
+    
     def set_offset(self, channel, offset):
         """
-        Sets the DC offset for the specified channel after validation.
+        Sets the DC offset for the specified channel.
 
         Args:
-            channel (int or str): The channel for which to set the offset.
-            offset (float): The DC offset value.
+            channel (int or str): The channel to configure.
+            offset (float): DC offset value.
         """
         validated_channel = self.config.channels.validate(channel)
         offset_value = self.config.channels[validated_channel].dc_offset.in_range(offset)
         self._send_command(f"SOUR{validated_channel}:VOLTage:OFFSet {offset_value}")
         self._log(f"Offset set to {offset} on channel {validated_channel}")
-
-    def output(self, channel, state):
+    
+    def set_phase(self, channel, phase):
         """
-        Sets the output state for the specified channel.
+        Sets the phase offset for the specified channel.
 
         Args:
-            channel (int or str): The channel to control.
-            state (bool): True to turn output ON; False for OFF.
-        """
-        self._send_command(f"OUTP{channel} {'ON' if state else 'OFF'}")
-        self._log(f"Output for channel {channel} set to {'ON' if state else 'OFF'}")
-
-    # --- New functionality for impedance and voltage limits ---
-
-    def set_impedance(self, channel, impedance):
-        """
-        Sets the expected load impedance for the specified channel. This informs the instrument
-        about the connected termination so that it can scale amplitude readings appropriately.
-
-        Args:
-            channel (int or str): The channel for which to set the impedance.
-            impedance (float or str): The impedance value in ohms, or one of the special strings 
-                                      (e.g. "INFinity", "MINimum", "MAXimum", "DEFault").
-
-        Example:
-            set_impedance(1, 50)   # Sets channel 1 impedance to 50 ohms.
-            set_impedance(2, "INF") # Sets channel 2 to high impedance mode.
+            channel (int or str): The channel to configure.
+            phase (float): Phase offset in degrees.
         """
         validated_channel = self.config.channels.validate(channel)
-        # You might add further validation here using self.config if available.
-        self._send_command(f"OUTP{validated_channel}:LOAD {impedance}")
-        self._log(f"Impedance set to {impedance} on channel {validated_channel}")
+        self._send_command(f"SOUR{validated_channel}:PHASe {phase}")
+        self._log(f"Phase set to {phase} degrees on channel {validated_channel}")
+    
+    def set_phase_reference(self, channel):
+        """
+        Resets the phase reference for the specified channel.
 
+        Args:
+            channel (int or str): The channel to configure.
+        """
+        validated_channel = self.config.channels.validate(channel)
+        self._send_command(f"SOUR{validated_channel}:PHASe:REFerence")
+        self._log(f"Phase reference reset on channel {validated_channel}")
+    
+    def synchronize_phase(self):
+        """
+        Synchronizes the phase of all channels to a common reference.
+        """
+        self._send_command("PHASe:SYNChronize")
+        self._log("Phases synchronized across channels")
+    
+    def set_symmetry(self, channel, symmetry):
+        """
+        Sets the symmetry (ramp symmetry) for the specified channel.
+
+        Args:
+            channel (int or str): The channel to configure.
+            symmetry (float): Symmetry percentage (0-100).
+        """
+        if not (0 <= symmetry <= 100):
+            raise ValueError("Symmetry must be between 0 and 100")
+        validated_channel = self.config.channels.validate(channel)
+        self._send_command(f"SOUR{validated_channel}:FUNC:RAMP:SYMMetry {symmetry}")
+        self._log(f"Symmetry set to {symmetry}% on channel {validated_channel}")
+    
+    def set_phase_unlock_error_state(self, state):
+        """
+        Configures whether an error should be generated if the instrument loses phase lock.
+        (Only applicable to channel 1.)
+
+        Args:
+            state (bool): True to enable error generation, False to disable.
+        """
+        cmd_state = "ON" if state else "OFF"
+        self._send_command(f"SOUR1:PHASe:UNLock:ERRor:STATe {cmd_state}")
+        self._log(f"Phase unlock error state set to {cmd_state} on channel 1")
+    
+    def set_impedance(self, channel, impedance):
+        """
+        Sets the load impedance for the specified channel.
+
+        Args:
+            channel (int or str): The channel to configure.
+            impedance (float or str): Impedance value in ohms or special strings (e.g., 'INFinity').
+        """
+        validated_channel = self.config.channels.validate(channel)
+        self._send_command(f"OUTPut{validated_channel}:LOAD {impedance}")
+        self._log(f"Impedance set to {impedance} on channel {validated_channel}")
+    
     def get_impedance(self, channel):
         """
-        Queries the currently configured load impedance for the specified channel.
+        Retrieves the load impedance for the specified channel.
 
         Args:
             channel (int or str): The channel to query.
 
         Returns:
-            float or str: The load impedance as a float (if numeric) or as a string (e.g. 'INF').
+            float or str: The current load impedance.
         """
         validated_channel = self.config.channels.validate(channel)
-        response = self._query(f"OUTP{validated_channel}:LOAD?")
-        self._log(f"Impedance on channel {validated_channel} is {response}")
+        response = self._query(f"OUTPut{validated_channel}:LOAD?")
+        self._log(f"Impedance on channel {validated_channel}: {response}")
         try:
             return float(response)
         except ValueError:
             return response.strip()
-
+    
     def set_voltage_limits(self, channel, low, high):
         """
-        Sets the voltage limits for the specified channel to protect the connected device.
-
-        This method sends separate commands to set the low and high voltage limits and then enables the limits.
-        The instrument will clip amplitude/offset settings that exceed these limits and may generate a settings
-        conflict error if the current settings violate the limits.
+        Sets the voltage limits for the specified channel.
 
         Args:
-            channel (int or str): The channel for which to set voltage limits.
-            low (float): The lower voltage limit.
-            high (float): The upper voltage limit.
-
-        Example:
-            set_voltage_limits(1, -2.5, 2.5)
+            channel (int or str): The channel to configure.
+            low (float): Lower voltage limit.
+            high (float): Upper voltage limit.
         """
         validated_channel = self.config.channels.validate(channel)
         self._send_command(f"SOUR{validated_channel}:VOLT:LIMit:LOW {low}")
         self._send_command(f"SOUR{validated_channel}:VOLT:LIMit:HIGH {high}")
         self._send_command(f"SOUR{validated_channel}:VOLT:LIMit:STATe ON")
         self._log(f"Voltage limits set to Low={low}, High={high} on channel {validated_channel}")
-
+    
     def disable_voltage_limits(self, channel):
         """
         Disables the voltage limits for the specified channel.
 
         Args:
-            channel (int or str): The channel for which to disable voltage limits.
-
-        Example:
-            disable_voltage_limits(1)
+            channel (int or str): The channel to configure.
         """
         validated_channel = self.config.channels.validate(channel)
         self._send_command(f"SOUR{validated_channel}:VOLT:LIMit:STATe OFF")
         self._log(f"Voltage limits disabled on channel {validated_channel}")
-
+    
     def enable_voltage_limits(self, channel):
         """
         Enables the voltage limits for the specified channel.
 
         Args:
-            channel (int or str): The channel for which to enable voltage limits.
-
-        Example:
-            enable_voltage_limits(1)
+            channel (int or str): The channel to configure.
         """
         validated_channel = self.config.channels.validate(channel)
         self._send_command(f"SOUR{validated_channel}:VOLT:LIMit:STATe ON")
         self._log(f"Voltage limits enabled on channel {validated_channel}")
-
-    # --- Existing phase and symmetry methods ---
-
-    def set_phase(self, channel, phase):
+    
+    def output(self, channel, state):
         """
-        Sets the phase offset for the specified channel.
+        Sets the output state (ON/OFF) for the specified channel.
 
         Args:
-            channel (int or str): The channel to set phase for.
-            phase (float): The desired phase offset (in degrees, max 360, min -360).
-
-        Example:
-            set_phase(1, 90)  # sets channel 1 phase offset to 90 degrees.
+            channel (int or str): The channel to control.
+            state (bool): True to turn ON, False to turn OFF.
         """
         validated_channel = self.config.channels.validate(channel)
-        self._send_command(f"SOUR{validated_channel}:PHASe {phase}")
-        self._log(f"Phase set to {phase} on channel {validated_channel}")
-
-    def set_phase_reference(self, channel):
+        self._send_command(f"OUTPut{validated_channel} {'ON' if state else 'OFF'}")
+        self._log(f"Output for channel {validated_channel} set to {'ON' if state else 'OFF'}")
+    
+    def set_output_polarity(self, channel, polarity):
         """
-        Resets the phase reference for the specified channel without changing its output.
+        Sets the output polarity for the specified channel.
 
         Args:
-            channel (int or str): The channel to reset phase reference for.
+            channel (int or str): The channel to configure.
+            polarity (str): 'normal' or 'inverted'.
 
-        Example:
-            set_phase_reference(1)  # Resets channel 1's phase reference.
+        Raises:
+            ValueError: If polarity is not valid.
         """
         validated_channel = self.config.channels.validate(channel)
-        self._send_command(f"SOUR{validated_channel}:PHASe:REFerence")
-        self._log(f"Phase reference reset on channel {validated_channel}")
-
-    def synchronize_phase(self):
+        if polarity.lower() in ["normal", "norm"]:
+            polarity_cmd = "NORMal"
+        elif polarity.lower() in ["inverted", "invert"]:
+            polarity_cmd = "INVerted"
+        else:
+            raise ValueError("Polarity must be 'normal' or 'inverted'")
+        self._send_command(f"OUTPut{validated_channel}:POLarity {polarity_cmd}")
+        self._log(f"Output polarity set to {polarity_cmd} on channel {validated_channel}")
+    
+    def set_voltage_unit(self, channel, unit):
         """
-        Synchronizes the phase of all internal channels (or modulating sources) to a common reference.
-        This is useful in two-channel instruments where the relative phase is important.
-
-        Example:
-            synchronize_phase()
-        """
-        self._send_command("PHASe:SYNChronize")
-        self._log("Phases synchronized across channels")
-
-    def set_symmetry(self, channel, symmetry):
-        """
-        Sets the ramp (or triangular) waveform symmetry percentage for the specified channel.
-        Note: This command is applicable only if the current waveform is of type 'RAMP' (or a variant such as TRIangle).
+        Sets the voltage unit for the specified channel.
 
         Args:
-            channel (int or str): The channel to set symmetry for.
-            symmetry (float): The symmetry percentage (typically 0 to 100, where 50% yields a triangle wave if used with a ramp).
+            channel (int or str): The channel to configure.
+            unit (str): Voltage unit, one of 'VPP', 'VRMS', 'DBM'.
 
-        Example:
-            set_symmetry(1, 50)  # Sets channel 1 to 50% symmetry.
+        Raises:
+            ValueError: If an invalid unit is provided.
         """
         validated_channel = self.config.channels.validate(channel)
-        self._send_command(f"SOUR{validated_channel}:FUNC:RAMP:SYMMetry {symmetry}")
-        self._log(f"Ramp symmetry set to {symmetry}% on channel {validated_channel}")
-
-    def set_phase_unlock_error_state(self, state):
+        unit = unit.upper()
+        if unit not in {"VPP", "VRMS", "DBM"}:
+            raise ValueError("Voltage unit must be one of: 'VPP', 'VRMS', 'DBM'")
+        self._send_command(f"SOUR{validated_channel}:VOLTage:UNIT {unit}")
+        self._log(f"Voltage unit set to {unit} on channel {validated_channel}")
+    
+    def set_voltage_coupling(self, channel, state):
         """
-        Configures whether an error should be generated if the instrument loses phase lock.
-        This command is only applicable to channel 1.
+        Sets the voltage coupling state for the specified channel.
 
         Args:
-            state (bool): True to enable error generation on phase unlock; False to disable.
-
-        Example:
-            set_phase_unlock_error_state(True)
+            channel (int or str): The channel to configure.
+            state (bool): True to enable coupling, False to disable.
         """
-        cmd_state = "ON" if state else "OFF"
-        self._send_command(f"SOUR1:PHASe:UNLock:ERRor:STATe {cmd_state}")
-        self._log(f"Phase unlock error state set to {cmd_state} on channel 1")
-
+        validated_channel = self.config.channels.validate(channel)
+        coupling_state = "ON" if state else "OFF"
+        self._send_command(f"SOUR{validated_channel}:VOLTage:COUPle:STATe {coupling_state}")
+        self._log(f"Voltage coupling set to {coupling_state} on channel {validated_channel}")
+    
     def get_config(self, channel):
         """
-        Retrieves the current waveform configuration for the specified channel.
-        
-        This method queries the instrument for key parameters such as:
-          - Waveform type (function)
-          - Frequency (Hz)
-          - Amplitude
-          - Offset (DC)
-          - Phase offset (if applicable)
-          - Ramp symmetry (if applicable)
-          - Output state (ON/OFF)
-        
+        Retrieves the current configuration of the specified channel.
+
         Args:
             channel (int or str): The channel to query.
-            
+
         Returns:
-            WaveformConfigResult: An object containing the current configuration for that channel.
+            WaveformConfigResult: An object containing current settings (waveform, frequency,
+                                  amplitude, offset, phase, symmetry, and output state).
         """
         validated_channel = self.config.channels.validate(channel)
-        # Query basic settings using the _query helper
         waveform = self._query(f"SOUR{validated_channel}:FUNCtion?").strip()
         frequency = float(self._query(f"SOUR{validated_channel}:FREQ?").strip())
         amplitude = float(self._query(f"SOUR{validated_channel}:VOLTage:AMPL?").strip())
         offset = float(self._query(f"SOUR{validated_channel}:VOLTage:OFFSet?").strip())
         
-        # Some waveforms (e.g. RAMP/ TRIangle) support a phase query
         try:
             phase_resp = self._query(f"SOUR{validated_channel}:PHASe?")
             phase = float(phase_resp)
         except Exception:
             phase = None
         
-        # For ramp-type waveforms, try to get symmetry info.
         if waveform.upper().startswith("RAMP") or waveform.upper().startswith("TRI"):
             try:
                 sym_resp = self._query(f"SOUR{validated_channel}:FUNC:RAMP:SYMMetry?")
@@ -408,9 +425,8 @@ class WaveformGenerator(Instrument):
                 symmetry = None
         else:
             symmetry = None
-
-        # Query the output state.
-        output_state = self._query(f"OUTP{validated_channel}?").strip().upper() == "ON"
+        
+        output_state = self._query(f"OUTPut{validated_channel}?").strip().upper() == "ON"
         
         config_obj = WaveformConfigResult(
             channel=validated_channel,

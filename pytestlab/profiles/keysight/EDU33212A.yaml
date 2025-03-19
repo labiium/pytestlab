@@ -39,13 +39,13 @@ waveforms:
     - NOISe
     - PRBS
     - DC
-    - CARdiac
-    - exponential_fall
-    - exponential_rise
-    - gaussian_pulse
-    - haversine
-    - lorentz
-    - dlorentz
+    # - CARdiac
+    # - exponential_fall
+    # - exponential_rise
+    # - gaussian_pulse
+    # - haversine
+    # - lorentz
+    # - dlorentz
   arbitrary:
     memory: 8.e+6
     max_length: 1.e+6
