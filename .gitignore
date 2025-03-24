@@ -5,5 +5,5 @@ pytestlab.egg-info/
 # packager/
 pytestlab.txt
 pytestlab.json
-
+.env
 *.out
