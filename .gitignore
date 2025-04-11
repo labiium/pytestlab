@@ -7,3 +7,4 @@ pytestlab.txt
 pytestlab.json
 .env
 *.out
+cache

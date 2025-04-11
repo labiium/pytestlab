@@ -1,5 +1,5 @@
 from pytestlab.instruments import AutoInstrument
-from pytestlab.experiments.sweep import grid_sweep
+from pytestlab.experiments.sweep import grid_sweep, gwass
 import numpy as np
 from tqdm import tqdm
 
@@ -11,15 +11,14 @@ V_DD = 2
 V_IN = 1
 V_B = 3
 
-
 psu.set_voltage(V_DD, 5)
-psu.set_current(V_DD, 0.1)
+psu.set_current(V_DD, 0.2)
 
 psu.set_voltage(V_IN, 0)
-psu.set_current(V_IN, 0.1)
+psu.set_current(V_IN, 0.2)
 
 psu.set_voltage(V_B, 3.0)
-psu.set_current(V_B, 0.1)
+psu.set_current(V_B, 0.2)
 
 psu.output(V_IN)
 psu.output(V_DD)
@@ -45,6 +44,20 @@ for psu_vb_voltage in tqdm(np.linspace(5, 0, V_B_points)):
     results_grid = np.array([[psu_vb_voltage, x[0][0], x[1]] for x in results_grid])
     data_grid.append(results_grid)
 data_grid = np.array(data_grid)
-np.save(f"data/grid_sweep_FAST_{V_IN_points}_{V_B_points}.npy", data_grid)# np.save(f"data/single/grad_sweep_FAST_{V_IN_points}_{V_B_points}.npy", [data_grad[2]])
+np.save(f"data/grid_sweep_FAST_{V_IN_points}_{V_B_points}.npy", data_grid)
 
-psu.output([V_IN, V_DD, V_B], state=False)
+print("GWASS Based Sweep...")
+data_grad = []
+for psu_vb_voltage in np.linspace(5, 0, V_B_points):
+    results_grad = gwass(SingleMeasurement(psu_vb_voltage), [(0, 5)], V_IN_points)
+    results_grad = np.array([[psu_vb_voltage, x[0][0], x[1]] for x in results_grad])
+    print(results_grad.shape)
+    data_grad.append(results_grad)
+
+
+print("Saving data...")
+np.save(f"data/gwass_sweep_FAST_{V_IN_points}_{V_B_points}.npy", data_grad)
+
+psu.output(V_IN, state=False)
+psu.output(V_DD, state=False)
+psu.output(V_B, state=False)

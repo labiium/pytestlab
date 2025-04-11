@@ -1,0 +1,102 @@
+manufacturer: Keysight
+model: MXR404A
+device_type: oscilloscope
+bandwidth: 4.e+9  # 4 GHz
+sampling_rate: 1.6e+10  # 16 GSa/s
+memory: 2.e+8  # 200 Mpts/ch
+waveform_update_rate: 2.e+5  # >200,000 wfms/sec
+
+trigger:
+  types:
+    - EDGE
+    - PULSE
+    - TIMEOUT
+    - WINDOW
+  slopes:
+    - RISING
+    - FALLING
+    - EITHER
+  external_trigger_inputs:
+    - AUX
+
+channels:
+  - 1:
+      description: Input Channel 1
+      channel_range:
+        min_val: -5.0
+        max_val: 5.0
+      input_coupling:
+        - AC
+        - DC
+      input_impedance: 1.e+6
+      probe_attenuation:
+        - 1
+        - 10
+        - 100
+      timebase:
+        range:
+          min_val: 5.e-12
+          max_val: 200
+  - 2:
+      description: Input Channel 2
+      channel_range:
+        min_val: -5.0
+        max_val: 5.0
+      input_coupling:
+        - AC
+        - DC
+      input_impedance: 1.e+6
+      probe_attenuation:
+        - 1
+        - 10
+        - 100
+      timebase:
+        range:
+          min_val: 5.e-12
+          max_val: 200
+  - 3:
+      description: Input Channel 3
+      channel_range:
+        min_val: -5.0
+        max_val: 5.0
+      input_coupling:
+        - AC
+        - DC
+      input_impedance: 1.e+6
+      probe_attenuation:
+        - 1
+        - 10
+        - 100
+      timebase:
+        range:
+          min_val: 5.e-12
+          max_val: 200
+  - 4:
+      description: Input Channel 4
+      channel_range:
+        min_val: -5.0
+        max_val: 5.0
+      input_coupling:
+        - AC
+        - DC
+      input_impedance: 1.e+6
+      probe_attenuation:
+        - 1
+        - 10
+        - 100
+      timebase:
+        range:
+          min_val: 5.e-12
+          max_val: 200
+
+jitter_analysis:
+  available_types:
+    - RMS
+  jitter_sources:
+    - Time Interval Error
+  analysis_depth: 1.e+6
+  histogram_bins: 256
+  modulation_analysis: false
+  real_time_analysis: false
+  min_jitter_measurement: 1.e-12
+  max_jitter_measurement: 1.e-3

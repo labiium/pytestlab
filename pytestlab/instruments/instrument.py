@@ -24,6 +24,7 @@ class Instrument:
         """
         if isinstance(config, InstrumentConfig):
             match backend:
+                # Can implement more non lamb backends here
                 # case "usbtmc":
                 #     self.instrument = usbtmc.Instrument(config.vendor_id, config.product_id)
                 case "lamb":
@@ -117,8 +118,8 @@ class Instrument:
         """
         try:
             match backend:
-                case "usbtmc":
-                    response = self.instrument.ask_raw(query.encode("utf-8"))
+                # case "usbtmc":
+                #     response = self.instrument.ask_raw(query.encode("utf-8"))
                 case "lamb":
                     response = self.instrument.query_raw(query)
                 case _:

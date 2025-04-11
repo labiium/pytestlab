@@ -1,15 +1,18 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "OscilloscopeConfig",
     "type": "object",
     "properties": {
         "manufacturer": {
             "type": "string",
+            "description": "Manufacturer of the oscilloscope",
             "enum": [
                 "Keysight"
             ]
         },
         "model": {
             "type": "string",
+            "description": "Model identifier",
             "enum": [
                 "DSOX1204G"
             ]
@@ -19,6 +22,9 @@
             "enum": [
                 "oscilloscope"
             ]
+        },
+        "serial_number": {
+            "type": "string"
         },
         "trigger": {
             "type": "object",
@@ -164,16 +170,20 @@
             }
         },
         "bandwidth": {
-            "type": "number"
+            "type": "number",
+            "description": "Oscilloscope bandwidth in Hz"
         },
         "sampling_rate": {
-            "type": "number"
+            "type": "number",
+            "description": "Maximum sampling rate in samples per second"
         },
         "memory": {
-            "type": "number"
+            "type": "number",
+            "description": "Memory depth in points"
         },
         "waveform_update_rate": {
-            "type": "number"
+            "type": "number",
+            "description": "Maximum waveform update rate in waveforms per second"
         },
         "fft": {
             "type": "object",

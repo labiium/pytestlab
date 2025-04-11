@@ -55,25 +55,29 @@ from pytestlab.experiments import Experiment, Database
 import numpy as np
 
 # loading the instruments
-psu = AutoInstrument.from_config("keysight/EDU36311A")
+psu1 = AutoInstrument.from_config("keysight/EDU36311A", "SERIAL_NUMBER") # to connect to muliple instruments
+psu2 = AutoInstrument.from_config("keysight/EDU36311A", "SERIAL_NUMBER") # to connect to one instrument
 dmm = AutoInstrument.from_config("keysight/EDU34450A")
 
 
-psu.set_voltage(2, 5)
-psu.set_current(2, 0.05)
+psu1.set_voltage(2, 5)
+psu1.set_current(2, 0.05)
+psu1.output(2)
 
-psu.set_voltage(1, 1.8)
-psu.set_current(1, 0.05)
+psu2.set_voltage(1, 1.8)
+psu2.set_current(1, 0.05)
+psu2.output(1)
 
-# psu.set_voltage(3, 3.0)
-psu.set_current(3, 0.05)
-psu.output(3)
+psu.set_voltage(3, 3.0)
+psu1.set_current(3, 0.05)
+psu1.output(3)
 
 data = dmm.measure()
 print(data)
 print(data.values)
 
-psu.output([1,2,3], state=False)
+psu1.output([2,3], state=False)
+psu2.output(1, state=False)
 ```
 
 ## Acknowledgements
