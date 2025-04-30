@@ -1,10 +1,10 @@
 manufacturer: keysight
-model: 34460A
+model: 34470A
 device_type: multimeter
-resolution: 6.5
+resolution: 7.5
 max_voltage: 1000
-max_resistance: 1e8
-max_current: 3
+max_resistance: 1e9
+max_current: 10
 max_capacitance: 1e-4
 max_frequency: 3e5
 configuration:
@@ -13,12 +13,15 @@ configuration:
     - MEDIUM
     - SLOW
   current:
+    - 1e-6
+    - 1e-5
     - 1e-4
     - 1e-3
     - 1e-2
     - 1e-1
     - 1
     - 3
+    - 10
   voltage:
     - 0.1
     - 1
@@ -38,20 +41,20 @@ measurement_types:
   - diode
 accuracy:
   voltage_dc:
-    percentage: 2.5e-3
-    absolute: 4e-4
+    percentage: 8e-4
+    absolute: 2e-4
   voltage_ac:
-    percentage: 7e-2
+    percentage: 5e-2
     absolute: 2e-2
   current_dc:
     percentage: 7e-3
-    absolute: 6e-3
+    absolute: 5e-3
   current_ac:
-    percentage: 1e-1
+    percentage: 7e-2
     absolute: 4e-2
   resistance:
-    percentage: 3e-3
-    absolute: 8e-4
+    percentage: 2e-3
+    absolute: 5e-4
   capacitance:
     percentage: 4e-1
     absolute: 1e-1
@@ -63,7 +66,7 @@ accuracy:
     absolute: 5e-2
   continuity:
     percentage: 2e-3
-    absolute: 3e-2
+    absolute: 1e-2
   diode:
     percentage: 2e-3
-    absolute: 3e-2
+    absolute: 1e-2
