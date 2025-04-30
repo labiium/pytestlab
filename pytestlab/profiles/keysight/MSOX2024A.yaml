@@ -19,74 +19,78 @@ trigger:
     - EITH
     - ALT
 channels:
-  - description: Analog Channel 1
-    channel_range:
-      min_val: -5
-      max_val: 5
-    input_coupling:
-      - DC
-      - AC
-    input_impedance: 1e6
-    probe_attenuation:
-      - 1
-      - 10
-    timebase:
-      range:
-        min_val: 5e-9
-        max_val: 50
-      horizontal_resolution: 1e-12
-  - description: Analog Channel 2
-    channel_range:
-      min_val: -5
-      max_val: 5
-    input_coupling:
-      - DC
-      - AC
-    input_impedance: 1e6
-    probe_attenuation:
-      - 1
-      - 10
-    timebase:
-      range:
-        min_val: 5e-9
-        max_val: 50
-      horizontal_resolution: 1e-12
-  - description: Analog Channel 3
-    channel_range:
-      min_val: -5
-      max_val: 5
-    input_coupling:
-      - DC
-      - AC
-    input_impedance: 1e6
-    probe_attenuation:
-      - 1
-      - 10
-    timebase:
-      range:
-        min_val: 5e-9
-        max_val: 50
-      horizontal_resolution: 1e-12
-  - description: Analog Channel 4
-    channel_range:
-      min_val: -5
-      max_val: 5
-    input_coupling:
-      - DC
-      - AC
-    input_impedance: 1e6
-    probe_attenuation:
-      - 1
-      - 10
-    timebase:
-      range:
-        min_val: 5e-9
-        max_val: 50
-      horizontal_resolution: 1e-12
-bandwidth: 2e8
-sampling_rate: 2e9
-memory: 1e6
-waveform_update_rate: 2e5
+  - 1:
+      description: Analog Channel 1
+      channel_range:
+        min_val: -5
+        max_val: 5
+      input_coupling:
+        - DC
+        - AC
+      input_impedance: 1.e+6
+      probe_attenuation:
+        - 1
+        - 10
+      timebase:
+        range:
+          min_val: 2.e-9
+          max_val: 50
+        horizontal_resolution: 1.e-12
+  - 2:
+      description: Analog Channel 2
+      channel_range:
+        min_val: -5
+        max_val: 5
+      input_coupling:
+        - DC
+        - AC
+      input_impedance: 1.e+6
+      probe_attenuation:
+        - 1
+        - 10
+      timebase:
+        range:
+          min_val: 2.e-9
+          max_val: 50
+        horizontal_resolution: 1.e-12
+  - 3:
+      description: Analog Channel 3
+      channel_range:
+        min_val: -5
+        max_val: 5
+      input_coupling:
+        - DC
+        - AC
+      input_impedance: 1.e+6
+      probe_attenuation:
+        - 1
+        - 10
+      timebase:
+        range:
+          min_val: 2.e-9
+          max_val: 50
+        horizontal_resolution: 1.e-12
+  - 4:
+      description: Analog Channel 4
+      channel_range:
+        min_val: -5
+        max_val: 5
+      input_coupling:
+        - DC
+        - AC
+      input_impedance: 1.e+6
+      probe_attenuation:
+        - 1
+        - 10
+      timebase:
+        range:
+          min_val: 2.e-9
+          max_val: 50
+        horizontal_resolution: 1.e-12
+bandwidth: 2.e+8
+sampling_rate: 2.e+9
+memory: 1.e+6
+waveform_update_rate: 2.e+5
 fft:
   window_types:
     - RECTangular
@@ -98,7 +102,7 @@ fft:
     - VRMS
 function_generator:
   waveform_types:
-    - SINE
+    - SIN
     - SQUare
     - RAMp
     - PULse
@@ -112,7 +116,7 @@ function_generator:
     max_val: 2.5
   frequency:
     min_val: 0.1
-    max_val: 2e7
+    max_val: 2.e+7
   amplitude:
     min_val: 0.02
     max_val: 5
