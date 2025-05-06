@@ -11,6 +11,17 @@ from ..errors import InstrumentConfigurationError, InstrumentParameterError
 from ..experiments import MeasurementResult
 from matplotlib import pyplot as plt
 
+_ACQ_TYPE_MAP: dict[str, str] = {
+    "NORMAL": "NORMal",
+    "AVERAGE": "AVERage",
+    "HIGH_RES": "HRESolution",
+    "PEAK": "PEAK",
+}
+
+_ACQ_MODE_MAP: dict[str, str] = {
+    "REAL_TIME": "RTIMe",
+    "SEGMENTED": "SEGMented",
+}
 
 class ChannelReadingResult(MeasurementResult):
 
@@ -1061,3 +1072,191 @@ class Oscilloscope(Instrument):
         
         self._send_command(f":FRANalysis:ENABle {'0' if state else '1'}")
         self._log(f"Frequency response analysis is {'disabled' if state else 'enabled'}.")
+
+    def set_acquisition_type(self, acq_type: str) -> None:
+        """
+        Select the oscilloscope acquisition algorithm.
+
+        Parameters
+        ----------
+        acq_type : str
+            One of: ``"NORMAL"``, ``"AVERAGE"``, ``"HIGH_RES"``, ``"PEAK"``.
+            (Case‑insensitive.)
+
+        Notes
+        -----
+        • ``AVERAGE`` is *not* allowed while the scope is in segmented mode (SCPI
+        will complain – we pre‑check and raise locally for clarity).
+        • When ``AVERAGE`` is chosen you will probably want
+        :py:meth:`set_acquisition_average_count` immediately afterwards.
+        """
+        acq_type = acq_type.upper()
+        if acq_type not in _ACQ_TYPE_MAP:
+            raise InstrumentParameterError(f"Unknown acquisition type: {acq_type}")
+
+        if acq_type == "AVERAGE" and self._query(":ACQuire:MODE?").strip() == "SEGM":
+            raise InstrumentParameterError("AVERAGE mode is unavailable in SEGMENTED acquisition.")
+
+        self._send_command(f":ACQuire:TYPE {_ACQ_TYPE_MAP[acq_type]}")
+        self._wait()
+        self._log(f"Acquisition TYPE set → {acq_type}")
+
+    def get_acquisition_type(self) -> str:
+        """
+        Returns
+        -------
+        str
+            Current acquisition type (``"NORMAL"``, ``"AVERAGE"``, ``"HIGH_RES"``,
+            or ``"PEAK"``).
+        """
+        reverse = {v[:4]: k for k, v in _ACQ_TYPE_MAP.items()}
+        resp = self._query(":ACQuire:TYPE?").strip()
+        return reverse.get(resp, resp)
+
+    # ─────────────────────────────────────────────────────────────────────────────
+    def set_acquisition_average_count(self, count: int) -> None:
+        """
+        Set the running‑average length for AVERAGE mode.
+
+        Parameters
+        ----------
+        count : int
+            2 ≤ *count* ≤ 65 536 (Keysight limit).
+
+        Raises
+        ------
+        InstrumentParameterError
+            If *count* is out of range **or** if the scope is not currently in
+            ``AVERAGE`` acquisition type.
+        """
+        _validate_range(count, 2, 65_536, "Average count")
+        if self.get_acquisition_type() != "AVERAGE":
+            raise InstrumentParameterError("Average count can only be set when acquisition type is AVERAGE.")
+        self._send_command(f":ACQuire:COUNt {count}")
+        self._wait()
+        self._log(f"AVERAGE count set → {count}")
+
+    def get_acquisition_average_count(self) -> int:
+        """Integer average count (valid only when acquisition type == ``AVERAGE``)."""
+        return int(self._query(":ACQuire:COUNt?"))
+
+    # ─────────────────────────────────────────────────────────────────────────────
+    def set_acquisition_mode(self, mode: str) -> None:
+        """
+        Select real-time or segmented memory acquisition.
+
+        Parameters
+        ----------
+        mode : str
+            ``"REAL_TIME"`` or ``"SEGMENTED"`` (case-insensitive).
+
+        Notes
+        -----
+        • Switching *away* from SEGMENTED clears the segment count.
+        • The Keysight SGM license must be installed for SEGMENTED mode; if
+        ``ConfigRequires("segmented_memory")`` is part of your config object you
+        can decorate this method similarly.
+        """
+        mode = mode.upper()
+        if mode not in _ACQ_MODE_MAP:
+            raise InstrumentParameterError(f"Unknown acquisition mode: {mode}")
+
+        self._send_command(f":ACQuire:MODE {_ACQ_MODE_MAP[mode]}")
+        self._wait()
+        self._log(f"Acquisition MODE set → {mode}")
+
+    def get_acquisition_mode(self) -> str:
+        """Return ``"REAL_TIME"`` or ``"SEGMENTED"``."""
+        reverse = {"RTIM": "REAL_TIME", "SEGM": "SEGMENTED"}
+        return reverse.get(self._query(":ACQuire:MODE?").strip(), "UNKNOWN")
+
+    # ─────────────────────────────────────────────────────────────────────────────
+    #  Segmented‑memory helpers
+    # ─────────────────────────────────────────────────────────────────────────────
+    def set_segmented_count(self, count: int) -> None:
+        """
+        Configure number of memory segments for SEGMENTED acquisitions.
+
+        Keysight limit: 2 ≤ *count* ≤ 500
+
+        Raises
+        ------
+        InstrumentParameterError
+            If not in SEGMENTED mode or *count* out of range.
+        """
+        if self.get_acquisition_mode() != "SEGMENTED":
+            raise InstrumentParameterError("Segmented count can only be set while in SEGMENTED acquisition mode.")
+        _validate_range(count, 2, 500, "Segmented count")
+        self._send_command(f":ACQuire:SEGMented:COUNt {count}")
+        self._wait()
+        self._log(f"Segmented COUNT set → {count}")
+
+    def get_segmented_count(self) -> int:
+        """Number of segments currently configured (SEGMENTED mode only)."""
+        return int(self._query(":ACQuire:SEGMented:COUNt?"))
+
+    def set_segment_index(self, index: int) -> None:
+        """
+        Select which memory segment is active for readback.
+
+        1 ≤ *index* ≤ ``get_segmented_count()``
+        """
+        total = self.get_segmented_count()
+        _validate_range(index, 1, total, "Segment index")
+        self._send_command(f":ACQuire:SEGMented:INDex {index}")
+        self._wait()
+
+    def get_segment_index(self) -> int:
+        """Index (1-based) of the currently selected memory segment."""
+        return int(self._query(":ACQuire:SEGMented:INDex?"))
+
+    def analyze_all_segments(self) -> None:
+        """
+        Execute the scope's *Analyze Segments* soft-key (:ACQuire:SEGMented:ANALyze).
+
+        Requires:
+        • Scope is **stopped** and in SEGMENTED mode.
+        • Either quick measurements or infinite persistence must be enabled.
+
+        The call is synchronous - it returns after analysis completes.
+        """
+        if self.get_acquisition_mode() != "SEGMENTED":
+            raise InstrumentParameterError("Segment analysis requires SEGMENTED mode.")
+        self._send_command(":ACQuire:SEGMented:ANALyze")
+        self._wait()
+
+    # ─────────────────────────────────────────────────────────────────────────────
+    #  Convenience queries
+    # ─────────────────────────────────────────────────────────────────────────────
+    def get_acquire_points(self) -> int:
+        """
+        Hardware points actually *acquired* for the next waveform transfer
+        (`:ACQuire:POINts?`).  Use :WAVeform:POINts to set what you subsequently
+        *read* back.
+        """
+        return int(self._query(":ACQuire:POINts?"))
+
+    def get_acquisition_sample_rate(self) -> float:
+        """
+        Wraps :py:meth:`get_sampling_rate` with the canonical ACQuire query
+        (identical content; provided for semantic completeness).
+        """
+        return float(self._query(":ACQuire:SRATe?"))
+
+    def get_acquire_setup(self) -> dict[str, str]:
+        """
+        Return a parsed dictionary representation of the scope's full
+        ``:ACQuire?`` status string.
+
+        Example
+        -------
+        >>> scope.get_acquire_setup()
+        {'MODE': 'RTIM', 'TYPE': 'NORM', 'COMP': '100', 'COUNT': '8', 'SEGM:COUN': '2'}
+        """
+        raw = self._query(":ACQuire?").strip()
+        parts = [p.strip() for p in raw.split(';')]
+        return {kv.split()[0]: kv.split()[1] for kv in parts}
+
+def _validate_range(value: int, lo: int, hi: int, name: str) -> None:
+    if not lo <= value <= hi:
+        raise InstrumentParameterError(f"{name} out of range ({lo}-{hi}): {value}")
