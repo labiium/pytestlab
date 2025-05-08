@@ -102,7 +102,7 @@ class TestWaveformGeneratorEDU33210(unittest.TestCase):
         print("Instrument ID:", idn)
 
         print("Resetting instrument (already done in setUp, but good to have a test for it)...")
-        self.wg.reset_instrument()
+        self.wg.reset()
         time.sleep(0.5)
         # Verify a default state if possible, e.g., CH1 output is OFF
         self.assertFalse(self.wg.get_output_state(1), "Channel 1 output should be OFF after reset.")
@@ -291,7 +291,7 @@ class TestWaveformGeneratorEDU33210(unittest.TestCase):
             target_ch = 2
         else:
             target_ch = 1
-            self.wg.reset_instrument() # Reset CH1 for PRBS/NOISE if only 1 channel
+            self.wg.reset() # Reset CH1 for PRBS/NOISE if only 1 channel
 
         # PRBS
         self.wg.set_function(channel=target_ch, function_type="PRBS", bit_rate=10000, data_type="PN11", transition_both=1e-7) # 10kbps, PN11, 100ns
