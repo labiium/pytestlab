@@ -518,7 +518,7 @@ class Oscilloscope(Instrument):
 
             # 4. restore user trigger sweep and clear the error queue
             self._send_command(f":TRIGger:SWEep {sweep_orig}", skip_check=True)
-            self.clear_errors()
+            self.clear_status()
         else:
             # Standard digitize for other acquisition types
             self._send_command(f"DIGitize {channel_commands}")

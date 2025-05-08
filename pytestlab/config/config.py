@@ -44,6 +44,15 @@ class ChannelsConfig(Config):
     def __repr__(self):
         return f"ChannelsConfig({self.channels})"
     
+    def __len__(self):
+        """
+        Return the number of channels.
+
+        Returns:
+            int: The number of channels.
+        """
+        return len(self.channels)
+    
     def __getitem__(self, channel):
         """
         Validate and return the channel if it is within the range.
