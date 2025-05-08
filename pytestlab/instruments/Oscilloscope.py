@@ -457,7 +457,6 @@ class Oscilloscope(Instrument):
         if points != None:
             print("DEPRECATED: points argument is deprecated. Use set_time_axis instead.")
 
-
         self._log(points)
         self._log("starting")
 
@@ -476,24 +475,80 @@ class Oscilloscope(Instrument):
         # Prepare the MeasurementResult dictionary
         sampling_rate = float(self.get_sampling_rate())
 
-        # Setup and digitize commands
-        channel_commands = ', '.join(f"CHANnel{channel}" for channel in channels)
-        self._send_command(f"DIGitize {channel_commands}")
-        self._send_command(f':WAVeform:SOURce CHANnel{channels[0]}')
+        # Build common channel list  ───────────────────────────────────────
+        channel_commands = ', '.join(f"CHANnel{ch}" for ch in channels)
 
+        # Check if we're in AVERAGE acquisition mode, which requires special handling
+        acq_type = self.get_acquisition_type()
+        acq_mode = self.get_acquisition_mode()
+        
+        # Special handling for AVERAGE acquisition type
+        if acq_type == "AVERAGE":
+            self._log("AVERAGE acquisition type detected - using special sequence")
+            
+            # Get the current average count
+            avg_count = self.get_acquisition_average_count()
+            self._log(f"Current average count: {avg_count}")
+            
+            # Ensure we have proper completion criteria set (100% means all points must be averaged)
+            self._send_command(":ACQuire:COMPlete 100")
+            
+            # Stop any ongoing acquisition
+            self._send_command(":STOP")
+            self._wait()
+            
+            # ---- set up a clean single averaged acquisition ---------------------
+            # 1. let the scope auto‑trigger so it never waits forever
+            sweep_orig = self._query(":TRIGger:SWEep?").strip()
+            self._send_command(":TRIGger:SWEep AUTO")
+
+            # 2. fire the averaged capture and immediately force a trigger
+            self._send_command(f"DIGitize {channel_commands}", skip_check=True)
+            self._send_command(":TRIGger:FORCe", skip_check=True)
+
+            # 3. block until the scope reports *Operation Complete*
+            self._send_command("*OPC")          #  ←  **add this line**
+            self._log("Waiting for acquisition to complete …")
+            self._wait()              # issues *OPC?* internally
+
+            # guarantee the scope does not wait forever in “Ready”
+            self._send_command(":TRIGger:FORCe", skip_check=True)
+            self._log("Waiting for acquisition to complete …")
+            self._wait()              # *OPC?* – now works, finishes at 100 %
+
+            # 4. restore user trigger sweep and clear the error queue
+            self._send_command(f":TRIGger:SWEep {sweep_orig}", skip_check=True)
+            self.clear_errors()
+        else:
+            # Standard digitize for other acquisition types
+            self._send_command(f"DIGitize {channel_commands}")
+
+        # Configure waveform reading
+        self._send_command(f':WAVeform:SOURce CHANnel{channels[0]}')
         self._send_command(':WAVeform:FORMat BYTE')
         self._send_command(':WAVeform:POINts:MODE RAW')
         
         # Read preamble to get scaling factors
+        
+    
         pream = self._read_preamble()
 
-        # Prepare the time axis once, as it is the same for all channels
-        time_values = (np.arange(0, pream.points, 1) - pream.xref) * pream.xinc + pream.xorg
-
+        # ───── read each channel & derive the correct time base ──────────────
+        time_values        = None          # will be filled from 1st channel
         measurement_results = {}
 
-        for _, channel in enumerate(channels):
-            voltages = (self._read_wave_data(f"CHANnel{channel}") - pream.yref) * pream.yinc + pream.yorg
+        for idx, channel in enumerate(channels):
+            voltages = (
+                self._read_wave_data(f"CHANnel{channel}") - pream.yref
+            ) * pream.yinc + pream.yorg
+
+            # first channel defines the *actual* record length
+            if time_values is None:
+                n_pts       = len(voltages)        # 2× in PEAK mode
+                time_values = (
+                    np.arange(n_pts) - pream.xref
+                ) * pream.xinc + pream.xorg
+
             measurement_results[channel] = voltages
 
         
@@ -510,7 +565,6 @@ class Oscilloscope(Instrument):
                 **measurement_results
            })
         )
-
 
     # def read_fft(source_channel: int, scale: float = None, offset: float = None, window_type: str = 'HANNing', units: str = 'DECibel', display: bool = True):
     #     """
@@ -1039,14 +1093,18 @@ class Oscilloscope(Instrument):
 
         self._send_command(f"WGEN:VOLT {self.config.function_generator.amplitude.in_range(amplitude)}")
 
-        self._send_command(f":FRANalysis:RUN")
+        # --- kick off the sweep and wait until it really finishes -----------
+        self._send_command("*OPC")              # set OPC bit
+        self._send_command(":FRANalysis:RUN")   # start the sweep
+        self._wait()                            # *OPC? – returns at 100 %
 
-        # self._wait()
-        self._wait_event()
+        # --- read the resulting table (binary block) ------------------------
+        raw_block = self._query_raw(":FRANalysis:DATA?")
+        # strip the #<digits><len> header and convert to text
+        hdr_len   = int(chr(raw_block[1]))
+        txt_data  = raw_block[2+hdr_len :].decode()
 
-        # data = self._convert_binary_block_to_data(self._query_raw(":FRANalysis:DATA?"))
-
-        data = self._query(":FRANalysis:DATA?")
+        data = txt_data
         if disable_on_complete:
             self._send_command(":FRANalysis:ENABle 0")
 
@@ -1081,12 +1139,12 @@ class Oscilloscope(Instrument):
         ----------
         acq_type : str
             One of: ``"NORMAL"``, ``"AVERAGE"``, ``"HIGH_RES"``, ``"PEAK"``.
-            (Case‑insensitive.)
+            (Case-insensitive.)
 
         Notes
         -----
         • ``AVERAGE`` is *not* allowed while the scope is in segmented mode (SCPI
-        will complain – we pre‑check and raise locally for clarity).
+        will complain - we pre-check and raise locally for clarity).
         • When ``AVERAGE`` is chosen you will probably want
         :py:meth:`set_acquisition_average_count` immediately afterwards.
         """
@@ -1116,7 +1174,7 @@ class Oscilloscope(Instrument):
     # ─────────────────────────────────────────────────────────────────────────────
     def set_acquisition_average_count(self, count: int) -> None:
         """
-        Set the running‑average length for AVERAGE mode.
+        Set the running-average length for AVERAGE mode.
 
         Parameters
         ----------
@@ -1171,7 +1229,7 @@ class Oscilloscope(Instrument):
         return reverse.get(self._query(":ACQuire:MODE?").strip(), "UNKNOWN")
 
     # ─────────────────────────────────────────────────────────────────────────────
-    #  Segmented‑memory helpers
+    #  Segmented-memory helpers
     # ─────────────────────────────────────────────────────────────────────────────
     def set_segmented_count(self, count: int) -> None:
         """
