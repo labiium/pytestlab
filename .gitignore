@@ -8,3 +8,14 @@ pytestlab.json
 .env
 *.out
 cache
+
+# Coverage reports
+htmlcov/
+.coverage
+coverage.xml
+*.cover
+.pytest_cache/
+
+# Database files (from demos/tests)
+*.db
+demo_db.db

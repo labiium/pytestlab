@@ -197,7 +197,7 @@ class Oscilloscope(Instrument):
     visa_resource (str): The VISA resource string used for identifying the connected oscilloscope.
     profile (dict): Information about the instrument model.
     """
-    def __init__(self, visa_resource: Optional[str] = None, config: Optional[OscilloscopeConfig] = None, debug_mode: bool = False) -> None:
+    def __init__(self, visa_resource: Optional[str] = None, config: Optional[OscilloscopeConfig] = None, debug_mode: bool = False, simulate: bool = False) -> None:
         """
         Initialize the Oscilloscope class with the given VISA resource and profile information.
         
@@ -205,10 +205,11 @@ class Oscilloscope(Instrument):
         visa_resource (str): The VISA resource string used for identifying the connected oscilloscope. Optional if a profile is provided.
         config (OscilloscopeConfig): Configuration object for the oscilloscope.
         debug_mode (bool): Enable debug mode.
+        simulate (bool): Enable simulation mode.
         """
         if not isinstance(config, OscilloscopeConfig):
             raise InstrumentConfigurationError("Invalid configuration provided.")
-        super().__init__(config=config, debug_mode=debug_mode)
+        super().__init__(config=config, debug_mode=debug_mode, simulate=simulate)
 
     @classmethod
     def from_config(cls: Type[Oscilloscope], config: OscilloscopeConfig, debug_mode: bool = False) -> Oscilloscope:
@@ -226,7 +227,7 @@ class Oscilloscope(Instrument):
 
         peram_str: str = self._query(':WAVeform:PREamble?')
         peram_list: list[str] = peram_str.split(',')
-        self._log(peram_list)
+        self._logger.debug(peram_list)
 
         # Format of preamble:
         # format, type, points, count, xincrement, xorigin, xreference, yincrement, yorigin, yreference
@@ -251,18 +252,18 @@ class Oscilloscope(Instrument):
         
         self._wait()
         
-        self._log(f"Reading data from {source}")
+        self._logger.debug(f"Reading data from {source}")
 
         self._send_command(':WAVeform:FORMat BYTE')
 
         if source != "FFT":
             self._send_command(':WAVeform:POINts:MODE RAW')
 
-        self._log('Reading points')
+        self._logger.debug('Reading points')
 
         self._wait()
 
-        self._log('Reading data')
+        self._logger.debug('Reading data')
 
         raw_data: bytes = self._query_raw(':WAVeform:DATA?')
         # Assuming _read_to_np handles the conversion from raw bytes (including header) to np.ndarray of numbers
@@ -393,7 +394,7 @@ class Oscilloscope(Instrument):
         self._send_command(f':TRIGger:MODE {scpi_mode}')
         self._wait()
         
-        self._log(f"""Trigger set with the following parameters:
+        self._logger.debug(f"""Trigger set with the following parameters:
                   Trigger Source: {actual_source}
                   Trigger Level for CHAN{channel}: {level} 
                   Trigger Slope: {scpi_slope}
@@ -439,10 +440,10 @@ class Oscilloscope(Instrument):
             values=value_to_return, # Can be float or UFloat
             units="V",
             instrument=self.config.model,
-            measurement_type="P2PV", # Peak-to-Peak Voltage
+            measurement_type="P2PV" # Peak-to-Peak Voltage
         )
 
-        self._log(f"Peak to Peak Voltage (Channel {channel}): {value_to_return}")
+        self._logger.debug(f"Peak to Peak Voltage (Channel {channel}): {value_to_return}")
         
         return measurement_result
 
@@ -479,7 +480,7 @@ class Oscilloscope(Instrument):
         else:
             self._logger.debug(f"No measurement_accuracy configuration in instrument for Vrms on channel {channel}. Returning float.")
         
-        self._log(f"RMS Voltage (Channel {channel}): {value_to_return}")
+        self._logger.debug(f"RMS Voltage (Channel {channel}): {value_to_return}")
         
         measurement_result = MeasurementResult(
             values=value_to_return, # Can be float or UFloat
@@ -527,10 +528,10 @@ class Oscilloscope(Instrument):
             self.set_time_axis(scale=timebase, position=current_time_axis[1]) 
 
         if points is not None:
-            self._log(f"Points argument is deprecated (value: {points}). Use set_time_axis instead.")
+            self._logger.debug(f"Points argument is deprecated (value: {points}). Use set_time_axis instead.")
 
 
-        self._log("starting channel read")
+        self._logger.debug("starting channel read")
 
         for ch_num_val in processed_channels:
             self.config.channels.validate(ch_num_val)
@@ -541,9 +542,9 @@ class Oscilloscope(Instrument):
         acq_type_str: str = self.get_acquisition_type()
         
         if acq_type_str == "AVERAGE":
-            self._log("AVERAGE acquisition type detected - using special sequence")
+            self._logger.debug("AVERAGE acquisition type detected - using special sequence")
             avg_count_int: int = self.get_acquisition_average_count()
-            self._log(f"Current average count: {avg_count_int}")
+            self._logger.debug(f"Current average count: {avg_count_int}")
             self._send_command(":ACQuire:COMPlete 100")
             self._send_command(":STOP")
             self._wait()
@@ -553,10 +554,10 @@ class Oscilloscope(Instrument):
             self._send_command(f"DIGitize {channel_commands_str}", skip_check=True)
             self._send_command(":TRIGger:FORCe", skip_check=True)
             self._send_command("*OPC")
-            self._log("Waiting for acquisition to complete …")
+            self._logger.debug("Waiting for acquisition to complete …")
             self._wait()
             self._send_command(":TRIGger:FORCe", skip_check=True)
-            self._log("Waiting for acquisition to complete …")
+            self._logger.debug("Waiting for acquisition to complete …")
             self._wait()
             self._send_command(f":TRIGger:SWEep {sweep_orig_str}", skip_check=True)
             self.clear_status()
@@ -651,7 +652,7 @@ class Oscilloscope(Instrument):
         scpi_scale_value = channel_config.probe_attenuation[scale]
         self._send_command(f":CHANnel{channel}:PROBe {scpi_scale_value}")
 
-        self._log(f"Set probe scale to {scale}:1 for channel {channel}.")
+        self._logger.debug(f"Set probe scale to {scale}:1 for channel {channel}.")
 
     def set_acquisition_time(self, time: float) -> None:
         """
@@ -887,7 +888,7 @@ class Oscilloscope(Instrument):
         :param state: True to enable FFT display, False to disable.
         """
         self._send_command(f":FFT:DISPlay {'ON' if state else 'OFF'}")
-        self._log(f"FFT display {'enabled' if state else 'disabled'}.")
+        self._logger.debug(f"FFT display {'enabled' if state else 'disabled'}.")
         
     @ConfigRequires("function_generator")
     def function_display(self, state: bool = True) -> None: 
@@ -897,7 +898,7 @@ class Oscilloscope(Instrument):
         :param state: True to enable display, False to disable.
         """
         self._send_command(f":FUNCtion:DISPlay {'ON' if state else 'OFF'}") 
-        self._log(f"Function display {'enabled' if state else 'disabled'}.")
+        self._logger.debug(f"Function display {'enabled' if state else 'disabled'}.")
 
     @ConfigRequires("fft")
     def configure_fft(self, source_channel: int, scale: Optional[float] = None, offset: Optional[float] = None, span: Optional[float] = None,  window_type: str = 'HANNing', units: str = 'DECibel', display: bool = True) -> None:
@@ -938,7 +939,7 @@ class Oscilloscope(Instrument):
             
         self._send_command(f':FFT:DISPlay {"ON" if display else "OFF"}')
 
-        self._log(f"FFT configured for channel {source_channel}.")
+        self._logger.debug(f"FFT configured for channel {source_channel}.")
 
     def _convert_binary_block_to_data(self, binary_block: bytes) -> np.ndarray: 
         """
@@ -965,7 +966,7 @@ class Oscilloscope(Instrument):
         data_array = np.frombuffer(raw_data_bytes, dtype=dt)
         
         if len(data_array) != data_len: # For BYTE format, len(data_array) should be data_len
-             self._log(f"Warning: Binary block data length mismatch. Expected {data_len}, got {len(data_array)}")
+             self._logger.debug(f"Warning: Binary block data length mismatch. Expected {data_len}, got {len(data_array)}")
 
         return data_array
 
@@ -977,7 +978,7 @@ class Oscilloscope(Instrument):
 
         :return: An FFTResult object containing the FFT data.
         """
-        self._log('Initiating FFT data read.')
+        self._logger.debug('Initiating FFT data read.')
         
         # _read_wave_data("FFT") should return numeric data after _read_to_np processing
         # which includes stripping the SCPI binary header and converting to numbers.
@@ -1104,7 +1105,7 @@ class Oscilloscope(Instrument):
         :param state: True to disable FRANalysis, False to enable.
         """
         self._send_command(f":FRANalysis:ENABle {'OFF' if state else 'ON'}") 
-        self._log(f"Frequency response analysis is {'disabled' if state else 'enabled'}.")
+        self._logger.debug(f"Frequency response analysis is {'disabled' if state else 'enabled'}.")
 
     def set_acquisition_type(self, acq_type: str) -> None:
         """
@@ -1122,7 +1123,7 @@ class Oscilloscope(Instrument):
 
         self._send_command(f":ACQuire:TYPE {_ACQ_TYPE_MAP[acq_type_upper]}")
         self._wait()
-        self._log(f"Acquisition TYPE set → {acq_type_upper}")
+        self._logger.debug(f"Acquisition TYPE set → {acq_type_upper}")
 
     def get_acquisition_type(self) -> str:
         """
@@ -1147,7 +1148,7 @@ class Oscilloscope(Instrument):
             raise InstrumentParameterError("Average count can only be set when acquisition type is AVERAGE.")
         self._send_command(f":ACQuire:COUNt {count}")
         self._wait()
-        self._log(f"AVERAGE count set → {count}")
+        self._logger.debug(f"AVERAGE count set → {count}")
 
     def get_acquisition_average_count(self) -> int:
         """Integer average count (valid only when acquisition type == AVERAGE)."""
@@ -1164,7 +1165,7 @@ class Oscilloscope(Instrument):
 
         self._send_command(f":ACQuire:MODE {_ACQ_MODE_MAP[mode_upper]}")
         self._wait()
-        self._log(f"Acquisition MODE set → {mode_upper}")
+        self._logger.debug(f"Acquisition MODE set → {mode_upper}")
 
     def get_acquisition_mode(self) -> str:
         """Return "REAL_TIME" or "SEGMENTED"."""
@@ -1189,7 +1190,7 @@ class Oscilloscope(Instrument):
         _validate_range(count, 2, 500, "Segmented count") # Using example limits
         self._send_command(f":ACQuire:SEGMented:COUNt {count}")
         self._wait()
-        self._log(f"Segmented COUNT set → {count}")
+        self._logger.debug(f"Segmented COUNT set → {count}")
 
     def get_segmented_count(self) -> int:
         """Number of segments currently configured (SEGMENTED mode only)."""

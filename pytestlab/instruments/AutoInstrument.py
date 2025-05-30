@@ -148,12 +148,37 @@ class AutoInstrument:
     def from_config(cls: Type[AutoInstrument], config_source: str | Dict, serial_number: Optional[str] = None, debug_mode: bool = False, simulate: bool = False) -> Instrument:
         """
         Initializes an instrument from a configuration source (file path or dict).
+        Tries CDN first, then falls back to local if config_source is a string identifier.
         Allows enabling simulation mode.
         """
+        config_data: Dict[str, Any]
+        
+        if isinstance(config_source, dict):
+            # If config_source is already a dict, use it directly
+            config_data = config_source
+        elif isinstance(config_source, str):
+            # If config_source is a string, try CDN first, then local fallback
+            try:
+                # First, try to get configuration from CDN
+                config_data = cls.get_config_from_cdn(config_source)
+                if debug_mode:
+                    print(f"Successfully loaded configuration for '{config_source}' from CDN.")
+            except FileNotFoundError:
+                # If CDN fails, fall back to local
+                try:
+                    config_data = cls.get_config_from_local(config_source)
+                    if debug_mode:
+                        print(f"Successfully loaded configuration for '{config_source}' from local.")
+                except FileNotFoundError:
+                    # If both CDN and local fail, raise an informative error
+                    raise FileNotFoundError(f"Configuration '{config_source}' not found in CDN or local paths.")
+        else:
+            raise TypeError("config_source must be a file path (str) or a dict")
+
         # Load the configuration using the new Pydantic-based loader
         # load_config returns a specific Pydantic model instance (e.g., OscilloscopeConfig, PowerSupplyConfig)
         # which is a subclass of InstrumentConfig.
-        config_model = load_config(config_source)
+        config_model = load_config(config_data)
 
         # Override serial number if provided in arguments.
         # The Pydantic model InstrumentConfig (base for all specific instrument configs)

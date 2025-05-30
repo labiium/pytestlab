@@ -28,21 +28,22 @@ class DCActiveLoad(Instrument):
     
     The SCPI commands are based on the Keysight EL30000 Series.
     """
-    def __init__(self, config: Optional[DCActiveLoadConfig] = None, debug_mode: bool = False) -> None:
+    def __init__(self, config: Optional[DCActiveLoadConfig] = None, debug_mode: bool = False, simulate: bool = False) -> None:
         if not isinstance(config, DCActiveLoadConfig):
             raise InstrumentConfigurationError("DCActiveLoadConfig required to initialize DCActiveLoad")
-        super().__init__(config=config, debug_mode=debug_mode)
+        super().__init__(config=config, debug_mode=debug_mode, simulate=simulate)
         self.current_mode: Optional[str] = None
         self.config: DCActiveLoadConfig # Ensure self.config is correctly typed
 
     @classmethod
-    def from_config(cls: Type[DCActiveLoad], config: Union[Dict[str, Any], DCActiveLoadConfig], debug_mode: bool = False) -> DCActiveLoad:
+    def from_config(cls: Type[DCActiveLoad], config: Union[Dict[str, Any], DCActiveLoadConfig], debug_mode: bool = False, simulate: bool = False) -> DCActiveLoad:
         """
         Create a DCActiveLoad instance from a configuration dictionary or DCActiveLoadConfig.
         
         Args:
             config (Union[Dict[str, Any], DCActiveLoadConfig]): Configuration data.
             debug_mode (bool): If True, enable debug logging.
+            simulate (bool): If True, enable simulation mode.
             
         Returns:
             DCActiveLoad: An instance of the DC active load driver.
@@ -54,7 +55,7 @@ class DCActiveLoad(Instrument):
             conf_obj = config
         else:
             raise InstrumentConfigurationError("config must be a dict or DCActiveLoadConfig instance.")
-        return cls(config=conf_obj, debug_mode=debug_mode)
+        return cls(config=conf_obj, debug_mode=debug_mode, simulate=simulate)
 
     def set_mode(self, mode: str) -> None:
         """

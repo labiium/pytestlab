@@ -1,5 +1,5 @@
 from .instrument_config import InstrumentConfig
-from .oscilloscope_config import OscilloscopeConfig
+from .oscilloscope_config_legacy import OscilloscopeConfig
 from .waveform_generator_config import WaveformGeneratorConfig
 from .dc_active_load_config import DCActiveLoadConfig
 from .power_supply_config import PowerSupplyConfig

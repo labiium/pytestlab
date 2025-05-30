@@ -1,9 +1,11 @@
 base:
   language: python
+  use_gitignore: true 
   ignore:
   - packager
   - tests
   - "*.png"
+  - htmlcov
 
 prod:
   language: python
