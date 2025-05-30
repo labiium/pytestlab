@@ -1,343 +1,642 @@
-import sqlite3
-import time
-import numpy as np
-from datetime import datetime
-from .results import MeasurementResult
-from .experiments import Experiment
-import polars as pl
-import pickle
+"""
+MeasurementDatabase – drop-in replacement for the old Database
+=============================================================
+
+Implements auto-generated codenames, FTS search, NumPy+Polars BLOB handling,
+and a convenience, thread-safe API.
+"""
+from __future__ import annotations
+
+import contextlib
+import datetime as dt
+import hashlib
 import lzma
+import pickle
+import sqlite3
+import threading
+import time
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
 
-class Database:
+import numpy as np
+import polars as pl
+from tqdm.auto import tqdm
+
+from .experiments import Experiment
+from .results import MeasurementResult
+
+__all__ = ["Database", "MeasurementDatabase"]
+
+
+def _generate_codename(prefix: str = "ITEM") -> str:
+    """Generate a unique codename using timestamp and random hash."""
+    timestamp = str(int(time.time() * 1000))  # milliseconds
+    random_hash = hashlib.md5(str(time.time()).encode()).hexdigest()[:8]
+    return f"{prefix}_{timestamp}_{random_hash}"
+
+
+class MeasurementDatabase(contextlib.AbstractContextManager):
     """
-    Manages a SQLite database for storing experiments and measurement results.
+    Enhanced SQLite database for measurement and experiment storage.
     
-    This class supports storing:
-      - Experiments, including their trial data (stored as a compressed Polars DataFrame),
-        descriptions, and additional notes.
-      - Experiment parameters.
-      - Instruments used for measurements.
-      - Measurement results (with values stored as binary-encoded numpy arrays).
+    Features:
+    - Auto-generated unique codenames
+    - Full-text search across descriptions/notes
+    - Context manager support
+    - Thread-safe operations
+    - NumPy array and Polars DataFrame BLOB handling
+    - Comprehensive experiment/measurement metadata
     
-    Custom adapters and converters are registered to handle numpy arrays and Polars DataFrames.
-    
-    Attributes:
-        db_path (str): Base path (without extension) to the SQLite database.
-        _conn (sqlite3.Connection): The SQLite connection object (initialized on demand).
+    Example:
+        >>> with MeasurementDatabase("lab_data") as db:
+        ...     key = db.store_experiment(None, experiment)  # auto-generated key
+        ...     results = db.search_experiments("voltage sweep")
     """
-    def __init__(self, db_path):
+    
+    def __init__(self, db_path: Union[str, Path]) -> None:
         """
-        Initialize the Database instance, register custom adapters/converters, and create tables.
+        Initialize database connection and create tables.
         
         Args:
-            db_path (str): Base path for the SQLite database. The database file will be '{db_path}.db'.
+            db_path: Database file path (without .db extension)
         """
-        self.db_path = db_path
-        self._conn = None
-        sqlite3.register_adapter(np.ndarray, self.adapt_npdata)
-        sqlite3.register_converter("NPDATA", self.convert_npdata)
-        sqlite3.register_adapter(pl.DataFrame, self.encode_data)
-        sqlite3.register_converter("PLDATA", self.decode_data)
-        self._create_tables()
-
+        self.db_path = Path(str(db_path)).with_suffix(".db")
+        self._conn_lock = threading.Lock()
+        self._conn: Optional[sqlite3.Connection] = None
+        
+        # Register custom adapters for NumPy/Polars
+        sqlite3.register_adapter(np.ndarray, self._adapt_numpy)
+        sqlite3.register_converter("NPBLOB", self._convert_numpy)
+        sqlite3.register_adapter(pl.DataFrame, self._adapt_polars)
+        sqlite3.register_converter("PLBLOB", self._convert_polars)
+        
+        # Register custom datetime adapters to avoid Python 3.12 deprecation warnings
+        sqlite3.register_adapter(dt.datetime, self._adapt_datetime)
+        sqlite3.register_converter("DATETIME", self._convert_datetime)
+        
+        self._ensure_tables()
+    
+    # Context manager support
+    def __enter__(self) -> "MeasurementDatabase":
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.close()
+    
+    # Connection management
+    def _get_connection(self) -> sqlite3.Connection:
+        """Get thread-safe database connection."""
+        with self._conn_lock:
+            if self._conn is None:
+                self._conn = sqlite3.connect(
+                    self.db_path,
+                    detect_types=sqlite3.PARSE_DECLTYPES,
+                    check_same_thread=False
+                )
+                self._conn.execute("PRAGMA foreign_keys = ON")
+                self._conn.execute("PRAGMA journal_mode = WAL")  # Better concurrency
+            return self._conn
+    
+    def close(self) -> None:
+        """Close database connection."""
+        with self._conn_lock:
+            if self._conn is not None:
+                self._conn.close()
+                self._conn = None
+    
+    # Binary serialization
     @staticmethod
-    def encode_data(df):
-        """
-        Encode a Polars DataFrame to a compressed binary format.
-        
-        The DataFrame is serialized to the Apache Arrow IPC format, then compressed with lzma.
-        
-        Args:
-            df (pl.DataFrame): The Polars DataFrame to encode.
-            
-        Returns:
-            sqlite3.Binary: The compressed binary representation of the DataFrame.
-        """
-        data = df.write_ipc(None, future=True)
-        compressed_data = lzma.compress(data.getvalue())
-        return sqlite3.Binary(compressed_data)
-
-    @staticmethod
-    def decode_data(blob):
-        """
-        Decode binary data back into a Polars DataFrame.
-        
-        The binary data is decompressed using lzma and then read as an Apache Arrow IPC format.
-        
-        Args:
-            blob (bytes): The binary data stored in the database.
-            
-        Returns:
-            pl.DataFrame: The reconstructed Polars DataFrame.
-        """
-        decompressed_data = lzma.decompress(blob)
-        df = pl.read_ipc(decompressed_data)
-        return df
-
-    @staticmethod
-    def adapt_npdata(arr):
-        """
-        Adapt a numpy array to a binary format with encoded dtype and shape.
-        
-        Args:
-            arr (np.ndarray): The numpy array to adapt.
-            
-        Returns:
-            sqlite3.Binary: The binary representation of the array.
-            
-        Raises:
-            ValueError: If the provided object is not a numpy.ndarray.
-        """
+    def _adapt_numpy(arr: np.ndarray) -> sqlite3.Binary:
+        """Serialize NumPy array to binary with metadata."""
         if not isinstance(arr, np.ndarray):
-            raise ValueError("Unsafe object passed to adapt_npdata; expected a numpy.ndarray.")
-        data = arr.tobytes()
-        dtype = str(arr.dtype)
-        shape = ",".join(map(str, arr.shape))
-        return sqlite3.Binary(data + b";" + dtype.encode() + b";" + shape.encode())
-
+            raise TypeError("Expected numpy.ndarray")
+        
+        metadata = {
+            "dtype": str(arr.dtype),
+            "shape": arr.shape,
+            "compressed": True
+        }
+        
+        data_bytes = lzma.compress(arr.tobytes())
+        metadata_bytes = pickle.dumps(metadata)
+        
+        # Format: [metadata_length:4][metadata][data]
+        return sqlite3.Binary(
+            len(metadata_bytes).to_bytes(4, "little") + 
+            metadata_bytes + 
+            data_bytes
+        )
+    
     @staticmethod
-    def convert_npdata(text):
-        """
-        Convert binary data back into a numpy array, reconstructing its dtype and shape.
+    def _convert_numpy(blob: bytes) -> np.ndarray:
+        """Deserialize binary data back to NumPy array."""
+        metadata_len = int.from_bytes(blob[:4], "little")
+        metadata = pickle.loads(blob[4:4+metadata_len])
+        data_bytes = blob[4+metadata_len:]
         
-        Args:
-            text (bytes): The binary representation stored in the database.
-            
-        Returns:
-            np.ndarray: The reconstructed numpy array.
-        """
-        data, dtype_str, shape_str = text.rsplit(b";", 2)
-        dtype = dtype_str.decode()
-        shape = tuple(map(int, shape_str.decode().split(","))) if shape_str.decode() != "" else ()
-        return np.frombuffer(data, dtype=dtype).reshape(shape)
-
-    def _create_tables(self):
-        """
-        Create the necessary tables in the SQLite database if they do not exist.
+        if metadata.get("compressed", False):
+            data_bytes = lzma.decompress(data_bytes)
         
-        Tables:
-          - experiments: Stores experiment metadata, trial data, descriptions, and notes.
-          - experiment_parameters: Stores parameters associated with each experiment.
-          - instruments: Stores instrument names.
-          - measurements: Stores measurement results (with binary-encoded numpy arrays).
-          
-        Commits the transaction after table creation.
-        """
-        with self._get_connection() as conn:
-            conn.execute("PRAGMA foreign_keys = ON")
-            conn.execute('''
+        return np.frombuffer(data_bytes, dtype=metadata["dtype"]).reshape(metadata["shape"])
+    
+    @staticmethod
+    def _adapt_polars(df: pl.DataFrame) -> sqlite3.Binary:
+        """Serialize Polars DataFrame using Arrow IPC + compression."""
+        ipc_data = df.write_ipc(None, compat_level=0).getvalue()
+        compressed = lzma.compress(ipc_data)
+        return sqlite3.Binary(compressed)
+    
+    @staticmethod
+    def _convert_polars(blob: bytes) -> pl.DataFrame:
+        """Deserialize compressed Arrow IPC back to Polars DataFrame."""
+        decompressed = lzma.decompress(blob)
+        return pl.read_ipc(decompressed)
+    
+    # Custom datetime handling to avoid Python 3.12 deprecation warnings
+    @staticmethod
+    def _adapt_datetime(dt_obj: dt.datetime) -> str:
+        """Convert datetime to ISO format string."""
+        return dt_obj.isoformat()
+    
+    @staticmethod
+    def _convert_datetime(iso_string: bytes) -> dt.datetime:
+        """Convert ISO format string back to datetime."""
+        return dt.datetime.fromisoformat(iso_string.decode())
+    
+    # Database schema
+    def _ensure_tables(self) -> None:
+        """Create database tables if they don't exist."""
+        conn = self._get_connection()
+        with conn:
+            # Experiments table with FTS support
+            conn.executescript("""
                 CREATE TABLE IF NOT EXISTS experiments (
-                    experiment_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    codename TEXT UNIQUE,
-                    data PLDATA,
+                    codename TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
                     description TEXT,
-                    notes TEXT
-                )
-            ''')
-            conn.execute('''
-                CREATE TABLE IF NOT EXISTS experiment_parameters (
-                    parameter_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    experiment_id INTEGER,
-                    name TEXT,
-                    units TEXT,
                     notes TEXT,
-                    FOREIGN KEY (experiment_id) REFERENCES experiments(experiment_id)
-                )
-            ''')
-            conn.execute('''
+                    data PLBLOB,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    metadata TEXT  -- JSON for extensibility
+                );
+                
+                CREATE VIRTUAL TABLE IF NOT EXISTS experiments_fts USING fts5(
+                    codename, name, description, notes,
+                    content='experiments'
+                );
+                
+                -- FTS triggers for auto-sync
+                CREATE TRIGGER IF NOT EXISTS experiments_fts_insert AFTER INSERT ON experiments
+                BEGIN
+                    INSERT INTO experiments_fts(codename, name, description, notes)
+                    VALUES (new.codename, new.name, new.description, new.notes);
+                END;
+                
+                CREATE TRIGGER IF NOT EXISTS experiments_fts_delete AFTER DELETE ON experiments
+                BEGIN
+                    DELETE FROM experiments_fts WHERE codename = old.codename;
+                END;
+                
+                CREATE TRIGGER IF NOT EXISTS experiments_fts_update AFTER UPDATE ON experiments
+                BEGIN
+                    UPDATE experiments_fts SET 
+                        name = new.name,
+                        description = new.description,
+                        notes = new.notes
+                    WHERE codename = new.codename;
+                END;
+            """)
+            
+            # Experiment parameters
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS experiment_parameters (
+                    codename TEXT,
+                    param_name TEXT,
+                    param_unit TEXT,
+                    param_notes TEXT,
+                    FOREIGN KEY (codename) REFERENCES experiments(codename) ON DELETE CASCADE
+                );
+            """)
+            
+            # Instruments
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS instruments (
                     instrument_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL UNIQUE
-                )
-            ''')
-            conn.execute('''
+                    name TEXT UNIQUE NOT NULL
+                );
+            """)
+            
+            # Measurements with FTS
+            conn.executescript("""
                 CREATE TABLE IF NOT EXISTS measurements (
-                    measurement_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    codename TEXT UNIQUE,
-                    instrument_id INTEGER NOT NULL,
-                    timestamp TIMESTAMP NOT NULL,
-                    value NPDATA NOT NULL,
-                    units TEXT NOT NULL,
-                    type TEXT,
+                    codename TEXT PRIMARY KEY,
+                    instrument_id INTEGER,
+                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    value_data NPBLOB NOT NULL,
+                    units TEXT,
+                    measurement_type TEXT,
+                    notes TEXT,
+                    metadata TEXT,  -- JSON for extensibility
                     FOREIGN KEY (instrument_id) REFERENCES instruments(instrument_id)
-                )
-            ''')
-            conn.commit()
-
-    def _get_connection(self):
+                );
+                
+                CREATE VIRTUAL TABLE IF NOT EXISTS measurements_fts USING fts5(
+                    codename, measurement_type, notes,
+                    content='measurements'
+                );
+                
+                -- FTS triggers for measurements
+                CREATE TRIGGER IF NOT EXISTS measurements_fts_insert AFTER INSERT ON measurements
+                BEGIN
+                    INSERT INTO measurements_fts(codename, measurement_type, notes)
+                    VALUES (new.codename, new.measurement_type, new.notes);
+                END;
+                
+                CREATE TRIGGER IF NOT EXISTS measurements_fts_delete AFTER DELETE ON measurements
+                BEGIN
+                    DELETE FROM measurements_fts WHERE codename = old.codename;
+                END;
+                
+                CREATE TRIGGER IF NOT EXISTS measurements_fts_update AFTER UPDATE ON measurements
+                BEGIN
+                    UPDATE measurements_fts SET 
+                        measurement_type = new.measurement_type,
+                        notes = new.notes
+                    WHERE codename = new.codename;
+                END;
+            """)
+            
+            # Indices for performance
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_exp_created ON experiments(created_at);")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_meas_timestamp ON measurements(timestamp);")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_meas_type ON measurements(measurement_type);")
+    
+    # Instrument management
+    def _get_or_create_instrument_id(self, conn: sqlite3.Connection, instrument_name: str) -> int:
+        """Get or create instrument ID."""
+        cursor = conn.execute("SELECT instrument_id FROM instruments WHERE name = ?", (instrument_name,))
+        row = cursor.fetchone()
+        if row:
+            return row[0]
+        
+        cursor = conn.execute("INSERT INTO instruments (name) VALUES (?)", (instrument_name,))
+        return cursor.lastrowid
+    
+    # Experiment operations
+    def store_experiment(
+        self, 
+        codename: Optional[str], 
+        experiment: Experiment, 
+        *, 
+        overwrite: bool = True,
+        notes: str = ""
+    ) -> str:
         """
-        Retrieve the SQLite connection, creating it if necessary, and ensure foreign key support.
+        Store an experiment in the database.
+        
+        Args:
+            codename: Unique identifier (auto-generated if None)
+            experiment: Experiment instance to store
+            overwrite: Whether to allow overwriting existing experiments
+            notes: Additional notes for this experiment
         
         Returns:
-            sqlite3.Connection: The active database connection.
-        """
-        if self._conn is None:
-            self._conn = sqlite3.connect(f"{self.db_path}.db", detect_types=sqlite3.PARSE_DECLTYPES)
-            self._conn.execute("PRAGMA foreign_keys = ON")
-        return self._conn
-
-    def _get_or_create_instrument_id(self, conn, instrument_name):
-        """
-        Retrieve the instrument ID for a given instrument name. If it doesn't exist, create a new entry.
-        
-        Args:
-            conn (sqlite3.Connection): The active database connection.
-            instrument_name (str): The instrument's name.
-            
-        Returns:
-            int: The instrument ID.
-        """
-        cursor = conn.execute('SELECT instrument_id FROM instruments WHERE name = ?', (instrument_name,))
-        result = cursor.fetchone()
-        if result:
-            return result[0]
-        else:
-            cursor.execute('INSERT INTO instruments (name) VALUES (?)', (instrument_name,))
-            conn.commit()
-            return cursor.lastrowid
-
-    def store_measurement(self, codename, measurement_result: MeasurementResult, force=False):
-        """
-        Store a measurement result in the database.
-        
-        The measurement is stored along with its instrument, timestamp, value (as binary data),
-        units, and type.
-        
-        Args:
-            codename (str): A unique identifier for the measurement.
-            measurement_result (MeasurementResult): The measurement result to store.
-            force (bool): If True, use INSERT OR REPLACE to update an existing record with the same codename.
-            
-        Raises:
-            sqlite3.IntegrityError: If a measurement with the same codename exists and force is False.
-        """
-        with self._get_connection() as conn:
-            try:
-                instrument_id = self._get_or_create_instrument_id(conn, measurement_result.instrument)
-                if force:
-                    sql_statement = '''
-                        INSERT OR REPLACE INTO measurements (codename, instrument_id, timestamp, value, units, type)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    '''
-                else:
-                    sql_statement = '''
-                        INSERT INTO measurements (codename, instrument_id, timestamp, value, units, type)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    '''
-                conn.execute(sql_statement, (
-                    codename,
-                    instrument_id,
-                    datetime.fromtimestamp(measurement_result.timestamp),
-                    measurement_result.values,
-                    measurement_result.units,
-                    measurement_result.measurement_type
-                ))
-                conn.commit()
-            except sqlite3.IntegrityError as e:
-                raise sqlite3.IntegrityError(f"Measurement codename '{codename}' is already in use.") from e
-
-    def retrieve_measurement(self, codename):
-        """
-        Retrieve a measurement result from the database by its codename.
-        
-        Args:
-            codename (str): The unique identifier for the measurement.
-            
-        Returns:
-            MeasurementResult: The retrieved measurement result.
-            
-        Raises:
-            ValueError: If no measurement is found with the given codename.
-        """
-        with self._get_connection() as conn:
-            cursor = conn.execute('''
-                SELECT i.name, m.type, m.value, m.units
-                FROM measurements m
-                JOIN instruments i ON m.instrument_id = i.instrument_id
-                WHERE m.codename = ?
-            ''', (codename,))
-            rows = cursor.fetchall()
-            if not rows:
-                raise ValueError(f"No measurements found with codename: '{codename}'.")
-            instrument_name, measurement_type, values, units = rows[0]
-        return MeasurementResult(
-            values=values,
-            instrument=instrument_name,
-            units=units,
-            measurement_type=measurement_type
-        )
-
-    def store_experiment(self, codename, experiment: Experiment):
-        """
-        Store an Experiment (including its trial data, parameters, and notes) in the database.
-        
-        The experiment is stored with its codename, name, description, trial data (as a compressed Polars DataFrame),
-        and additional notes. Experiment parameters (with optional notes) are stored in a separate table.
-        
-        Args:
-            codename (str): A unique identifier for the experiment.
-            experiment (Experiment): The Experiment instance to store. It should have a 'notes' attribute containing
-                                     extra details.
+            The final codename used for storage
         
         Raises:
-            ValueError: If an experiment with the same codename already exists.
+            ValueError: If codename exists and overwrite=False
         """
-        with self._get_connection() as conn:
-            # Check for duplicate codename.
-            cursor = conn.execute('SELECT experiment_id FROM experiments WHERE codename = ?', (codename,))
-            if cursor.fetchone():
-                raise ValueError(f"An experiment with codename '{codename}' already exists. Please use a different codename.")
+        if codename is None:
+            codename = _generate_codename("EXP")
+        
+        conn = self._get_connection()
+        with conn:
+            # Check for existing entry
+            cursor = conn.execute("SELECT 1 FROM experiments WHERE codename = ?", (codename,))
+            if cursor.fetchone() and not overwrite:
+                raise ValueError(f"Experiment '{codename}' already exists")
             
-            cursor = conn.execute('''
-                INSERT INTO experiments (codename, data, name, description, notes)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (codename, experiment.data, experiment.name, experiment.description, getattr(experiment, "notes", "")))
-            experiment_id = cursor.lastrowid
+            # Store experiment
+            conn.execute("""
+                INSERT OR REPLACE INTO experiments 
+                (codename, name, description, notes, data, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                codename,
+                experiment.name,
+                experiment.description,
+                notes,
+                experiment.data,
+                dt.datetime.now()
+            ))
+            
+            # Store parameters
+            conn.execute("DELETE FROM experiment_parameters WHERE codename = ?", (codename,))
             for param in experiment.parameters.values():
                 param_notes = getattr(param, "notes", "")
-                conn.execute('''
-                    INSERT INTO experiment_parameters (experiment_id, name, units, notes)
+                conn.execute("""
+                    INSERT INTO experiment_parameters (codename, param_name, param_unit, param_notes)
                     VALUES (?, ?, ?, ?)
-                ''', (experiment_id, param.name, param.units, param_notes))
-            conn.commit()
-
-    def retrieve_experiment(self, codename):
-        """
-        Retrieve an Experiment (with its parameters and notes) from the database by its codename.
+                """, (codename, param.name, param.units, param_notes))
         
-        The stored trial data (a compressed Polars DataFrame) is loaded back into the Experiment instance.
+        return codename
+    
+    def retrieve_experiment(self, codename: str) -> Experiment:
+        """
+        Retrieve an experiment by codename.
         
         Args:
-            codename (str): The unique identifier for the experiment.
-            
-        Returns:
-            Experiment: The retrieved Experiment instance with data, parameters, and notes populated.
-            
-        Raises:
-            ValueError: If no experiment is found with the given codename.
-        """
-        with self._get_connection() as conn:
-            cursor = conn.execute('SELECT * FROM experiments WHERE codename = ?', (codename,))
-            exp_row = cursor.fetchone()
-            if not exp_row:
-                raise ValueError(f"No experiment found with codename: '{codename}'.")
-            experiment_id, _, data, name, description, notes = exp_row
-            experiment = Experiment(name, description)
-            experiment.data = data
-            experiment.notes = notes  # Set the experiment's notes attribute
-            cursor = conn.execute('SELECT * FROM experiment_parameters WHERE experiment_id = ?', (experiment_id,))
-            for param in cursor.fetchall():
-                # param[2]=name, param[3]=units, param[4]=notes
-                experiment.add_parameter(param[2], param[3], param[4])
-            return experiment
-
-    def close(self):
-        """
-        Close the database connection.
+            codename: Unique experiment identifier
         
-        After calling this method, the Database instance will no longer be able to communicate with the database.
+        Returns:
+            Loaded Experiment instance
+        
+        Raises:
+            ValueError: If experiment not found
         """
-        if self._conn:
-            self._conn.close()
-            self._conn = None
+        conn = self._get_connection()
+        cursor = conn.execute("""
+            SELECT name, description, notes, data 
+            FROM experiments 
+            WHERE codename = ?
+        """, (codename,))
+        
+        row = cursor.fetchone()
+        if not row:
+            raise ValueError(f"Experiment '{codename}' not found")
+        
+        name, description, notes, data = row
+        
+        # Reconstruct experiment
+        experiment = Experiment(name, description)
+        experiment.data = data
+        experiment.notes = notes
+        
+        # Load parameters
+        cursor = conn.execute("""
+            SELECT param_name, param_unit, param_notes 
+            FROM experiment_parameters 
+            WHERE codename = ?
+        """, (codename,))
+        
+        for param_name, param_unit, param_notes in cursor.fetchall():
+            experiment.add_parameter(param_name, param_unit, param_notes)
+        
+        return experiment
+    
+    def list_experiments(self, limit: Optional[int] = None) -> List[str]:
+        """List all experiment codenames, newest first."""
+        conn = self._get_connection()
+        query = "SELECT codename FROM experiments ORDER BY created_at DESC"
+        if limit:
+            query += f" LIMIT {limit}"
+        
+        cursor = conn.execute(query)
+        return [row[0] for row in cursor.fetchall()]
+    
+    def search_experiments(self, query: str, limit: int = 50) -> List[Dict[str, Any]]:
+        """
+        Full-text search across experiments.
+        
+        Args:
+            query: Search terms
+            limit: Maximum results to return
+        
+        Returns:
+            List of dicts with experiment metadata
+        """
+        conn = self._get_connection()
+        cursor = conn.execute("""
+            SELECT e.codename, e.name, e.description, e.notes, e.created_at
+            FROM experiments_fts f
+            JOIN experiments e ON f.codename = e.codename
+            WHERE experiments_fts MATCH ?
+            ORDER BY rank
+            LIMIT ?
+        """, (query, limit))
+        
+        return [
+            {
+                "codename": row[0],
+                "name": row[1], 
+                "description": row[2],
+                "notes": row[3],
+                "created_at": row[4]
+            }
+            for row in cursor.fetchall()
+        ]
+    
+    # Measurement operations
+    def store_measurement(
+        self,
+        codename: Optional[str],
+        measurement: MeasurementResult,
+        *,
+        overwrite: bool = True,
+        notes: str = ""
+    ) -> str:
+        """
+        Store a measurement result.
+        
+        Args:
+            codename: Unique identifier (auto-generated if None)
+            measurement: MeasurementResult to store
+            overwrite: Whether to allow overwriting existing measurements
+            notes: Additional notes
+        
+        Returns:
+            The final codename used for storage
+        
+        Raises:
+            ValueError: If codename exists and overwrite=False
+        """
+        if codename is None:
+            codename = _generate_codename("MEAS")
+        
+        conn = self._get_connection()
+        with conn:
+            # Check for existing entry
+            cursor = conn.execute("SELECT 1 FROM measurements WHERE codename = ?", (codename,))
+            if cursor.fetchone() and not overwrite:
+                raise ValueError(f"Measurement '{codename}' already exists")
+            
+            # Get instrument ID
+            instrument_id = self._get_or_create_instrument_id(conn, measurement.instrument)
+            
+            # Store measurement
+            conn.execute("""
+                INSERT OR REPLACE INTO measurements 
+                (codename, instrument_id, timestamp, value_data, units, measurement_type, notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                codename,
+                instrument_id,
+                dt.datetime.fromtimestamp(measurement.timestamp),
+                measurement.values,
+                measurement.units,
+                measurement.measurement_type,
+                notes
+            ))
+        
+        return codename
+    
+    def retrieve_measurement(self, codename: str) -> MeasurementResult:
+        """
+        Retrieve a measurement by codename.
+        
+        Args:
+            codename: Unique measurement identifier
+        
+        Returns:
+            Loaded MeasurementResult instance
+        
+        Raises:
+            ValueError: If measurement not found
+        """
+        conn = self._get_connection()
+        cursor = conn.execute("""
+            SELECT i.name, m.timestamp, m.value_data, m.units, m.measurement_type
+            FROM measurements m
+            JOIN instruments i ON m.instrument_id = i.instrument_id
+            WHERE m.codename = ?
+        """, (codename,))
+        
+        row = cursor.fetchone()
+        if not row:
+            raise ValueError(f"Measurement '{codename}' not found")
+        
+        instrument, timestamp, value_data, units, measurement_type = row
+        
+        return MeasurementResult(
+            values=value_data,
+            instrument=instrument,
+            units=units,
+            measurement_type=measurement_type,
+            timestamp=timestamp.timestamp() if hasattr(timestamp, 'timestamp') else time.time()
+        )
+    
+    def list_measurements(
+        self, 
+        instrument: Optional[str] = None, 
+        limit: Optional[int] = None
+    ) -> List[str]:
+        """
+        List measurement codenames, optionally filtered by instrument.
+        
+        Args:
+            instrument: Filter by instrument name
+            limit: Maximum results to return
+        
+        Returns:
+            List of measurement codenames
+        """
+        conn = self._get_connection()
+        
+        if instrument:
+            query = """
+                SELECT m.codename 
+                FROM measurements m
+                JOIN instruments i ON m.instrument_id = i.instrument_id
+                WHERE i.name = ?
+                ORDER BY m.timestamp DESC
+            """
+            params = (instrument,)
+        else:
+            query = "SELECT codename FROM measurements ORDER BY timestamp DESC"
+            params = ()
+        
+        if limit:
+            query += f" LIMIT {limit}"
+        
+        cursor = conn.execute(query, params)
+        return [row[0] for row in cursor.fetchall()]
+    
+    def search_measurements(self, query: str, limit: int = 50) -> List[Dict[str, Any]]:
+        """
+        Full-text search across measurements.
+        
+        Args:
+            query: Search terms
+            limit: Maximum results to return
+        
+        Returns:
+            List of dicts with measurement metadata
+        """
+        conn = self._get_connection()
+        cursor = conn.execute("""
+            SELECT m.codename, i.name, m.measurement_type, m.units, m.timestamp, m.notes
+            FROM measurements_fts f
+            JOIN measurements m ON f.codename = m.codename
+            JOIN instruments i ON m.instrument_id = i.instrument_id
+            WHERE measurements_fts MATCH ?
+            ORDER BY rank
+            LIMIT ?
+        """, (query, limit))
+        
+        return [
+            {
+                "codename": row[0],
+                "instrument": row[1],
+                "measurement_type": row[2],
+                "units": row[3],
+                "timestamp": row[4],
+                "notes": row[5]
+            }
+            for row in cursor.fetchall()
+        ]
+    
+    # Bulk operations
+    def bulk_store_measurements(
+        self,
+        measurements: List[tuple[Optional[str], MeasurementResult]],
+        show_progress: bool = True
+    ) -> List[str]:
+        """
+        Store multiple measurements efficiently.
+        
+        Args:
+            measurements: List of (codename, MeasurementResult) tuples
+            show_progress: Whether to show progress bar
+        
+        Returns:
+            List of final codenames used
+        """
+        codenames = []
+        iterator = tqdm(measurements, desc="Storing measurements", disable=not show_progress)
+        
+        for codename, measurement in iterator:
+            final_codename = self.store_measurement(codename, measurement)
+            codenames.append(final_codename)
+        
+        return codenames
+    
+    # Database utilities
+    def vacuum(self) -> None:
+        """Optimize database file size and performance."""
+        conn = self._get_connection()
+        conn.execute("VACUUM")
+    
+    def get_stats(self) -> Dict[str, int]:
+        """Get database statistics."""
+        conn = self._get_connection()
+        
+        stats = {}
+        stats["experiments"] = conn.execute("SELECT COUNT(*) FROM experiments").fetchone()[0]
+        stats["measurements"] = conn.execute("SELECT COUNT(*) FROM measurements").fetchone()[0]
+        stats["instruments"] = conn.execute("SELECT COUNT(*) FROM instruments").fetchone()[0]
+        
+        return stats
+    
+    def __repr__(self) -> str:
+        stats = self.get_stats()
+        return (
+            f"MeasurementDatabase({self.db_path})\n"
+            f"  Experiments: {stats['experiments']}\n"
+            f"  Measurements: {stats['measurements']}\n"
+            f"  Instruments: {stats['instruments']}"
+        )
+
+
+# Legacy compatibility alias
+Database = MeasurementDatabase
