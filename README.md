@@ -83,3 +83,72 @@ psu2.output(1, state=False)
 ## Acknowledgements
 
 This library was created in part of work funded by Keysight Technologies.
+
+## Simulation Mode
+
+PyTestLab now includes a simulation backend, allowing for development, testing, and CI runs without requiring physical hardware.
+
+There are two ways to enable simulation mode:
+
+1.  **Environment Variable:** Set the `PYTESTLAB_SIMULATE=1` environment variable before running your script.
+    ```bash
+    PYTESTLAB_SIMULATE=1 python your_experiment_script.py
+    ```
+
+2.  **Programmatic Flag:** Pass the `simulate=True` argument when creating an instrument instance using `AutoInstrument.from_config`:
+    ```python
+    from pytestlab.instruments import AutoInstrument
+
+    # Example using a config dictionary
+    mock_config = {"device_type": "power_supply", "model": "SimPSU", "address": "SIM"}
+    psu = AutoInstrument.from_config(mock_config, simulate=True)
+
+    print(psu.query("*IDN?")) # Interacts with the SimBackend
+    ```
+
+The simulation backend uses the instrument's configuration profile to provide basic responses. For more complex simulations, the `SimBackend` class in `pytestlab.sim.backend` can be extended or customized.
+
+## Handling Uncertainties
+
+PyTestLab now supports measurements with uncertainties, leveraging the `uncertainties` library. This allows for more rigorous scientific data analysis by propagating errors through calculations.
+
+**Configuration:**
+Instrument YAML configuration files can now include an optional `measurement_accuracy` block. This block defines accuracy specifications for different measurement modes or ranges of an instrument.
+
+Example for a multimeter's YAML profile:
+```yaml
+# ... other config ...
+device_type: multimeter
+model: ExampleDMM
+measurement_accuracy:
+  voltage_dc_1V_range: # Key identifying the mode/range
+    percent_reading: 0.0005    # 0.05% of reading
+    offset_value: 0.0001     # 0.1mV offset
+  current_ac_1A_range:
+    percent_reading: 0.001
+    offset_value: 0.0005
+```
+The structure of these specifications is defined by the `AccuracySpec` model in `pytestlab.config.accuracy`.
+
+**Usage:**
+When an instrument driver performs a measurement for which an accuracy specification is defined and found in its configuration, it will return a `ufloat` object from the `uncertainties` library. This object encapsulates both the nominal value and its associated standard deviation.
+
+```python
+from pytestlab.instruments import AutoInstrument
+from uncertainties import ufloat
+
+# dmm configured with measurement_accuracy
+dmm = AutoInstrument.from_config("path/to/your_dmm_profile.yaml") 
+
+voltage_reading = dmm.read_voltage() # Assuming this method uses the spec
+
+if isinstance(voltage_reading, ufloat):
+    print(f"Voltage: {voltage_reading}")
+    print(f"Nominal: {voltage_reading.nominal_value:.4f} V")
+    print(f"Std Dev: {voltage_reading.std_dev:.4f} V")
+else:
+    print(f"Voltage: {voltage_reading:.4f} V (no uncertainty)")
+```
+
+**MeasurementResult:**
+The `MeasurementResult` class (in `pytestlab.experiments.results`) can now store these `ufloat` values. It provides `.nominal` and `.sigma` properties to easily access the nominal value and standard deviation. When saving data to a database (e.g., using the Polars-based database backend), `ufloat` objects are typically serialized into two separate columns (e.g., `value_nominal` and `value_sigma`).

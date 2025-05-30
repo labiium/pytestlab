@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling>=1.20"]
+build-backend = "hatchling.build"
+
+[project]
+name            = "pytestlab"
+description     = "Scientific test & measurement toolbox"
+authors         = [{name="Emmanuel Olowe", email="e.a.olowe@ed.ac.uk"}]
+license         = {text = "MIT"}
+readme          = "README.md"
+requires-python = ">=3.9"
+dynamic         = ["version"]
+dependencies    = [
+    "numpy",
+    "polars",
+    "pyvisa",
+    "pydantic",
+    "uncertainties",
+    "pyyaml",
+    "tqdm",
+    "pyscpi",
+    "requests",
+    "pyusb"
+]
+
+[tool.hatch.version]
+path = "pytestlab/__init__.py"
+
+[project.optional-dependencies]
+plot   = ["matplotlib", "plotly"]
+full   = ["pytestlab[plot]", "uncertainties", "pydantic", "pyvisa-sim"]
+dev    = ["ruff", "mypy", "pytest", "pytest-cov", "pre-commit"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["pytestlab"]
+[tool.mypy]
+strict = true
+plugins = ["numpy.typing.mypy_plugin"]
+
+[tool.ruff]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]            # we allow long SCPI strings
+line-length = 100
+
+[tool.coverage.run]
+branch = true

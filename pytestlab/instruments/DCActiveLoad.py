@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 DCActiveLoad.py
 
@@ -7,6 +9,7 @@ from the Keysight EL30000 Series bench DC electronic loads.
 """
 
 import numpy as np
+from typing import Optional, Union, Dict, Type, Any # Added Type, Any
 from .instrument import Instrument
 from ..errors import InstrumentConfigurationError, InstrumentParameterError
 from ..config import DCActiveLoadConfig
@@ -25,29 +28,35 @@ class DCActiveLoad(Instrument):
     
     The SCPI commands are based on the Keysight EL30000 Series.
     """
-    def __init__(self, config=None, debug_mode=False):
+    def __init__(self, config: Optional[DCActiveLoadConfig] = None, debug_mode: bool = False) -> None:
         if not isinstance(config, DCActiveLoadConfig):
             raise InstrumentConfigurationError("DCActiveLoadConfig required to initialize DCActiveLoad")
         super().__init__(config=config, debug_mode=debug_mode)
-        self.current_mode = None
+        self.current_mode: Optional[str] = None
+        self.config: DCActiveLoadConfig # Ensure self.config is correctly typed
 
     @classmethod
-    def from_config(cls, config, debug_mode=False):
+    def from_config(cls: Type[DCActiveLoad], config: Union[Dict[str, Any], DCActiveLoadConfig], debug_mode: bool = False) -> DCActiveLoad:
         """
         Create a DCActiveLoad instance from a configuration dictionary or DCActiveLoadConfig.
         
         Args:
-            config (dict or DCActiveLoadConfig): Configuration data.
+            config (Union[Dict[str, Any], DCActiveLoadConfig]): Configuration data.
             debug_mode (bool): If True, enable debug logging.
             
         Returns:
             DCActiveLoad: An instance of the DC active load driver.
         """
+        conf_obj: DCActiveLoadConfig
         if isinstance(config, dict):
-            config = DCActiveLoadConfig(**config)
-        return cls(config=config, debug_mode=debug_mode)
+            conf_obj = DCActiveLoadConfig(**config)
+        elif isinstance(config, DCActiveLoadConfig):
+            conf_obj = config
+        else:
+            raise InstrumentConfigurationError("config must be a dict or DCActiveLoadConfig instance.")
+        return cls(config=conf_obj, debug_mode=debug_mode)
 
-    def set_mode(self, mode: str):
+    def set_mode(self, mode: str) -> None:
         """
         Set the operating mode of the load.
 
@@ -58,27 +67,31 @@ class DCActiveLoad(Instrument):
             "CR": Constant Resistance
 
         Args:
-            mode (str): One of "CC", "CV", "CP", "CR".
+            mode (str): One of "CC", "CV", "CP", "CR". Case-insensitive.
 
         Raises:
             ValueError: If mode is not supported.
         """
-        mode_map = {
+        mode_upper = mode.upper()
+        mode_map: Dict[str, str] = {
             "CC": "CURR",
             "CV": "VOLT",
             "CP": "POW",
             "CR": "RES"
         }
-        if mode not in mode_map:
-            raise ValueError("Unsupported mode. Use 'CC', 'CV', 'CP', or 'CR'.")
-        # Send the SCPI command to select the function mode.
-        self._send_command(f"FUNC {mode_map[mode]}")
-        self.current_mode = mode
-        # Log using the full description from the config supported_modes mapping.
-        full_mode = self.config.supported_modes.get(mode, mode)
-        self._log(f"Operating mode set to {full_mode}.")
+        if mode_upper not in mode_map:
+            raise ValueError(f"Unsupported mode '{mode}'. Use 'CC', 'CV', 'CP', or 'CR'.")
+        
+        self._send_command(f"FUNC {mode_map[mode_upper]}")
+        self.current_mode = mode_upper 
+        
+        full_mode_description = mode_upper 
+        if hasattr(self.config, 'supported_modes') and isinstance(self.config.supported_modes, dict):
+            full_mode_description = self.config.supported_modes.get(mode_upper, mode_upper)
+        
+        self._log(f"Operating mode set to {full_mode_description}.")
 
-    def set_load(self, value: float):
+    def set_load(self, value: float) -> None:
         """
         Program the load value (in A, V, W, or Ω) according to the selected operating mode.
 
@@ -86,21 +99,29 @@ class DCActiveLoad(Instrument):
             value (float): The value to program.
 
         Raises:
-            InstrumentParameterError: If the operating mode has not been set.
+            InstrumentParameterError: If the operating mode has not been set or is unknown.
         """
         if self.current_mode is None:
             raise InstrumentParameterError("Load mode not set. Call set_mode() first.")
-        if self.current_mode == "CC":
-            self._send_command(f"CURR {value}")
-        elif self.current_mode == "CV":
-            self._send_command(f"VOLT {value}")
-        elif self.current_mode == "CP":
-            self._send_command(f"POW {value}")
-        elif self.current_mode == "CR":
-            self._send_command(f"RES {value}")
-        self._log(f"Load value set to {value} in mode {self.current_mode}.")
+        
+        command_map: Dict[str, str] = {
+            "CC": "CURR",
+            "CV": "VOLT",
+            "CP": "POW",
+            "CR": "RES"
+        }
+        scpi_param = command_map.get(self.current_mode)
+        if scpi_param:
+            # Add validation against config ranges if available
+            # e.g., if self.current_mode == "CC" and hasattr(self.config, 'current_set_range'):
+            #   self.config.current_set_range.in_range(value)
+            self._send_command(f"{scpi_param} {value}")
+            self._log(f"Load value set to {value} in mode {self.current_mode}.")
+        else:
+            raise InstrumentParameterError(f"Internal error: Unknown current_mode '{self.current_mode}' for set_load.")
 
-    def output(self, state: bool):
+
+    def output(self, state: bool) -> None:
         """
         Enable or disable the active load output.
 

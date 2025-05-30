@@ -1,3 +1,4 @@
+from __future__ import annotations
 from .Oscilloscope import Oscilloscope
 from .PowerSupply import PowerSupply
 from .WaveformGenerator import WaveformGenerator
