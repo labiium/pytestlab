@@ -1,32 +1,37 @@
 from __future__ import annotations
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict # Added ConfigDict
 from typing import List, Optional
 
 from .base import Range
 from .instrument_config import InstrumentConfig
 
 class AWGAccuracy(BaseModel):
-    amplitude: float
-    frequency: float
+    model_config = ConfigDict(validate_assignment=True, extra='forbid')
+    amplitude: float = Field(..., description="Amplitude accuracy specification (e.g., percentage or absolute value)")
+    frequency: float = Field(..., description="Frequency accuracy specification (e.g., ppm or Hz)")
 
 class AWGChannelConfig(BaseModel):
-    description: str
-    frequency: Range
-    amplitude: Range
-    dc_offset: Range
-    accuracy: AWGAccuracy
+    model_config = ConfigDict(validate_assignment=True, extra='forbid')
+    description: str = Field(..., description="Channel description or identifier")
+    frequency: Range = Field(..., description="Programmable frequency range for the channel")
+    amplitude: Range = Field(..., description="Programmable amplitude range for the channel")
+    dc_offset: Range = Field(..., description="Programmable DC offset range for the channel")
+    accuracy: AWGAccuracy = Field(..., description="Accuracy specifications for this channel")
 
 class ArbitraryWaveformConfig(BaseModel):
-    memory: float
-    max_length: float
-    sampling_rate: Range
-    resolution: int
+    model_config = ConfigDict(validate_assignment=True, extra='forbid')
+    memory: float = Field(..., description="Arbitrary waveform memory size (e.g., in points or bytes)")
+    max_length: float = Field(..., description="Maximum length of a single arbitrary waveform segment (in points)")
+    sampling_rate: Range = Field(..., description="Programmable sampling rate range for arbitrary waveforms")
+    resolution: int = Field(..., gt=0, description="Vertical resolution for arbitrary waveforms in bits")
 
 class WaveformsConfig(BaseModel):
-    built_in: List[str]
-    arbitrary: ArbitraryWaveformConfig
+    model_config = ConfigDict(validate_assignment=True, extra='forbid')
+    built_in: List[str] = Field(..., min_length=1, description="List of available built-in waveform shapes (e.g., SINE, SQUARE)")
+    arbitrary: ArbitraryWaveformConfig = Field(..., description="Configuration for arbitrary waveform capabilities")
 
 class WaveformGeneratorConfig(InstrumentConfig):
-    # device_type: str = Field("waveform_generator", const=True) # Handled by loader
-    channels: List[AWGChannelConfig]
-    waveforms: WaveformsConfig
+    model_config = ConfigDict(validate_assignment=True, extra='forbid')
+    # device_type is inherited from InstrumentConfig and validated there.
+    channels: List[AWGChannelConfig] = Field(..., min_length=1, description="List of waveform generator channel configurations")
+    waveforms: WaveformsConfig = Field(..., description="Waveform capabilities configuration")

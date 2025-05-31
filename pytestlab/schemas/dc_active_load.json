@@ -1,0 +1,511 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "DCActiveLoadConfig",
+    "type": "object",
+    "properties": {
+        "manufacturer": {
+            "type": "string",
+            "enum": [
+                "Keysight"
+            ]
+        },
+        "model": {
+            "type": "string"
+        },
+        "device_type": {
+            "type": "string",
+            "enum": [
+                "dc_active_load"
+            ]
+        },
+        "serial_number": {
+            "type": "string"
+        },
+        "channels": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "patternProperties": {
+                    "^[0-9]+$": {
+                        "type": "object",
+                        "properties": {
+                            "description": {
+                                "type": "string"
+                            },
+                            "min_current": {
+                                "type": "number"
+                            },
+                            "max_current": {
+                                "type": "number"
+                            },
+                            "current_resolution": {
+                                "type": "number"
+                            },
+                            "min_voltage": {
+                                "type": "number"
+                            },
+                            "max_voltage": {
+                                "type": "number"
+                            },
+                            "voltage_resolution": {
+                                "type": "number"
+                            }
+                        },
+                        "required": [
+                            "description",
+                            "min_current",
+                            "max_current",
+                            "current_resolution",
+                            "min_voltage",
+                            "max_voltage",
+                            "voltage_resolution"
+                        ]
+                    }
+                },
+                "minProperties": 1
+            }
+        },
+        "supported_modes": {
+            "type": "object",
+            "properties": {
+                "CC": {
+                    "type": "string"
+                },
+                "CV": {
+                    "type": "string"
+                },
+                "CP": {
+                    "type": "string"
+                },
+                "CR": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "CC",
+                "CV",
+                "CP",
+                "CR"
+            ]
+        },
+        "max_current": {
+            "type": "number"
+        },
+        "max_voltage": {
+            "type": "number"
+        },
+        "max_power": {
+            "type": "number"
+        },
+        "calibration": {
+            "type": "object",
+            "properties": {
+                "current_calibration_resolution": {
+                    "type": "number"
+                },
+                "voltage_calibration_resolution": {
+                    "type": "number"
+                }
+            },
+            "required": [
+                "current_calibration_resolution",
+                "voltage_calibration_resolution"
+            ]
+        },
+        "programming_accuracy": {
+            "type": "object",
+            "properties": {
+                "CC": {
+                    "type": "object",
+                    "properties": {
+                        "low": {
+                            "type": "object",
+                            "properties": {
+                                "percent": {
+                                    "type": "number"
+                                },
+                                "absolute": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "percent",
+                                "absolute"
+                            ]
+                        },
+                        "high": {
+                            "type": "object",
+                            "properties": {
+                                "percent": {
+                                    "type": "number"
+                                },
+                                "absolute": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "percent",
+                                "absolute"
+                            ]
+                        }
+                    },
+                    "required": [
+                        "low",
+                        "high"
+                    ]
+                },
+                "CV": {
+                    "type": "object",
+                    "properties": {
+                        "low": {
+                            "type": "object",
+                            "properties": {
+                                "percent": {
+                                    "type": "number"
+                                },
+                                "absolute": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "percent",
+                                "absolute"
+                            ]
+                        },
+                        "high": {
+                            "type": "object",
+                            "properties": {
+                                "percent": {
+                                    "type": "number"
+                                },
+                                "absolute": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "percent",
+                                "absolute"
+                            ]
+                        }
+                    },
+                    "required": [
+                        "low",
+                        "high"
+                    ]
+                },
+                "CP": {
+                    "type": "object",
+                    "properties": {
+                        "low": {
+                            "type": "object",
+                            "properties": {
+                                "percent": {
+                                    "type": "number"
+                                },
+                                "absolute": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "percent",
+                                "absolute"
+                            ]
+                        },
+                        "medium": {
+                            "type": "object",
+                            "properties": {
+                                "percent": {
+                                    "type": "number"
+                                },
+                                "absolute": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "percent",
+                                "absolute"
+                            ]
+                        },
+                        "high": {
+                            "type": "object",
+                            "properties": {
+                                "percent": {
+                                    "type": "number"
+                                },
+                                "absolute": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "percent",
+                                "absolute"
+                            ]
+                        }
+                    },
+                    "required": [
+                        "low",
+                        "high"
+                    ]
+                },
+                "CR": {
+                    "type": "object",
+                    "properties": {
+                        "low": {
+                            "type": "object",
+                            "properties": {
+                                "percent": {
+                                    "type": "number"
+                                },
+                                "absolute": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "percent",
+                                "absolute"
+                            ]
+                        },
+                        "medium": {
+                            "type": "object",
+                            "properties": {
+                                "percent": {
+                                    "type": "number"
+                                },
+                                "absolute": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "percent",
+                                "absolute"
+                            ]
+                        },
+                        "high": {
+                            "type": "object",
+                            "properties": {
+                                "percent": {
+                                    "type": "number"
+                                },
+                                "absolute": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "percent",
+                                "absolute"
+                            ]
+                        }
+                    },
+                    "required": [
+                        "low",
+                        "high"
+                    ]
+                }
+            },
+            "description": "Programming accuracy as a percentage (in %) and an absolute offset (in SI units) for each operating mode."
+        },
+        "readback_accuracy": {
+            "type": "object",
+            "properties": {
+                "CC": {
+                    "type": "object",
+                    "properties": {
+                        "low": {
+                            "type": "object",
+                            "properties": {
+                                "percent": {
+                                    "type": "number"
+                                },
+                                "absolute": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "percent",
+                                "absolute"
+                            ]
+                        },
+                        "high": {
+                            "type": "object",
+                            "properties": {
+                                "percent": {
+                                    "type": "number"
+                                },
+                                "absolute": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "percent",
+                                "absolute"
+                            ]
+                        }
+                    },
+                    "required": [
+                        "low",
+                        "high"
+                    ]
+                },
+                "CV": {
+                    "type": "object",
+                    "properties": {
+                        "low": {
+                            "type": "object",
+                            "properties": {
+                                "percent": {
+                                    "type": "number"
+                                },
+                                "absolute": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "percent",
+                                "absolute"
+                            ]
+                        },
+                        "high": {
+                            "type": "object",
+                            "properties": {
+                                "percent": {
+                                    "type": "number"
+                                },
+                                "absolute": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "percent",
+                                "absolute"
+                            ]
+                        }
+                    },
+                    "required": [
+                        "low",
+                        "high"
+                    ]
+                },
+                "CP": {
+                    "type": "object",
+                    "properties": {
+                        "low": {
+                            "type": "object",
+                            "properties": {
+                                "percent": {
+                                    "type": "number"
+                                },
+                                "absolute": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "percent",
+                                "absolute"
+                            ]
+                        },
+                        "medium": {
+                            "type": "object",
+                            "properties": {
+                                "percent": {
+                                    "type": "number"
+                                },
+                                "absolute": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "percent",
+                                "absolute"
+                            ]
+                        },
+                        "high": {
+                            "type": "object",
+                            "properties": {
+                                "percent": {
+                                    "type": "number"
+                                },
+                                "absolute": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "percent",
+                                "absolute"
+                            ]
+                        }
+                    },
+                    "required": [
+                        "low",
+                        "high"
+                    ]
+                },
+                "CR": {
+                    "type": "object",
+                    "properties": {
+                        "low": {
+                            "type": "object",
+                            "properties": {
+                                "percent": {
+                                    "type": "number"
+                                },
+                                "absolute": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "percent",
+                                "absolute"
+                            ]
+                        },
+                        "medium": {
+                            "type": "object",
+                            "properties": {
+                                "percent": {
+                                    "type": "number"
+                                },
+                                "absolute": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "percent",
+                                "absolute"
+                            ]
+                        },
+                        "high": {
+                            "type": "object",
+                            "properties": {
+                                "percent": {
+                                    "type": "number"
+                                },
+                                "absolute": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "percent",
+                                "absolute"
+                            ]
+                        }
+                    },
+                    "required": [
+                        "low",
+                        "high"
+                    ]
+                }
+            },
+            "description": "Readback accuracy as a percentage (in %) and an absolute offset (in SI units) for each operating mode."
+        }
+    },
+    "required": [
+        "manufacturer",
+        "model",
+        "device_type",
+        "serial_number",
+        "channels",
+        "supported_modes",
+        "max_current",
+        "max_voltage",
+        "max_power"
+    ]
+}

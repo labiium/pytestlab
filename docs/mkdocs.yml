@@ -1,0 +1,54 @@
+site_name: PyTestLab
+site_description: 'Scientific test & measurement toolbox for Python.'
+repo_url: https://github.com/your-username/pytestlab # Placeholder, replace with actual repo URL
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - toc.integrate
+    - navigation.top
+    - search.suggest
+    - content.code.annotate
+    - content.code.copy
+  palette:
+    primary: teal
+    accent: purple
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_root_heading: true
+            show_category_heading: true
+            # Consult mkdocstrings documentation for more options
+  - mkdocs-jupyter
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - 'User Guide':
+    - 'Getting Started': user_guide/getting_started.md
+    - '10 Minute Tour': tutorials/10_minute_tour.ipynb
+    - 'Connecting to Instruments': user_guide/connecting.md
+    - 'Simulation Mode': user_guide/simulation.md
+    - 'Handling Uncertainty': user_guide/uncertainty.md
+    - 'Bench Descriptors': user_guide/bench_descriptors.md
+    - 'Command-Line Interface': user_guide/cli.md
+  - 'API Reference':
+    - 'Instruments': api/instruments.md
+    - 'Configuration': api/config.md
+    - 'Backends': api/backends.md
+    - 'Measurements': api/measurements.md
+    - 'Experiments & Database': api/experiments.md
+    - 'Errors': api/errors.md
+    - 'Common Utilities': api/common.md
+  - 'Instrument Profiles':
+    - 'Profile Gallery': profiles/gallery.md
+    - 'Creating Profiles': profiles/creating.md
+  - 'Contributing': contributing.md
+  - 'Changelog': changelog.md

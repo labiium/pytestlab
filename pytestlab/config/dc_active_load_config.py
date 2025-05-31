@@ -1,40 +1,31 @@
 from __future__ import annotations
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict # Added ConfigDict
 from typing import List, Dict, Optional
 
 from .base import Range # Assuming Range might be useful for min/max values
 from .instrument_config import InstrumentConfig
 
 class DCALChannel(BaseModel):
-    description: str
-    min_current: float
-    max_current: float
-    current_resolution: float
-    min_voltage: float
-    max_voltage: float
-    voltage_resolution: float
+    model_config = ConfigDict(validate_assignment=True, extra='forbid')
+    description: str = Field(..., description="Channel description or identifier")
+    min_current: float = Field(..., ge=0, description="Minimum programmable current for the channel")
+    max_current: float = Field(..., gt=0, description="Maximum programmable current for the channel")
+    current_resolution: float = Field(..., gt=0, description="Current setting resolution")
+    min_voltage: float = Field(..., ge=0, description="Minimum programmable voltage for the channel")
+    max_voltage: float = Field(..., gt=0, description="Maximum programmable voltage for the channel")
+    voltage_resolution: float = Field(..., gt=0, description="Voltage setting resolution")
 
 class DCALCalibration(BaseModel):
-    current_calibration_resolution: float
-    voltage_calibration_resolution: float
+    model_config = ConfigDict(validate_assignment=True, extra='forbid')
+    current_calibration_resolution: float = Field(..., gt=0, description="Resolution for current calibration procedures")
+    voltage_calibration_resolution: float = Field(..., gt=0, description="Resolution for voltage calibration procedures")
 
 class DCActiveLoadConfig(InstrumentConfig):
-    # device_type: str = Field("dc_active_load", const=True) # Handled by loader
-    # channels is a list of dictionaries in the original, mapping int to config.
-    # Pydantic prefers a list of models, or a dict if keys are meaningful and consistent.
-    # If channel numbers (keys) are always sequential and 0-indexed, a List[DCALChannel] is fine.
-    # If channel numbers can be arbitrary (e.g., 1, 2, 5), then Dict[int, DCALChannel] is better.
-    # For simplicity and common Pydantic patterns, using List[DCALChannel] and assuming
-    # the loader or user will ensure the list corresponds to channels in order.
-    # If the original structure `channels: [{1: {...}}, {2: {...}}]` must be preserved,
-    # this would need a more complex custom type or validator.
-    # The prompt implies `channels: list` where each item is a dict with a channel number as key.
-    # This is unusual for Pydantic. A list of channel objects is more standard.
-    # Let's assume the data will be transformed to a list of DCALChannel objects before validation,
-    # or the YAML structure will be `channels: [ {description:...}, {description:...} ]`
-    channels: List[DCALChannel]
-    supported_modes: Dict[str, str] # e.g., {"CC": "Constant Current"}
-    max_current: float
-    max_voltage: float
-    max_power: float
-    calibration: Optional[DCALCalibration] = None
+    model_config = ConfigDict(validate_assignment=True, extra='forbid')
+    # device_type is inherited from InstrumentConfig and validated there.
+    channels: List[DCALChannel] = Field(..., min_length=1, description="List of DC Active Load channel configurations")
+    supported_modes: Dict[str, str] = Field(..., min_length=1, description="Dictionary of supported operating modes (e.g., {'CC': 'Constant Current', 'CV': 'Constant Voltage'})")
+    max_current: float = Field(..., gt=0, description="Overall maximum current rating for the instrument")
+    max_voltage: float = Field(..., gt=0, description="Overall maximum voltage rating for the instrument")
+    max_power: float = Field(..., gt=0, description="Overall maximum power rating for the instrument")
+    calibration: Optional[DCALCalibration] = Field(None, description="Calibration-specific parameters, if applicable")

@@ -1,0 +1,13 @@
+# pytestlab/profiles/keysight/E5071C_VNA.yaml
+manufacturer: Keysight
+model: E5071C
+device_type: vna
+address: "TCPIP0::localhost::inst1::INSTR" # Example address for simulation
+
+# Optional fields from VNAConfig with example values
+s_parameters: ["S11", "S21"]
+start_frequency: 100e3 # 100 kHz
+stop_frequency: 8.5e9 # 8.5 GHz
+num_points: 201
+if_bandwidth: 10e3 # 10 kHz
+power_level: -5 # -5 dBm

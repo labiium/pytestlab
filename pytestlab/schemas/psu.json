@@ -1,0 +1,86 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "PowerSupplyConfig",
+    "type": "object",
+    "properties": {
+        "manufacturer": {
+            "type": "string"
+        },
+        "model": {
+            "type": "string"
+        },
+        "device_type": {
+            "type": "string",
+            "enum": ["power_supply"]
+        },
+        "serial_number": {
+            "type": "string"
+        },
+        "channels": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "description": {
+                        "type": "string"
+                    },
+                    "voltage": {
+                        "type": "object",
+                        "properties": {
+                            "min_val": {
+                                "type": "number"
+                            },
+                            "max_val": {
+                                "type": "number"
+                            }
+                        },
+                        "required": ["min_val", "max_val"]
+                    },
+                    "current": {
+                        "type": "object",
+                        "properties": {
+                            "min_val": {
+                                "type": "number"
+                            },
+                            "max_val": {
+                                "type": "number"
+                            }
+                        },
+                        "required": ["min_val", "max_val"]
+                    },
+                    "accuracy": {
+                        "type": "object",
+                        "properties": {
+                            "voltage": {
+                                "type": "number"
+                            },
+                            "current": {
+                                "type": "number"
+                            }
+                        },
+                        "required": ["voltage", "current"]
+                    }
+                },
+                "required": ["description", "voltage", "current", "accuracy"]
+            }
+        },
+        "total_power": {
+            "type": "number"
+        },
+        "line_regulation": {
+            "type": "number"
+        },
+        "load_regulation": {
+            "type": "number"
+        }
+    },
+    "required": [
+        "manufacturer",
+        "model",
+        "device_type",
+        "channels",
+        "total_power",
+        "line_regulation",
+        "load_regulation"
+    ]
+}

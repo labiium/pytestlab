@@ -1,0 +1,12 @@
+# pytestlab/profiles/keysight/N9000A_SA.yaml
+manufacturer: Keysight
+model: N9000A
+device_type: spectrum_analyzer 
+# Add other fields from SpectrumAnalyzerConfig if they have defaults or are needed
+address: "TCPIP0::localhost::inst0::INSTR" # Example address for simulation
+# Optional fields from SpectrumAnalyzerConfig with example values
+frequency_center: 1e9 # 1 GHz
+frequency_span: 100e6 # 100 MHz
+resolution_bandwidth: 1e6 # 1 MHz
+reference_level: -10 # -10 dBm
+attenuation: 10 # 10 dB

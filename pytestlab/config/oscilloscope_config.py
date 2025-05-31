@@ -1,56 +1,62 @@
 from __future__ import annotations
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict # Added ConfigDict
 from typing import List, Optional
 
 from .base import Range
 from .instrument_config import InstrumentConfig # The Pydantic base
 
 class Timebase(BaseModel):
-    range: Range
-    horizontal_resolution: float
+    model_config = ConfigDict(validate_assignment=True, extra='forbid')
+    range: Range = Field(..., description="Timebase range settings")
+    horizontal_resolution: float = Field(..., description="Horizontal resolution")
 
 class Channel(BaseModel):
-    description: str
-    channel_range: Range
-    input_coupling: list[str]
-    input_impedance: float
-    probe_attenuation: list[int]
+    model_config = ConfigDict(validate_assignment=True, extra='forbid')
+    description: str = Field(..., description="Channel description")
+    channel_range: Range = Field(..., description="Vertical range of the channel")
+    input_coupling: List[str] = Field(..., min_length=1, description="Supported input coupling types (e.g., AC, DC, GND)")
+    input_impedance: float = Field(..., description="Input impedance in Ohms")
+    probe_attenuation: List[int] = Field(..., min_length=1, description="Supported probe attenuation factors (e.g., 1, 10)")
     timebase: Timebase # Nested Pydantic model
 
 class Trigger(BaseModel):
-    types: list[str]
-    modes: list[str]
-    slopes: list[str]
+    model_config = ConfigDict(validate_assignment=True, extra='forbid')
+    types: List[str] = Field(..., min_length=1, description="Supported trigger types (e.g., Edge, Pulse, Runt)")
+    modes: List[str] = Field(..., min_length=1, description="Supported trigger modes (e.g., Auto, Normal, Single)")
+    slopes: List[str] = Field(..., min_length=1, description="Supported trigger slopes (e.g., Rising, Falling, Either)")
 
 class FFT(BaseModel):
-    window_types: list[str]
-    units: list[str]
+    model_config = ConfigDict(validate_assignment=True, extra='forbid')
+    window_types: List[str] = Field(..., min_length=1, description="Supported FFT window types (e.g., Hanning, Flattop)")
+    units: List[str] = Field(..., min_length=1, description="Supported FFT units (e.g., dBV, Vrms)")
 
 class FunctionGenerator(BaseModel):
-    waveform_types: list[str]
-    supported_states: list[str]
-    offset: Range
-    frequency: Range
-    amplitude: Range
+    model_config = ConfigDict(validate_assignment=True, extra='forbid')
+    waveform_types: List[str] = Field(..., min_length=1, description="Supported waveform types (e.g., Sine, Square)")
+    supported_states: List[str] = Field(..., min_length=1, description="Supported states (e.g., ON, OFF)")
+    offset: Range = Field(..., description="Offset range")
+    frequency: Range = Field(..., description="Frequency range")
+    amplitude: Range = Field(..., description="Amplitude range")
 
 class FRAnalysis(BaseModel):
-    sweep_points: Range
-    load: list[str]
-    trace: list[str]
-    mode: list[str]
+    model_config = ConfigDict(validate_assignment=True, extra='forbid')
+    sweep_points: Range = Field(..., description="Range for number of sweep points")
+    load: List[str] = Field(..., min_length=1, description="Supported load impedance values for FRA")
+    trace: List[str] = Field(..., min_length=1, description="Supported trace types for FRA (e.g., Gain, Phase)")
+    mode: List[str] = Field(..., min_length=1, description="Supported FRA modes (e.g., Bode, Impedance)")
 
 class OscilloscopeConfig(InstrumentConfig):
-    # device_type: str = Field("oscilloscope", const=True) # Handled by loader using device_type from data
-    trigger: Trigger
-    channels: list[Channel]
-    bandwidth: float
-    sampling_rate: float
-    memory: float # Assuming memory is a float, e.g., points or seconds
-    waveform_update_rate: float
-    fft: Optional[FFT] = None
-    function_generator: Optional[FunctionGenerator] = None
-    franalysis: Optional[FRAnalysis] = None
-    timebase_settings: Optional[Timebase] = None # Added based on example, adjust if not needed
+    model_config = ConfigDict(validate_assignment=True, extra='forbid')
+    # device_type is inherited from InstrumentConfig and validated there.
+    trigger: Trigger = Field(..., description="Trigger system configuration")
+    channels: List[Channel] = Field(..., min_length=1, description="List of channel configurations")
+    bandwidth: float = Field(..., gt=0, description="Analog bandwidth of the oscilloscope in Hz")
+    sampling_rate: float = Field(..., gt=0, description="Maximum sampling rate in Samples/sec")
+    memory: float = Field(..., gt=0, description="Maximum memory depth (e.g., in points or seconds)")
+    waveform_update_rate: float = Field(..., gt=0, description="Waveform update rate in waveforms/sec")
+    fft: Optional[FFT] = Field(None, description="FFT capabilities, if available")
+    function_generator: Optional[FunctionGenerator] = Field(None, description="Integrated function generator capabilities, if available")
+    franalysis: Optional[FRAnalysis] = Field(None, description="Frequency Response Analysis capabilities, if available")
+    timebase_settings: Optional[Timebase] = Field(None, description="Global timebase settings, if applicable beyond per-channel")
 
-    # Ensure device_type is present for the loader, but it's inherited from InstrumentConfig
     # The loader will use the 'device_type' from the YAML to pick this model.

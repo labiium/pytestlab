@@ -1,0 +1,53 @@
+name: Build Wheels
+
+on:
+  push:
+    branches:
+      - main # Or your primary development/release branch
+    tags:
+      - 'v*' # Trigger on version tags like v0.1.0
+  pull_request: # Also build on PRs to check compatibility
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }} for Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false # Allow other jobs to continue if one fails
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        # Specify Python versions compatible with your project (requires-python)
+        # Ensure these are strings
+        python-version: ['3.9', '3.10', '3.11', '3.12'] 
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install cibuildwheel
+        run: python -m pip install cibuildwheel
+
+      - name: Build wheels
+        run: python -m cibuildwheel --output-dir wheelhouse
+        env:
+          # CIBW_BUILD: cp39-* # Example: build only for CPython 3.9 on all OS
+          # CIBW_SKIP: "*-musllinux*" # Skip musl builds if not specifically supported/needed
+          # Add any other CIBW_ environment variables if necessary
+          # For pure Python projects, cibuildwheel mainly helps with dependency compilation
+          # If PyTestLab had its own C extensions, more CIBW_ vars might be needed.
+          CIBW_TEST_COMMAND: "pytest {project}/pytestlab/tests" # Basic test command
+          CIBW_TEST_REQUIRES: "pytest" # Dependencies for tests
+          CIBW_TEST_EXTRAS: ",dev" # Install dev dependencies for tests if needed
+          # Skip pypy or other interpreters if not targeted:
+          CIBW_SKIP: "pp* cp37-* cp38-*" # Example: Skip PyPy and older CPythons
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: ./wheelhouse/*.whl

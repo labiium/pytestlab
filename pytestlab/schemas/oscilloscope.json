@@ -1,0 +1,378 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "OscilloscopeConfig",
+    "type": "object",
+    "properties": {
+        "manufacturer": {
+            "type": "string",
+            "description": "Manufacturer of the oscilloscope",
+            "enum": [
+                "Keysight"
+            ]
+        },
+        "model": {
+            "type": "string",
+            "description": "Model identifier",
+            "enum": [
+                "DSOX1204G"
+            ]
+        },
+        "device_type": {
+            "type": "string",
+            "enum": [
+                "oscilloscope"
+            ]
+        },
+        "serial_number": {
+            "type": "string"
+        },
+        "trigger": {
+            "type": "object",
+            "properties": {
+                "types": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "HIGH",
+                            "LOW"
+                        ]
+                    },
+                    "minItems": 1,
+                    "uniqueItems": true
+                },
+                "modes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "EDGE",
+                            "GLITch",
+                            "PATTern",
+                            "SHOLd",
+                            "TRANsition",
+                            "TV",
+                            "SBUS1"
+                        ]
+                    },
+                    "minItems": 1,
+                    "uniqueItems": true
+                },
+                "slopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "POS",
+                            "NEG",
+                            "EITH",
+                            "ALT"
+                        ]
+                    },
+                    "minItems": 1,
+                    "uniqueItems": true
+                }
+            },
+            "required": [
+                "types",
+                "modes",
+                "slopes"
+            ]
+        },
+        "channels": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "description": {
+                        "type": "string"
+                    },
+                    "channel_range": {
+                        "type": "object",
+                        "properties": {
+                            "min_val": {
+                                "type": "number"
+                            },
+                            "max_val": {
+                                "type": "number"
+                            }
+                        },
+                        "required": [
+                            "min_val",
+                            "max_val"
+                        ]
+                    },
+                    "input_coupling": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "DC",
+                                "AC"
+                            ]
+                        },
+                        "minItems": 1,
+                        "uniqueItems": true
+                    },
+                    "input_impedance": {
+                        "type": "number"
+                    },
+                    "probe_attenuation": {
+                        "type": "array",
+                        "items": {
+                            "type": "number",
+                            "enum": [
+                                1,
+                                10
+                            ]
+                        },
+                        "minItems": 1,
+                        "uniqueItems": true
+                    },
+                    "timebase": {
+                        "type": "object",
+                        "properties": {
+                            "range": {
+                                "type": "object",
+                                "properties": {
+                                    "min_val": {
+                                        "type": "number"
+                                    },
+                                    "max_val": {
+                                        "type": "number"
+                                    }
+                                },
+                                "required": [
+                                    "min_val",
+                                    "max_val"
+                                ]
+                            },
+                            "horizontal_resolution": {
+                                "type": "number"
+                            }
+                        },
+                        "required": [
+                            "range",
+                            "horizontal_resolution"
+                        ]
+                    }
+                },
+                "required": [
+                    "description",
+                    "channel_range",
+                    "input_coupling",
+                    "input_impedance",
+                    "probe_attenuation",
+                    "timebase"
+                ]
+            }
+        },
+        "bandwidth": {
+            "type": "number",
+            "description": "Oscilloscope bandwidth in Hz"
+        },
+        "sampling_rate": {
+            "type": "number",
+            "description": "Maximum sampling rate in samples per second"
+        },
+        "memory": {
+            "type": "number",
+            "description": "Memory depth in points"
+        },
+        "waveform_update_rate": {
+            "type": "number",
+            "description": "Maximum waveform update rate in waveforms per second"
+        },
+        "fft": {
+            "type": "object",
+            "properties": {
+                "window_types": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "RECTangular",
+                            "HANNing",
+                            "FLATtop",
+                            "BHARris"
+                        ]
+                    },
+                    "minItems": 1,
+                    "uniqueItems": true
+                },
+                "units": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "DECibel",
+                            "VRMS"
+                        ]
+                    },
+                    "minItems": 1,
+                    "uniqueItems": true
+                }
+            },
+            "required": [
+                "window_types",
+                "units"
+            ]
+        },
+        "function_generator": {
+            "type": "object",
+            "properties": {
+                "waveform_types": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "SINE",
+                            "SQUare",
+                            "RAMp",
+                            "PULse",
+                            "NOISe",
+                            "DC"
+                        ]
+                    },
+                    "minItems": 1,
+                    "uniqueItems": true
+                },
+                "supported_states": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "ON",
+                            "OFF"
+                        ]
+                    },
+                    "minItems": 1,
+                    "uniqueItems": true
+                },
+                "offset": {
+                    "type": "object",
+                    "properties": {
+                        "min_val": {
+                            "type": "number"
+                        },
+                        "max_val": {
+                            "type": "number"
+                        }
+                    },
+                    "required": [
+                        "min_val",
+                        "max_val"
+                    ]
+                },
+                "frequency": {
+                    "type": "object",
+                    "properties": {
+                        "min_val": {
+                            "type": "number"
+                        },
+                        "max_val": {
+                            "type": "number"
+                        }
+                    },
+                    "required": [
+                        "min_val",
+                        "max_val"
+                    ]
+                },
+                "amplitude": {
+                    "type": "object",
+                    "properties": {
+                        "min_val": {
+                            "type": "number"
+                        },
+                        "max_val": {
+                            "type": "number"
+                        }
+                    },
+                    "required": [
+                        "min_val",
+                        "max_val"
+                    ]
+                }
+            },
+            "required": [
+                "waveform_types",
+                "supported_states",
+                "offset",
+                "frequency",
+                "amplitude"
+            ]
+        },
+        "franalysis": {
+            "type": "object",
+            "properties": {
+                "sweep_points": {
+                    "type": "object",
+                    "properties": {
+                        "min_val": {
+                            "type": "number"
+                        },
+                        "max_val": {
+                            "type": "number"
+                        }
+                    },
+                    "required": [
+                        "min_val",
+                        "max_val"
+                    ]
+                },
+                "load": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "ONEMeg",
+                            "FIFTy"
+                        ]
+                    },
+                    "minItems": 1,
+                    "uniqueItems": true
+                },
+                "trace": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "NONE",
+                            "ALL",
+                            "GAIN",
+                            "PHASe"
+                        ]
+                    },
+                    "minItems": 1,
+                    "uniqueItems": true
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": [
+                        "SWE"
+                    ]
+                }
+            },
+            "required": [
+                "sweep_points",
+                "load",
+                "trace",
+                "mode"
+            ]
+        }
+    },
+    "required": [
+        "manufacturer",
+        "model",
+        "device_type",
+        "trigger",
+        "channels",
+        "bandwidth",
+        "sampling_rate",
+        "memory",
+        "waveform_update_rate"
+    ]
+}

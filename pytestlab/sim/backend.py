@@ -1,7 +1,10 @@
 from __future__ import annotations
 import logging # For logging within the sim backend
 import re # For potential regex dispatch
-from typing import Any # For type hints
+from typing import Any, Optional # For type hints
+
+# Import the _Backend protocol
+from ..instruments.instrument import _Backend # Adjusted import path
 
 # Attempt to import the Pydantic InstrumentConfig from its new location
 # This assumes Section D (Pydantic models) has been completed.
@@ -24,7 +27,7 @@ except ImportError:
     sim_logger.warning("Could not import pytestlab's get_logger; SimBackend using fallback logger.")
 
 
-class SimBackend:
+class SimBackend:  # TODO: Consider adding ": _Backend" for static type checking if desired
     def __init__(self, profile: InstrumentConfig, device_model: str = "GenericSimDevice"):
         self.profile: InstrumentConfig = profile # This should be the Pydantic model instance
         self.state: dict[str, Any] = {} # To store simulated instrument state
@@ -34,6 +37,17 @@ class SimBackend:
         # e.g., self.state['output_enabled'] = False
         # This part will be highly dependent on what's in InstrumentConfig
         # and what needs to be simulated.
+
+    def connect(self) -> None:
+        """Connects to the simulated instrument."""
+        sim_logger.info(f"SimBackend for {self.device_model} connected (simulated).")
+        # No actual connection needed for simulation, but method is required by protocol
+
+    def disconnect(self) -> None:
+        """Disconnects from the simulated instrument."""
+        sim_logger.info(f"SimBackend for {self.device_model} disconnected (simulated).")
+        # May call self.close() if they are intended to be the same
+        self.close()
 
     def _record(self, cmd: str) -> None:
         """Helper to log commands sent to the simulated instrument."""
@@ -83,12 +97,18 @@ class SimBackend:
             sim_logger.info(f"SimBackend for {self.device_model} set output state to {self.state['output_enabled']}")
 
 
-    def query(self, cmd: str) -> str:
+    def query(self, cmd: str, delay: Optional[float] = None) -> str:
+        # delay parameter is present to match the protocol, but not used in this sim
+        if delay is not None:
+            sim_logger.debug(f"SimBackend received delay of {delay}s for QUERY '{cmd}', but it's ignored in simulation.")
         response = self._simulate(cmd)
         sim_logger.debug(f"SimBackend for {self.device_model} responding to '{cmd}' with: '{response}'")
         return response
 
-    def query_raw(self, cmd: str) -> bytes:
+    def query_raw(self, cmd: str, delay: Optional[float] = None) -> bytes:
+        # delay parameter is present to match the protocol, but not used in this sim
+        if delay is not None:
+            sim_logger.debug(f"SimBackend received delay of {delay}s for RAW QUERY '{cmd}', but it's ignored in simulation.")
         response_str = self._simulate(cmd)
         sim_logger.debug(f"SimBackend for {self.device_model} responding to RAW QUERY '{cmd}' with: '{response_str}'")
         return response_str.encode('utf-8') # Encode string response to bytes

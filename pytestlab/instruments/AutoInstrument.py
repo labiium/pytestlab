@@ -1,25 +1,40 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Type, Optional
+from typing import Any, Dict, Type, Optional, Union
+
 from .Oscilloscope import Oscilloscope
 from .Multimeter import Multimeter
 from .WaveformGenerator import WaveformGenerator
 from .PowerSupply import PowerSupply
 from .DCActiveLoad import DCActiveLoad
-from .instrument import Instrument
-from pytestlab.errors import InstrumentConfigurationError
+from .SpectrumAnalyser import SpectrumAnalyser
+from .VectorNetworkAnalyser import VectorNetworkAnalyser
+from .PowerMeter import PowerMeter
+from .instrument import Instrument, AsyncInstrumentIO # Import AsyncInstrumentIO
+from ..errors import InstrumentConfigurationError # Removed InstrumentNotFoundError as it's not used here
 from ..config.loader import load_config
+from ..config.instrument_config import InstrumentConfig as PydanticInstrumentConfig # Base Pydantic config
+
+# Import new backend classes
+from .backends.async_visa_backend import AsyncVisaBackend
+from .backends.sim_backend import SimBackend # Path has changed
+from .backends.lamb import AsyncLambBackend # Class name changed from LambInstrument
+
 import os
 import yaml
 import requests
 
+
 class AutoInstrument:
-    _instrument_mapping: Dict[str, Type[Instrument]] = {
+    _instrument_mapping: Dict[str, Type[Instrument[Any]]] = { # Make Instrument generic type more specific
         'oscilloscope': Oscilloscope,
         'waveform_generator': WaveformGenerator,
         'power_supply': PowerSupply,
         'multimeter': Multimeter,
-        "dc_active_load": DCActiveLoad
+        "dc_active_load": DCActiveLoad,
+        "vna": VectorNetworkAnalyser,
+        "spectrum_analyzer": SpectrumAnalyser,
+        "power_meter": PowerMeter,
     }
 
     @classmethod
@@ -145,76 +160,147 @@ class AutoInstrument:
         raise FileNotFoundError(f"No configuration found for identifier '{identifier}' in local paths.")
 
     @classmethod
-    def from_config(cls: Type[AutoInstrument], config_source: str | Dict, serial_number: Optional[str] = None, debug_mode: bool = False, simulate: bool = False) -> Instrument:
+    def from_config(cls: Type[AutoInstrument],
+                    config_source: Union[str, Dict[str, Any]],
+                    serial_number: Optional[str] = None,
+                    debug_mode: bool = False, # For logging during config load
+                    simulate: Optional[bool] = None,
+                    backend_type_hint: Optional[str] = None,
+                    address_override: Optional[str] = None,
+                    timeout_override_ms: Optional[int] = None
+                   ) -> Instrument[Any]: # Returns an instance of a subclass of Instrument
         """
         Initializes an instrument from a configuration source (file path or dict).
-        Tries CDN first, then falls back to local if config_source is a string identifier.
-        Allows enabling simulation mode.
+        Handles backend instantiation based on explicit parameters and configuration.
+        The Instrument class and its I/O methods are async.
+        The caller is responsible for `await instrument.connect_backend()` after instantiation.
         """
         config_data: Dict[str, Any]
         
         if isinstance(config_source, dict):
-            # If config_source is already a dict, use it directly
             config_data = config_source
         elif isinstance(config_source, str):
-            # If config_source is a string, try CDN first, then local fallback
             try:
-                # First, try to get configuration from CDN
                 config_data = cls.get_config_from_cdn(config_source)
-                if debug_mode:
-                    print(f"Successfully loaded configuration for '{config_source}' from CDN.")
+                if debug_mode: print(f"Successfully loaded configuration for '{config_source}' from CDN.")
             except FileNotFoundError:
-                # If CDN fails, fall back to local
                 try:
                     config_data = cls.get_config_from_local(config_source)
-                    if debug_mode:
-                        print(f"Successfully loaded configuration for '{config_source}' from local.")
+                    if debug_mode: print(f"Successfully loaded configuration for '{config_source}' from local.")
                 except FileNotFoundError:
-                    # If both CDN and local fail, raise an informative error
                     raise FileNotFoundError(f"Configuration '{config_source}' not found in CDN or local paths.")
         else:
             raise TypeError("config_source must be a file path (str) or a dict")
 
-        # Load the configuration using the new Pydantic-based loader
-        # load_config returns a specific Pydantic model instance (e.g., OscilloscopeConfig, PowerSupplyConfig)
-        # which is a subclass of InstrumentConfig.
-        config_model = load_config(config_data)
+        config_model: PydanticInstrumentConfig = load_config(config_data)
 
-        # Override serial number if provided in arguments.
-        # The Pydantic model InstrumentConfig (base for all specific instrument configs)
-        # has a 'serial_number' field.
-        if serial_number is not None:
-            # Ensure that config_model is not None and has the serial_number attribute
-            if hasattr(config_model, 'serial_number'):
-                config_model.serial_number = serial_number
+        if serial_number is not None and hasattr(config_model, 'serial_number'):
+            config_model.serial_number = serial_number # type: ignore
+
+        backend_instance: AsyncInstrumentIO
+
+        # --- Determine Final Simulation Mode ---
+        final_simulation_mode: bool
+        if simulate is not None:
+            final_simulation_mode = simulate
+            if debug_mode: print(f"Simulation mode explicitly set to {final_simulation_mode} by argument.")
+        else:
+            env_simulate = os.getenv("PYTESTLAB_SIMULATE")
+            if env_simulate is not None:
+                final_simulation_mode = env_simulate.lower() in ('true', '1', 'yes')
+                if debug_mode: print(f"Simulation mode set to {final_simulation_mode} by PYTESTLAB_SIMULATE environment variable.")
             else:
-                # This case should ideally not happen if load_config returns a valid InstrumentConfig model
-                # or one of its Pydantic subclasses that includes serial_number.
-                # Handle appropriately, e.g., log a warning or raise an error if serial_number is critical.
-                # For now, we assume InstrumentConfig and its Pydantic versions will have serial_number.
-                pass # Or log a warning: print(f"Warning: config_model of type {type(config_model)} does not have serial_number attribute.")
+                # Default to False if not specified by argument or environment variable
+                # Or, could check config_model for a 'simulate_by_default' field if that becomes a feature
+                final_simulation_mode = False
+                if debug_mode: print(f"Simulation mode defaulted to {final_simulation_mode} (no explicit argument or PYTESTLAB_SIMULATE).")
 
+        # --- Determine Actual Address and Timeout ---
+        actual_address: Optional[str]
+        if address_override is not None:
+            actual_address = address_override
+            if debug_mode: print(f"Address overridden to '{actual_address}'.")
+        else:
+            actual_address = getattr(config_model, 'address', getattr(config_model, 'resource_name', None))
+            if debug_mode: print(f"Address from config: '{actual_address}'.")
+
+        actual_timeout: int
+        default_communication_timeout_ms = 5000 # Default if not in override or config
+        if timeout_override_ms is not None:
+            actual_timeout = timeout_override_ms
+            if debug_mode: print(f"Timeout overridden to {actual_timeout}ms.")
+        else:
+            # Assuming 'communication.timeout_ms' or 'communication_timeout_ms' might exist
+            # Prefer 'communication_timeout_ms' as per previous logic if 'communication' object isn't standard
+            timeout_from_config = getattr(config_model, 'communication_timeout_ms', None)
+            if hasattr(config_model, 'communication') and hasattr(config_model.communication, 'timeout_ms'): # type: ignore
+                 timeout_from_config = config_model.communication.timeout_ms # type: ignore
+            
+            if isinstance(timeout_from_config, int) and timeout_from_config > 0:
+                actual_timeout = timeout_from_config
+                if debug_mode: print(f"Timeout from config: {actual_timeout}ms.")
+            else:
+                actual_timeout = default_communication_timeout_ms
+                if debug_mode: print(f"Warning: Invalid or missing timeout in config, using default {actual_timeout}ms.")
         
-        # device_type is a required string field in the base InstrumentConfig Pydantic model,
-        # so its presence and type are guaranteed by successful validation in load_config.
+        if not isinstance(actual_timeout, int) or actual_timeout <= 0: # Final safety check
+            actual_timeout = default_communication_timeout_ms
+            if debug_mode: print(f"Warning: Corrected invalid timeout to default {actual_timeout}ms.")
+
+
+        # --- Backend Instantiation ---
+        if final_simulation_mode:
+            device_model_str = getattr(config_model, 'model', 'GenericSimulatedModel')
+            # Using SimBackend as per existing imports, assuming it's async compatible
+            backend_instance = SimBackend(profile=config_model, device_model=device_model_str, timeout_ms=actual_timeout)
+            if debug_mode: print(f"Using SimBackend for {device_model_str} with timeout {actual_timeout}ms.")
+        else:
+            if actual_address is None:
+                raise InstrumentConfigurationError("Missing address/resource_name for non-simulated backend (and no address_override provided).")
+
+            chosen_backend_type: str
+            if backend_type_hint:
+                chosen_backend_type = backend_type_hint.lower()
+                if debug_mode: print(f"Backend type hint provided: '{chosen_backend_type}'.")
+            else:
+                if "LAMB::" in actual_address.upper():
+                    chosen_backend_type = 'lamb'
+                else:
+                    # Default to VISA if not LAMB and no hint
+                    chosen_backend_type = 'visa'
+                if debug_mode: print(f"Inferred backend type: '{chosen_backend_type}' from address '{actual_address}'.")
+
+            if chosen_backend_type == 'visa':
+                backend_instance = AsyncVisaBackend(address=actual_address, timeout_ms=actual_timeout)
+                if debug_mode: print(f"Using AsyncVisaBackend for '{actual_address}' with timeout {actual_timeout}ms.")
+            elif chosen_backend_type == 'lamb':
+                # Lamb backend might require a URL, typically from config or a default.
+                # The 'address' for Lamb is often the device identifier within the Lamb system.
+                lamb_server_url = getattr(config_model, 'lamb_url', 'http://lamb-server:8000') # Default or from config
+                backend_instance = AsyncLambBackend(address=actual_address, url=lamb_server_url, timeout_ms=actual_timeout)
+                if debug_mode: print(f"Using AsyncLambBackend for '{actual_address}' via '{lamb_server_url}' with timeout {actual_timeout}ms.")
+            else:
+                raise InstrumentConfigurationError(f"Unsupported backend_type '{chosen_backend_type}'.")
+        
+        # --- Instrument Driver Instantiation ---
         device_type_str: str = config_model.device_type
-        
         instrument_class_to_init = cls._instrument_mapping.get(device_type_str.lower())
         
-        # Although load_config checks device_type against its registry of Pydantic models,
-        # this check ensures the device_type maps to an actual instrument driver class.
         if instrument_class_to_init is None:
-            raise InstrumentConfigurationError(f"Unknown instrument type: '{device_type_str}'. No registered instrument class.")
+            raise InstrumentConfigurationError(f"Unknown device_type: '{device_type_str}'. No registered instrument class.")
         
-        # Instantiate the specific instrument class directly, passing the Pydantic config model,
-        # debug_mode, and the simulate flag.
-        # This requires that the __init__ method of Instrument (and its subclasses)
-        # accepts 'config', 'debug_mode', and 'simulate' parameters.
-        # The Instrument.__init__ has been updated to accept 'simulate'.
-        return instrument_class_to_init(config=config_model, debug_mode=debug_mode, simulate=simulate)
+        # Instrument subclasses __init__ now expect 'config' and 'backend'.
+        # (debug_mode and simulate are handled by AutoInstrument for backend choice)
+        instrument = instrument_class_to_init(config=config_model, backend=backend_instance)
+        
+        if debug_mode:
+            print(f"Instantiated {instrument_class_to_init.__name__} with {type(backend_instance).__name__}.")
+            print("Note: Backend connection is not established by __init__. Call 'await instrument.connect_backend()' explicitly.")
+            
+        return instrument
 
     @classmethod
-    def register_instrument(cls: Type[AutoInstrument], instrument_type: str, instrument_class: Type[Instrument]) -> None:
+    def register_instrument(cls: Type[AutoInstrument], instrument_type: str, instrument_class: Type[Instrument[Any]]) -> None:
         """
         Registers a new instrument type and its corresponding class.
         Args:

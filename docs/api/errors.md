@@ -1,0 +1,3 @@
+# Errors API
+
+::: pytestlab.errors

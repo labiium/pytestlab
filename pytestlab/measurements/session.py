@@ -9,6 +9,7 @@ parameter grid is known in advance.
 """
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import inspect
 import itertools
@@ -47,10 +48,11 @@ class _InstrumentRecord:
     auto_close: bool = True
 
 
-class MeasurementSession(contextlib.AbstractContextManager):
+class MeasurementSession(contextlib.AbstractAsyncContextManager):
     """
     Core builder – read the extensive doc-string in earlier assistant response
     for design details.
+    Now supports asynchronous operations for sweeps.
     """
 
     # Construction ------------------------------------------------------
@@ -69,11 +71,11 @@ class MeasurementSession(contextlib.AbstractContextManager):
         self._has_run = False
 
     # Context management ------------------------------------------------
-    def __enter__(self) -> "MeasurementSession":  # noqa: D401
+    async def __aenter__(self) -> "MeasurementSession":  # noqa: D401
         return self
 
-    def __exit__(self, exc_type, exc, tb) -> bool:  # noqa: D401
-        self._disconnect_all_instruments()
+    async def __aexit__(self, exc_type, exc, tb) -> bool:  # noqa: D401
+        await self._disconnect_all_instruments()
         return False
 
     # ─── Instruments ───────────────────────────────────────────────────
@@ -106,7 +108,7 @@ class MeasurementSession(contextlib.AbstractContextManager):
         return func
 
     # ─── Execution ────────────────────────────────────────────────────
-    def run(self, show_progress: bool = True) -> Experiment:
+    async def run(self, show_progress: bool = True) -> Experiment:
         if not self._parameters:
             raise RuntimeError("No parameters defined.")
         if not self._meas_funcs:
@@ -128,7 +130,8 @@ class MeasurementSession(contextlib.AbstractContextManager):
                 kwargs = {n: v for n, v in param_ctx.items() if n in sig.parameters}
                 if "ctx" in sig.parameters:
                     kwargs["ctx"] = row
-                res = func(**kwargs)
+                # Assuming func is now an async function that interacts with async instruments
+                res = await func(**kwargs)
                 if not isinstance(res, Mapping):
                     raise TypeError(f"Measurement '{meas_name}' returned {type(res)}, expected Mapping.")
                 for key, val in res.items():
@@ -136,6 +139,9 @@ class MeasurementSession(contextlib.AbstractContextManager):
                     row[col] = val
 
             self._data_rows[idx] = row
+            # Yield control to the event loop periodically in long sweeps
+            await asyncio.sleep(0)
+
 
         self._has_run = True
         self._build_experiment()
@@ -154,12 +160,19 @@ class MeasurementSession(contextlib.AbstractContextManager):
         exp.add_trial(self.data)
         self._experiment = exp
 
-    def _disconnect_all_instruments(self) -> None:
+    async def _disconnect_all_instruments(self) -> None:
         for rec in self._instruments.values():
             try:
-                getattr(rec.instance, "close", lambda: None)()
+                close_method = getattr(rec.instance, "close", None)
+                if callable(close_method):
+                    # If close_method is an 'async def' bound method,
+                    # calling it returns a coroutine.
+                    # If it's a regular method, it executes sync.
+                    result = close_method()
+                    if inspect.isawaitable(result):
+                        await result
             except Exception:  # noqa: BLE001
-                pass
+                pass  # Keep original error handling behavior
 
     # Rich Jupyter display --------------------------------------------
     def _repr_html_(self) -> str:  # pragma: no cover

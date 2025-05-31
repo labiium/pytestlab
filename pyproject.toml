@@ -31,16 +31,46 @@ plot   = ["matplotlib", "plotly"]
 full   = ["pytestlab[plot]", "uncertainties", "pydantic", "pyvisa-sim"]
 dev    = ["ruff", "mypy", "pytest", "pytest-cov", "pre-commit"]
 
+[project.scripts]
+pytestlab = "pytestlab.cli:app"
+[tool.commitizen]
+name = "cz_conventional_commits"
+version = "0.1.5"
+version_files = [
+    "pytestlab/__init__.py:__version__", # For __version__ = "..."
+]
+tag_format = "v$version"
+update_changelog_on_bump = true
+major_version_zero = true
+[tool.hatch.build]
+# Explicitly exclude the tests directory if it's part of the pytestlab source package
+exclude = [
+    "/pytestlab/tests", # Ensure this path correctly targets tests within the package
+    # "/examples", # Top-level examples are not included by `packages = ["pytestlab"]`
+    # "/docs"      # Docs are not typically included in wheels
+]
 [tool.hatch.build.targets.wheel]
 packages = ["pytestlab"]
 [tool.mypy]
 strict = true
-plugins = ["numpy.typing.mypy_plugin"]
+plugins = ["pydantic.mypy"]
 
 [tool.ruff]
-select = ["E", "F", "I", "UP", "B"]
-ignore = ["E501"]            # we allow long SCPI strings
 line-length = 100
+select = ["E", "F", "I", "UP", "B"] # Common selections: E/W (pycodestyle), F (Pyflakes), I (isort), UP (pyupgrade), B (flake8-bugbear)
+ignore = ["E501"] # Ignore line too long if line-length is managed by formatter or selectively
+
+[tool.ruff.lint] # Specific lint settings
+select = ["E", "F", "I", "UP", "B"] # Repeat or refine selection for lint explicitly
+ignore = ["E501"]
+
+[tool.ruff.lint.isort] # isort specific settings if using ruff for import sorting
+force-single-line = true
+# known-first-party = ["pytestlab"] # Helps isort group project imports
+
+[tool.ruff.format]
+quote-style = "double"
+# Other formatting options as desired
 
 [tool.coverage.run]
 branch = true
