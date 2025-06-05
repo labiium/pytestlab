@@ -100,7 +100,7 @@ class SimBackend:  # Implements AsyncInstrumentIO (and InstrumentIO for complete
             return f"SimulatedDevice,Model,{model_name},Firmware,SIM1.0"
         elif cmd_upper == "SYST:VERS?":
             return "1999.0" # SCPI version
-        elif cmd_upper == "SYST:ERR?" or cmd_upper == "SYSTEM:ERROR?":
+        elif cmd_upper == "SYST:ERR?" or cmd_upper == "SYSTEM:ERROR?" or cmd_upper == ":SYSTEM:ERROR?" or cmd_upper == ":SYST:ERR?":
             if not self.state['errors']:
                 return "+0,\"No error\""
             else:

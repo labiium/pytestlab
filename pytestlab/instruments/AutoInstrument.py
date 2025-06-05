@@ -12,7 +12,7 @@ from .VectorNetworkAnalyser import VectorNetworkAnalyser
 from .PowerMeter import PowerMeter
 from .instrument import Instrument, AsyncInstrumentIO # Import AsyncInstrumentIO
 from ..errors import InstrumentConfigurationError # Removed InstrumentNotFoundError as it's not used here
-from ..config.loader import load_config
+from ..config.loader import load_profile
 from ..config.instrument_config import InstrumentConfig as PydanticInstrumentConfig # Base Pydantic config
 
 # Import new backend classes
@@ -160,8 +160,9 @@ class AutoInstrument:
         raise FileNotFoundError(f"No configuration found for identifier '{identifier}' in local paths.")
 
     @classmethod
-    def from_config(cls: Type[AutoInstrument],
+    async def from_config(cls: Type[AutoInstrument],
                     config_source: Union[str, Dict[str, Any]],
+                    *args,
                     serial_number: Optional[str] = None,
                     debug_mode: bool = False, # For logging during config load
                     simulate: Optional[bool] = None,
@@ -175,6 +176,10 @@ class AutoInstrument:
         The Instrument class and its I/O methods are async.
         The caller is responsible for `await instrument.connect_backend()` after instantiation.
         """
+        # Support serial_number as positional second argument
+        if len(args) > 0 and isinstance(args[0], str):
+            serial_number = args[0]
+
         config_data: Dict[str, Any]
         
         if isinstance(config_source, dict):
@@ -192,7 +197,7 @@ class AutoInstrument:
         else:
             raise TypeError("config_source must be a file path (str) or a dict")
 
-        config_model: PydanticInstrumentConfig = load_config(config_data)
+        config_model: PydanticInstrumentConfig = load_profile(config_data)
 
         if serial_number is not None and hasattr(config_model, 'serial_number'):
             config_model.serial_number = serial_number # type: ignore
@@ -225,7 +230,7 @@ class AutoInstrument:
             if debug_mode: print(f"Address from config: '{actual_address}'.")
 
         actual_timeout: int
-        default_communication_timeout_ms = 5000 # Default if not in override or config
+        default_communication_timeout_ms = 30000 # Default if not in override or config
         if timeout_override_ms is not None:
             actual_timeout = timeout_override_ms
             if debug_mode: print(f"Timeout overridden to {actual_timeout}ms.")
@@ -251,34 +256,45 @@ class AutoInstrument:
         # --- Backend Instantiation ---
         if final_simulation_mode:
             device_model_str = getattr(config_model, 'model', 'GenericSimulatedModel')
-            # Using SimBackend as per existing imports, assuming it's async compatible
             backend_instance = SimBackend(profile=config_model, device_model=device_model_str, timeout_ms=actual_timeout)
             if debug_mode: print(f"Using SimBackend for {device_model_str} with timeout {actual_timeout}ms.")
         else:
-            if actual_address is None:
-                raise InstrumentConfigurationError("Missing address/resource_name for non-simulated backend (and no address_override provided).")
-
-            chosen_backend_type: str
             if backend_type_hint:
                 chosen_backend_type = backend_type_hint.lower()
                 if debug_mode: print(f"Backend type hint provided: '{chosen_backend_type}'.")
+            elif actual_address and "LAMB::" in actual_address.upper():
+                chosen_backend_type = 'lamb'
+                if debug_mode: print(f"Inferred backend type: 'lamb' from address '{actual_address}'.")
+            elif actual_address:
+                chosen_backend_type = 'visa'
+                if debug_mode: print(f"Inferred backend type: 'visa' from address '{actual_address}'.")
             else:
-                if "LAMB::" in actual_address.upper():
-                    chosen_backend_type = 'lamb'
-                else:
-                    # Default to VISA if not LAMB and no hint
-                    chosen_backend_type = 'visa'
-                if debug_mode: print(f"Inferred backend type: '{chosen_backend_type}' from address '{actual_address}'.")
+                chosen_backend_type = 'lamb'
+                if debug_mode: print(f"Defaulting backend type to 'lamb' (no address present).")
 
             if chosen_backend_type == 'visa':
+                if actual_address is None:
+                    raise InstrumentConfigurationError("Missing address/resource_name for VISA backend.")
                 backend_instance = AsyncVisaBackend(address=actual_address, timeout_ms=actual_timeout)
                 if debug_mode: print(f"Using AsyncVisaBackend for '{actual_address}' with timeout {actual_timeout}ms.")
             elif chosen_backend_type == 'lamb':
-                # Lamb backend might require a URL, typically from config or a default.
-                # The 'address' for Lamb is often the device identifier within the Lamb system.
-                lamb_server_url = getattr(config_model, 'lamb_url', 'http://lamb-server:8000') # Default or from config
-                backend_instance = AsyncLambBackend(address=actual_address, url=lamb_server_url, timeout_ms=actual_timeout)
-                if debug_mode: print(f"Using AsyncLambBackend for '{actual_address}' via '{lamb_server_url}' with timeout {actual_timeout}ms.")
+                lamb_server_url = getattr(config_model, 'lamb_url', 'http://lamb-server:8000')
+                if actual_address:
+                    backend_instance = AsyncLambBackend(address=actual_address, url=lamb_server_url, timeout_ms=actual_timeout)
+                elif hasattr(config_model, "model") and hasattr(config_model, "serial_number"):
+                    backend_instance = AsyncLambBackend(
+                        address=None,
+                        url=lamb_server_url,
+                        timeout_ms=actual_timeout,
+                        model_name=getattr(config_model, "model"),
+                        serial_number=getattr(config_model, "serial_number")
+                    )
+                else:
+                    raise InstrumentConfigurationError(
+                        "Lamb backend requires either an address or both model and serial_number in the config."
+                    )
+                if debug_mode:
+                    print(f"Using AsyncLambBackend for model='{getattr(config_model, 'model', None)}', serial='{getattr(config_model, 'serial_number', None)}' via '{lamb_server_url}' with timeout {actual_timeout}ms.")
             else:
                 raise InstrumentConfigurationError(f"Unsupported backend_type '{chosen_backend_type}'.")
         

@@ -1,8 +1,17 @@
+import asyncio
 from pytestlab.instruments import AutoInstrument
-from pytestlab.experiments import Database
-import pytestlab
 
 # loading the instruments
-osc = AutoInstrument.from_config("keysight/DSOX1204G")
+async def main():
 
-channel_readings = osc.read_channels(1)
+    osc = AutoInstrument.from_config("keysight/DSOX1204G")
+
+    data = await osc.read_channels(1)
+
+    # turn on display of channel 1
+    await osc.display_channel(1, state=True)
+    
+    print(data)
+
+
+asyncio.run(main())

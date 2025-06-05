@@ -3,23 +3,51 @@ from __future__ import annotations
 import asyncio # Added import
 import time
 import numpy as np
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+import polars as pl
+from typing import Any, Dict, List, Optional, Tuple, Type, Union, Self
 from dataclasses import dataclass
 from PIL import Image
 from io import BytesIO, StringIO
-import polars as pl
-from pydantic import validate_call # Added validate_call
+from uncertainties import ufloat
+from uncertainties.core import UFloat
+from ..analysis import fft as analysis_fft
 
 from .instrument import Instrument
-from ..config import OscilloscopeConfig, ConfigRequires # OscilloscopeConfig is V2
-from ..errors import InstrumentConfigurationError, InstrumentParameterError
+# from ..config import OscilloscopeConfig, ConfigRequires # OscilloscopeConfig is V2
+from ..config.oscilloscope_config import OscilloscopeConfig # Import the V2 config
 from ..experiments import MeasurementResult
-from matplotlib import pyplot as plt
-from uncertainties import ufloat
-from uncertainties.core import UFloat # For type hinting float | UFloat
-from ..common.enums import AcquisitionType, SCPIOnOff, TriggerSlope, WaveformType # Added Enums
-from ..common.health import HealthReport, HealthStatus # Adjust import
-from ..analysis import fft as analysis_fft
+from ..common.enums import AcquisitionType, SCPIOnOff, TriggerSlope, WaveformType
+from ..common.health import HealthReport, HealthStatus
+from ..errors import InstrumentConfigurationError, InstrumentParameterError, InstrumentDataError
+from pydantic import validate_call
+
+def _validate_range(val, minval, maxval, name):
+    if not (minval <= val <= maxval):
+        raise ValueError(f"{name} must be between {minval} and {maxval}, got {val}")
+
+_ACQ_TYPE_MAP = {
+    AcquisitionType.NORMAL: "NORMal",
+    AcquisitionType.AVERAGE: "AVERage",
+    AcquisitionType.HIGH_RES: "HRESolution",
+    AcquisitionType.PEAK: "PEAK"
+}
+
+_ACQ_MODE_MAP = {
+    "REAL_TIME": "RTIMe",
+    "SEGMENTED": "SEGMented"
+}
+
+class ChannelReadingResult(MeasurementResult):
+    """A result class for oscilloscope channel readings (time, voltage, etc)."""
+    pass
+
+class FFTResult(MeasurementResult):
+    """A result class for FFT data from the oscilloscope."""
+    pass
+
+class FRanalysisResult(MeasurementResult):
+    """A result class for frequency response analysis data."""
+    pass
 
 
 # Forward declarations for type hints within facade classes
@@ -32,7 +60,7 @@ class ScopeChannelFacade:
         self._channel = channel_num
 
     @validate_call
-    async def setup(self, scale: Optional[float] = None, position: Optional[float] = None, offset: Optional[float] = None, coupling: Optional[str] = None, probe_attenuation: Optional[int] = None, bandwidth_limit: Optional[Union[str, float]] = None) -> 'ScopeChannelFacade':
+    async def setup(self, scale: Optional[float] = None, position: Optional[float] = None, offset: Optional[float] = None, coupling: Optional[str] = None, probe_attenuation: Optional[int] = None, bandwidth_limit: Optional[Union[str, float]] = None) -> Self:
         """
         Configures the channel's vertical scale, position (offset), coupling, and probe attenuation.
         'position' and 'offset' are often the same parameter on scopes, typically called offset.
@@ -57,11 +85,11 @@ class ScopeChannelFacade:
             
         return self
 
-    async def enable(self) -> 'ScopeChannelFacade':
+    async def enable(self) -> Self:
         await self._scope.display_channel(self._channel, True)
         return self
 
-    async def disable(self) -> 'ScopeChannelFacade':
+    async def disable(self) -> Self:
         await self._scope.display_channel(self._channel, False)
         return self
 
@@ -77,7 +105,7 @@ class ScopeTriggerFacade:
         self._scope = scope
 
     @validate_call
-    async def setup_edge(self, source: str, level: float, slope: TriggerSlope = TriggerSlope.POSITIVE, coupling: Optional[str] = None, mode: str = "EDGE") -> 'ScopeTriggerFacade':
+    async def setup_edge(self, source: str, level: float, slope: TriggerSlope = TriggerSlope.POSITIVE, coupling: Optional[str] = None, mode: str = "EDGE") -> Self:
         """
         Configures an edge trigger.
         Source can be 'CH1', 'CH2', 'EXT', 'LINE', etc.
@@ -117,206 +145,162 @@ class ScopeAcquisitionFacade:
     def __init__(self, scope: 'Oscilloscope'):
         self._scope = scope
 
-    async def start(self) -> 'ScopeAcquisitionFacade':
-        await self._scope._send_command(":RUN") # Or :DIGitize if single acquisition
-        return self
-
-    async def stop(self) -> 'ScopeAcquisitionFacade':
-        await self._scope._send_command(":STOP")
-        return self
-
-    async def single(self) -> 'ScopeAcquisitionFacade':
-        await self._scope._send_command(":SINGle")
-        return self
-
-    async def wait_for_trigger(self, timeout: float = 10.0) -> 'ScopeAcquisitionFacade':
+    @validate_call
+    async def set_acquisition_type(self, acq_type: AcquisitionType) -> None:
         """
-        Waits for the oscilloscope to trigger.
-        This might involve polling the trigger status or using *OPC.
+        Select the oscilloscope acquisition algorithm.
         """
-        await self._scope._send_command("*OPC")
-        start_time = time.time()
-        while True:
-            opc_status = (await self._scope._query("*OPC?")).strip()
-            if opc_status == "1":
-                run_state = (await self._scope._query(":RSTate?")).strip()
-                if run_state == "STOP":
-                    break
-            if time.time() - start_time > timeout:
-                raise TimeoutError("Timeout waiting for oscilloscope trigger.")
-            await asyncio.sleep(0.1) # Use asyncio.sleep for async context
-        return self
+        scpi_val = _ACQ_TYPE_MAP.get(acq_type)
+        if not scpi_val:
+            raise InstrumentParameterError(f"Unsupported acquisition type enum member: {acq_type}")
+
+        current_mode_query: str = (await self._scope._query(":ACQuire:MODE?")).strip().upper()
+        if acq_type == AcquisitionType.AVERAGE and current_mode_query == _ACQ_MODE_MAP["SEGMENTED"].upper()[:4]:
+            raise InstrumentParameterError("AVERAGE mode is unavailable in SEGMENTED acquisition.")
+
+        await self._scope._send_command(f":ACQuire:TYPE {scpi_val}")
+        await self._scope._wait()
+        self._scope._logger.debug(f"Acquisition TYPE set → {acq_type.name}")
 
     @validate_call
-    async def get_waveform(self, *channels: Union[int, List[int], Tuple[int, ...]]) -> ChannelReadingResult:
+    async def get_acquisition_type(self) -> str:
         """
-        Acquires and returns waveform data for the specified channel(s).
+        Returns current acquisition type (e.g., "NORMAL", "AVERAGE").
         """
-        return await self._scope.read_channels(*channels)
+        # Invert _ACQ_TYPE_MAP for lookup: SCPI response -> Enum member name
+        # SCPI responses can be short forms (e.g., "NORM" for "NORMal")
+        # We need to match based on how the instrument actually responds.
+        # A common way is that instrument responds with the short form.
+        # Let's assume the instrument responds with a value that can be mapped back.
+        resp_str_raw: str = (await self._scope._query(":ACQuire:TYPE?")).strip()
+        
+        for enum_member, scpi_command_str in _ACQ_TYPE_MAP.items():
+            # Check if the response starts with the typical short SCPI command part
+            # e.g. "NORM" from "NORMal"
+            # This matching logic might need to be more robust based on actual instrument behavior
+            if resp_str_raw.upper().startswith(scpi_command_str.upper()[:4]): # Compare first 4 chars
+                return enum_member.name # Return the string name of the enum member
+        
+        self._scope._logger.warning(f"Could not map SCPI response '{resp_str_raw}' to a known AcquisitionType. Returning raw response.")
+        return resp_str_raw # Fallback to raw response if no match
 
     @validate_call
-    async def set_type(self, acq_type: AcquisitionType) -> 'ScopeAcquisitionFacade':
-        await self._scope.set_acquisition_type(acq_type)
-        return self
-
-    @validate_call
-    async def get_type(self) -> str:
-        return await self._scope.get_acquisition_type()
-
-    @validate_call
-    async def set_mode(self, mode: str) -> 'ScopeAcquisitionFacade':
-        await self._scope.set_acquisition_mode(mode)
-        return self
-    
-    @validate_call
-    async def get_mode(self) -> str:
-        return await self._scope.get_acquisition_mode()
-
-
-_ACQ_TYPE_MAP: Dict[AcquisitionType, str] = {
-    AcquisitionType.NORMAL: "NORMal",
-    AcquisitionType.AVERAGE: "AVERage",
-    AcquisitionType.HIGH_RES: "HRESolution",
-    AcquisitionType.PEAK: "PEAK",
-}
-
-_ACQ_MODE_MAP: dict[str, str] = { # This map remains as string keys as no Enum was specified for it
-    "REAL_TIME": "RTIMe",
-    "SEGMENTED": "SEGMented",
-}
-
-class ChannelReadingResult(MeasurementResult):
-
-    """
-    A class to represent the results of a channel reading from an oscilloscope.
-
-    Attributes:
-    values (polars.DataFrame): A DataFrame containing the channel data.
-    """
-    def plot(self) -> None:
+    async def set_acquisition_average_count(self, count: int) -> None:
         """
-        Plots the channel voltages over time.
-        # For Notebook use
+        Set the running-average length for AVERAGE mode.
+        2 <= count <= 65536 (Keysight limit).
         """
-        channel_columns = self.values.columns[1:]
-        # Plotting each channel
-        time_data = self.values['Time (s)']
-        plt.figure(figsize=(10, 6))  # Set the figure size for better visibility
-        for channel in channel_columns:
-            channel_data = self.values[channel]
+        _validate_range(count, 2, 65_536, "Average count") # Sync
+        
+        current_acq_type_str = await self.get_acquisition_type()
+        if current_acq_type_str != AcquisitionType.AVERAGE.name:
+            raise InstrumentParameterError(f"Average count can only be set when acquisition type is AVERAGE, not {current_acq_type_str}.")
+        await self._scope._send_command(f":ACQuire:COUNt {count}")
+        await self._scope._wait()
+        self._scope._logger.debug(f"AVERAGE count set → {count}")
 
-            # Creating the plot
-            plt.plot(time_data, channel_data, label=channel)
+    @validate_call
+    async def get_acquisition_average_count(self) -> int:
+        """Integer average count (valid only when acquisition type == AVERAGE)."""
+        return int(await self._scope._query(":ACQuire:COUNt?"))
 
+    @validate_call
+    async def set_acquisition_mode(self, mode: str) -> None:
+        """
+        Select real-time or segmented memory acquisition.
+        (Case-insensitive for mode).
+        """
+        mode_upper: str = mode.upper()
+        scpi_mode_val = _ACQ_MODE_MAP.get(mode_upper)
+        if not scpi_mode_val:
+            raise InstrumentParameterError(f"Unknown acquisition mode: {mode}. Supported: {list(_ACQ_MODE_MAP.keys())}")
 
-        # Display the plotf(V)
-        plt.title(f"Channel Voltages over time ({','.join(channel_columns)})")
-        plt.xlabel("Time (s)")
-        plt.ylabel("Channel Signal")
-        plt.legend()
-        plt.grid(True)
-        plt.show()
+        await self._scope._send_command(f":ACQuire:MODE {scpi_mode_val}")
+        await self._scope._wait()
+        self._scope._logger.debug(f"Acquisition MODE set → {mode_upper}")
 
-    def __getitem__(self, channel: Union[int, str]) -> VoltageReadingResult:
-        # extract correct columns of polars dataframe
-        try:
-            df = self.values[["Time (s)", f"Channel {channel} (V)"]]
-            df_renamed = df.rename({f"Channel {channel} (V)": "Voltage (V)"})
-            return VoltageReadingResult(
-                instrument=self.instrument,
-                units="V",
-                measurement_type="VoltageTime",
-                values=df_renamed
-            )
-                
-        except pl.PolarsError as e:
-            raise KeyError(f"Channel {channel} not found in data") from e
+    @validate_call
+    async def get_acquisition_mode(self) -> str:
+        """Return "REAL_TIME" or "SEGMENTED"."""
+        resp_str_raw: str = (await self._scope._query(":ACQuire:MODE?")).strip()
+        for friendly_name, scpi_command_str in _ACQ_MODE_MAP.items():
+            if resp_str_raw.upper().startswith(scpi_command_str.upper()[:4]):
+                return friendly_name
+        self._scope._logger.warning(f"Could not map SCPI response '{resp_str_raw}' to a known AcquisitionMode. Returning raw response.")
+        return resp_str_raw
 
-class FFTResult(MeasurementResult):
-    """
-    A class to represent the results of an FFT analysis.
+    @validate_call
+    async def set_segmented_count(self, count: int) -> None:
+        """
+        Configure number of memory segments for SEGMENTED acquisitions.
+        Default Keysight limit: 2 <= count <= 500 (check instrument specs)
+        """
+        if await self.get_acquisition_mode() != "SEGMENTED":
+            raise InstrumentParameterError("Segmented count can only be set while in SEGMENTED acquisition mode.")
+        _validate_range(count, 2, 500, "Segmented count") # Sync
+        await self._scope._send_command(f":ACQuire:SEGMented:COUNt {count}")
+        await self._scope._wait()
+        self._scope._logger.debug(f"Segmented COUNT set → {count}")
 
-    Attributes:
-    values (polars.DataFrame): A DataFrame containing the FFT data.
-    """
-    def plot(self) -> None:
-        channel_columns = self.values.columns[1:]
-        # Plotting each channel
+    @validate_call
+    async def get_segmented_count(self) -> int:
+        """Number of segments currently configured (SEGMENTED mode only)."""
+        return int(await self._scope._query(":ACQuire:SEGMented:COUNt?"))
 
-        frequency_data = self.values['Frequency (Hz)']
-        y_label = self.values.columns[1]
-        magnitude_data = self.values[y_label]
-        # Plotting from Polars data
-        plt.figure(figsize=(10, 6))
-        plt.title("FFT Magnitude vs. Frequency")
-        plt.xlabel("Frequency (Hz)")
-        # get column label
-        plt.ylabel(y_label)
-        plt.plot(frequency_data, magnitude_data, 'r-o', label=y_label)
-        plt.grid(True, which="both", ls="--")
-        # plt.legend(loc='upper left')
-        plt.show()
+    @validate_call
+    async def set_segment_index(self, index: int) -> None:
+        """
+        Select which memory segment is active for readback.
+        1 <= index <= get_segmented_count()
+        """
+        total_segments: int = await self.get_segmented_count()
+        _validate_range(index, 1, total_segments, "Segment index") # Sync
+        await self._scope._send_command(f":ACQuire:SEGMented:INDex {index}")
+        await self._scope._wait()
 
-class VoltageReadingResult(MeasurementResult):
-    """
-    
-    A class to represent the results of a voltage reading from an oscilloscope.
+    @validate_call
+    async def get_segment_index(self) -> int:
+        """Index (1-based) of the currently selected memory segment."""
+        return int(await self._scope._query(":ACQuire:SEGMented:INDex?"))
 
-    Attributes:
-    values (polars.DataFrame): A DataFrame containing the voltage data.
-    """
+    @validate_call
+    async def analyze_all_segments(self) -> None:
+        """
+        Execute the scope's *Analyze Segments* soft-key.
+        Requires scope to be stopped and in SEGMENTED mode.
+        """
+        if await self.get_acquisition_mode() != "SEGMENTED":
+            raise InstrumentParameterError("Segment analysis requires SEGMENTED mode.")
+        await self._scope._send_command(":ACQuire:SEGMented:ANALyze")
+        await self._scope._wait()
 
-    def plot(self, title: str = "Voltage over Time") -> None:
-        plt.figure(figsize=(10, 6))
-        plt.plot(self.values["Time (s)"], self.values["Voltage (V)"])
-        plt.title(title)
-        plt.xlabel("Time (s)")
-        plt.ylabel("Voltage (V)")
-        plt.grid(True)
-        plt.show()
+    @validate_call
+    async def get_acquire_points(self) -> int:
+        """
+        Hardware points actually *acquired* for the next waveform transfer.
+        """
+        return int(await self._scope._query(":ACQuire:POINts?"))
 
-    def __getitem__(self, key: str) -> pl.Series:
-        return self.values[key]
+    @validate_call
+    async def get_acquisition_sample_rate(self) -> float:
+        """
+        Current sample rate of acquisition. Equivalent to get_sampling_rate().
+        """
+        return float(await self._scope._query(":ACQuire:SRATe?"))
 
-class FRanalysisResult(MeasurementResult):
-
-    """
-    A class to represent the results of a frequency response analysis from an oscilloscope.
-
-    Attributes:
-    values (polars.DataFrame): A DataFrame containing the frequency response data.
-    """
-    def plot(self, title: str = "Gain and Phase vs. Frequency") -> None:
-        plt.figure(figsize=(12, 6))
-
-        frequency: np.ndarray = self.values[:,1].to_numpy()
-        gain: np.ndarray = self.values[:,3].to_numpy()
-        phase: np.ndarray = self.values[:,4].to_numpy()
-
-        # Plotting from Polars data
-        plt.figure(figsize=(12, 6))
-
-        # Plot Gain vs. Frequency
-        plt.subplot(2, 1, 1)
-        plt.semilogx(frequency, gain, 'r-o', label='Gain (dB)')
-        plt.title(title)
-        plt.ylabel('Gain (dB)')
-        plt.grid(True, which="both", ls="--")
-        plt.legend(loc='upper left')
-
-        # Plot Phase vs. Frequency
-        plt.subplot(2, 1, 2)
-        plt.semilogx(frequency, phase, 'b-o', label='Phase (°)')
-        plt.xlabel('Frequency (Hz)')
-        plt.ylabel('Phase (°)')
-        plt.grid(True, which="both", ls="--")
-        plt.legend(loc='upper left')
-
-        plt.tight_layout()
-        plt.show()
-
-    def __getitem__(self, key: str) -> pl.Series:
-        return self.values[key]
+    @validate_call
+    async def get_acquire_setup(self) -> Dict[str, str]:
+        """
+        Return a parsed dictionary of the scope's :ACQuire? status string.
+        """
+        raw_str: str = (await self._scope._query(":ACQuire?")).strip()
+        parts: List[str] = [p.strip() for p in raw_str.split(';')]
+        setup_dict: Dict[str, str] = {}
+        for part in parts:
+            kv = part.split(maxsplit=1)
+            if len(kv) == 2:
+                setup_dict[kv[0]] = kv[1]
+        return setup_dict
 
 @dataclass
 class Preamble:
@@ -394,6 +378,86 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
     def from_config(cls: Type['Oscilloscope'], config: OscilloscopeConfig, debug_mode: bool = False, **kwargs: Any) -> 'Oscilloscope':
         # This method aligns with the new __init__ signature.
         return cls(config=config, debug_mode=debug_mode, **kwargs)
+    
+    async def health_check(self) -> HealthReport:
+        """
+        Performs a basic health check of the oscilloscope instrument.
+        
+        Returns:
+            HealthReport: A report containing the instrument's health status,
+                          errors, warnings, and supported features.
+        """
+        report = HealthReport()
+        
+        try:
+            # Get instrument identification
+            report.instrument_idn = await self.id()
+            
+            # Check for stored errors
+            instrument_errors = await self.get_all_errors()
+            if instrument_errors:
+                report.warnings.extend([f"Stored Error: {code} - {msg}" for code, msg in instrument_errors])
+
+            # Set initial status based on errors
+            if not report.errors and not report.warnings:
+                report.status = HealthStatus.OK
+            elif report.warnings and not report.errors:
+                report.status = HealthStatus.WARNING
+            else:
+                report.status = HealthStatus.ERROR
+
+        except Exception as e:
+            report.status = HealthStatus.ERROR
+            report.errors.append(f"Health check failed during IDN/Error Query: {str(e)}")
+
+        try:
+            # Test basic oscilloscope functionality
+            _ = await self.get_time_axis()
+            
+            # Check supported features based on configuration
+            if hasattr(self.config, 'fft') and self.config.fft:
+                report.supported_features["fft"] = True
+            else:
+                report.supported_features["fft"] = False
+                
+            if hasattr(self.config, 'franalysis') and self.config.franalysis:
+                report.supported_features["franalysis"] = True
+            else:
+                report.supported_features["franalysis"] = False
+                
+            if hasattr(self.config, 'function_generator') and self.config.function_generator:
+                report.supported_features["function_generator"] = True
+            else:
+                report.supported_features["function_generator"] = False
+
+        except Exception as e:
+            report.errors.append(f"Oscilloscope-specific check failed: {str(e)}")
+
+        # Determine backend status
+        if hasattr(self, '_backend') and hasattr(self._backend, '__class__'):
+            backend_name = self._backend.__class__.__name__
+            if "SimBackend" in backend_name:
+                report.backend_status = "Simulated"
+            elif "VisaBackend" in backend_name:
+                report.backend_status = "VISA Connection"
+            elif "LambInstrument" in backend_name or "LambBackend" in backend_name:
+                report.backend_status = "Lamb Connection"
+            else:
+                report.backend_status = f"Unknown backend: {backend_name}"
+        else:
+            report.backend_status = "Backend information unavailable"
+
+        # Final status evaluation
+        if report.errors and report.status != HealthStatus.ERROR:
+            report.status = HealthStatus.ERROR
+        elif report.warnings and report.status == HealthStatus.OK:
+            report.status = HealthStatus.WARNING
+        
+        # If no errors or warnings after all checks, and status is still UNKNOWN, set to OK
+        if report.status == HealthStatus.UNKNOWN and not report.errors and not report.warnings:
+            report.status = HealthStatus.OK
+
+        return report
     
     async def _read_preamble(self) -> Preamble:
         """Reads the preamble from the oscilloscope.
@@ -544,7 +608,8 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
             actual_source = f"CHANnel{channel}"
         else:
             actual_source = source.upper()
-            if actual_source.startswith("CHAN"):
+            # Check if source is a channel (handle CH1, CHAN1, CHANNEL1 formats)
+            if actual_source.startswith("CH"):
                 try:
                     num_str = "".join(filter(str.isdigit, actual_source))
                     if not num_str:
@@ -552,6 +617,8 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
                     source_channel_to_validate = int(num_str)
                     if not (1 <= source_channel_to_validate <= len(self.config.channels)):
                         raise InstrumentParameterError(f"Source channel number {source_channel_to_validate} is out of range (1-{len(self.config.channels)}).")
+                    # Normalize the channel source to CHANNEL format for SCPI command
+                    actual_source = f"CHANnel{source_channel_to_validate}"
                 except (ValueError, IndexError) as e:
                     raise InstrumentParameterError(f"Invalid channel format in source: {source}") from e
             elif actual_source not in ["EXTERNAL", "LINE", "WGEN"]:
@@ -719,7 +786,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         sampling_rate_float: float = float(await self.get_sampling_rate())
         channel_commands_str: str = ', '.join(f"CHANnel{ch}" for ch in processed_channels)
 
-        acq_type_enum_or_str = await self.get_acquisition_type()
+        acq_type_enum_or_str = await self.acquisition.get_acquisition_type()
         
         is_average_mode = False
         if isinstance(acq_type_enum_or_str, AcquisitionType):
@@ -876,7 +943,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         await self._send_command(f"CHANnel{channel}:BANDwidth {bandwidth}")
 
     @validate_call
-    @ConfigRequires("function_generator")
+    #@ConfigRequires("function_generator")
     async def wave_gen(self, state: bool) -> None:
         """
         Enable or disable the waveform generator of the oscilloscope.
@@ -888,7 +955,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         await self._send_command(f"WGEN:OUTP {scpi_state}")
 
     @validate_call
-    @ConfigRequires("function_generator")
+    #@ConfigRequires("function_generator")
     async def set_wave_gen_func(self, func_type: WaveformType) -> None:
         """
         Set the waveform function for the oscilloscope's waveform generator.
@@ -906,7 +973,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         await self._send_command(f"WGEN:FUNC {func_type.value}")
 
     @validate_call
-    @ConfigRequires("function_generator")
+    ##@ConfigRequires("function_generator")
     async def set_wave_gen_freq(self, freq: float) -> None:
         """
         Set the frequency for the waveform generator.
@@ -921,7 +988,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         await self._send_command(f"WGEN:FREQ {freq}")
 
     @validate_call
-    @ConfigRequires("function_generator")
+    #@ConfigRequires("function_generator")
     async def set_wave_gen_amp(self, amp: float) -> None:
         """
         Set the amplitude for the waveform generator.
@@ -935,7 +1002,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         await self._send_command(f"WGEN:VOLT {amp}")
 
     @validate_call
-    @ConfigRequires("function_generator")
+    #@ConfigRequires("function_generator")
     async def set_wave_gen_offset(self, offset: float) -> None:
         """
         Set the voltage offset for the waveform generator.
@@ -949,7 +1016,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         await self._send_command(f"WGEN:VOLT:OFFSet {offset}")
 
     @validate_call
-    @ConfigRequires("function_generator")
+    #@ConfigRequires("function_generator")
     async def set_wgen_sin(self, amp: float, offset: float, freq: float) -> None:
         """Sets the waveform generator to a sine wave.
 
@@ -966,7 +1033,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
 
 
     @validate_call
-    @ConfigRequires("function_generator")
+    #@ConfigRequires("function_generator")
     async def set_wgen_square(self, v0: float, v1: float, freq: float, dutyCycle: int) -> None:
         """Sets the waveform generator to a square wave.
 
@@ -990,7 +1057,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
 
 
     @validate_call
-    @ConfigRequires("function_generator")
+    #@ConfigRequires("function_generator")
     async def set_wgen_ramp(self, v0: float, v1: float, freq: float, symmetry: int) -> None:
         """Sets the waveform generator to a ramp wave.
 
@@ -1012,7 +1079,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
 
 
     @validate_call
-    @ConfigRequires("function_generator")
+    #@ConfigRequires("function_generator")
     async def set_wgen_pulse(self, v0: float, v1: float, period: float, pulseWidth: float) -> None:
         """Sets the waveform generator to a pulse wave.
 
@@ -1032,7 +1099,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
 
 
     @validate_call
-    @ConfigRequires("function_generator")
+    #@ConfigRequires("function_generator")
     async def set_wgen_dc(self, offset: float) -> None:
         """Sets the waveform generator to a DC wave.
 
@@ -1045,7 +1112,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
 
 
     @validate_call
-    @ConfigRequires("function_generator")
+    #@ConfigRequires("function_generator")
     async def set_wgen_noise(self, v0: float, v1: float, offset: float) -> None:
         """Sets the waveform generator to a noise wave.
 
@@ -1085,7 +1152,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
             await self._send_command(f"CHANnel{ch_num}:DISPlay {scpi_state}")
 
     @validate_call
-    @ConfigRequires("fft")
+    #@ConfigRequires("fft")
     async def fft_display(self, state: bool = True) -> None:
         """
         Switches on or off the FFT display.
@@ -1097,7 +1164,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         self._logger.debug(f"FFT display {'enabled' if state else 'disabled'}.")
         
     @validate_call
-    @ConfigRequires("function_generator")
+    #@ConfigRequires("function_generator")
     async def function_display(self, state: bool = True) -> None:
         """
         Switches on or off the function display (e.g. Math or WGEN waveform).
@@ -1109,7 +1176,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         self._logger.debug(f"Function display {'enabled' if state else 'disabled'}.")
 
     @validate_call
-    @ConfigRequires("fft")
+    #@ConfigRequires("fft")
     async def configure_fft(self, source_channel: int, scale: Optional[float] = None, offset: Optional[float] = None, span: Optional[float] = None,  window_type: str = 'HANNing', units: str = 'DECibel', display: bool = True) -> None:
         """
         Configure the oscilloscope to perform an FFT on the specified channel.
@@ -1262,8 +1329,8 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         return Image.open(BytesIO(image_data_bytes))
 
     @validate_call
-    @ConfigRequires("franalysis")
-    @ConfigRequires("function_generator")
+    #@ConfigRequires("franalysis")
+    #@ConfigRequires("function_generator")
     async def franalysis_sweep(self, input_channel: int, output_channel: int, start_freq: float, stop_freq: float, amplitude: float, points: int = 10, trace: str = "none", load: str = "onemeg", disable_on_complete: bool = True) -> FRanalysisResult:
         """
         Perform a frequency response analysis sweep.
@@ -1275,301 +1342,47 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
             raise InstrumentConfigurationError("Function generator or FRANalysis not configured.")
 
         if not (1 <= input_channel <= len(self.config.channels)):
-            raise InstrumentParameterError(f"Input channel {input_channel} out of range (1-{len(self.config.channels)}).")
+            raise InstrumentParameterError(f"Input channel {input_channel} is out of range (1-{len(self.config.channels)}).")
         if not (1 <= output_channel <= len(self.config.channels)):
-            raise InstrumentParameterError(f"Output channel {output_channel} out of range (1-{len(self.config.channels)}).")
+            raise InstrumentParameterError(f"Output channel {output_channel} is out of range (1-{len(self.config.channels)}).")
 
+        # Ensure points is at least 2 for a valid sweep
+        if points < 2:
+            raise InstrumentParameterError(f"Points for sweep must be at least 2. Provided: {points}")
 
-        await self._send_command(":STOP")
-        await self._send_command(":FRANalysis:ENABle ON")
-
-        await self._send_command(f":FRANalysis:SOURce:INPut CHANnel{input_channel}")
-        await self._send_command(f":FRANalysis:SOURce:OUTPut CHANnel{output_channel}")
-
-        await self._send_command(f":FRANalysis:FREQuency:MODE SWEep")
-        self.config.franalysis.sweep_points.assert_in_range(points, "FRA sweep points") # Sync
-        await self._send_command(f":FRANalysis:SWEep:POINts {points}")
+        # SCPI commands for frequency response analysis sweep
+        await self._send_command(f":FUNCtion:FRANalysis")
+        await self._send_command(f":FREQuency:START {start_freq}")
+        await self._send_command(f":FREQuency:STOP {stop_freq}")
+        await self._send_command(f":AMPLitude {amplitude}")
+        await self._send_command(f":POINTS {points}")
+        await self._send_command(f":TRACe:FEED {trace}")
+        await self._send_command(f":LOAD {load}")
         
-        self.config.function_generator.frequency.assert_in_range(start_freq, "FRA start frequency") # Sync
-        self.config.function_generator.frequency.assert_in_range(stop_freq, "FRA stop frequency") # Sync
-        self.config.function_generator.amplitude.assert_in_range(amplitude, "FRA amplitude") # Sync
+        if disable_on_complete:
+            await self._send_command(":DISABLE")
 
-        await self._send_command(f":FRANalysis:FREQuency:STARt {start_freq}Hz")
-        await self._send_command(f":FRANalysis:FREQuency:STOP {stop_freq}Hz")
-    
-        if load.lower() not in [ld.lower() for ld in self.config.franalysis.load]:
-            raise InstrumentParameterError(f"Unsupported FRA load: {load}. Supported: {self.config.franalysis.load}")
-        scpi_load = load
+        # Optionally wait for completion or check status
+        await self._wait()  # Ensure to wait for the command to complete
+
+        # Assuming the result can be fetched with a common query, adjust as necessary
+        result_data = await self._query(":FETCH:FRANalysis?")
         
-        if trace.lower() not in [tr.lower() for tr in self.config.franalysis.trace]:
-            raise InstrumentParameterError(f"Unsupported FRA trace: {trace}. Supported: {self.config.franalysis.trace}")
-        scpi_trace = trace
+        # Parse the result data into a structured format if needed
+        # For now, let's assume it's a simple comma-separated value string
+        parsed_results = [float(val) for val in result_data.split(',')]
 
-        await self._send_command(f":FRANalysis:WGEN:LOAD {scpi_load}")
-        await self._send_command(f":FRANalysis:TRACE {scpi_trace}")
-
-        await self._send_command(f":WGEN:VOLTage {amplitude}")
-
-        await self._send_command("*OPC")
-        await self._send_command(":FRANalysis:RUN")
-        await self._wait()
-
-        raw_block_bytes: bytes = await self._query_raw(":FRANalysis:DATA?")
-        
-        if not raw_block_bytes.startswith(b'#'):
-             raise ValueError("Invalid FRANalysis data format: does not start with #")
-
-        hdr_len_digits: int = int(chr(raw_block_bytes[1]))
-        data_actual_len_str: str = raw_block_bytes[2 : 2 + hdr_len_digits].decode('ascii')
-        data_actual_len: int = int(data_actual_len_str)
-        text_data_start: int = 2 + hdr_len_digits
-        text_data_str: str = raw_block_bytes[text_data_start : text_data_start + data_actual_len].decode('utf-8')
-
-        scpi_disable_state = SCPIOnOff.OFF.value if disable_on_complete else SCPIOnOff.ON.value
-        await self._send_command(f":FRANalysis:ENABle {scpi_disable_state}")
-
-
-        df_results: pl.DataFrame = pl.read_csv(StringIO(text_data_str))
+        # Create a DataFrame or structured result object
+        # Assuming two columns: Frequency and Magnitude
+        freq_values = parsed_results[0::2]  # Extracting frequency values
+        mag_values = parsed_results[1::2]   # Extracting magnitude values
 
         return FRanalysisResult(
             instrument=self.config.model,
-            units="Mixed",
-            measurement_type="franalysis",
-            values=df_results.drop_nulls()
+            units="",
+            measurement_type="FrequencyResponse",
+            values=pl.DataFrame({
+                "Frequency (Hz)": freq_values,
+                "Magnitude": mag_values
+            })
         )
-
-    @validate_call
-    @ConfigRequires("franalysis")
-    async def franalysis_disable(self, state: bool = True) -> None:
-        """
-        Disables (if state=True) or enables (if state=False) the frequency response analysis feature.
-        :param state: True to disable FRANalysis (set enable OFF), False to enable (set enable ON).
-        """
-        scpi_state = SCPIOnOff.OFF.value if state else SCPIOnOff.ON.value
-        await self._send_command(f":FRANalysis:ENABle {scpi_state}")
-        self._logger.debug(f"Frequency response analysis is {'disabled' if state else 'enabled'}.")
-
-    @validate_call
-    async def set_acquisition_type(self, acq_type: AcquisitionType) -> None:
-        """
-        Select the oscilloscope acquisition algorithm.
-        """
-        scpi_val = _ACQ_TYPE_MAP.get(acq_type)
-        if not scpi_val:
-            raise InstrumentParameterError(f"Unsupported acquisition type enum member: {acq_type}")
-
-        current_mode_query: str = (await self._query(":ACQuire:MODE?")).strip().upper()
-        if acq_type == AcquisitionType.AVERAGE and current_mode_query == _ACQ_MODE_MAP["SEGMENTED"].upper()[:4]:
-            raise InstrumentParameterError("AVERAGE mode is unavailable in SEGMENTED acquisition.")
-
-        await self._send_command(f":ACQuire:TYPE {scpi_val}")
-        await self._wait()
-        self._logger.debug(f"Acquisition TYPE set → {acq_type.name}")
-
-    @validate_call
-    async def get_acquisition_type(self) -> str:
-        """
-        Returns current acquisition type (e.g., "NORMAL", "AVERAGE").
-        """
-        # Invert _ACQ_TYPE_MAP for lookup: SCPI response -> Enum member name
-        # SCPI responses can be short forms (e.g., "NORM" for "NORMal")
-        # We need to match based on how the instrument actually responds.
-        # A common way is that instrument responds with the short form.
-        # Let's assume the instrument responds with a value that can be mapped back.
-        resp_str_raw: str = (await self._query(":ACQuire:TYPE?")).strip()
-        
-        for enum_member, scpi_command_str in _ACQ_TYPE_MAP.items():
-            # Check if the response starts with the typical short SCPI command part
-            # e.g. "NORM" from "NORMal"
-            # This matching logic might need to be more robust based on actual instrument behavior
-            if resp_str_raw.upper().startswith(scpi_command_str.upper()[:4]): # Compare first 4 chars
-                return enum_member.name # Return the string name of the enum member
-        
-        self._logger.warning(f"Could not map SCPI response '{resp_str_raw}' to a known AcquisitionType. Returning raw response.")
-        return resp_str_raw # Fallback to raw response if no match
-
-    @validate_call
-    async def set_acquisition_average_count(self, count: int) -> None:
-        """
-        Set the running-average length for AVERAGE mode.
-        2 <= count <= 65536 (Keysight limit).
-        """
-        _validate_range(count, 2, 65_536, "Average count") # Sync
-        
-        current_acq_type_str = await self.get_acquisition_type()
-        if current_acq_type_str != AcquisitionType.AVERAGE.name:
-            raise InstrumentParameterError(f"Average count can only be set when acquisition type is AVERAGE, not {current_acq_type_str}.")
-        await self._send_command(f":ACQuire:COUNt {count}")
-        await self._wait()
-        self._logger.debug(f"AVERAGE count set → {count}")
-
-    @validate_call
-    async def get_acquisition_average_count(self) -> int:
-        """Integer average count (valid only when acquisition type == AVERAGE)."""
-        return int(await self._query(":ACQuire:COUNt?"))
-
-    @validate_call
-    async def set_acquisition_mode(self, mode: str) -> None:
-        """
-        Select real-time or segmented memory acquisition.
-        (Case-insensitive for mode).
-        """
-        mode_upper: str = mode.upper()
-        scpi_mode_val = _ACQ_MODE_MAP.get(mode_upper)
-        if not scpi_mode_val:
-            raise InstrumentParameterError(f"Unknown acquisition mode: {mode}. Supported: {list(_ACQ_MODE_MAP.keys())}")
-
-        await self._send_command(f":ACQuire:MODE {scpi_mode_val}")
-        await self._wait()
-        self._logger.debug(f"Acquisition MODE set → {mode_upper}")
-
-    @validate_call
-    async def get_acquisition_mode(self) -> str:
-        """Return "REAL_TIME" or "SEGMENTED"."""
-        resp_str_raw: str = (await self._query(":ACQuire:MODE?")).strip()
-        for friendly_name, scpi_command_str in _ACQ_MODE_MAP.items():
-            if resp_str_raw.upper().startswith(scpi_command_str.upper()[:4]):
-                return friendly_name
-        self._logger.warning(f"Could not map SCPI response '{resp_str_raw}' to a known AcquisitionMode. Returning raw response.")
-        return resp_str_raw
-
-    @validate_call
-    async def set_segmented_count(self, count: int) -> None:
-        """
-        Configure number of memory segments for SEGMENTED acquisitions.
-        Default Keysight limit: 2 <= count <= 500 (check instrument specs)
-        """
-        if await self.get_acquisition_mode() != "SEGMENTED":
-            raise InstrumentParameterError("Segmented count can only be set while in SEGMENTED acquisition mode.")
-        _validate_range(count, 2, 500, "Segmented count") # Sync
-        await self._send_command(f":ACQuire:SEGMented:COUNt {count}")
-        await self._wait()
-        self._logger.debug(f"Segmented COUNT set → {count}")
-
-    @validate_call
-    async def get_segmented_count(self) -> int:
-        """Number of segments currently configured (SEGMENTED mode only)."""
-        return int(await self._query(":ACQuire:SEGMented:COUNt?"))
-
-    @validate_call
-    async def set_segment_index(self, index: int) -> None:
-        """
-        Select which memory segment is active for readback.
-        1 <= index <= get_segmented_count()
-        """
-        total_segments: int = await self.get_segmented_count()
-        _validate_range(index, 1, total_segments, "Segment index") # Sync
-        await self._send_command(f":ACQuire:SEGMented:INDex {index}")
-        await self._wait()
-
-    @validate_call
-    async def get_segment_index(self) -> int:
-        """Index (1-based) of the currently selected memory segment."""
-        return int(await self._query(":ACQuire:SEGMented:INDex?"))
-
-    @validate_call
-    async def analyze_all_segments(self) -> None:
-        """
-        Execute the scope's *Analyze Segments* soft-key.
-        Requires scope to be stopped and in SEGMENTED mode.
-        """
-        if await self.get_acquisition_mode() != "SEGMENTED":
-            raise InstrumentParameterError("Segment analysis requires SEGMENTED mode.")
-        await self._send_command(":ACQuire:SEGMented:ANALyze")
-        await self._wait()
-
-    @validate_call
-    async def get_acquire_points(self) -> int:
-        """
-        Hardware points actually *acquired* for the next waveform transfer.
-        """
-        return int(await self._query(":ACQuire:POINts?"))
-
-    @validate_call
-    async def get_acquisition_sample_rate(self) -> float:
-        """
-        Current sample rate of acquisition. Equivalent to get_sampling_rate().
-        """
-        return float(await self._query(":ACQuire:SRATe?"))
-
-    @validate_call
-    async def get_acquire_setup(self) -> Dict[str, str]:
-        """
-        Return a parsed dictionary of the scope's :ACQuire? status string.
-        """
-        raw_str: str = (await self._query(":ACQuire?")).strip()
-        parts: List[str] = [p.strip() for p in raw_str.split(';')]
-        setup_dict: Dict[str, str] = {}
-        for part in parts:
-            kv = part.split(maxsplit=1)
-            if len(kv) == 2:
-                setup_dict[kv[0]] = kv[1]
-        return setup_dict
-
-    async def health_check(self) -> HealthReport:
-        # report = super().health_check() # Call base health check - Assuming base implementation will be added later
-        # For now, let's create a new report and populate it as if the base was called and successful.
-        report = HealthReport()
-        try:
-            report.instrument_idn = await self.id()
-            instrument_errors = await self.get_all_errors()
-            if instrument_errors:
-                report.warnings.extend([f"Stored Error: {code} - {msg}" for code, msg in instrument_errors])
-
-            if not report.errors and not report.warnings:
-                 report.status = HealthStatus.OK
-            elif report.warnings and not report.errors:
-                 report.status = HealthStatus.WARNING
-            else:
-                 report.status = HealthStatus.ERROR
-
-        except Exception as e:
-            report.status = HealthStatus.ERROR
-            report.errors.append(f"Health check failed during IDN/Error Query: {str(e)}")
-
-        try:
-            _ = await self.get_time_axis()
-            if hasattr(self.config, 'fft') and self.config.fft:
-                report.supported_features["fft"] = True
-            else:
-                report.supported_features["fft"] = False
-            if hasattr(self.config, 'franalysis') and self.config.franalysis: # Check attribute existence
-                report.supported_features["franalysis"] = True
-            else:
-                report.supported_features["franalysis"] = False
-
-        except Exception as e:
-            report.errors.append(f"Oscilloscope-specific check failed: {str(e)}")
-            # report.status = HealthStatus.ERROR # Downgrade status if specific check fails
-
-        # Determine backend status (example)
-        # Ensure _backend is accessible and has __class__.__name__
-        if hasattr(self, '_backend') and hasattr(self._backend, '__class__'):
-            backend_name = self._backend.__class__.__name__
-            if "SimBackend" in backend_name:
-                report.backend_status = "Simulated"
-            elif "VisaBackend" in backend_name: # Assuming VisaBackend exists
-                report.backend_status = "VISA Connection"
-            elif "LambInstrument" in backend_name or "LambBackend" in backend_name:
-                report.backend_status = "Lamb Connection"
-            else:
-                report.backend_status = f"Unknown backend: {backend_name}"
-        else:
-            report.backend_status = "Backend information unavailable"
-
-
-        # Final status evaluation based on new errors/warnings
-        if report.errors and report.status != HealthStatus.ERROR:
-            report.status = HealthStatus.ERROR
-        elif report.warnings and report.status == HealthStatus.OK:
-            report.status = HealthStatus.WARNING
-        
-        # If no errors or warnings after all checks, and status is still UNKNOWN, set to OK
-        if report.status == HealthStatus.UNKNOWN and not report.errors and not report.warnings:
-            report.status = HealthStatus.OK
-
-        return report
-
-def _validate_range(value: Union[int, float], lo: Union[int, float], hi: Union[int, float], name: str) -> None: # Allow float for value
-    if not (lo <= value <= hi):
-        raise InstrumentParameterError(f"{name} '{value}' out of range ({lo}-{hi}).")

@@ -12,7 +12,7 @@ import pkgutil # For finding profile paths
 from pytestlab.config.loader import load_profile
 from pytestlab.instruments import AutoInstrument
 # For bench commands (anticipating section 6.2)
-from pytestlab.config.bench_config import BenchConfig
+from pytestlab.config.bench_config import BenchConfigExtended
 from pytestlab.bench import Bench
 import asyncio # For running async CLI commands
 
@@ -164,7 +164,7 @@ def bench_ls(bench_yaml_path: Annotated[Path, typer.Argument(help="Path to the b
     try:
         with open(bench_yaml_path, 'r') as f:
             data = yaml.safe_load(f)
-        config = BenchConfig.model_validate(data) # Validate
+        config = BenchConfigExtended.model_validate(data) # Validate
         table = rich.table.Table(title=f"Bench: {config.bench_name}")
         table.add_column("Alias", style="cyan")
         table.add_column("Profile", style="magenta")
@@ -175,7 +175,8 @@ def bench_ls(bench_yaml_path: Annotated[Path, typer.Argument(help="Path to the b
         for alias, entry in config.instruments.items():
             sim_status = "Global" if entry.simulate is None else str(entry.simulate)
             addr = entry.address or "N/A (simulated)"
-            backend_type = (entry.backend.type if entry.backend and entry.backend.type else config.backend_defaults.type)
+            backend_type = (entry.backend.get("type") if entry.backend and entry.backend.get("type") else 
+                          config.backend_defaults.get("type", "visa") if config.backend_defaults else "visa")
             table.add_row(alias, entry.profile, addr, backend_type, sim_status)
         rich.print(table)
     except Exception as e:

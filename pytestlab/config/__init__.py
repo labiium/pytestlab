@@ -1,7 +1,10 @@
 from .instrument_config import InstrumentConfig
-from .oscilloscope_config_legacy import OscilloscopeConfig
 from .waveform_generator_config import WaveformGeneratorConfig
 from .dc_active_load_config import DCActiveLoadConfig
 from .power_supply_config import PowerSupplyConfig
 from .multimeter_config import MultimeterConfig
-from .config import ConfigRequires
+from .oscilloscope_config import OscilloscopeConfig
+from .vna_config import VNAConfig
+from .spectrum_analyzer_config import SpectrumAnalyzerConfig
+from .power_meter_config import PowerMeterConfig
+# from .config import ConfigRequires

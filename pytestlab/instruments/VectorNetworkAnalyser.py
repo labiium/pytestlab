@@ -1,16 +1,17 @@
-from typing import Any, TypeVar, Generic, Optional, List, Tuple, Complex # Added Optional, List, Tuple, Complex
+from typing import Any, TypeVar, Generic, Optional, List, Tuple # Removed Complex
 from ..config.vna_config import VNAConfig
-from .instrument import Instrument, AsyncInstrumentIO
+from .instrument import Instrument
 
 # Placeholder for S-parameter data
 class SParameterData:
-    def __init__(self, frequencies: List[float], s_params: List[List[Complex]], param_names: List[str]):
+    def __init__(self, frequencies: List[float], s_params: List[List[complex]], param_names: List[str]):
         self.frequencies = frequencies # List of frequencies
         self.s_params = s_params       # List of lists, each inner list contains complex S-param values for a given S-parameter type
         self.param_names = param_names # List of S-parameter names, e.g., ["S11", "S21"]
 
-class VectorNetworkAnalyser(Instrument[VNAConfig, AsyncInstrumentIO]):
-    
+class VectorNetworkAnalyser(Instrument[VNAConfig]):
+    model_config = {"arbitrary_types_allowed": True}
+
     async def configure_s_parameter_sweep(
         self, 
         s_params: Optional[List[str]] = None, # e.g. ["S11", "S21"]
@@ -56,7 +57,7 @@ class VectorNetworkAnalyser(Instrument[VNAConfig, AsyncInstrumentIO]):
         frequencies = [start_f + i * (stop_f - start_f) / (num_points -1 if num_points > 1 else 1) for i in range(num_points)]
         
         s_params_to_measure = self.config.s_parameters or ["S11"]
-        sim_s_params_data: List[List[Complex]] = []
+        sim_s_params_data: List[List[complex]] = []
 
         for _ in s_params_to_measure:
             # Dummy data: e.g., S11 a simple reflection, S21 a simple transmission

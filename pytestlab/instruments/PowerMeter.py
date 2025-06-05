@@ -1,8 +1,8 @@
 from typing import Any, TypeVar, Generic, Optional # Added Optional
 from ..config.power_meter_config import PowerMeterConfig
-from .instrument import Instrument, AsyncInstrumentIO
+from .instrument import Instrument
 
-class PowerMeter(Instrument[PowerMeterConfig, AsyncInstrumentIO]):
+class PowerMeter(Instrument[PowerMeterConfig]):
 
     async def configure_sensor(
         self, 

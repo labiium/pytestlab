@@ -73,3 +73,9 @@ class ExperimentError(Exception):
     def __init__(self, message="Error in experiment operation."):
         self.message = message
         super().__init__(self.message)
+
+class InstrumentDataError(Exception):
+    """For errors in instrument data acquisition or parsing."""
+    def __init__(self, message="Instrument data error."):
+        self.message = message
+        super().__init__(self.message)

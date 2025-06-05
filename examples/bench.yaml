@@ -1,0 +1,108 @@
+# Example bench configuration with extended features
+bench_name: "Electronics Test Bench v2"
+description: "Advanced bench for electronic component testing with safety limits and automation"
+version: "2.1.0"
+last_modified: "2024-06-04"
+changelog: |
+  v2.1.0: Added safety limits for PSU channels
+  v2.0.0: Added automation hooks and custom validations
+  v1.0.0: Initial bench configuration
+
+experiment:
+  title: "Electronic Component Characterization"
+  description: "Measure electrical characteristics of components under various conditions"
+  operator: "Alice Johnson"
+  date: "2024-06-04"
+  notes: |
+    Testing new component batches with simulated instruments.
+    Focus on voltage/current characteristics.
+
+simulate: true
+
+backend_defaults:
+  type: "sim"
+  timeout_ms: 10000
+
+instruments:
+  osc:
+    profile: "keysight/DSOX1204G"
+    address: "SIM::oscilloscope::1"
+    backend:
+      type: "sim"
+      timeout_ms: 15000
+
+  psu1:
+    profile: "keysight/EDU36311A"
+    address: "SIM::power_supply::1"
+    safety_limits:
+      channels:
+        1:
+          voltage: {"max": 5.5}
+          current: {"max": 2.2}
+        2:
+          voltage: {"max": 12.0}
+          current: {"max": 1.0}
+        3:
+          voltage: {"max": -5.5}
+          current: {"max": 0.5}
+
+  dmm:
+    profile: "keysight/EDU34450A"
+    address: "SIM::multimeter::1"
+
+custom_validations:
+  - "psu1['safety_limits']['channels'][1]['voltage']['max'] <= 6.0"
+  - "experiment['operator'] is not None"
+  - "len(experiment['title']) > 5"
+
+automation:
+  pre_experiment:
+    - "echo 'Starting experiment setup...'"
+    - "python scripts/setup_environment.py"
+    - "psu1: output all OFF"
+    - "osc: autoscale"
+  post_experiment:
+    - "psu1: output all OFF"
+    - "python scripts/save_results.py"
+    - "echo 'Experiment completed.'"
+
+traceability:
+  calibration:
+    osc: "CAL-2024-001 (expires 2024-12-01)"
+    psu1: "CAL-2024-002 (expires 2024-11-15)"
+    dmm: "CAL-2024-004 (expires 2025-01-15)"
+  environment:
+    temperature: 23.5  # Celsius
+    humidity: 45.2     # %RH
+  dut:
+    serial_number: "DUT-ELE-001"
+    description: "Electronic component prototype"
+
+measurement_plan:
+  - name: "Voltage Measurement"
+    instrument: "dmm"
+    probe_location: "DUT input"
+    settings:
+      function: "DC_VOLTAGE"
+      range: "10V"
+      resolution: "6.5"
+    notes: "Measure input voltage characteristics"
+    
+  - name: "Power Supply Monitoring"
+    instrument: "dmm"
+    probe_location: "DUT Vdd rail"
+    settings:
+      function: "DC_VOLTAGE"
+      range: "10V"
+      resolution: "6.5"
+    notes: "Monitor supply voltage stability during test"
+    
+  - name: "Waveform Capture"
+    instrument: "osc"
+    probe_location: "Output signal"
+    settings:
+      timebase: "1ms/div"
+      voltage_range: "1V/div"
+      trigger: "AUTO"
+      channels: [1, 2]
+    notes: "Capture output waveforms for analysis"

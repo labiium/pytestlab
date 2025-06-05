@@ -87,9 +87,6 @@ class Instrument(Generic[ConfigType]):
         self._logger = get_logger(logger_name)
         
         self._logger.info(f"Instrument '{logger_name}': Initializing with backend '{type(backend).__name__}'.")
-        # Connection will be handled asynchronously, typically by an explicit connect method or within an async context manager.
-        # For now, we remove the synchronous connect from __init__.
-        # The user of the Instrument class will be responsible for calling an `async def connect()` method if needed.
 
     # Note: from_config might need to become async or handle async backend instantiation.
     # This will be addressed when AutoInstrument is updated.
@@ -317,7 +314,7 @@ class Instrument(Generic[ConfigType]):
         except ValueError:
             raise InstrumentCommunicationError(f"Unexpected non-integer response from *TST?: '{result_str}'")
         except InstrumentCommunicationError as e:
-             raise InstrumentCommunicationError("Failed to execute *TST? query.", cause=e) from e
+             raise InstrumentCommunicationError("Failed to execute *TST? query.") from e
 
         if code == 0:
             self._logger.debug("Self-test query (*TST?) returned 0 (Passed).")
@@ -401,7 +398,7 @@ class Instrument(Generic[ConfigType]):
             message = msg_part.strip().strip('"')
         except (ValueError, IndexError) as e:
             self._logger.debug(f"Warning: Unexpected error response format: '{response}'. Raising error.")
-            raise InstrumentCommunicationError(f"Could not parse error response: '{response}'", cause=e) from e
+            raise InstrumentCommunicationError(f"Could not parse error response: '{response}'") from e
 
         if code != 0:
              self._logger.debug(f"Instrument Error Query: Code={code}, Message='{message}'")
@@ -432,7 +429,7 @@ class Instrument(Generic[ConfigType]):
                 # The 'timeout' parameter of this method is noted here for context.
                 err_msg = f"*OPC? query failed. This may be due to backend communication timeout (related to method's timeout param: {timeout}s)."
                 self._logger.debug(err_msg)
-                raise InstrumentCommunicationError(err_msg, cause=e) from e
+                raise InstrumentCommunicationError(err_msg) from e
             # 'finally' block for restoring timeout removed.
         else:
             await self._send_command("*OPC") # This now uses self._backend.write

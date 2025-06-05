@@ -1,6 +1,6 @@
 from __future__ import annotations
 from pydantic import BaseModel, Field, ConfigDict # Added ConfigDict
-from typing import List, Optional
+from typing import List, Optional, Literal
 
 from .base import Range
 from .instrument_config import InstrumentConfig
@@ -33,5 +33,6 @@ class WaveformsConfig(BaseModel):
 class WaveformGeneratorConfig(InstrumentConfig):
     model_config = ConfigDict(validate_assignment=True, extra='forbid')
     # device_type is inherited from InstrumentConfig and validated there.
+    device_type: Literal["AWG", "waveform_generator"] = Field("waveform_generator", description="Type of the device (e.g., 'AWG', 'waveform_generator')")
     channels: List[AWGChannelConfig] = Field(..., min_length=1, description="List of waveform generator channel configurations")
     waveforms: WaveformsConfig = Field(..., description="Waveform capabilities configuration")

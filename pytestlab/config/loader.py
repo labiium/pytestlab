@@ -6,7 +6,8 @@ from pathlib import Path
 from typing import Any, Type, Literal, Union # Added Literal, Union
 import typing # For get_origin, get_args
 import yaml
-from pydantic import BaseModel, PydanticUndefined # Added PydanticUndefined
+from pydantic import BaseModel # Removed PydanticUndefined
+from pydantic_core import PydanticUndefined # Added for undefined sentinel
 from pydantic.fields import FieldInfo # Added FieldInfo
 
 from .instrument_config import InstrumentConfig

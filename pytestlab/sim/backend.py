@@ -75,10 +75,13 @@ class SimBackend:  # TODO: Consider adding ": _Backend" for static type checking
             return str(self.state.get("current", 0.0))
         elif cmd.upper().startswith(":OUTP:STAT?"): # Example
             return "1" if self.state.get("output_enabled", False) else "0"
+        elif cmd.upper() == ":SYST:ERR?" or cmd.upper() == ":SYSTEM:ERROR?" or cmd.upper() == "SYST:ERR?" or cmd.upper() == "SYSTEM:ERROR?":
+            # Return standard SCPI "no error" response
+            return '0,"No error"'
         
         # Fallback for unknown commands
         sim_logger.warning(f"SimBackend for {self.device_model} received unknown QUERY: '{cmd}'")
-        return "SIM_ERROR:UnknownCommand"
+        return "SIM_ERROR:UnknownQuery"
 
     def write(self, cmd: str) -> None:
         self._record(cmd)

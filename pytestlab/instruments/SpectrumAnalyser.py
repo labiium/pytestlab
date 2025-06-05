@@ -1,6 +1,6 @@
 from typing import Any, TypeVar, Generic, Optional, List # Added Optional, List
 from ..config.spectrum_analyzer_config import SpectrumAnalyzerConfig
-from .instrument import Instrument, AsyncInstrumentIO # Assuming Instrument is async
+from .instrument import Instrument # Assuming Instrument is async
 # from ..experiments.results import MeasurementResult # If this is the return type for traces
 # from .scpi_maps import CommonSCPI, SystemSCPI # And a specific SA SCPI map
 
@@ -19,7 +19,7 @@ class PlaceholderMeasurementResult:
 #    BAND_RES = "BAND" # RBW
 #    TRACE_DATA_QUERY = "TRAC:DATA? TRACE1" # Example
 
-class SpectrumAnalyser(Instrument[SpectrumAnalyzerConfig, AsyncInstrumentIO]): # Updated generic type
+class SpectrumAnalyser(Instrument[SpectrumAnalyzerConfig]):
     # SCPI_MAP = GenericSASCPIMap() # Assign if defined
 
     async def configure_measurement(

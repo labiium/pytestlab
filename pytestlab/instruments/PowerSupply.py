@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Type, Union, Generic
+from typing import Any, Dict, List, Optional, Type, Union, Generic, Self
 from pydantic import validate_call # Added validate_call
 
 from .instrument import Instrument
@@ -19,18 +19,18 @@ class PSUChannelFacade:
         self._channel = channel_num
 
     @validate_call
-    async def set(self, voltage: Optional[float] = None, current_limit: Optional[float] = None) -> 'PSUChannelFacade':
+    async def set(self, voltage: Optional[float] = None, current_limit: Optional[float] = None) -> Self:
         if voltage is not None:
             await self._psu.set_voltage(self._channel, voltage)
         if current_limit is not None:
             await self._psu.set_current(self._channel, current_limit)
         return self
 
-    async def on(self) -> 'PSUChannelFacade':
+    async def on(self) -> Self:
         await self._psu.output(self._channel, True)
         return self
 
-    async def off(self) -> 'PSUChannelFacade':
+    async def off(self) -> Self:
         await self._psu.output(self._channel, False)
         return self
 
@@ -82,6 +82,7 @@ class PSUChannelConfig: # This is a helper data class, not a Pydantic config mod
         return f"PSUChannelConfig(voltage={self.voltage!r}, current={self.current!r}, state='{self.state}')"
 
 class PowerSupply(Instrument[PowerSupplyConfig]):
+    model_config = {"arbitrary_types_allowed": True}
     config: PowerSupplyConfig # This is now the V2 validated model instance
     """
     A class representing a Digital Power Supply that inherits from the Instrument class.

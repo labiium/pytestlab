@@ -1,39 +1,76 @@
-# pytestlab/config/bench_config.py
-from pathlib import Path
-from typing import Literal, Optional, List, Dict
-from pydantic import BaseModel, Field, model_validator, ConfigDict
+from __future__ import annotations
+from typing import Optional, Dict, List, Any, Union
+from pydantic import BaseModel, Field, ConfigDict, model_validator, RootModel
 
-BackendType = Literal["visa", "lamb", "sim"]
+class ExperimentSection(BaseModel):
+    title: str
+    description: str
+    operator: Optional[str] = None
+    date: Optional[str] = None
+    notes: Optional[str] = None
 
-class BackendSettings(BaseModel):
-    model_config = ConfigDict(extra='forbid') # Forbid extra fields
-    type: BackendType = "visa"
-    timeout_ms: int = 5000
-    # future: adapter-specific kwargs (baudrate, tls, user/pass …)
+class SafetyLimitChannel(BaseModel):
+    voltage: Optional[Dict[str, float]] = None  # e.g., {"max": 5.5}
+    current: Optional[Dict[str, float]] = None  # e.g., {"max": 2.2}
+
+class SafetyLimits(BaseModel):
+    channels: Optional[Dict[int, SafetyLimitChannel]] = None
+    bandwidth_limit: Optional[float] = None
 
 class InstrumentEntry(BaseModel):
-    model_config = ConfigDict(extra='forbid')
-    # alias: str = Field(..., pattern=r"^[A-Za-z_][A-Za-z0-9_]*$") # alias is key in dict, not field here
-    profile: str  # dotted key or path to YAML
-    address: Optional[str] = None  # VISA resource string, lamb id, "sim"
-    backend: Optional[BackendSettings] = None # Allow full BackendSettings override
+    profile: str
+    address: Optional[str] = None
+    safety_limits: Optional[SafetyLimits] = None
+    backend: Optional[Dict[str, Any]] = None
     simulate: Optional[bool] = None
 
-    @model_validator(mode="before") # Use before to default address if missing from YAML
-    @classmethod # model_validator in Pydantic v2 needs @classmethod if mode='before'
-    def _default_address_if_none(cls, values: Dict) -> Dict:
-        if values.get("address") is None: # Check if 'address' is missing or None
-            values["address"] = "sim"  # Default to "sim"
-        return values
+class AutomationHooks(BaseModel):
+    pre_experiment: Optional[List[str]] = None
+    post_experiment: Optional[List[str]] = None
 
-class BenchConfig(BaseModel):
+class TraceabilityCalibration(RootModel[Dict[str, str]]):
+    root: Dict[str, str]
+
+class TraceabilityEnvironment(BaseModel):
+    temperature: Optional[float] = None
+    humidity: Optional[float] = None
+
+class TraceabilityDUT(BaseModel):
+    serial_number: Optional[str] = None
+    description: Optional[str] = None
+
+class Traceability(BaseModel):
+    calibration: Optional[Dict[str, str]] = None
+    environment: Optional[TraceabilityEnvironment] = None
+    dut: Optional[TraceabilityDUT] = None
+
+class MeasurementPlanEntry(BaseModel):
+    name: str
+    instrument: str
+    channel: Optional[int] = None
+    probe_location: Optional[str] = None
+    settings: Optional[Dict[str, Any]] = None
+    notes: Optional[str] = None
+
+class BenchConfigExtended(BaseModel):
     model_config = ConfigDict(extra='forbid')
     bench_name: str
-    description: Optional[str] = None
-    simulate: bool = False # Global simulate flag
-    backend_defaults: BackendSettings = Field(default_factory=BackendSettings)
-    instruments: Dict[str, InstrumentEntry] # Use Dict for alias mapping
+    experiment: Optional[ExperimentSection] = None
+    instruments: Dict[str, InstrumentEntry]
+    custom_validations: Optional[List[str]] = None
+    automation: Optional[AutomationHooks] = None
+    traceability: Optional[Traceability] = None
+    measurement_plan: Optional[List[MeasurementPlanEntry]] = None
+    version: Optional[str] = None
+    last_modified: Optional[str] = None
+    changelog: Optional[str] = None
 
-    # Convenience: dict lookup by alias is now direct via self.instruments
-    # def instrument_map(self) -> dict[str, InstrumentEntry]:
-    #     return {i.alias: i for i in self.instruments} # Not needed if instruments is Dict
+    backend_defaults: Optional[Dict[str, Any]] = None
+    simulate: Optional[bool] = False
+    description: Optional[str] = None
+
+    @model_validator(mode="after")
+    def check_instruments(self) -> "BenchConfigExtended":
+        if not self.instruments:
+            raise ValueError("At least one instrument must be defined in 'instruments'.")
+        return self

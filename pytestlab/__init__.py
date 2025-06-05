@@ -23,6 +23,7 @@ from .config import *
 from .experiments import *
 from .instruments import *
 from .errors import *
+from .bench import Bench
 
 # ─── New high-level builder ────────────────────────────────────────────────
 from .measurements.session import Measurement, MeasurementSession  # noqa: E402  pylint: disable=wrong-import-position
@@ -66,6 +67,8 @@ __all__ = [
     "InstrumentError",
     "InstrumentConfigurationError",
     "InstrumentParameterError",
+    # Bench System
+    "Bench",
     # New measurement system
     "Measurement",
     "MeasurementSession",

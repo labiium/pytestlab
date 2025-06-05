@@ -1,6 +1,6 @@
 from __future__ import annotations
 from pydantic import BaseModel, Field, ConfigDict # Added ConfigDict
-from typing import List, Optional
+from typing import List, Optional, Literal
 
 from .base import Range
 from .instrument_config import InstrumentConfig # The Pydantic base
@@ -47,6 +47,7 @@ class FRAnalysis(BaseModel):
 
 class OscilloscopeConfig(InstrumentConfig):
     model_config = ConfigDict(validate_assignment=True, extra='forbid')
+    device_type: Literal["oscilloscope"] = Field("oscilloscope", description="Type of the device (oscilloscope)")
     # device_type is inherited from InstrumentConfig and validated there.
     trigger: Trigger = Field(..., description="Trigger system configuration")
     channels: List[Channel] = Field(..., min_length=1, description="List of channel configurations")
