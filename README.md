@@ -1,56 +1,145 @@
-# ![PyTestLab](pytestlab_logo.png) PyTestLab
+<!--
+  PyTestLab – Scientific test & measurement toolbox
+  =================================================
+  Comprehensive README generated 2025-06-10
+-->
 
-A Python library for test and measurement automation and measurement data management.
+<p align="center">
+  <img src="https://raw.githubusercontent.com/your-org/pytestlab/main/docs/assets/pytestlab_logo.svg"
+       alt="PyTestLab logo" width="320"/>
+</p>
 
-`PyTestLab` is a Python library for interfacing with electronic instruments such as oscilloscopes, network analyzers, and arbitrary waveform generators. Designed with ease of use and flexibility in mind, it provides a high-level interface for controlling and acquiring data from these instruments using SCPI commands under the hood.
+<h1 align="center">PyTestLab</h1>
 
-For comprehensive documentation, including user guides, API references, and tutorials, please visit our **[MkDocs Documentation Site](./docs/index.md)** (link to be updated once site is deployed).
+<p align="center">
+  Modern, async-first Python toolbox for laboratory<br/>
+  test-and-measurement automation, data management&nbsp;and analysis.
+</p>
 
-## Key Features
+<p align="center">
+  <a href="https://pypi.org/project/pytestlab"><img alt="PyPI"
+     src="https://img.shields.io/pypi/v/pytestlab?logo=pypi&label=PyPI&color=blue"/></a>
+  <a href="https://github.com/your-org/pytestlab/actions/workflows/build_wheels.yml"><img
+     alt="CI"
+     src="https://github.com/your-org/pytestlab/actions/workflows/build_wheels.yml/badge.svg"/></a>
+  <a href="https://pytestlab.readthedocs.io"><img
+     alt="Docs"
+     src="https://img.shields.io/badge/docs-latest-blue"/></a>
+  <a href="LICENSE"><img alt="License"
+     src="https://img.shields.io/badge/license-MIT-green"/></a>
+</p>
 
-- **Easy Instrument Control**: Simplified interfaces for common instruments.
-- **Configurable**: Use pre-defined configurations or define custom settings.
-- **Extensible**: Easily extendable to support additional instruments.
-- **Simulation Mode**: Develop and test without physical hardware.
-- **Uncertainty Handling**: Support for measurements with uncertainties.
-- **Data Management**: Tools for organizing and storing experimental data.
+---
 
-## Installation
+## ✨ Key Features
 
-Install the library using pip:
+* **Async by design** – non-blocking instrument I/O with `async/await`.
+* **Unified driver layer** – consistent high-level API across oscilloscopes, PSUs, DMMs, VNAs, AWGs, spectrum & power meters, DC loads, …  
+  (see `pytestlab.instruments.*`).
+* **Plug-and-play profiles** – YAML descriptors validated by Pydantic & JSON-schema.  
+  Browse ready-made Keysight profiles in `pytestlab/profiles/keysight`.
+* **Simulation mode** – develop anywhere using the built-in `SimBackend` (no hardware required, deterministic outputs for CI).
+* **Bench descriptors** – group multiple instruments in one `bench.yaml`, define safety limits, automation hooks, traceability and measurement plans.
+* **High-level measurement builder** – notebook-friendly `MeasurementSession` for parameter sweeps that stores data as Polars DataFrames and exports straight to the experiment database.
+* **Rich database** – compressed storage of experiments & measurements with full-text search (`MeasurementDatabase`).
+* **Powerful CLI** – `pytestlab …` commands to list/validate profiles, query instruments, convert benches to simulation, etc.
+* **Extensible back-ends** – VISA, Lamb server, pure simulation; drop-in new transports via the `AsyncInstrumentIO` protocol.
+* **Docs & examples** – Jupyter tutorials, MkDocs site, and 40+ ready-to-run scripts in `examples/`.
+
+---
+
+## 🚀 Quick Start
+
+### 1. Install
 
 ```bash
-pip install pytestlab # Or: pip install .
+pip install pytestlab           # core
+pip install pytestlab[full]     # + plotting, uncertainties, etc.
 ```
-(Note: If installing from a local clone, use `pip install .` or `pip install -e .` for editable mode.)
 
-## Quick Example
+> Need VISA? Install NI-VISA or Keysight IO Libraries, then `pip install pyvisa`.
+
+### 2. Hello Oscilloscope (simulated)
 
 ```python
+import asyncio
 from pytestlab.instruments import AutoInstrument
 
-# Load an instrument using its configuration profile
-osc = AutoInstrument.from_config("keysight/DSOX1204G") # Assumes profile is available
+async def main():
+    scope = AutoInstrument.from_config("keysight/DSOX1204G", simulate=True)
+    await scope.connect_backend()
 
-# Example: Read data from channel 1
-channel_readings = osc.read_channels(1)
-data_ch1 = channel_readings[1]
+    # simple façade usage
+    await scope.channel(1).setup(scale=0.5).enable()
+    await scope.trigger.setup_edge(source="CH1", level=0.2)
 
-print(f"Data from Channel 1: {data_ch1.values}")
+    trace = await scope.read_channels(1)      # Polars DataFrame
+    print(trace.values.head())
 
-# For more examples and detailed usage, please see the full documentation.
+    await scope.close()
+
+asyncio.run(main())
 ```
 
-## Dive Deeper
+### 3. Build a Bench
 
-Explore the full capabilities of PyTestLab:
+```yaml
+# bench.yaml  (excerpt)
+bench_name: "Power-Amp Characterisation"
+simulate: false           # set to true for dry-runs / CI
+instruments:
+  psu:
+    profile: "keysight/EDU36311A"
+    address: "TCPIP0::172.22.1.5::inst0::INSTR"
+    safety_limits:
+      channels:
+        1: {voltage: {max: 6.0}, current: {max: 3}}
+  dmm:
+    profile: "keysight/34470A"
+    address: "USB0::0x0957::0x1B07::MY56430012::INSTR"
+```
 
-*   **[Installation Guide](./docs/installation.md)**
-*   **[User Guide](./docs/user_guide/getting_started.md)**
-*   **[10 Minute Tour](./docs/tutorials/10_minute_tour.ipynb)**
-*   **[API Reference](./docs/api/instruments.md)**
-*   **[Instrument Profiles](./docs/profiles/gallery.md)**
+```python
+import asyncio, pytestlab
 
-## Acknowledgements
+async def run():
+    async with await pytestlab.Bench.open("bench.yaml") as bench:
+        v = await bench.dmm.measure_voltage_dc()
+        print("Measured:", v.values, v.units)
 
-This library was created in part of work funded by Keysight Technologies.
+asyncio.run(run())
+```
+
+---
+
+## 📚 Documentation
+
+| Section | Link |
+|---------|------|
+| Installation | `docs/installation.md` |
+| 10-minute tour (Jupyter) | `docs/tutorials/10_minute_tour.ipynb` |
+| User Guide | `docs/user_guide/*` |
+| Bench descriptors | `docs/user_guide/bench_descriptors.md` |
+| API reference | `docs/api/*` |
+| Instrument profile gallery | `docs/profiles/gallery.md` |
+
+HTML docs hosted at <https://pytestlab.readthedocs.io> (builds from `docs/`).
+
+---
+
+## 🧑‍💻 Contributing
+
+Pull requests are welcome! See [`CONTRIBUTING.md`](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).  
+Run the test-suite (`pytest`), type-check (`mypy`), lint/format (`ruff`), and keep commits conventional (`cz c`).
+
+---
+
+## 🗜️ License
+
+MIT © 2022–2025 Emmanuel Olowe & contributors.
+
+Commercial support / custom drivers? Open an issue or contact <pytestlab-support@example.com>.
+
+---
+
+> Built with ❤️  &nbsp;by scientists, for scientists.
