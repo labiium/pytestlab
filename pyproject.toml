@@ -30,6 +30,13 @@ path = "pytestlab/__init__.py"
 plot   = ["matplotlib", "plotly"]
 full   = ["pytestlab[plot]", "uncertainties", "pydantic", "pyvisa-sim"]
 dev    = ["ruff", "mypy", "pytest", "pytest-cov", "pre-commit"]
+docs   = [
+    "mkdocs>=1.4.0",
+    "mkdocs-material>=8.0.0",
+    "mkdocstrings[python]>=0.19.0",
+    "mkdocs-jupyter>=0.21.0",
+    "pymdown-extensions>=9.0.0"
+]
 
 [project.scripts]
 pytestlab = "pytestlab.cli:app"

@@ -74,6 +74,9 @@ class Bench:
 
     async def _initialize_instruments(self):
         """Initialize all instruments asynchronously."""
+        # touch compliance to make sure AuditTrail exists before any result
+        from . import compliance  # noqa: F401
+
         for alias, entry in self.config.instruments.items():
             simulate_flag = self.config.simulate
             if entry.simulate is not None:

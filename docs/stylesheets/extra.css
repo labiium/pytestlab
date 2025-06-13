@@ -1,0 +1,120 @@
+/* PyTestLab Documentation - Custom Styles */
+
+/* Fix code block contrast in both light and dark modes */
+.highlight {
+  background-color: var(--md-code-bg-color) !important;
+  border-radius: 0.25rem;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+/* Ensure code text is always visible */
+.highlight code {
+  color: var(--md-code-fg-color) !important;
+  background-color: transparent !important;
+}
+
+/* Improve inline code visibility */
+code {
+  background-color: var(--md-code-bg-color) !important;
+  color: var(--md-code-fg-color) !important;
+  padding: 0.2em 0.4em !important;
+  border-radius: 0.25rem !important;
+  font-size: 0.9em !important;
+}
+
+/* Dark mode specific fixes */
+[data-md-color-scheme="slate"] .highlight {
+  background-color: #2d3748 !important;
+  border: 1px solid #4a5568;
+}
+
+[data-md-color-scheme="slate"] .highlight code {
+  color: #e2e8f0 !important;
+}
+
+[data-md-color-scheme="slate"] code {
+  background-color: #2d3748 !important;
+  color: #e2e8f0 !important;
+  border: 1px solid #4a5568;
+}
+
+/* Light mode specific fixes */
+[data-md-color-scheme="default"] .highlight {
+  background-color: #f8f9fa !important;
+  border: 1px solid #e9ecef;
+}
+
+[data-md-color-scheme="default"] .highlight code {
+  color: #212529 !important;
+}
+
+[data-md-color-scheme="default"] code {
+  background-color: #f8f9fa !important;
+  color: #212529 !important;
+  border: 1px solid #e9ecef;
+}
+
+/* Ensure syntax highlighting colors are visible */
+.highlight .c { color: #6a737d !important; } /* Comment */
+.highlight .k { color: #d73a49 !important; } /* Keyword */
+.highlight .s { color: #032f62 !important; } /* String */
+.highlight .n { color: #24292e !important; } /* Name */
+.highlight .nb { color: #005cc5 !important; } /* Builtin */
+.highlight .nf { color: #6f42c1 !important; } /* Function */
+
+/* Dark mode syntax highlighting */
+[data-md-color-scheme="slate"] .highlight .c { color: #6a737d !important; }
+[data-md-color-scheme="slate"] .highlight .k { color: #f97583 !important; }
+[data-md-color-scheme="slate"] .highlight .s { color: #9ecbff !important; }
+[data-md-color-scheme="slate"] .highlight .n { color: #e1e4e8 !important; }
+[data-md-color-scheme="slate"] .highlight .nb { color: #79b8ff !important; }
+[data-md-color-scheme="slate"] .highlight .nf { color: #b392f0 !important; }
+
+/* Terminal/console specific styling */
+.highlight .language-bash,
+.highlight .language-console,
+.highlight .language-shell {
+  background-color: #1e1e1e !important;
+  color: #d4d4d4 !important;
+  font-family: 'Roboto Mono', 'Courier New', monospace !important;
+}
+
+.highlight .language-bash code,
+.highlight .language-console code,
+.highlight .language-shell code {
+  color: #d4d4d4 !important;
+}
+
+/* Python code specific improvements */
+.highlight .language-python {
+  background-color: var(--md-code-bg-color) !important;
+}
+
+/* YAML code specific improvements */
+.highlight .language-yaml {
+  background-color: var(--md-code-bg-color) !important;
+}
+
+/* Improve readability of copy button */
+.md-clipboard {
+  color: var(--md-default-fg-color--light) !important;
+}
+
+.md-clipboard:hover {
+  color: var(--md-accent-fg-color) !important;
+}
+
+/* Fix admonition code blocks */
+.admonition .highlight {
+  margin: 0.5rem 0;
+}
+
+/* Ensure tabbed content is visible */
+.tabbed-set > .tabbed-labels > .tabbed-label {
+  color: var(--md-default-fg-color--light) !important;
+}
+
+.tabbed-set > .tabbed-labels > .tabbed-label:hover {
+  color: var(--md-accent-fg-color) !important;
+}

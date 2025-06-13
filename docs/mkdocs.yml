@@ -14,8 +14,25 @@ theme:
     - content.code.annotate
     - content.code.copy
   palette:
-    primary: teal
-    accent: purple
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: purple
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    # Light mode  
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: purple
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  font:
+    text: Roboto
+    code: Roboto Mono
 
 plugins:
   - search
@@ -27,6 +44,28 @@ plugins:
             show_category_heading: true
             # Consult mkdocstrings documentation for more options
   - mkdocs-jupyter
+
+markdown_extensions:
+  - codehilite:
+      guess_lang: false
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - md_in_html
+
+extra_css:
+  - stylesheets/extra.css
 
 nav:
   - Home: index.md

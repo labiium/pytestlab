@@ -18,6 +18,8 @@ from importlib import metadata as _metadata
 import logging # Required for set_log_level
 from ._log import get_logger
 
+
+
 # ─── Public re-exports from existing sub-packages ──────────────────────────
 from .config import *
 from .experiments import *
@@ -50,13 +52,13 @@ def set_log_level(level: str) -> None:
 __all__ = [
     # Config
     "OscilloscopeConfig",
-    "MultimeterConfig", 
+    "MultimeterConfig",
     "PowerSupplyConfig",
     "WaveformGeneratorConfig",
     # Instruments
     "Oscilloscope",
     "Multimeter",
-    "PowerSupply", 
+    "PowerSupply",
     "WaveformGenerator",
     "AutoInstrument",
     "InstrumentManager",
@@ -80,3 +82,9 @@ __all__ = [
 #     __version__ = _metadata.version(__name__)
 # except _metadata.PackageNotFoundError:  # pragma: no cover
 #     __version__ = "0.1.0"
+
+# needs to be imported after the MeasurementResult class is defined
+from . import compliance
+compliance.initialize()
+
+

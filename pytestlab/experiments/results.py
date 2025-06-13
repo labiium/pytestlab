@@ -9,7 +9,11 @@ from typing import Any, Union, List as TypingList, Iterator, Optional # Added Op
 from uncertainties import ufloat # ufloat factory
 from uncertainties.core import UFloat, Variable # Variable is an alias for UFloat
 
-class MeasurementResult:
+# NOTE:
+#   The real implementation is *replaced at runtime* by the compliance layer.
+#   The stub class below is kept so that static type-checkers still see a
+#   definition when users import MeasurementResult directly.
+class MeasurementResult:  # noqa: D101
     """A class to represent a collection of measurement values.
     
     Attributes:
