@@ -4,9 +4,9 @@ sim_backend_v2.py
 
 A radical redesign of the PyTestLab simulation backend.  Key features:
 
-* **YAML‑driven simulation** — behaviour, state, errors, timing all described
+* **YAML-driven simulation** — behaviour, state, errors, timing all described
   declaratively in instrument profile files.
-* **User‑override mechanism** — the official profile shipped with PyTestLab
+* **User-override mechanism** — the official profile shipped with PyTestLab
   remains immutable; users keep local changes under ``~/.pytestlab/sim_profiles``.
 * **Regex/Glob SCPI dispatch** with *O(1)* exact‐match lookup and ordered
   fallback to pattern rules.
@@ -17,15 +17,15 @@ A radical redesign of the PyTestLab simulation backend.  Key features:
   (``math``, ``random``, ``statistics``).
 * **Error queue** emulation driven from YAML conditions written in pure Python
   boolean expressions evaluated against the live state **and** regex groups.
-* **Time‑domain realism** — optional artificial delay, busy locks and
+* **Time-domain realism** — optional artificial delay, busy locks and
   deterministic/random jitter to mimic real instruments.
-* **100 % asyncio‑first** — fully implements ``AsyncInstrumentIO``.
+* **100% asyncio-first** — fully implements ``AsyncInstrumentIO``.
 * **Extensive logging** at ``DEBUG`` level with message correlation IDs.
 
-This single file is *self‑contained*; split into modules inside the PyTestLab
+This single file is *self-contained*; split into modules inside the PyTestLab
 package if desired.
 
-Author: OpenAI ChatGPT (o3 model) – 2025‑06‑15
+Author: OpenAI ChatGPT (o3 model) – 2025-06-15
 License: MIT
 """
 from __future__ import annotations
@@ -69,7 +69,7 @@ if not logger.handlers:
 
 
 class SimulationError(RuntimeError):
-    "Base class for all simulation‑layer exceptions."
+    "Base class for all simulation-layer exceptions."
 
 
 class SCPIError(SimulationError):
@@ -81,7 +81,7 @@ class ProfileError(SimulationError):
 
 
 ###############################################################################
-# Utility: dot‑access dict for state
+# Utility: dot-access dict for state
 ###############################################################################
 
 
@@ -108,7 +108,7 @@ _ALLOWED_GLOBALS: Dict[str, Any] = MappingProxyType(
         "math": math,
         "random": random,
         "statistics": statistics,
-        # built‑ins which are safe
+        # built-ins which are safe
         "abs": abs,
         "min": min,
         "max": max,
@@ -150,7 +150,7 @@ def safe_eval(expr: str, /, state: dotdict, groups: Tuple[str, ...] = ()) -> Any
 def _load_yaml(path: Path) -> Dict[str, Any]:
     if not path.exists():
         raise ProfileError(f"Profile file {path} does not exist")
-    with path.open("rt", encoding="utf‑8") as fh:
+    with path.open("rt", encoding="utf-8") as fh:
         try:
             data = yaml.safe_load(fh) or {}
         except yaml.YAMLError as e:
@@ -208,7 +208,7 @@ class _PatternRule:
 
 class SimBackendV2:  # implements AsyncInstrumentIO
     """
-    Drop‑in replacement for the existing *SimBackend* with vastly richer
+    Drop-in replacement for the existing *SimBackend* with vastly richer
     functionality (see module docstring for highlights).
     """
 
@@ -244,11 +244,11 @@ class SimBackendV2:  # implements AsyncInstrumentIO
     # Public API – asyncio ----------------------------------------------- #
 
     async def connect(self) -> None:  # noqa: D401
-        "Establish connection (no‑op in simulation)."
+        "Establish connection (no-op in simulation)."
         logger.debug("%s: connect()", self.model)
 
     async def disconnect(self) -> None:
-        "Close connection (no‑op)."
+        "Close connection (no-op)."
         logger.debug("%s: disconnect()", self.model)
 
     async def write(self, cmd: str) -> None:
@@ -312,7 +312,7 @@ class SimBackendV2:  # implements AsyncInstrumentIO
             else:
                 self._exact_map[raw.upper()] = val
 
-        # sort patterns longest‑specific first to favour deterministic match
+        # sort patterns longest-specific first to favour deterministic match
         self._pattern_rules.sort(key=lambda r: r.pattern.pattern.count("*"), reverse=True)
 
         # errors
@@ -323,11 +323,11 @@ class SimBackendV2:  # implements AsyncInstrumentIO
     def _handle_command(self, cmd: str, *, expect_response: bool = False) -> str:
         cmd = cmd.strip()
         upper = cmd.upper()
-        # built‑ins first
+        # built-ins first
         if upper in {"*CLS", "SYST:ERR?", "SYSTEM:ERROR?", ":SYST:ERR?"}:
             return self._builtin_error_query() if expect_response else self._clear_errors()
         if upper == "*IDN?":
-            return self._profile.get("identification", "Simulated,PyTestLab,{}‑SIM,1.0".format(self.model))
+            return self._profile.get("identification", "Simulated,PyTestLab,{}-SIM,1.0".format(self.model))
 
         # user SCPI map
         if upper in self._exact_map:
@@ -339,7 +339,7 @@ class SimBackendV2:  # implements AsyncInstrumentIO
             if m:
                 return self._execute_entry(rule.template, cmd, m.groups())
 
-        # no match → error
+        # no match → error
         self._push_error(-113, "Undefined header")
         if expect_response:
             return "SIM_ERROR:UnknownQuery"
@@ -363,7 +363,7 @@ class SimBackendV2:  # implements AsyncInstrumentIO
         response = ""
         # mapping form
         if isinstance(entry, dict):
-            # delay first – simulate instrument busy
+            # delay first – simulate instrument busy
             if "delay" in entry:
                 delay = float(entry["delay"])
                 logger.debug("%s busy delay %.3fs", self.model, delay)
@@ -460,7 +460,7 @@ def edit_user_profile(profile_path: str | os.PathLike) -> None:  # pragma: no co
 
 
 ###############################################################################
-# Minimal self‑test
+# Minimal self-test
 ###############################################################################
 
 if __name__ == "__main__":  # pragma: no cover
