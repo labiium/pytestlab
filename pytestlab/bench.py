@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Union, Dict, Any, Optional
 import subprocess
 import sys
+import warnings
 from .config.bench_loader import load_bench_yaml, build_validation_context, run_custom_validations
 from .config.bench_config import BenchConfigExtended
 from .instruments import AutoInstrument
@@ -13,28 +14,44 @@ class SafetyLimitError(Exception):
     pass
 
 class SafeInstrumentWrapper:
-    """
-    Wraps an Instrument to enforce safety_limits from the bench config.
-    Only wraps set_voltage/set_current/output for PSU, and similar for others.
+    """Wraps an instrument to enforce safety limits defined in the bench config.
+
+    This class acts as a proxy to an underlying instrument object. It intercepts
+    calls to methods that could be dangerous (like `set_voltage` on a power
+    supply) and checks them against the defined safety limits before passing
+    the call to the actual instrument. This helps prevent accidental damage to
+    equipment or the device under test.
+
+    Attributes:
+        _inst: The actual instrument instance being wrapped.
+        _safety_limits: The safety limit configuration for this instrument.
     """
     def __init__(self, instrument: Instrument, safety_limits: Any):
         self._inst = instrument
         self._safety_limits = safety_limits
 
     def __getattr__(self, name):
+        """Dynamically wraps methods to enforce safety checks."""
         orig = getattr(self._inst, name)
-        # Wrap set_voltage, set_current, output for PSU
+        # Currently, only wraps methods for Power Supplies. This can be extended.
+        # If the method is 'set_voltage', return a new function that checks limits first.
         if name == "set_voltage":
             async def safe_set_voltage(channel, voltage, *a, **k):
                 max_v = None
+                # Check if channel-specific voltage limits are defined.
                 if self._safety_limits and self._safety_limits.channels:
                     ch_limits = self._safety_limits.channels.get(channel)
                     if ch_limits and ch_limits.voltage and "max" in ch_limits.voltage:
                         max_v = ch_limits.voltage["max"]
+                # If a limit is found, check if the requested voltage exceeds it.
                 if max_v is not None and voltage > max_v:
-                    raise SafetyLimitError(f"Refusing to set voltage {voltage} > safety limit {max_v} V")
+                    raise SafetyLimitError(
+                        f"Refusing to set voltage {voltage}V, which is above the safety limit of {max_v}V."
+                    )
+                # If safe, call the original method.
                 return await orig(channel, voltage, *a, **k)
             return safe_set_voltage
+        # If the method is 'set_current', do the same for current limits.
         if name == "set_current":
             async def safe_set_current(channel, current, *a, **k):
                 max_c = None
@@ -43,17 +60,25 @@ class SafeInstrumentWrapper:
                     if ch_limits and ch_limits.current and "max" in ch_limits.current:
                         max_c = ch_limits.current["max"]
                 if max_c is not None and current > max_c:
-                    raise SafetyLimitError(f"Refusing to set current {current} > safety limit {max_c} A")
+                    raise SafetyLimitError(
+                        f"Refusing to set current {current}A, which is above the safety limit of {max_c}A."
+                    )
                 return await orig(channel, current, *a, **k)
             return safe_set_current
-        # TODO: Add similar wrappers for other instrument types as needed
+        # For any other method, return it unwrapped.
         return orig
 
 class Bench:
-    """
-    Main bench manager class.
-    Loads, validates, and manages all instruments in the bench.yaml.
-    Enforces safety limits, runs automation hooks, and exposes traceability/plan.
+    """Manages a collection of test instruments as a single entity.
+
+    The `Bench` class is the primary entry point for interacting with a test setup
+    defined in a YAML configuration file. It handles:
+    - Loading and validating the bench configuration.
+    - Asynchronously initializing and connecting to all specified instruments.
+    - Wrapping instruments with safety limit enforcement where specified.
+    - Running pre- and post-experiment automation hooks.
+    - Providing easy access to instruments by their aliases (e.g., `bench.psu1`).
+    - Exposing traceability and planning information from the config.
     """
     def __init__(self, config: BenchConfigExtended):
         self.config = config
@@ -62,7 +87,18 @@ class Bench:
 
     @classmethod
     async def open(cls, filepath: Union[str, Path]) -> "Bench":
-        """Asynchronously load and initialize a bench from a YAML file."""
+        """Loads, validates, and initializes a bench from a YAML configuration file.
+
+        This class method acts as the main factory for creating a `Bench` instance.
+        It orchestrates the loading of the YAML file, the execution of any custom
+        validation rules, and the asynchronous initialization of all instruments.
+
+        Args:
+            filepath: The path to the bench.yaml configuration file.
+
+        Returns:
+            A fully initialized `Bench` instance, ready for use.
+        """
         config = load_bench_yaml(filepath)
         # Run custom validations
         context = build_validation_context(config)
@@ -73,22 +109,26 @@ class Bench:
         return bench
 
     async def _initialize_instruments(self):
-        """Initialize all instruments asynchronously."""
-        # touch compliance to make sure AuditTrail exists before any result
+        """Initializes and connects to all instruments defined in the config."""
+        # Importing compliance ensures that the necessary patches are applied
+        # before any instruments are created, which might generate results.
         from . import compliance  # noqa: F401
 
         for alias, entry in self.config.instruments.items():
+            # Determine the final simulation mode, with instrument-specific settings
+            # overriding the global bench setting.
             simulate_flag = self.config.simulate
             if entry.simulate is not None:
                 simulate_flag = entry.simulate
-            
-            # Determine backend type hint from entry.backend
+
+            # Extract backend hints from the configuration.
             backend_type_hint = None
             timeout_override_ms = None
             if entry.backend:
                 backend_type_hint = entry.backend.get("type")
                 timeout_override_ms = entry.backend.get("timeout_ms")
-            
+
+            # Use AutoInstrument to create the instrument instance from its profile.
             instrument = await AutoInstrument.from_config(
                 config_source=entry.profile,
                 simulate=simulate_flag,
@@ -97,19 +137,29 @@ class Bench:
                 timeout_override_ms=timeout_override_ms
             )
             await instrument.connect_backend()
-            
-            # Wrap with safety limits if present
+
+            # If safety limits are defined for this instrument, wrap it.
             if entry.safety_limits:
                 wrapped = SafeInstrumentWrapper(instrument, entry.safety_limits)
+                warnings.warn(f"Instrument '{alias}' is running with a safety wrapper.", UserWarning)
                 self._instrument_instances[alias] = instrument
                 self._instrument_wrappers[alias] = wrapped
                 setattr(self, alias, wrapped)
             else:
+                # Otherwise, add the raw instrument to the bench.
                 self._instrument_instances[alias] = instrument
                 setattr(self, alias, instrument)
 
     async def _run_automation_hook(self, hook: str):
-        """Run automation hooks (pre_experiment or post_experiment)."""
+        """Executes automation commands for a given hook (e.g., 'pre_experiment').
+
+        This method runs a series of commands defined in the `automation` section
+        of the bench config. It supports running shell commands, Python scripts,
+        and simple instrument macros.
+
+        Args:
+            hook: The name of the hook to run (e.g., "pre_experiment").
+        """
         hooks = getattr(self.config.automation, hook, None) if self.config.automation else None
         if not hooks:
             return
@@ -148,7 +198,7 @@ class Bench:
                 subprocess.run(cmd, shell=True, check=True)
 
     async def close_all(self):
-        """Close all instruments and run post-experiment hooks."""
+        """Runs post-experiment hooks and closes all instrument connections."""
         await self._run_automation_hook("post_experiment")
         close_tasks = [
             inst.close() for inst in self._instrument_instances.values() if hasattr(inst, "close")
@@ -169,11 +219,21 @@ class Bench:
             return self._instrument_wrappers[name]
         if name in self._instrument_instances:
             return self._instrument_instances[name]
-        raise AttributeError(f"Bench has no instrument '{name}'")
+        raise AttributeError(f"The bench has no instrument with the alias '{name}'.")
 
     def __dir__(self):
         """Include instrument aliases in dir() output for autocomplete."""
         return super().__dir__() + list(self._instrument_instances.keys())
+
+    @property
+    def instruments(self) -> Dict[str, Instrument]:
+        """Provides programmatic access to all instrument instances.
+
+        Returns:
+            A dictionary where keys are instrument aliases and values are the
+            corresponding instrument instances.
+        """
+        return self._instrument_instances
 
     # --- Accessors for traceability, measurement plan, etc. ---
     @property

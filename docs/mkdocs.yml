@@ -72,12 +72,18 @@ nav:
   - Installation: installation.md
   - 'User Guide':
     - 'Getting Started': user_guide/getting_started.md
+    - 'Async vs. Sync': 'user_guide/async_vs_sync.md'
     - '10 Minute Tour': tutorials/10_minute_tour.ipynb
     - 'Connecting to Instruments': user_guide/connecting.md
+    - 'Error Handling': 'user_guide/errors.md'
     - 'Simulation Mode': user_guide/simulation.md
     - 'Handling Uncertainty': user_guide/uncertainty.md
     - 'Bench Descriptors': user_guide/bench_descriptors.md
     - 'Command-Line Interface': user_guide/cli.md
+  - 'Tutorials':
+    - 'Compliance and Audit': 'tutorials/compliance.ipynb'
+    - 'Custom Validations': 'tutorials/custom_validations.ipynb'
+    - 'Profile Creation': 'tutorials/profile_creation.ipynb'
   - 'API Reference':
     - 'Instruments': api/instruments.md
     - 'Configuration': api/config.md

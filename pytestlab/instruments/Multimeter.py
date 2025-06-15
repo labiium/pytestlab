@@ -8,6 +8,7 @@ from typing import Any, Literal, Optional, Type, Union
 import numpy as np
 from uncertainties import ufloat
 from uncertainties.core import UFloat  # For type hinting float | UFloat
+import warnings
 
 from ..config.multimeter_config import DMMFunction, MultimeterConfig
 from ..errors import InstrumentConfigurationError, InstrumentParameterError
@@ -17,8 +18,17 @@ from .instrument import Instrument
 
 @dataclass
 class MultimeterConfigResult:
-    """
-    Data class to store the current measurement configuration of the multimeter.
+    """Stores the current measurement configuration of the multimeter.
+
+    This data class holds the state of the multimeter's configuration at a
+    point in time, such as the measurement mode, range, and resolution. It is
+    typically returned by methods that query the instrument's status.
+
+    Attributes:
+        measurement_mode: The type of measurement being made (e.g., "Voltage").
+        range_value: The configured measurement range.
+        resolution: The configured resolution.
+        units: The units for the measurement range (e.g., "V", "A").
     """
     measurement_mode: str
     range_value: float
@@ -32,17 +42,21 @@ class MultimeterConfigResult:
 
 
 class Multimeter(Instrument[MultimeterConfig]):
-    config: MultimeterConfig
-    """
-    A class representing a Digital Multimeter that inherits from the Instrument class.
+    """Drives a Digital Multimeter (DMM) for various measurements.
 
-    Provides methods for measuring voltage, current, resistance, frequency, and testing continuity.
+    This class provides a high-level interface for controlling a DMM, building
+    upon the base `Instrument` class. It includes methods for common DMM
+    operations such as measuring voltage, current, resistance, and frequency.
+    It also handles instrument-specific configurations and can incorporate
+    measurement uncertainty based on the provided configuration.
 
     Attributes:
-        config (MultimeterConfig): The configuration object for the multimeter.
+        config: The Pydantic configuration object (`MultimeterConfig`)
+                containing settings specific to this DMM.
     """
+    config: MultimeterConfig
 
-    def __init__(self, config: MultimeterConfig, debug_mode: bool = False) -> None:
+    def __init__(self, config: MultimeterConfig, debug_mode: bool = False, **kwargs) -> None:
         """
         Initializes a Multimeter instance.
 
@@ -50,14 +64,14 @@ class Multimeter(Instrument[MultimeterConfig]):
             config (MultimeterConfig): The configuration object for the multimeter.
             debug_mode (bool): Enable debug mode for the instrument.
         """
-        super().__init__(config=config, debug_mode=debug_mode)
+        super().__init__(config=config, debug_mode=debug_mode, **kwargs)
         # self.config is now an instance of MultimeterConfig, type hinted at class level
 
         # Initialize the DMM to its default function if specified in config
         if self.config.default_measurement_function:
-            self.set_measurement_function(self.config.default_measurement_function)
+            self.set_measurement_function_sync(self.config.default_measurement_function)
         if self.config.trigger_source:
-            self.set_trigger_source(self.config.trigger_source)
+            self.set_trigger_source_sync(self.config.trigger_source)
         # Apply other initial configurations based on self.config as needed
 
     @classmethod
@@ -71,23 +85,32 @@ class Multimeter(Instrument[MultimeterConfig]):
         return cls(config=config, debug_mode=debug_mode)
     
     async def get_config(self) -> MultimeterConfigResult:
-        """
-        Retrieves the current measurement configuration from the multimeter.
+        """Retrieves the current measurement configuration from the DMM.
 
-        This method sends the "CONFigure?" command, parses the returned string,
-        and returns a MultimeterConfigResult object containing the measurement mode,
-        range, resolution, and appropriate units.
+        This method queries the instrument to determine its current settings,
+        such as the active measurement function, range, and resolution. It then
+        parses this information into a structured `MultimeterConfigResult` object.
 
         Returns:
-            MultimeterConfigResult: An object containing the current measurement configuration.
+            A `MultimeterConfigResult` dataclass instance with the DMM's current
+            configuration.
+
+        Raises:
+            InstrumentDataError: If the configuration string from the DMM
+                                 cannot be parsed.
         """
+        # Query the instrument for its current configuration. The response is typically
+        # a string like '"VOLT:DC 10,0.0001"'.
         config_str: str = (await self._query("CONFigure?")).replace('"', '').strip()
         try:
+            # Parse the string to extract the mode, range, and resolution.
             mode_part, settings_part = config_str.split(maxsplit=1)
             range_str, resolution_str = settings_part.split(",")
             range_value_float: float = float(range_str)
         except Exception as e:
-            raise ValueError(f"Failed to parse configuration string: {config_str}") from e
+            raise InstrumentDataError(
+                self.config.model, f"Failed to parse configuration string: {config_str}"
+            ) from e
 
         # Determine human-friendly measurement mode and assign units based on mode
         measurement_mode_str: str = "" # Renamed
@@ -119,11 +142,14 @@ class Multimeter(Instrument[MultimeterConfig]):
         )
 
     async def set_measurement_function(self, function: DMMFunction) -> None:
-        """
-        Sets the measurement function of the DMM.
+        """Configures the primary measurement function of the DMM.
+
+        This method sets the DMM to measure a specific quantity, such as DC
+        Voltage, AC Current, or Resistance.
 
         Args:
-            function (DMMFunction): The measurement function to set.
+            function: The desired measurement function, as defined by the
+                      `DMMFunction` enum.
         """
         scpi_command: str
         if self.config.scpi_commands and self.config.scpi_commands.set_function:
@@ -135,15 +161,20 @@ class Multimeter(Instrument[MultimeterConfig]):
         else:
             scpi_command = f"FUNC '{function.value}'"
         
-        await self.write(scpi_command) # Changed to await
+        await self._send_command(scpi_command) # Changed to await
         self._logger.info(f"Set measurement function to {function.name} ({function.value})")
 
     async def set_trigger_source(self, source: Literal["IMM", "EXT", "BUS"]) -> None:
-        """
-        Sets the trigger source for the DMM.
+        """Sets the trigger source for initiating a measurement.
+
+        The trigger source determines what event will cause the DMM to start
+        taking a reading.
+        - "IMM": Immediate, the DMM triggers as soon as it's ready.
+        - "EXT": External, a hardware signal on the rear panel triggers the DMM.
+        - "BUS": A software command (`*TRG`) triggers the DMM.
 
         Args:
-            source (Literal["IMM", "EXT", "BUS"]): The trigger source.
+            source: The desired trigger source.
         """
         scpi_command: str
         if self.config.scpi_commands and self.config.scpi_commands.set_trigger_source:
@@ -155,7 +186,7 @@ class Multimeter(Instrument[MultimeterConfig]):
         else:
             scpi_command = f"TRIG:SOUR {source.upper()}"
 
-        await self.write(scpi_command) # Changed to await
+        await self._send_command(scpi_command) # Changed to await
         self._logger.info(f"Set trigger source to {source}")
 
     async def _format_range_for_accuracy_key(self, function: DMMFunction, range_numeric: float, range_units: str) -> str: # Keep async if get_config is async
@@ -176,19 +207,32 @@ class Multimeter(Instrument[MultimeterConfig]):
         return f"{val_str}{unit_key_str}"
 
     async def measure(self, function: DMMFunction, range_val: Optional[str] = None, resolution: Optional[str] = None) -> MeasurementResult:
-        """
-        Makes a measurement on the multimeter. Incorporates uncertainty if configured.
+        """Performs a measurement and returns the result.
+
+        This is the primary method for acquiring data from the DMM. It configures
+        the measurement, triggers it, and reads the result. If measurement
+        accuracy specifications are provided in the instrument's configuration,
+        this method will calculate the uncertainty and return the value as a
+        `UFloat` object.
 
         Args:
-            function (DMMFunction): The measurement function to perform.
-            range_val (Optional[str]): The measurement range (e.g., "1V", "AUTO"). Validated against self.config.configuration.
-            resolution (Optional[str]): The resolution (e.g., "MIN", "MAX", "DEF").
+            function: The measurement function to perform (e.g., DC Voltage).
+            range_val: The measurement range (e.g., "1V", "AUTO"). If not provided,
+                       "AUTO" is used. The value is validated against the ranges
+                       defined in the instrument's configuration.
+            resolution: The desired resolution (e.g., "MIN", "MAX", "DEF"). If not
+                        provided, "DEF" (default) is used.
 
         Returns:
-            MeasurementResult: The measured value (float or ufloat) with additional metadata.
+            A `MeasurementResult` object containing the measured value (as a float
+            or `UFloat`), units, and other metadata.
+
+        Raises:
+            InstrumentParameterError: If an unsupported `range_val` is provided.
         """
         scpi_function_val = function.value
 
+        # Validate the selected range against the supported ranges in the config
         if range_val is not None and range_val.upper() != "AUTO":
             supported_ranges: Optional[list[str]] = None
             if self.config.configuration:
@@ -200,11 +244,14 @@ class Multimeter(Instrument[MultimeterConfig]):
                     supported_ranges = self.config.configuration.resistance
                 elif function == DMMFunction.FREQUENCY and self.config.configuration.frequency_ranges:
                      supported_ranges = self.config.configuration.frequency_ranges
-            
+
             if supported_ranges:
                 if not any(r.upper() == range_val.upper() for r in supported_ranges):
                     raise InstrumentParameterError(
-                        f"Unsupported range '{range_val}' for function {function.name}. Available: {supported_ranges}"
+                        parameter="range_val",
+                        value=range_val,
+                        valid_range=supported_ranges,
+                        message=f"Unsupported range for function {function.name}.",
                     )
             elif self.config.configuration is None:
                  self._logger.warning(f"No DMMConfiguration in MultimeterConfig for {self.config.model}. Cannot validate range '{range_val}'.")
@@ -218,27 +265,31 @@ class Multimeter(Instrument[MultimeterConfig]):
         reading: float = float(response_str)
         value_to_return: Union[float, UFloat] = reading
 
+        # If accuracy specs are provided, calculate the measurement uncertainty.
         if self.config.measurement_accuracy:
             key_range_part: str
+            # Determine the range key for the accuracy lookup table.
             if range_for_query == "AUTO" or not range_val:
+                # If auto-ranging, we need to query the DMM to find out what range it actually used.
                 try:
-                    current_instrument_config = await self.get_config() # Await async get_config
-                    key_range_part = await self._format_range_for_accuracy_key(function, current_instrument_config.range_value, current_instrument_config.units) # Await async helper
+                    current_instrument_config = await self.get_config()
+                    key_range_part = await self._format_range_for_accuracy_key(function, current_instrument_config.range_value, current_instrument_config.units)
                 except Exception as e:
                     self._logger.warning(f"Could not determine auto-range for accuracy key via get_config(): {e}. Accuracy may not be applied.")
                     key_range_part = "auto"
             else:
+                # If a specific range was given, parse it.
                 match_range = re.match(r"([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s*([a-zA-ZμΩ°]+)?", range_val)
                 if match_range:
                     num_str, unit_str_parsed = match_range.group(1), (match_range.group(2) or "")
                     try:
                         num_float = float(num_str)
                         unit_to_use = unit_str_parsed
-                        if not unit_to_use: # Infer if not part of range_val string
+                        if not unit_to_use:  # Infer unit if not explicitly in the string
                             if "VOLTAGE" in function.name.upper(): unit_to_use = "V"
                             elif "CURRENT" in function.name.upper(): unit_to_use = "A"
                             elif "RESISTANCE" in function.name.upper(): unit_to_use = "Ohm"
-                        key_range_part = self._format_range_for_accuracy_key(function, num_float, unit_to_use)
+                        key_range_part = await self._format_range_for_accuracy_key(function, num_float, unit_to_use)
                     except ValueError:
                         self._logger.warning(f"Could not parse numeric part of '{range_val}'. Using raw string for accuracy key.")
                         key_range_part = range_val.lower()
@@ -317,3 +368,39 @@ class Multimeter(Instrument[MultimeterConfig]):
             units=units_val,
             measurement_type=measurement_name_val,
         )
+
+    def set_measurement_function_sync(self, function: DMMFunction) -> None:
+        """
+        Sets the measurement function of the DMM.
+        """
+        warnings.warn(
+            "The 'set_measurement_function_sync' method is deprecated and will be removed in a future version. "
+            "Please use the asynchronous 'set_measurement_function' method instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        self.set_measurement_function(function)
+
+    def set_trigger_source_sync(self, source: Literal["IMM", "EXT", "BUS"]) -> None:
+        """
+        Sets the trigger source for the DMM.
+        """
+        warnings.warn(
+            "The 'set_trigger_source_sync' method is deprecated and will be removed in a future version. "
+            "Please use the asynchronous 'set_trigger_source' method instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        self.set_trigger_source(source)
+
+    def measure_sync(self, function: DMMFunction, range_val: Optional[str] = None, resolution: Optional[str] = None) -> MeasurementResult:
+        """
+        Makes a measurement on the multimeter. Incorporates uncertainty if configured.
+        """
+        warnings.warn(
+            "The 'measure_sync' method is deprecated and will be removed in a future version. "
+            "Please use the asynchronous 'measure' method instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.measure(function, range_val, resolution)

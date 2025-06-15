@@ -14,12 +14,31 @@ from uncertainties.core import UFloat # For type hinting float | UFloat
 
 
 class PSUChannelFacade:
+    """Provides a simplified, chainable interface for a single PSU channel.
+
+    This facade abstracts the underlying SCPI commands for common channel
+    operations, allowing for more readable and fluent test scripts. For example:
+    `await psu.channel(1).set(voltage=5.0, current_limit=0.1).on()`
+
+    Attributes:
+        _psu: The parent `PowerSupply` instance.
+        _channel: The channel number (1-based) this facade controls.
+    """
     def __init__(self, psu: 'PowerSupply', channel_num: int):
         self._psu = psu
         self._channel = channel_num
 
     @validate_call
     async def set(self, voltage: Optional[float] = None, current_limit: Optional[float] = None) -> Self:
+        """Sets the voltage and/or current limit for this channel.
+
+        Args:
+            voltage: The target voltage in Volts.
+            current_limit: The current limit in Amperes.
+
+        Returns:
+            The `PSUChannelFacade` instance for method chaining.
+        """
         if voltage is not None:
             await self._psu.set_voltage(self._channel, voltage)
         if current_limit is not None:
@@ -27,23 +46,34 @@ class PSUChannelFacade:
         return self
 
     async def on(self) -> Self:
+        """Enables the output of this channel."""
         await self._psu.output(self._channel, True)
         return self
 
     async def off(self) -> Self:
+        """Disables the output of this channel."""
         await self._psu.output(self._channel, False)
         return self
 
     async def get_voltage(self) -> float | UFloat:
+        """Reads the measured voltage from this channel."""
         return await self._psu.read_voltage(self._channel)
 
     async def get_current(self) -> float | UFloat:
+        """Reads the measured current from this channel."""
         return await self._psu.read_current(self._channel)
 
     async def get_output_state(self) -> bool:
-        """Checks if the channel output is ON."""
+        """Checks if the channel output is enabled (ON).
+
+        Returns:
+            True if the output is on, False otherwise.
+
+        Raises:
+            InstrumentParameterError: If the instrument returns an unexpected state.
+        """
         command = f"{self._psu.SCPI_MAP.OUTPUT_STATE_QUERY_BASE} (@{self._channel})"
-        state_str = (await self._psu._query(command)).strip()
+        state_str = (await self._psu._query(command)).strip().upper()
         if state_str in ("1", "ON"):
             return True
         elif state_str in ("0", "OFF"):
@@ -51,14 +81,25 @@ class PSUChannelFacade:
         raise InstrumentParameterError(f"Unexpected output state '{state_str}' for channel {self._channel}")
 
 
-class PSUChannelConfig: # This is a helper data class, not a Pydantic config model for file loading
+class PSUChannelConfig:
+    """A data class to hold the measured configuration of a single PSU channel.
+
+    This class is used to structure the data returned by `get_configuration`,
+    providing a snapshot of a channel's state. It is not a Pydantic model for
+    loading configurations from files.
+
+    Attributes:
+        voltage: The measured voltage of the channel.
+        current: The measured current of the channel.
+        state: The output state of the channel ("ON" or "OFF").
+    """
     def __init__(self, voltage: float | UFloat, current: float | UFloat, state: Union[int, str]) -> None:
-        """
-        
+        """Initializes the PSUChannelConfig.
+
         Args:
-            voltage (float | UFloat): The voltage value for the channel.
-            current (float | UFloat): The current value for the channel.
-            state (Union[int, str]): The state of the channel. 0 for off, 1 for on, or "ON"/"OFF".
+            voltage: The voltage value for the channel.
+            current: The current value for the channel.
+            state: The state of the channel (e.g., 0, 1, "ON", "OFF").
         """
         self.voltage: float | UFloat = voltage
         self.current: float | UFloat = current
@@ -82,16 +123,23 @@ class PSUChannelConfig: # This is a helper data class, not a Pydantic config mod
         return f"PSUChannelConfig(voltage={self.voltage!r}, current={self.current!r}, state='{self.state}')"
 
 class PowerSupply(Instrument[PowerSupplyConfig]):
-    model_config = {"arbitrary_types_allowed": True}
-    config: PowerSupplyConfig # This is now the V2 validated model instance
-    """
-    A class representing a Digital Power Supply that inherits from the Instrument class.
+    """Drives a multi-channel Power Supply Unit (PSU).
 
-    Provides methods for setting voltage and current, and for enabling or disabling the output.
+    This class provides a high-level interface for controlling a programmable
+    power supply. It builds upon the base `Instrument` class and adds methods
+    for setting and reading voltage and current on a per-channel basis. It also
+    supports incorporating measurement uncertainty if configured.
+
+    A key feature is the `channel()` method, which returns a `PSUChannelFacade`
+    for a simplified, chainable programming experience.
 
     Attributes:
-        config (PowerSupplyConfig): The validated Pydantic V2 configuration object for the instrument.
+        config: The Pydantic configuration object (`PowerSupplyConfig`)
+                containing settings specific to this PSU.
+        SCPI_MAP: An object that maps generic functions to model-specific SCPI commands.
     """
+    model_config = {"arbitrary_types_allowed": True}
+    config: PowerSupplyConfig
     SCPI_MAP = KeysightEDU36311APSU_SCPI() # Instance of the map
 
     # __init__ already expects PowerSupplyConfig V2 due to class Generic type and type hint
@@ -106,38 +154,42 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
     
     @validate_call
     async def set_voltage(self, channel: int, voltage: float) -> None:
-        """
-        Sets the voltage for the specified channel.
+        """Sets the output voltage for a specific channel.
 
         Args:
-            channel (int): The channel number (1-based).
-            voltage (float): The voltage value to set.
+            channel: The channel number (1-based).
+            voltage: The target voltage in Volts.
 
         Raises:
-            InstrumentParameterError: If channel number is invalid or voltage is out of configured range.
+            InstrumentParameterError: If the channel number is invalid or the
+                                      voltage is outside the configured range for
+                                      that channel.
         """
+        # Validate that the channel number is within the configured range
         if not self.config.channels or not (1 <= channel <= len(self.config.channels)):
             num_ch = len(self.config.channels) if self.config.channels else 0
             raise InstrumentParameterError(f"Channel number {channel} is out of range (1-{num_ch}).")
-        
-        channel_config = self.config.channels[channel - 1] # channel is 1-based
-        # Pydantic's validate_call handles type of channel and voltage.
-        # The Range.assert_in_range is business logic validation within the config model, keep it.
+
+        # Validate the voltage against the limits defined in the configuration
+        channel_config = self.config.channels[channel - 1]
         channel_config.voltage_range.assert_in_range(voltage, name=f"Voltage for channel {channel}")
+
+        # Construct and send the SCPI command
         command = f"{self.SCPI_MAP.VOLTAGE_SET_BASE} {voltage}, (@{channel})"
         await self._send_command(command)
 
     @validate_call
     async def set_current(self, channel: int, current: float) -> None:
-        """
-        Sets the current for the specified channel.
+        """Sets the current limit for a specific channel.
 
         Args:
-            channel (int): The channel number (1-based).
-            current (float): The current value to set.
+            channel: The channel number (1-based).
+            current: The current limit in Amperes.
 
         Raises:
-            InstrumentParameterError: If channel number is invalid or current is out of configured range.
+            InstrumentParameterError: If the channel number is invalid or the
+                                      current is outside the configured range for
+                                      that channel.
         """
         if not self.config.channels or not (1 <= channel <= len(self.config.channels)):
             num_ch = len(self.config.channels) if self.config.channels else 0
@@ -150,16 +202,15 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
 
     @validate_call
     async def output(self, channel: Union[int, List[int]], state: bool = True) -> None:
-        """
-        Enables or disables the output for the specified channel(s).
+        """Enables or disables the output for one or more channels.
 
         Args:
-            channel (Union[int, List[int]]): The channel (1-based) or list of channels.
-            state (bool): True to enable output (ON), False to disable (OFF). Default is True.
+            channel: A single channel number (1-based) or a list of channel numbers.
+            state: True to enable the output (ON), False to disable (OFF).
 
         Raises:
             InstrumentParameterError: If any channel number is invalid.
-            ValueError: If the channel type is invalid.
+            ValueError: If the `channel` argument is not an int or a list of ints.
         """
         channels_to_process: List[int]
         if isinstance(channel, int):
@@ -186,28 +237,30 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
 
     @validate_call
     async def display(self, state: bool) -> None:
-        """
-        Enables or disables the display.
+        """Enables or disables the instrument's front panel display.
 
         Args:
-            state (bool): The state to set. True for on (ON), False for off (OFF).
+            state: True to turn the display on, False to turn it off.
         """
         scpi_state = SCPIOnOff.ON.value if state else SCPIOnOff.OFF.value
         await self._send_command(f"DISP {scpi_state}")
 
     @validate_call
     async def read_voltage(self, channel: int) -> float | UFloat:
-        """
-        Reads the output voltage for the specified channel. Incorporates uncertainty if configured.
+        """Reads the measured output voltage from a specific channel.
+
+        If measurement accuracy is defined in the configuration, this method
+        will return a `UFloat` object containing the value and its uncertainty.
+        Otherwise, it returns a standard float.
 
         Args:
-            channel (int): The channel number (1-based).
+            channel: The channel number to measure (1-based).
 
         Returns:
-            float | UFloat: The measured voltage.
-        
+            The measured voltage as a float or `UFloat`.
+
         Raises:
-            InstrumentParameterError: If channel number is invalid.
+            InstrumentParameterError: If the channel number is invalid.
         """
         if not self.config.channels or not (1 <= channel <= len(self.config.channels)):
             num_ch = len(self.config.channels) if self.config.channels else 0
@@ -239,17 +292,20 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
 
     @validate_call
     async def read_current(self, channel: int) -> float | UFloat:
-        """
-        Reads the output current for the specified channel. Incorporates uncertainty if configured.
+        """Reads the measured output current from a specific channel.
+
+        If measurement accuracy is defined in the configuration, this method
+        will return a `UFloat` object containing the value and its uncertainty.
+        Otherwise, it returns a standard float.
 
         Args:
-            channel (int): The channel number (1-based).
+            channel: The channel number to measure (1-based).
 
         Returns:
-            float | UFloat: The measured current.
+            The measured current as a float or `UFloat`.
 
         Raises:
-            InstrumentParameterError: If channel number is invalid.
+            InstrumentParameterError: If the channel number is invalid.
         """
         if not self.config.channels or not (1 <= channel <= len(self.config.channels)):
             num_ch = len(self.config.channels) if self.config.channels else 0
@@ -281,12 +337,15 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
 
     @validate_call
     async def get_configuration(self) -> Dict[int, PSUChannelConfig]:
-        """
-        Gets the measured voltages, currents, and output states for all channels.
-        Voltages and currents can be ufloat objects if accuracy is configured.
-        
+        """Reads the live state of all configured PSU channels.
+
+        This method iterates through all channels defined in the configuration,
+        queries their current voltage, current, and output state, and returns
+        the collected data.
+
         Returns:
-            Dict[int, PSUChannelConfig]: A dictionary containing the configuration for each channel.
+            A dictionary where keys are channel numbers (1-based) and values are
+            `PSUChannelConfig` objects representing the state of each channel.
         """
         results: Dict[int, PSUChannelConfig] = {}
         if not self.config.channels:

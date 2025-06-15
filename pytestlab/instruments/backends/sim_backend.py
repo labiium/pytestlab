@@ -1,6 +1,7 @@
 from __future__ import annotations
-import logging # For logging within the sim backend
-import re # For potential regex dispatch
+import logging  # For logging within the sim backend
+import re  # For potential regex dispatch
+import warnings
 from typing import Any, Optional, TYPE_CHECKING
 
 # Import the AsyncInstrumentIO protocol
@@ -44,12 +45,31 @@ class SimBackend:  # Implements AsyncInstrumentIO (and InstrumentIO for complete
         self.state: dict[str, Any] = {} # To store simulated instrument state
         self.device_model = device_model
         self._timeout_ms = timeout_ms if timeout_ms is not None else 5000
+        self._sim_responses: dict[str, str] = {}
         sim_logger.info(f"Async SimBackend initialized for profile: {self.device_model}")
+        warnings.warn(f"Instrument is running in simulation mode.", UserWarning)
         # Initialize some basic state
         self.state['output_enabled'] = False
         self.state['voltage'] = 0.0
         self.state['current'] = 0.0
-        self.state['errors'] = [] # Simulate an error queue
+        self.state['errors'] = []  # Simulate an error queue
+        self.error_config: dict[str, Any] = {}
+
+    def configure_error_simulation(self, config: dict[str, Any]) -> None:
+        """Configures the error simulation behavior."""
+        self.error_config.update(config)
+        sim_logger.info(f"SimBackend for {self.device_model} error simulation configured with: {config}")
+
+    def set_sim_response(self, cmd: str, value: str) -> None:
+        """
+        Sets a custom simulation response for a specific command.
+
+        Args:
+            cmd: The command to which the simulation should respond.
+            value: The value to be returned when the command is received.
+        """
+        self._sim_responses[cmd.upper()] = value
+        sim_logger.info(f"SimBackend for {self.device_model} registered custom response for '{cmd}': '{value}'")
 
     async def connect(self) -> None:
         """Connects to the simulated instrument (async)."""
@@ -64,11 +84,23 @@ class SimBackend:  # Implements AsyncInstrumentIO (and InstrumentIO for complete
     def _record_sync(self, cmd: str) -> None:
         """Synchronous helper to log commands and update state."""
         sim_logger.debug(f"SimBackend (sync part of async op) received WRITE: '{cmd}' for {self.device_model}")
+        cmd_upper = cmd.upper()
+        if cmd_upper in self._sim_responses:
+            # If a custom response is set for a write command, it might just be logged
+            # or could trigger a state change, but it won't return a value here.
+            # For now, we just log that we acknowledged it.
+            sim_logger.info(f"SimBackend handled '{cmd}' with a custom response rule (action: log).")
+            return
         if cmd.upper().startswith(":VOLT "):
             try:
                 val = float(cmd.split(" ")[1])
-                self.state["voltage"] = val
-                sim_logger.info(f"SimBackend for {self.device_model} set voltage to {val}")
+                max_voltage = self.error_config.get("max_voltage")
+                if max_voltage is not None and val > max_voltage:
+                    self.state['errors'].append(("-222", "Data out of range"))
+                    sim_logger.warning(f"SimBackend: Overvoltage triggered for {self.device_model}. Voltage {val} > {max_voltage}")
+                else:
+                    self.state["voltage"] = val
+                    sim_logger.info(f"SimBackend for {self.device_model} set voltage to {val}")
             except (IndexError, ValueError) as e:
                 sim_logger.error(f"SimBackend error parsing VOLT command '{cmd}': {e}")
                 self.state['errors'].append(("-102", "Syntax error in VOLT command"))
@@ -85,7 +117,18 @@ class SimBackend:  # Implements AsyncInstrumentIO (and InstrumentIO for complete
         elif cmd.upper() == "*CLS":
             self.state['errors'] = []
             sim_logger.info(f"SimBackend for {self.device_model} error queue cleared (*CLS).")
-        # Add more command handling as needed
+        elif cmd.upper().startswith(":SIM:BUSY"):
+            try:
+                duration = float(cmd.split(" ")[1])
+                self.write(f":SIM:BUSY {duration}")
+            except (IndexError, ValueError):
+                self.state['errors'].append(("-102", "Syntax error in :SIM:BUSY"))
+        elif cmd.upper().startswith(":SIM:TIMEOUT"):
+            try:
+                duration = float(cmd.split(" ")[1])
+                self.write(f":SIM:TIMEOUT {duration}")
+            except (IndexError, ValueError):
+                self.state['errors'].append(("-102", "Syntax error in :SIM:TIMEOUT"))
 
 
     def _simulate_sync(self, cmd: str) -> str:
@@ -93,8 +136,9 @@ class SimBackend:  # Implements AsyncInstrumentIO (and InstrumentIO for complete
         Synchronous part of simulating a query response.
         """
         sim_logger.debug(f"SimBackend (sync part of async op) received QUERY: '{cmd}' for {self.device_model}")
-        
         cmd_upper = cmd.upper()
+        if cmd_upper in self._sim_responses:
+            return self._sim_responses[cmd_upper]
         if cmd_upper == "*IDN?":
             model_name = getattr(self.profile, 'model', self.device_model)
             return f"SimulatedDevice,Model,{model_name},Firmware,SIM1.0"

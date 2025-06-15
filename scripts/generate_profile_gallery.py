@@ -48,6 +48,8 @@ This page lists available instrument profiles.
             manufacturer = data_to_extract_from.get('manufacturer', 'N/A')
             model = data_to_extract_from.get('model', profile_file.stem) # Fallback to filename stem
             device_type = data_to_extract_from.get('device_type', 'N/A')
+            code_owners = data_to_extract_from.get('code_owners', ['N/A'])
+            last_updated = data_to_extract_from.get('last_updated', 'N/A')
 
             # Create a relative path to the profile from the docs directory
             # gallery.md is in docs/profiles/
@@ -59,6 +61,8 @@ This page lists available instrument profiles.
 
 - **Device Type:** `{device_type}`
 - **Profile:** [`{profile_file.name}`]({relative_profile_path})
+- **Code Owners:** {', '.join(f'[`@{owner}`](https://github.com/{owner})' for owner in code_owners)}
+- **Last Updated:** {last_updated}
 """
             markdown_snippets.append(snippet)
 

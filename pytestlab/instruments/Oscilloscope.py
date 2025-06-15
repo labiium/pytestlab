@@ -11,6 +11,7 @@ from io import BytesIO, StringIO
 from uncertainties import ufloat
 from uncertainties.core import UFloat
 from ..analysis import fft as analysis_fft
+import warnings
 
 from .instrument import Instrument
 # from ..config import OscilloscopeConfig, ConfigRequires # OscilloscopeConfig is V2
@@ -21,9 +22,14 @@ from ..common.health import HealthReport, HealthStatus
 from ..errors import InstrumentConfigurationError, InstrumentParameterError, InstrumentDataError
 from pydantic import validate_call
 
-def _validate_range(val, minval, maxval, name):
+async def _validate_range(val, minval, maxval, name):
     if not (minval <= val <= maxval):
-        raise ValueError(f"{name} must be between {minval} and {maxval}, got {val}")
+        raise InstrumentParameterError(
+            parameter=name,
+            value=val,
+            valid_range=(minval, maxval),
+            message=f"{name} must be between {minval} and {maxval}.",
+        )
 
 _ACQ_TYPE_MAP = {
     AcquisitionType.NORMAL: "NORMal",
@@ -55,15 +61,39 @@ class Oscilloscope:
     pass
 
 class ScopeChannelFacade:
+    """Provides a simplified, chainable interface for a single oscilloscope channel.
+
+    This facade abstracts the underlying SCPI commands for common channel
+    operations, allowing for more readable and fluent test scripts. For example:
+    `await scope.channel(1).setup(scale=0.5, offset=0).enable()`
+
+    Attributes:
+        _scope: The parent `Oscilloscope` instance.
+        _channel: The channel number this facade controls.
+    """
     def __init__(self, scope: 'Oscilloscope', channel_num: int):
         self._scope = scope
         self._channel = channel_num
 
     @validate_call
     async def setup(self, scale: Optional[float] = None, position: Optional[float] = None, offset: Optional[float] = None, coupling: Optional[str] = None, probe_attenuation: Optional[int] = None, bandwidth_limit: Optional[Union[str, float]] = None) -> Self:
-        """
-        Configures the channel's vertical scale, position (offset), coupling, and probe attenuation.
-        'position' and 'offset' are often the same parameter on scopes, typically called offset.
+        """Configures multiple settings for the channel in a single call.
+
+        This method allows setting the vertical scale, position/offset, coupling,
+        probe attenuation, and bandwidth limit. Any parameter left as `None` will
+        not be changed.
+
+        Args:
+            scale: The vertical scale in volts per division.
+            position: The vertical position in divisions from the center.
+            offset: The vertical offset in volts. 'offset' is often preferred
+                    over 'position' as it's independent of the scale.
+            coupling: The input coupling ("AC" or "DC").
+            probe_attenuation: The attenuation factor of the probe (e.g., 10 for 10:1).
+            bandwidth_limit: The bandwidth limit to apply (e.g., "20M" or 20e6).
+
+        Returns:
+            The `ScopeChannelFacade` instance for method chaining.
         """
         if scale is not None:
             current_offset_val = (await self._scope.get_channel_axis(self._channel))[1] if offset is None and position is None else (offset or position or 0.0)
@@ -86,30 +116,49 @@ class ScopeChannelFacade:
         return self
 
     async def enable(self) -> Self:
+        """Enables the channel display."""
         await self._scope.display_channel(self._channel, True)
         return self
 
     async def disable(self) -> Self:
+        """Disables the channel display."""
         await self._scope.display_channel(self._channel, False)
         return self
 
     async def measure_peak_to_peak(self) -> MeasurementResult:
+        """Performs a peak-to-peak voltage measurement on this channel."""
         return await self._scope.measure_voltage_peak_to_peak(self._channel)
 
     async def measure_rms(self) -> MeasurementResult:
+        """Performs an RMS voltage measurement on this channel."""
         return await self._scope.measure_rms_voltage(self._channel)
 
 
 class ScopeTriggerFacade:
+    """Provides a simplified, chainable interface for the oscilloscope's trigger system.
+
+    This facade abstracts the underlying SCPI commands for trigger operations,
+    focusing on common use cases like setting up an edge trigger.
+
+    Attributes:
+        _scope: The parent `Oscilloscope` instance.
+    """
     def __init__(self, scope: 'Oscilloscope'):
         self._scope = scope
 
     @validate_call
     async def setup_edge(self, source: str, level: float, slope: TriggerSlope = TriggerSlope.POSITIVE, coupling: Optional[str] = None, mode: str = "EDGE") -> Self:
-        """
-        Configures an edge trigger.
-        Source can be 'CH1', 'CH2', 'EXT', 'LINE', etc.
-        The 'channel' parameter in the underlying configure_trigger is used for level setting if source is a channel.
+        """Configures a standard edge trigger.
+
+        Args:
+            source: The trigger source (e.g., "CH1", "CH2", "EXT", "LINE").
+            level: The trigger level in volts.
+            slope: The trigger slope (`TriggerSlope.POSITIVE`, `NEGATIVE`, or `EITHER`).
+            coupling: The trigger coupling (e.g., "AC", "DC"). Can be instrument-specific.
+            mode: The trigger mode, defaults to "EDGE".
+
+        Returns:
+            The `ScopeTriggerFacade` instance for method chaining.
         """
         # Determine channel number if source is like 'CH1' for the level command
         trigger_channel_for_level = 1 # Default or fallback
@@ -117,12 +166,20 @@ class ScopeTriggerFacade:
             try:
                 trigger_channel_for_level = int(source[len("CHAN"):])
             except ValueError:
-                raise InstrumentParameterError(f"Invalid trigger source format for channel: {source}")
+                raise InstrumentParameterError(
+                    parameter="source",
+                    value=source,
+                    message="Invalid trigger source format for channel.",
+                )
         elif source.upper().startswith("CH"):
             try:
                 trigger_channel_for_level = int(source[len("CH"):])
             except ValueError:
-                raise InstrumentParameterError(f"Invalid trigger source format for channel: {source}")
+                raise InstrumentParameterError(
+                    parameter="source",
+                    value=source,
+                    message="Invalid trigger source format for channel.",
+                )
         
         # The main configure_trigger method handles source validation and mapping.
         await self._scope.configure_trigger(
@@ -142,6 +199,15 @@ class ScopeTriggerFacade:
 
 
 class ScopeAcquisitionFacade:
+    """Provides a simplified interface for the oscilloscope's acquisition system.
+
+    This facade manages settings related to how the oscilloscope digitizes
+    signals, including acquisition type (e.g., Normal, Averaging), memory mode
+    (Real-time vs. Segmented), and sample rates.
+
+    Attributes:
+        _scope: The parent `Oscilloscope` instance.
+    """
     def __init__(self, scope: 'Oscilloscope'):
         self._scope = scope
 
@@ -152,11 +218,19 @@ class ScopeAcquisitionFacade:
         """
         scpi_val = _ACQ_TYPE_MAP.get(acq_type)
         if not scpi_val:
-            raise InstrumentParameterError(f"Unsupported acquisition type enum member: {acq_type}")
+            raise InstrumentParameterError(
+                parameter="acq_type",
+                value=acq_type,
+                message="Unsupported acquisition type enum member.",
+            )
 
         current_mode_query: str = (await self._scope._query(":ACQuire:MODE?")).strip().upper()
         if acq_type == AcquisitionType.AVERAGE and current_mode_query == _ACQ_MODE_MAP["SEGMENTED"].upper()[:4]:
-            raise InstrumentParameterError("AVERAGE mode is unavailable in SEGMENTED acquisition.")
+            raise InstrumentParameterError(
+                parameter="acq_type",
+                value="AVERAGE",
+                message="AVERAGE mode is unavailable in SEGMENTED acquisition.",
+            )
 
         await self._scope._send_command(f":ACQuire:TYPE {scpi_val}")
         await self._scope._wait()
@@ -190,11 +264,14 @@ class ScopeAcquisitionFacade:
         Set the running-average length for AVERAGE mode.
         2 <= count <= 65536 (Keysight limit).
         """
-        _validate_range(count, 2, 65_536, "Average count") # Sync
+        await _validate_range(count, 2, 65_536, "Average count") # Sync
         
         current_acq_type_str = await self.get_acquisition_type()
         if current_acq_type_str != AcquisitionType.AVERAGE.name:
-            raise InstrumentParameterError(f"Average count can only be set when acquisition type is AVERAGE, not {current_acq_type_str}.")
+            raise InstrumentParameterError(
+                parameter="count",
+                message=f"Average count can only be set when acquisition type is AVERAGE, not {current_acq_type_str}.",
+            )
         await self._scope._send_command(f":ACQuire:COUNt {count}")
         await self._scope._wait()
         self._scope._logger.debug(f"AVERAGE count set → {count}")
@@ -213,7 +290,12 @@ class ScopeAcquisitionFacade:
         mode_upper: str = mode.upper()
         scpi_mode_val = _ACQ_MODE_MAP.get(mode_upper)
         if not scpi_mode_val:
-            raise InstrumentParameterError(f"Unknown acquisition mode: {mode}. Supported: {list(_ACQ_MODE_MAP.keys())}")
+            raise InstrumentParameterError(
+                parameter="mode",
+                value=mode,
+                valid_range=list(_ACQ_MODE_MAP.keys()),
+                message="Unknown acquisition mode.",
+            )
 
         await self._scope._send_command(f":ACQuire:MODE {scpi_mode_val}")
         await self._scope._wait()
@@ -236,8 +318,11 @@ class ScopeAcquisitionFacade:
         Default Keysight limit: 2 <= count <= 500 (check instrument specs)
         """
         if await self.get_acquisition_mode() != "SEGMENTED":
-            raise InstrumentParameterError("Segmented count can only be set while in SEGMENTED acquisition mode.")
-        _validate_range(count, 2, 500, "Segmented count") # Sync
+            raise InstrumentParameterError(
+                parameter="count",
+                message="Segmented count can only be set while in SEGMENTED acquisition mode.",
+            )
+        await _validate_range(count, 2, 500, "Segmented count") # Sync
         await self._scope._send_command(f":ACQuire:SEGMented:COUNt {count}")
         await self._scope._wait()
         self._scope._logger.debug(f"Segmented COUNT set → {count}")
@@ -254,7 +339,7 @@ class ScopeAcquisitionFacade:
         1 <= index <= get_segmented_count()
         """
         total_segments: int = await self.get_segmented_count()
-        _validate_range(index, 1, total_segments, "Segment index") # Sync
+        await _validate_range(index, 1, total_segments, "Segment index") # Sync
         await self._scope._send_command(f":ACQuire:SEGMented:INDex {index}")
         await self._scope._wait()
 
@@ -270,7 +355,9 @@ class ScopeAcquisitionFacade:
         Requires scope to be stopped and in SEGMENTED mode.
         """
         if await self.get_acquisition_mode() != "SEGMENTED":
-            raise InstrumentParameterError("Segment analysis requires SEGMENTED mode.")
+            raise InstrumentParameterError(
+                message="Segment analysis requires SEGMENTED mode."
+            )
         await self._scope._send_command(":ACQuire:SEGMented:ANALyze")
         await self._scope._wait()
 
@@ -304,17 +391,23 @@ class ScopeAcquisitionFacade:
 
 @dataclass
 class Preamble:
-    """A class to store the preamble data from the oscilloscope channel.
+    """Holds the waveform preamble data from the oscilloscope.
 
-    :param format: The format of the data
-    :param type: The type of the data
-    :param points: The number of points
-    :param xinc: The x increment
-    :param xorg: The x origin
-    :param xref: The x reference
-    :param yinc: The y increment
-    :param yorg: The y origin
-    :param yref: The y reference
+    The preamble contains all the necessary metadata to convert the raw, digitized
+    ADC values from the oscilloscope into meaningful time and voltage arrays. It
+    describes the scaling and offset factors for both the X (time) and Y (voltage)
+    axes.
+
+    Attributes:
+        format: Data format (e.g., 'BYTE', 'WORD').
+        type: Acquisition type (e.g., 'NORMal', 'AVERage').
+        points: The number of data points in the waveform.
+        xinc: The time difference between adjacent data points (sampling interval).
+        xorg: The time value of the first data point.
+        xref: The reference time point (usually the trigger point).
+        yinc: The voltage difference for each ADC level (voltage resolution).
+        yorg: The voltage value at the vertical center of the screen.
+        yref: The ADC level corresponding to the vertical center.
     """
 
     format: str
@@ -328,17 +421,27 @@ class Preamble:
     yref: float
 
 
-class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
-    config: OscilloscopeConfig # Type hint for validated config
-    """
-    Provides an interface for controlling and acquiring data from an oscilloscope using SCPI commands.
+class Oscilloscope(Instrument[OscilloscopeConfig]):
+    """Drives a digital oscilloscope for waveform acquisition and measurement.
 
-    This class inherits from Instrument and implements specific methods to interact with
-    oscilloscope features such as voltage measurement and timebase scaling.
+    This class provides a comprehensive, high-level interface for controlling an
+    oscilloscope. It builds upon the base `Instrument` class and adds extensive
+    functionality specific to oscilloscopes.
+
+    Key features include:
+    - Facade-based interfaces for channels, trigger, and acquisition for cleaner code.
+    - Methods for reading waveforms, performing automated measurements (e.g., Vpp, Vrms).
+    - Support for advanced features like FFT and Frequency Response Analysis (FRA).
+    - Built-in waveform generator control if the hardware supports it.
+    - Screenshot capability.
 
     Attributes:
-        config (OscilloscopeConfig): The validated Pydantic V2 configuration object for the instrument.
+        config: The Pydantic configuration object (`OscilloscopeConfig`)
+                containing settings specific to this oscilloscope.
+        trigger: A `ScopeTriggerFacade` for configuring trigger settings.
+        acquisition: A `ScopeAcquisitionFacade` for acquisition system settings.
     """
+    config: OscilloscopeConfig # Type hint for validated config
     # visa_resource is handled by base Instrument or backend through config.address
     def __init__(self, config: OscilloscopeConfig, debug_mode: bool = False, simulate: bool = False, **kwargs: Any) -> None: # config is now non-optional
         """
@@ -357,21 +460,28 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
 
     @validate_call
     def channel(self, ch_num: int) -> ScopeChannelFacade:
-        """
-        Returns a facade for interacting with a specific channel.
+        """Returns a facade for interacting with a specific channel.
+
+        This method provides a convenient, chainable interface for controlling a
+        single oscilloscope channel.
 
         Args:
-            ch_num (int): The channel number (1-based).
+            ch_num: The channel number (1-based).
 
         Returns:
-            ScopeChannelFacade: A facade object for the specified channel.
-        
+            A `ScopeChannelFacade` object for the specified channel.
+
         Raises:
-            InstrumentParameterError: If channel number is invalid.
+            InstrumentParameterError: If the channel number is invalid.
         """
         if not self.config.channels or not (1 <= ch_num <= len(self.config.channels)):
             num_conf_ch = len(self.config.channels) if self.config.channels else 0
-            raise InstrumentParameterError(f"Channel number {ch_num} is out of range (1-{num_conf_ch}).")
+            raise InstrumentParameterError(
+                parameter="ch_num",
+                value=ch_num,
+                valid_range=(1, num_conf_ch),
+                message="Channel number is out of range.",
+            )
         return ScopeChannelFacade(self, ch_num)
 
     @classmethod
@@ -460,9 +570,13 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         return report
     
     async def _read_preamble(self) -> Preamble:
-        """Reads the preamble from the oscilloscope.
+        """Reads and parses the waveform preamble from the oscilloscope.
 
-        :return: A Preamble object
+        The preamble contains essential metadata for interpreting the waveform data,
+        such as scaling factors and offsets.
+
+        Returns:
+            A `Preamble` dataclass instance.
         """
 
         peram_str: str = await self._query(':WAVeform:PREamble?')
@@ -486,25 +600,35 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         return pre
         
     async def _read_wave_data(self, source: str) -> np.ndarray:
+        """Reads the raw waveform data block for a given source.
 
+        This internal method configures the waveform transfer format and reads
+        the binary data block from the instrument.
+
+        Args:
+            source: The waveform source to read (e.g., "CHANnel1", "FFT").
+
+        Returns:
+            A NumPy array of the raw, unprocessed ADC values.
+        """
+        # Ensure previous operations are complete
         await self._wait()
         await self._send_command(f':WAVeform:SOURce {source}')
-        
         await self._wait()
-        
         self._logger.debug(f"Reading data from {source}")
 
+        # Set the data transfer format to 8-bit bytes
         await self._send_command(':WAVeform:FORMat BYTE')
 
+        # For time-domain channels, ensure we get all raw data points
         if source != "FFT":
             await self._send_command(':WAVeform:POINts:MODE RAW')
 
         self._logger.debug('Reading points')
-
         await self._wait()
-
         self._logger.debug('Reading data')
 
+        # Query for the waveform data, which returns a binary block
         raw_data: bytes = await self._query_raw(':WAVeform:DATA?')
         data: np.ndarray = await self._read_to_np(raw_data)
         return data
@@ -566,7 +690,12 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         :param offset: The offset of the channel in volts
         """
         if not (1 <= channel <= len(self.config.channels)):
-            raise InstrumentParameterError(f"Channel number {channel} is out of range (1-{len(self.config.channels)}).")
+            raise InstrumentParameterError(
+                parameter="channel",
+                value=channel,
+                valid_range=(1, len(self.config.channels)),
+                message="Channel number is out of range.",
+            )
         
         await self._send_command(f':CHANnel{channel}:SCALe {scale}')
         await self._send_command(f':CHANnel{channel}:OFFSet {offset}')
@@ -581,7 +710,12 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         :return: A list containing the channel axis scale and offset
         """
         if not (1 <= channel <= len(self.config.channels)):
-            raise InstrumentParameterError(f"Channel number {channel} is out of range (1-{len(self.config.channels)}).")
+            raise InstrumentParameterError(
+                parameter="channel",
+                value=channel,
+                valid_range=(1, len(self.config.channels)),
+                message="Channel number is out of range.",
+            )
         
         scale_str: str = await self._query(f":CHANnel{channel}:SCALe?")
         offset_str: str = await self._query(f":CHANnel{channel}:OFFSet?")
@@ -601,7 +735,12 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         """
         
         if not (1 <= channel <= len(self.config.channels)):
-            raise InstrumentParameterError(f"Primary channel number {channel} is out of range (1-{len(self.config.channels)}).")
+            raise InstrumentParameterError(
+                parameter="channel",
+                value=channel,
+                valid_range=(1, len(self.config.channels)),
+                message="Primary channel number is out of range.",
+            )
         
         actual_source: str
         if source is None:
@@ -616,19 +755,38 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
                         raise ValueError("No digits found in channel source string")
                     source_channel_to_validate = int(num_str)
                     if not (1 <= source_channel_to_validate <= len(self.config.channels)):
-                        raise InstrumentParameterError(f"Source channel number {source_channel_to_validate} is out of range (1-{len(self.config.channels)}).")
+                        raise InstrumentParameterError(
+                            parameter="source",
+                            value=source,
+                            valid_range=(1, len(self.config.channels)),
+                            message="Source channel number is out of range.",
+                        )
                     # Normalize the channel source to CHANNEL format for SCPI command
                     actual_source = f"CHANnel{source_channel_to_validate}"
                 except (ValueError, IndexError) as e:
-                    raise InstrumentParameterError(f"Invalid channel format in source: {source}") from e
+                    raise InstrumentParameterError(
+                        parameter="source",
+                        value=source,
+                        message="Invalid channel format in source.",
+                    ) from e
             elif actual_source not in ["EXTERNAL", "LINE", "WGEN"]:
-                raise InstrumentParameterError(f"Invalid source '{source}'. Valid non-channel sources: EXTernal, LINE, WGEN.")
+                raise InstrumentParameterError(
+                    parameter="source",
+                    value=source,
+                    valid_range=["EXTernal", "LINE", "WGEN"],
+                    message="Invalid source.",
+                )
 
         await self._send_command(f':TRIG:SOUR {actual_source}')
         await self._send_command(f':TRIGger:LEVel {level}, CHANnel{channel}')
         
         if slope.value not in self.config.trigger.slopes:
-            raise InstrumentParameterError(f"Unsupported trigger slope: {slope.value}. Supported: {self.config.trigger.slopes}")
+            raise InstrumentParameterError(
+                parameter="slope",
+                value=slope.value,
+                valid_range=self.config.trigger.slopes,
+                message="Unsupported trigger slope.",
+            )
         scpi_slope = slope.value
         
         if mode.upper() not in [m.upper() for m in self.config.trigger.modes]: # Case-insensitive check
@@ -657,7 +815,12 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         MeasurementResult: An object containing the peak-to-peak voltage measurement.
         """
         if not (1 <= channel <= len(self.config.channels)):
-            raise InstrumentParameterError(f"Channel number {channel} is out of range (1-{len(self.config.channels)}).")
+            raise InstrumentParameterError(
+                parameter="channel",
+                value=channel,
+                valid_range=(1, len(self.config.channels)),
+                message="Channel number is out of range.",
+            )
 
         response_str: str = await self._query(f"MEAS:VPP? CHAN{channel}")
         reading: float = float(response_str)
@@ -703,7 +866,12 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         MeasurementResult: An object containing the RMS voltage measurement.
         """
         if not (1 <= channel <= len(self.config.channels)):
-            raise InstrumentParameterError(f"Channel number {channel} is out of range (1-{len(self.config.channels)}).")
+            raise InstrumentParameterError(
+                parameter="channel",
+                value=channel,
+                valid_range=(1, len(self.config.channels)),
+                message="Channel number is out of range.",
+            )
 
         response_str: str = await self._query(f"MEAS:VRMS? CHAN{channel}")
         reading: float = float(response_str)
@@ -737,36 +905,59 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         return measurement_result
 
     @validate_call
-    async def read_channels(self, *channels: Union[int, List[int], Tuple[int, ...]], points: Optional[int] = None, runAfter: bool = True, timebase: Optional[float] = None) -> ChannelReadingResult:
-        """
-        Reads the specified channels from the oscilloscope.
-        
+    async def read_channels(self, *channels: Union[int, List[int], Tuple[int, ...]], points: Optional[int] = None, run_after: bool = True, timebase: Optional[float] = None, **kwargs) -> ChannelReadingResult:
+        """Reads and processes waveform data from one or more channels.
+
+        This is a primary data acquisition method. It triggers an acquisition,
+        reads the raw data for the specified channels, and uses the preamble
+        to convert the data into a `ChannelReadingResult` containing properly
+        scaled time and voltage values in a Polars DataFrame.
+
         Args:
-        *channels (Union[int, List[int], Tuple[int,...]]): A variable number of channel numbers or a single list/tuple of channel numbers.
-        points (Optional[int]): Deprecated. Use set_time_axis instead.
-        runAfter (bool): Parameter seems unused in current implementation.
-        timebase (Optional[float]): The timebase scale to use for the measurement.
-        
+            *channels: A variable number of channel numbers (e.g., `read_channels(1, 2)`)
+                       or a single list/tuple of channels (e.g., `read_channels([1, 2])`).
+            points: Deprecated. The number of points is determined by the timebase
+                    and instrument settings.
+            run_after: This parameter is currently unused.
+            timebase: If provided, sets the time-per-division for this acquisition.
+
         Returns:
-        ChannelReadingResult: A ChannelReadingResult object containing the measurement results.
+            A `ChannelReadingResult` containing the waveform data.
+
+        Raises:
+            InstrumentParameterError: If channel numbers are invalid or not provided.
+            InstrumentDataError: If time values cannot be generated.
         """
+        if 'runAfter' in kwargs:
+            warnings.warn(
+                "'runAfter' is deprecated, use 'run_after' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            run_after = kwargs['runAfter']
         
         processed_channels: List[int]
         if not channels:
-            raise InstrumentParameterError("No channels specified.")
+            raise InstrumentParameterError(message="No channels specified.")
         
         first_arg = channels[0]
         if isinstance(first_arg, (list, tuple)) and len(channels) == 1:
             if not all(isinstance(ch_num, int) for ch_num in first_arg):
-                raise InstrumentParameterError("All elements in channel list/tuple must be integers.")
+                raise InstrumentParameterError(
+                    message="All elements in channel list/tuple must be integers."
+                )
             processed_channels = list(first_arg)
         elif all(isinstance(ch_num, int) for ch_num in channels): # type: ignore [arg-type]
             processed_channels = list(channels) # type: ignore [assignment]
         else:
-            raise InstrumentParameterError("Invalid channel arguments. Must be integers or a single list/tuple of integers.")
+            raise InstrumentParameterError(
+                message="Invalid channel arguments. Must be integers or a single list/tuple of integers."
+            )
 
         if not processed_channels:
-             raise InstrumentParameterError("No channels specified in the list/tuple.")
+            raise InstrumentParameterError(
+                message="No channels specified in the list/tuple."
+            )
 
         if timebase is not None:
             current_time_axis = await self.get_time_axis()
@@ -780,7 +971,12 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
 
         for ch_num_val in processed_channels:
             if not (1 <= ch_num_val <= len(self.config.channels)):
-                raise InstrumentParameterError(f"Channel number {ch_num_val} is out of range (1-{len(self.config.channels)}).")
+                raise InstrumentParameterError(
+                    parameter="channels",
+                    value=ch_num_val,
+                    valid_range=(1, len(self.config.channels)),
+                    message="Channel number is out of range.",
+                )
 
 
         sampling_rate_float: float = float(await self.get_sampling_rate())
@@ -794,14 +990,18 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         elif isinstance(acq_type_enum_or_str, str):
             is_average_mode = acq_type_enum_or_str.upper() == "AVERAGE"
 
+        # Handle different acquisition modes. Averaging mode often requires a
+        # special command sequence to ensure the requested number of averages
+        # are acquired before the data is read.
         if is_average_mode:
             self._logger.debug("AVERAGE acquisition type detected - using special sequence")
-            avg_count_int: int = await self.get_acquisition_average_count()
+            avg_count_int: int = await self.acquisition.get_acquisition_average_count()
             self._logger.debug(f"Current average count: {avg_count_int}")
-            await self._send_command(":ACQuire:COMPlete 100")
+            await self._send_command(":ACQuire:COMPlete 100") # Ensure all averages are processed
             await self._send_command(":STOP")
             await self._wait()
-            
+
+            # Force a new acquisition sequence for averaging
             sweep_orig_str: str = (await self._query(":TRIGger:SWEep?")).strip()
             await self._send_command(":TRIGger:SWEep AUTO")
             await self._send_command(f"DIGitize {channel_commands_str}", skip_check=True)
@@ -815,6 +1015,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
             await self._send_command(f":TRIGger:SWEep {sweep_orig_str}", skip_check=True)
             await self.clear_status()
         else:
+            # For other modes, a simple DIGitize command is sufficient.
             await self._send_command(f"DIGitize {channel_commands_str}")
 
         await self._send_command(f':WAVeform:SOURce CHANnel{processed_channels[0]}')
@@ -826,18 +1027,23 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         time_values_np: Optional[np.ndarray] = None
         measurement_results_dict: Dict[str, np.ndarray] = {}
 
+        # Loop through each requested channel to read its data
         for ch_num_loop in processed_channels:
             raw_wave_data = await self._read_wave_data(f"CHANnel{ch_num_loop}")
+            # Convert raw ADC values to volts using the preamble data
             voltages_np: np.ndarray = (raw_wave_data - pream.yref) * pream.yinc + pream.yorg
 
+            # Generate the corresponding time axis array, but only once.
             if time_values_np is None:
                 n_pts_int: int = len(voltages_np)
                 time_values_np = (np.arange(n_pts_int) - pream.xref) * pream.xinc + pream.xorg
-            
+
             measurement_results_dict[f"Channel {ch_num_loop} (V)"] = voltages_np
         
         if time_values_np is None:
-            raise RuntimeError("Time values were not generated during channel read.")
+            raise InstrumentDataError(
+                self.config.model, "Time values were not generated during channel read."
+            )
 
         return ChannelReadingResult(
            instrument=self.config.model,
@@ -873,7 +1079,12 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
             str: The probe attenuation value (e.g., '10:1', '1:1').
         """
         if not (1 <= channel <= len(self.config.channels)):
-            raise InstrumentParameterError(f"Channel number {channel} is out of range (1-{len(self.config.channels)}).")
+            raise InstrumentParameterError(
+                parameter="channel",
+                value=channel,
+                valid_range=(1, len(self.config.channels)),
+                message="Channel number is out of range.",
+            )
         response_str: str = (await self._query(f"CHANnel{channel}:PROBe?")).strip()
         # Assuming response is the numeric factor (e.g., "10", "1")
         try:
@@ -896,11 +1107,21 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
             scale (int): The probe scale value (e.g., 10 for 10:1, 1 for 1:1).
         """
         if not (1 <= channel <= len(self.config.channels)):
-            raise InstrumentParameterError(f"Channel number {channel} is out of range (1-{len(self.config.channels)}).")
+            raise InstrumentParameterError(
+                parameter="channel",
+                value=channel,
+                valid_range=(1, len(self.config.channels)),
+                message="Channel number is out of range.",
+            )
         
         channel_model_config = self.config.channels[channel - 1]
         if scale not in channel_model_config.probe_attenuation: # probe_attenuation is List[int]
-             raise InstrumentParameterError(f"Scale {scale} not in supported probe_attenuation list {channel_model_config.probe_attenuation} for channel {channel}")
+            raise InstrumentParameterError(
+                parameter="scale",
+                value=scale,
+                valid_range=channel_model_config.probe_attenuation,
+                message=f"Scale not in supported probe_attenuation list for channel {channel}.",
+            )
         
         # SCPI command usually takes the numeric factor directly
         await self._send_command(f":CHANnel{channel}:PROBe {scale}")
@@ -927,7 +1148,12 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         rate_upper: str = rate.upper()
         valid_values: List[str] = ["MAX", "AUTO"] # These are common SCPI values
         if rate_upper not in valid_values:
-            raise InstrumentParameterError(f"Invalid rate: {rate}. Supported values are: {valid_values}")
+            raise InstrumentParameterError(
+                parameter="rate",
+                value=rate,
+                valid_range=valid_values,
+                message="Invalid rate.",
+            )
         await self._send_command(f"ACQuire:SRATe {rate_upper}")
 
     @validate_call
@@ -939,7 +1165,12 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
             bandwidth (Union[str, float]): The bandwidth limit (e.g., "20M", 20e6, or "FULL").
         """
         if not (1 <= channel <= len(self.config.channels)):
-            raise InstrumentParameterError(f"Channel number {channel} is out of range (1-{len(self.config.channels)}).")
+            raise InstrumentParameterError(
+                parameter="channel",
+                value=channel,
+                valid_range=(1, len(self.config.channels)),
+                message="Channel number is out of range.",
+            )
         await self._send_command(f"CHANnel{channel}:BANDwidth {bandwidth}")
 
     @validate_call
@@ -964,11 +1195,18 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         func_type (WaveformType): The desired function enum member.
         """
         if self.config.function_generator is None:
-            raise InstrumentConfigurationError("Function generator not configured.")
+            raise InstrumentConfigurationError(
+                self.config.model, "Function generator not configured."
+            )
         
         # Check if the SCPI value of the enum is in the list of supported waveform types from config
         if func_type.value not in self.config.function_generator.waveform_types:
-            raise InstrumentParameterError(f"Unsupported waveform type: {func_type.value}. Supported: {self.config.function_generator.waveform_types}")
+            raise InstrumentParameterError(
+                parameter="func_type",
+                value=func_type.value,
+                valid_range=self.config.function_generator.waveform_types,
+                message="Unsupported waveform type.",
+            )
         
         await self._send_command(f"WGEN:FUNC {func_type.value}")
 
@@ -982,7 +1220,9 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         freq (float): The desired frequency for the waveform generator in Hz.
         """
         if self.config.function_generator is None:
-            raise InstrumentConfigurationError("Function generator not configured.")
+            raise InstrumentConfigurationError(
+                self.config.model, "Function generator not configured."
+            )
         # Assuming RangeMixin's assert_in_range is preferred for validation
         self.config.function_generator.frequency.assert_in_range(freq, name="Waveform generator frequency")
         await self._send_command(f"WGEN:FREQ {freq}")
@@ -997,7 +1237,9 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         amp (float): The desired amplitude for the waveform generator in volts.
         """
         if self.config.function_generator is None:
-            raise InstrumentConfigurationError("Function generator not configured.")
+            raise InstrumentConfigurationError(
+                self.config.model, "Function generator not configured."
+            )
         self.config.function_generator.amplitude.assert_in_range(amp, name="Waveform generator amplitude")
         await self._send_command(f"WGEN:VOLT {amp}")
 
@@ -1011,7 +1253,9 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         offset (float): The desired voltage offset for the waveform generator in volts.
         """
         if self.config.function_generator is None:
-            raise InstrumentConfigurationError("Function generator not configured.")
+            raise InstrumentConfigurationError(
+                self.config.model, "Function generator not configured."
+            )
         self.config.function_generator.offset.assert_in_range(offset, name="Waveform generator offset")
         await self._send_command(f"WGEN:VOLT:OFFSet {offset}")
 
@@ -1025,7 +1269,9 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         :param freq: The frequency of the sine wave in Hz.
         """
         if self.config.function_generator is None:
-            raise InstrumentConfigurationError("Function generator not configured.")
+            raise InstrumentConfigurationError(
+                self.config.model, "Function generator not configured."
+            )
         await self.set_wave_gen_func(WaveformType.SINE)
         await self.set_wave_gen_amp(amp)
         await self.set_wave_gen_offset(offset)
@@ -1034,16 +1280,29 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
 
     @validate_call
     #@ConfigRequires("function_generator")
-    async def set_wgen_square(self, v0: float, v1: float, freq: float, dutyCycle: int) -> None:
+    async def set_wgen_square(self, v0: float, v1: float, freq: float, duty_cycle: Optional[int] = None, **kwargs) -> None:
         """Sets the waveform generator to a square wave.
 
         :param v0: The voltage of the low state in volts
         :param v1: The voltage of the high state in volts
         :param freq: The frequency of the square wave in Hz.
-        :param dutyCycle: The duty cycle (1% to 99%).
+        :param duty_cycle: The duty cycle (1% to 99%).
         """
+        if 'dutyCycle' in kwargs:
+            warnings.warn(
+                "'dutyCycle' is deprecated, use 'duty_cycle' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            duty_cycle = kwargs['dutyCycle']
+
+        if duty_cycle is None:
+            duty_cycle = 50
+
         if self.config.function_generator is None:
-            raise InstrumentConfigurationError("Function generator not configured.")
+            raise InstrumentConfigurationError(
+                self.config.model, "Function generator not configured."
+            )
         
         await self.set_wave_gen_func(WaveformType.SQUARE)
         
@@ -1053,7 +1312,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         await self._send_command(f':WGEN:VOLTage:LOW {v0}')
         await self._send_command(f':WGEN:VOLTage:HIGH {v1}')
         await self._send_command(f':WGEN:FREQuency {freq}')
-        await self._send_command(f':WGEN:FUNCtion:SQUare:DCYCle {clamp_duty(dutyCycle)}')
+        await self._send_command(f':WGEN:FUNCtion:SQUare:DCYCle {clamp_duty(duty_cycle)}')
 
 
     @validate_call
@@ -1067,7 +1326,9 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         :param symmetry: Symmetry (0% to 100%).
         """
         if self.config.function_generator is None:
-            raise InstrumentConfigurationError("Function generator not configured.")
+            raise InstrumentConfigurationError(
+                self.config.model, "Function generator not configured."
+            )
         await self.set_wave_gen_func(WaveformType.RAMP)
         def clamp_symmetry(number: int) -> int:
             return max(0, min(number, 100))
@@ -1080,22 +1341,35 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
 
     @validate_call
     #@ConfigRequires("function_generator")
-    async def set_wgen_pulse(self, v0: float, v1: float, period: float, pulseWidth: float) -> None:
+    async def set_wgen_pulse(self, v0: float, v1: float, period: float, pulse_width: Optional[float] = None, **kwargs) -> None:
         """Sets the waveform generator to a pulse wave.
 
         :param v0: The voltage of the low state in volts
         :param v1: The voltage of the high state in volts
         :param period: The period of the pulse wave in seconds.
-        :param pulseWidth: The pulse width in seconds.
+        :param pulse_width: The pulse width in seconds.
         """
+        if 'pulseWidth' in kwargs:
+            warnings.warn(
+                "'pulseWidth' is deprecated, use 'pulse_width' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            pulse_width = kwargs['pulseWidth']
+
+        if pulse_width is None:
+            raise InstrumentParameterError(message="pulse_width is required.")
+
         if self.config.function_generator is None:
-            raise InstrumentConfigurationError("Function generator not configured.")
+            raise InstrumentConfigurationError(
+                self.config.model, "Function generator not configured."
+            )
         await self.set_wave_gen_func(WaveformType.PULSE)
         
         await self._send_command(f':WGEN:VOLTage:LOW {v0}')
         await self._send_command(f':WGEN:VOLTage:HIGH {v1}')
         await self._send_command(f':WGEN:PERiod {period}')
-        await self._send_command(f':WGEN:FUNCtion:PULSe:WIDTh {pulseWidth}')
+        await self._send_command(f':WGEN:FUNCtion:PULSe:WIDTh {pulse_width}')
 
 
     @validate_call
@@ -1106,7 +1380,9 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         :param offset: The offset of the DC wave in volts
         """
         if self.config.function_generator is None:
-            raise InstrumentConfigurationError("Function generator not configured.")
+            raise InstrumentConfigurationError(
+                self.config.model, "Function generator not configured."
+            )
         await self.set_wave_gen_func(WaveformType.DC)
         await self.set_wave_gen_offset(offset)
 
@@ -1121,7 +1397,9 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         :param offset: The offset of the noise wave in volts.
         """
         if self.config.function_generator is None:
-            raise InstrumentConfigurationError("Function generator not configured.")
+            raise InstrumentConfigurationError(
+                self.config.model, "Function generator not configured."
+            )
         await self.set_wave_gen_func(WaveformType.NOISE)
         await self._send_command(f':WGEN:VOLTage:LOW {v0}')
         await self._send_command(f':WGEN:VOLTage:HIGH {v1}')
@@ -1143,12 +1421,19 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
             ch_list = channels
         else:
             # validate_call should catch this if type hints are precise enough
-            raise InstrumentParameterError("channels must be an int or a list of ints")
+            raise InstrumentParameterError(
+                message="channels must be an int or a list of ints"
+            )
         
         scpi_state = SCPIOnOff.ON.value if state else SCPIOnOff.OFF.value
         for ch_num in ch_list:
             if not (1 <= ch_num <= len(self.config.channels)):
-                raise InstrumentParameterError(f"Channel number {ch_num} is out of range (1-{len(self.config.channels)}).")
+                raise InstrumentParameterError(
+                    parameter="channels",
+                    value=ch_num,
+                    valid_range=(1, len(self.config.channels)),
+                    message="Channel number is out of range.",
+                )
             await self._send_command(f"CHANnel{ch_num}:DISPlay {scpi_state}")
 
     @validate_call
@@ -1190,19 +1475,36 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         :param display: True to turn FFT display ON, False for OFF.
         """
         if self.config.fft is None:
-            raise InstrumentConfigurationError("FFT not configured for this instrument.")
+            raise InstrumentConfigurationError(
+                self.config.model, "FFT not configured for this instrument."
+            )
         if not (1 <= source_channel <= len(self.config.channels)):
-            raise InstrumentParameterError(f"Source channel number {source_channel} is out of range (1-{len(self.config.channels)}).")
+            raise InstrumentParameterError(
+                parameter="source_channel",
+                value=source_channel,
+                valid_range=(1, len(self.config.channels)),
+                message="Source channel number is out of range.",
+            )
         
         # Validate window_type against config.fft.window_types (List[str])
         # Assuming window_type parameter is the SCPI string itself
         if window_type.upper() not in [wt.upper() for wt in self.config.fft.window_types]:
-            raise InstrumentParameterError(f"Unsupported FFT window type: {window_type}. Supported: {self.config.fft.window_types}")
+            raise InstrumentParameterError(
+                parameter="window_type",
+                value=window_type,
+                valid_range=self.config.fft.window_types,
+                message="Unsupported FFT window type.",
+            )
         scpi_window = window_type
         
         # Validate units against config.fft.units (List[str])
         if units.upper() not in [u.upper() for u in self.config.fft.units]:
-            raise InstrumentParameterError(f"Unsupported FFT units: {units}. Supported: {self.config.fft.units}")
+            raise InstrumentParameterError(
+                parameter="units",
+                value=units,
+                valid_range=self.config.fft.units,
+                message="Unsupported FFT units.",
+            )
         scpi_units = units
 
         await self._send_command(f':FFT:SOURce1 CHANnel{source_channel}')
@@ -1233,7 +1535,9 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         The actual data type (e.g., int8, int16) depends on :WAVeform:FORMat.
         """
         if not binary_block.startswith(b'#'):
-            raise ValueError("Invalid binary block format: does not start with #")
+            raise InstrumentDataError(
+                self.config.model, "Invalid binary block format: does not start with #"
+            )
         
         len_digits = int(binary_block[1:2].decode('ascii'))
         data_len = int(binary_block[2 : 2 + len_digits].decode('ascii'))
@@ -1266,7 +1570,12 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         self._logger.debug(f"Initiating FFT computation for channel {channel} using analysis module.")
 
         if not (1 <= channel <= len(self.config.channels)):
-            raise InstrumentParameterError(f"Channel number {channel} is out of range (1-{len(self.config.channels)}).")
+            raise InstrumentParameterError(
+                parameter="channel",
+                value=channel,
+                valid_range=(1, len(self.config.channels)),
+                message="Channel number is out of range.",
+            )
 
         # 1. Acquire raw time-domain waveform data
         waveform_data: ChannelReadingResult = await self.read_channels(channel)
@@ -1287,7 +1596,10 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         time_array = waveform_data.values["Time (s)"].to_numpy()
         voltage_column_name = f"Channel {channel} (V)"
         if voltage_column_name not in waveform_data.values.columns:
-            raise InstrumentDataError(f"Could not find voltage data for channel {channel} in waveform results.")
+            raise InstrumentDataError(
+                self.config.model,
+                f"Could not find voltage data for channel {channel} in waveform results.",
+            )
         voltage_array = waveform_data.values[voltage_column_name].to_numpy()
 
         # 2. Call the appropriate function from pytestlab.analysis.fft
@@ -1318,7 +1630,9 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
         binary_data_response: bytes = await self._query_raw(":DISPlay:DATA? PNG, COLor")
         
         if not binary_data_response.startswith(b'#'):
-            raise ValueError("Invalid screenshot data format: does not start with #")
+            raise InstrumentDataError(
+                self.config.model, "Invalid screenshot data format: does not start with #"
+            )
 
         length_of_length_field: int = int(chr(binary_data_response[1]))
         png_data_length_str: str = binary_data_response[2 : 2 + length_of_length_field].decode('ascii')
@@ -1339,16 +1653,33 @@ class Oscilloscope(Instrument[OscilloscopeConfig]): # Specified Generic Type
             FRanalysisResult: Containing the frequency response analysis data.
         """
         if self.config.function_generator is None or self.config.franalysis is None:
-            raise InstrumentConfigurationError("Function generator or FRANalysis not configured.")
+            raise InstrumentConfigurationError(
+                self.config.model, "Function generator or FRANalysis not configured."
+            )
 
         if not (1 <= input_channel <= len(self.config.channels)):
-            raise InstrumentParameterError(f"Input channel {input_channel} is out of range (1-{len(self.config.channels)}).")
+            raise InstrumentParameterError(
+                parameter="input_channel",
+                value=input_channel,
+                valid_range=(1, len(self.config.channels)),
+                message="Input channel is out of range.",
+            )
         if not (1 <= output_channel <= len(self.config.channels)):
-            raise InstrumentParameterError(f"Output channel {output_channel} is out of range (1-{len(self.config.channels)}).")
+            raise InstrumentParameterError(
+                parameter="output_channel",
+                value=output_channel,
+                valid_range=(1, len(self.config.channels)),
+                message="Output channel is out of range.",
+            )
 
         # Ensure points is at least 2 for a valid sweep
         if points < 2:
-            raise InstrumentParameterError(f"Points for sweep must be at least 2. Provided: {points}")
+            raise InstrumentParameterError(
+                parameter="points",
+                value=points,
+                valid_range=(2, "inf"),
+                message="Points for sweep must be at least 2.",
+            )
 
         # SCPI commands for frequency response analysis sweep
         await self._send_command(f":FUNCtion:FRANalysis")

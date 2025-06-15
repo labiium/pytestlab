@@ -20,7 +20,9 @@ dependencies    = [
     "tqdm",
     "pyscpi",
     "requests",
-    "pyusb"
+    "pyusb",
+    "httpx",
+    "aiofiles"
 ]
 
 [tool.hatch.version]
@@ -29,7 +31,7 @@ path = "pytestlab/__init__.py"
 [project.optional-dependencies]
 plot   = ["matplotlib", "plotly"]
 full   = ["pytestlab[plot]", "uncertainties", "pydantic", "pyvisa-sim"]
-dev    = ["ruff", "mypy", "pytest", "pytest-cov", "pre-commit"]
+dev    = ["ruff", "mypy", "pytest", "pytest-cov", "pre-commit", "httpx", "aiofiles"]
 docs   = [
     "mkdocs>=1.4.0",
     "mkdocs-material>=8.0.0",
@@ -59,8 +61,13 @@ exclude = [
 [tool.hatch.build.targets.wheel]
 packages = ["pytestlab"]
 [tool.mypy]
-strict = true
-plugins = ["pydantic.mypy"]
+disallow_untyped_defs = true
+disallow_any_unimported = true
+no_implicit_optional = true
+check_untyped_defs = true
+warn_return_any = true
+warn_unused_ignores = true
+show_error_codes = true
 
 [tool.ruff]
 line-length = 100

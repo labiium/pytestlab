@@ -119,9 +119,14 @@ asyncio.run(run())
 | Installation | `docs/installation.md` |
 | 10-minute tour (Jupyter) | `docs/tutorials/10_minute_tour.ipynb` |
 | User Guide | `docs/user_guide/*` |
+| Async vs. Sync | `docs/user_guide/async_vs_sync.md` |
 | Bench descriptors | `docs/user_guide/bench_descriptors.md` |
 | API reference | `docs/api/*` |
 | Instrument profile gallery | `docs/profiles/gallery.md` |
+| Tutorials | |
+| Compliance and Audit | `docs/tutorials/compliance.ipynb` |
+| Custom Validations | `docs/tutorials/custom_validations.ipynb` |
+| Profile Creation | `docs/tutorials/profile_creation.ipynb` |
 
 HTML docs hosted at <https://pytestlab.readthedocs.io> (builds from `docs/`).
 

@@ -42,6 +42,29 @@ Ensure all tests pass before submitting a pull request. New features should incl
 *   PyTestLab uses **Ruff** for linting and formatting, and **MyPy** for type checking. These are enforced by pre-commit hooks.
 *   Commits should follow the **Conventional Commits** specification (e.g., `feat: add new oscilloscope feature`). `commitizen` (`cz c`) is configured to help with this.
 
+## Using Pre-commit Hooks
+
+This project uses pre-commit to enforce code style and quality checks before each commit. This helps ensure that all code follows a consistent style and that common issues are caught early.
+
+To use pre-commit, you need to install it and set it up in your local repository clone.
+
+1.  **Install pre-commit:**
+
+    If you followed the development environment setup, `pre-commit` is already installed. If not, you can install it using pip:
+
+    ```bash
+    pip install pre-commit
+    ```
+
+2.  **Set up the git hooks:**
+
+    In the root of the repository, run the following command to install the git hooks:
+
+    ```bash
+    pre-commit install
+    ```
+
+Now, every time you run `git commit`, the pre-commit hooks will run and check your changes. If any of the checks fail, the commit will be aborted. You will need to fix the issues and `git add` the files before you can commit again.
 ## Submitting Changes
 
 1.  **Create a feature branch:** `git checkout -b name-of-your-feature`

@@ -4,6 +4,7 @@ from .._log import get_logger
 from typing import Optional, Tuple, Any, Callable, Type, List as TypingList, Dict, Union, Protocol, TypeVar, Generic
 from abc import abstractmethod
 import numpy as np
+import asyncio
 # polars.List is a DataType, not for type hinting Python lists.
 # from polars import List
 from ..errors import InstrumentConnectionBusy, InstrumentConfigurationError, InstrumentNotFoundError, InstrumentCommunicationError, InstrumentConnectionError, InstrumentParameterError
@@ -17,14 +18,31 @@ import time
 ConfigType = TypeVar('ConfigType', bound='InstrumentConfig')
 
 class InstrumentIO(Protocol):
-    def connect(self) -> None: ...
-    def disconnect(self) -> None: ...
-    def write(self, cmd: str) -> None: ...
-    def query(self, cmd: str, delay: Optional[float] = None) -> str: ...
-    def query_raw(self, cmd: str, delay: Optional[float] = None) -> bytes: ...
-    def close(self) -> None: ... # Often same as disconnect
+    """Defines the interface for a synchronous instrument communication backend.
 
-    # New timeout methods
+    This protocol specifies the essential methods that a synchronous backend
+    (like a traditional VISA wrapper) must implement to be compatible with the
+    instrument driver framework.
+    """
+    def connect(self) -> None:
+        """Establishes the connection to the instrument."""
+        ...
+    def disconnect(self) -> None:
+        """Terminates the connection to the instrument."""
+        ...
+    def write(self, cmd: str) -> None:
+        """Sends a command to the instrument."""
+        ...
+    def query(self, cmd: str, delay: Optional[float] = None) -> str:
+        """Sends a command and reads a string response."""
+        ...
+    def query_raw(self, cmd: str, delay: Optional[float] = None) -> bytes:
+        """Sends a command and reads a raw byte response."""
+        ...
+    def close(self) -> None:
+        """Closes the instrument session, often an alias for disconnect."""
+        ...
+
     def set_timeout(self, timeout_ms: int) -> None:
         """Sets the communication timeout in milliseconds."""
         ...
@@ -33,29 +51,57 @@ class InstrumentIO(Protocol):
         ...
 
 class AsyncInstrumentIO(Protocol):
-    async def connect(self) -> None: ...
-    async def disconnect(self) -> None: ...
-    async def write(self, cmd: str) -> None: ...
-    async def query(self, cmd: str, delay: Optional[float] = None) -> str: ...
-    async def query_raw(self, cmd: str, delay: Optional[float] = None) -> bytes: ... # Add async query_raw
-    async def close(self) -> None: ... # Add async close
+    """Defines the interface for an asynchronous instrument communication backend.
 
-    # New async timeout methods
+    This protocol specifies the essential async methods that an asynchronous
+    backend (e.g., using async VISA, HTTP, or a simulation) must implement.
+    This is the primary interface used by the `Instrument` class.
+    """
+    async def connect(self) -> None:
+        """Establishes the connection to the instrument asynchronously."""
+        ...
+    async def disconnect(self) -> None:
+        """Terminates the connection to the instrument asynchronously."""
+        ...
+    async def write(self, cmd: str) -> None:
+        """Sends a command to the instrument asynchronously."""
+        ...
+    async def query(self, cmd: str, delay: Optional[float] = None) -> str:
+        """Sends a command and reads a string response asynchronously."""
+        ...
+    async def query_raw(self, cmd: str, delay: Optional[float] = None) -> bytes:
+        """Sends a command and reads a raw byte response asynchronously."""
+        ...
+    async def close(self) -> None:
+        """Closes the instrument session asynchronously."""
+        ...
+
     async def set_timeout(self, timeout_ms: int) -> None:
-        """Sets the communication timeout in milliseconds."""
+        """Sets the communication timeout in milliseconds asynchronously."""
         ...
     async def get_timeout(self) -> int:
-        """Gets the communication timeout in milliseconds."""
+        """Gets the communication timeout in milliseconds asynchronously."""
         ...
 
 class Instrument(Generic[ConfigType]):
-    """
-    A class representing an SCPI-compliant instrument.
+    """Base class for all instrument drivers.
+
+    This class provides the core functionality for interacting with an instrument
+    through a standardized, asynchronous interface. It handles command sending,
+    querying, error checking, and logging. It is designed to be subclassed for
+    specific instrument types (e.g., Oscilloscope, PowerSupply).
+
+    The `Instrument` class is generic and typed with `ConfigType`, which allows
+    each subclass to specify its own Pydantic configuration model.
 
     Attributes:
-        config (InstrumentConfig): The configuration object for the instrument.
-        instrument (Any): The backend instrument object (e.g., LambInstrument or SimBackend).
-        debug_mode (bool): Flag to enable/disable debug logging.
+        config (ConfigType): The Pydantic configuration model instance for this
+                             instrument.
+        _backend (AsyncInstrumentIO): The communication backend used to interact
+                                      with the hardware or simulation.
+        _command_log (List[Dict[str, Any]]): A log of all commands sent and
+                                             responses received.
+        _logger: The logger instance for this instrument.
     """
 
     # Class-level annotations for instance variables
@@ -74,10 +120,10 @@ class Instrument(Generic[ConfigType]):
             **kwargs: Additional keyword arguments.
         """
         if not isinstance(config, InstrumentConfig): # Check against the bound base
-             raise InstrumentConfigurationError(
-                 "A valid InstrumentConfig-compatible object must be provided. "
-                 f"Got {type(config).__name__}."
-             )
+            raise InstrumentConfigurationError(
+                self.__class__.__name__,
+                f"A valid InstrumentConfig-compatible object must be provided, but got {type(config).__name__}.",
+            )
 
         self.config = config
         self._backend = backend # This will be an AsyncInstrumentIO instance
@@ -96,14 +142,26 @@ class Instrument(Generic[ConfigType]):
         # For now, it's a placeholder and might not work correctly with async backends.
         # It should ideally accept an async_mode flag or similar to determine backend type.
         if not isinstance(config, InstrumentConfig):
-             raise InstrumentConfigurationError("from_config expects an InstrumentConfig object.")
+            raise InstrumentConfigurationError(
+                cls.__name__, "from_config expects an InstrumentConfig object."
+            )
         # The backend instantiation is missing here and is crucial.
         # This will be handled by AutoInstrument.from_config later.
-        raise NotImplementedError("from_config needs to be updated for async backend instantiation.")
+        raise NotImplementedError(
+            "from_config needs to be updated for async backend instantiation."
+        )
 
 
     async def connect_backend(self) -> None:
-        """Connects the backend. To be called after Instrument instantiation."""
+        """Establishes the connection to the instrument via the backend.
+
+        This method must be called after the instrument is instantiated to open
+        the communication channel. It delegates the connection logic to the
+        underlying backend.
+
+        Raises:
+            InstrumentConnectionError: If the backend fails to connect.
+        """
         logger_name = self.config.model if hasattr(self.config, 'model') else self.__class__.__name__
         try:
             await self._backend.connect()
@@ -115,19 +173,34 @@ class Instrument(Generic[ConfigType]):
                     await self._backend.disconnect()
                 except Exception as disc_e:
                     self._logger.error(f"Instrument '{logger_name}': Error disconnecting backend during failed connect: {disc_e}")
-            raise InstrumentConnectionError(f"Failed to connect backend for {logger_name}: {e}") from e
+            raise InstrumentConnectionError(
+                instrument=logger_name, message=f"Failed to connect backend: {e}"
+            ) from e
 
     async def _read_to_np(self, data: bytes) -> np.ndarray:
+        """Parses SCPI binary block data into a NumPy array.
+
+        This utility method decodes the standard SCPI binary block format, which
+        is commonly used for transferring large datasets like waveforms. The format
+        is typically `#<N><Length><Data>`, where `<N>` is the number of digits
+        in `<Length>`.
+
+        Args:
+            data: The raw bytes received from the instrument, expected to be in
+                  SCPI binary block format.
+
+        Returns:
+            A NumPy array containing the parsed data.
+
+        Raises:
+            InstrumentDataError: If the data is not in the expected format.
         """
-        Parses SCPI binary block data into a NumPy array.
-        Assumes data format like #<N><LengthBytes><DataBytes>[\n]
-        and that the data itself is uint8 as per typical :WAVeform:FORMat BYTE.
-        """
+        # The first character must be '#' to indicate a binary block.
         if not data.startswith(b'#'):
-            self._logger.debug(f"Warning: Data for _read_to_np does not start with '#'. Attempting direct conversion of data[10:-1] if applicable. Raw data (first 20 bytes): {data[:20]}")
+            self._logger.debug(f"Warning: Data for _read_to_np does not start with '#'. Attempting direct conversion. Raw data (first 20 bytes): {data[:20]}")
+            # Fallback for non-standard data, which might be a simple header-less stream.
+            # This is a best-effort attempt and may not work for all instruments.
             if len(data) > 10:
-                # Fallback for non-standard data, trying to mimic original slicing logic
-                # This is risky and might need instrument-specific handling if '#' is truly absent.
                 end_slice = -1 if data.endswith(b'\n') else None
                 return np.frombuffer(data[10:end_slice], dtype=np.uint8)
             return np.array([], dtype=np.uint8)
@@ -135,11 +208,17 @@ class Instrument(Generic[ConfigType]):
         try:
             len_digits_char = data[1:2].decode('ascii')
             if not len_digits_char.isdigit():
-                raise ValueError(f"Invalid SCPI binary block: Length digit char '{len_digits_char}' is not a digit.")
+                raise InstrumentDataError(
+                    self.config.model,
+                    f"Invalid SCPI binary block: Length digit char '{len_digits_char}' is not a digit.",
+                )
             
             num_digits_for_length = int(len_digits_char)
             if num_digits_for_length == 0:
-                raise ValueError("Indefinite length SCPI binary block (#0) not supported for waveform data.")
+                raise InstrumentDataError(
+                    self.config.model,
+                    "Indefinite length SCPI binary block (#0) not supported for waveform data.",
+                )
 
             data_length_str = data[2 : 2 + num_digits_for_length].decode('ascii')
             actual_data_length = int(data_length_str)
@@ -157,11 +236,24 @@ class Instrument(Generic[ConfigType]):
             return np_array
         except Exception as e:
             self._logger.debug(f"Error parsing SCPI binary block in _read_to_np: {e}. Raw data (first 50 bytes): {data[:50]}")
-            raise InstrumentCommunicationError("Failed to parse binary data from instrument.") from e
+            raise InstrumentDataError(
+                self.config.model, "Failed to parse binary data from instrument."
+            ) from e
 
     async def _send_command(self, command: str, skip_check: bool = False) -> None:
-        """
-        Send an SCPI command to the instrument.
+        """Sends a command to the instrument and logs the interaction.
+
+        This is a low-level method for sending a command that does not expect a
+        response. It includes error checking unless explicitly skipped.
+
+        Args:
+            command: The SCPI command string to send.
+            skip_check: If True, the instrument's error queue will not be checked
+                        after sending the command. This is useful for commands
+                        that clear the error queue itself (e.g., `*CLS`).
+
+        Raises:
+            InstrumentCommunicationError: If writing the command to the backend fails.
         """
         try:
             await self._backend.write(command)
@@ -170,11 +262,28 @@ class Instrument(Generic[ConfigType]):
             self._command_log.append({"command": command, "success": True, "type": "write", "timestamp": time.time()})
         except Exception as e:
             self._command_log.append({"command": command, "success": False, "type": "write", "timestamp": time.time()})
-            raise InstrumentCommunicationError(f"Failed to send command `{str(command)}`\n{str(e)}") from e
+            raise InstrumentCommunicationError(
+                instrument=self.config.model,
+                command=command,
+                message=f"Failed to send command: {e}",
+            ) from e
 
     async def _query(self, query: str, delay: Optional[float] = None) -> str:
-        """
-        Query the instrument and return the response.
+        """Sends a query to the instrument and returns a string response.
+
+        This is a low-level method for interacting with the instrument when a
+        textual response is expected.
+
+        Args:
+            query: The SCPI query string to send.
+            delay: An optional delay in seconds to wait after sending the query
+                   before reading the response.
+
+        Returns:
+            The instrument's response, stripped of leading/trailing whitespace.
+
+        Raises:
+            InstrumentCommunicationError: If the query fails.
         """
         try:
             # self._logger.debug(f"QUERY: {query}" + (f" with delay: {delay}" if delay is not None else ""))
@@ -185,11 +294,28 @@ class Instrument(Generic[ConfigType]):
             return response.strip()
         except Exception as e:
             self._command_log.append({"command": query, "success": False, "type": "query", "timestamp": time.time(), "delay": delay})
-            raise InstrumentCommunicationError(f"Failed to query instrument with '{query}': {str(e)}") from e
+            raise InstrumentCommunicationError(
+                instrument=self.config.model,
+                command=query,
+                message=f"Failed to query instrument: {e}",
+            ) from e
         
     async def _query_raw(self, query: str, delay: Optional[float] = None) -> bytes:
-        """
-        Query the instrument and return the raw response.
+        """Sends a query and returns a raw binary response.
+
+        This method is used for queries that return binary data, such as waveform
+        data or screenshots. It does not perform an error check afterward, as the
+        binary response would interfere with reading the error queue.
+
+        Args:
+            query: The SCPI query string to send.
+            delay: An optional delay in seconds to wait before reading.
+
+        Returns:
+            The raw `bytes` response from the instrument.
+
+        Raises:
+            InstrumentCommunicationError: If the query fails.
         """
         try:
             # self._logger.debug(f"QUERY_RAW: {query}" + (f" with delay: {delay}" if delay is not None else ""))
@@ -200,7 +326,11 @@ class Instrument(Generic[ConfigType]):
             return response
         except Exception as e:
             self._command_log.append({"command": query, "success": False, "type": "query_raw", "timestamp": time.time(), "delay": delay})
-            raise InstrumentCommunicationError(f"Failed to raw query instrument with '{query}': {str(e)}") from e
+            raise InstrumentCommunicationError(
+                instrument=self.config.model,
+                command=query,
+                message=f"Failed to raw query instrument: {e}",
+            ) from e
 
     async def lock_panel(self, lock: bool = True) -> None:
         """
@@ -222,7 +352,11 @@ class Instrument(Generic[ConfigType]):
             self._command_log.append({"command": "*OPC?", "success": True, "type": "wait", "timestamp": time.time()})
         except Exception as e:
             self._logger.debug(f"Error during *OPC? wait: {e}")
-            raise InstrumentCommunicationError("Failed to wait for operation complete (*OPC?).") from e
+            raise InstrumentCommunicationError(
+                instrument=self.config.model,
+                command="*OPC?",
+                message="Failed to wait for operation complete.",
+            ) from e
 
     async def _wait_event(self) -> None:
         """
@@ -238,8 +372,12 @@ class Instrument(Generic[ConfigType]):
                 result = int(esr_response.strip())
             except Exception as e:
                 self._logger.debug(f"Error querying *ESR? during _wait_event: {e}")
-                raise InstrumentCommunicationError("Failed to query *ESR? during wait.") from e
-            time.sleep(0.1) 
+                raise InstrumentCommunicationError(
+                    instrument=self.config.model,
+                    command="*ESR?",
+                    message="Failed to query *ESR? during wait.",
+                ) from e
+            await asyncio.sleep(0.1)
             attempts += 1
         
         if attempts >= max_attempts and result == 0 :
@@ -271,9 +409,16 @@ class Instrument(Generic[ConfigType]):
             error_response = await self._backend.query(":SYSTem:ERRor?") # delay=None by default
             # More robust check for "No error"
             if not (error_response.strip().startswith("+0,\"No error\"") or error_response.strip().startswith("0,\"No error\"")):
-                raise InstrumentCommunicationError(f"Instrument returned error: {error_response.strip()}")
+                raise InstrumentCommunicationError(
+                    instrument=self.config.model,
+                    message=f"Instrument returned error: {error_response.strip()}",
+                )
         except Exception as e:
-            raise InstrumentCommunicationError(f"Failed to query instrument for errors: {str(e)}") from e
+            raise InstrumentCommunicationError(
+                instrument=self.config.model,
+                command=":SYSTem:ERRor?",
+                message=f"Failed to query instrument for errors: {e}",
+            ) from e
 
     async def id(self) -> str:
         """
@@ -312,9 +457,17 @@ class Instrument(Generic[ConfigType]):
              result_str = await self._query("*TST?")
              code = int(result_str.strip())
         except ValueError:
-            raise InstrumentCommunicationError(f"Unexpected non-integer response from *TST?: '{result_str}'")
+            raise InstrumentCommunicationError(
+                instrument=self.config.model,
+                command="*TST?",
+                message=f"Unexpected non-integer response: '{result_str}'",
+            )
         except InstrumentCommunicationError as e:
-             raise InstrumentCommunicationError("Failed to execute *TST? query.") from e
+            raise InstrumentCommunicationError(
+                instrument=self.config.model,
+                command="*TST?",
+                message="Failed to execute query.",
+            ) from e
 
         if code == 0:
             self._logger.debug("Self-test query (*TST?) returned 0 (Passed).")
@@ -340,12 +493,18 @@ class Instrument(Generic[ConfigType]):
         def decorator(func: Callable) -> Callable:
             def wrapped_func(self: Instrument, *args: Any, **kwargs: Any) -> Any:
                 if not hasattr(self.config, 'requires') or not callable(self.config.requires):
-                    raise InstrumentConfigurationError("Config object missing 'requires' method for decorator.")
+                    raise InstrumentConfigurationError(
+                        self.config.model,
+                        "Config object missing 'requires' method for decorator.",
+                    )
                 
                 if self.config.requires(requirement):
                     return func(self, *args, **kwargs)
                 else:
-                    raise InstrumentConfigurationError(f"Method '{func.__name__}' requires '{requirement}'. This functionality is not available for this instrument model/configuration.")
+                    raise InstrumentConfigurationError(
+                        self.config.model,
+                        f"Method '{func.__name__}' requires '{requirement}', which is not available for this instrument model/configuration.",
+                    )
             return wrapped_func
         return decorator
 
@@ -398,7 +557,11 @@ class Instrument(Generic[ConfigType]):
             message = msg_part.strip().strip('"')
         except (ValueError, IndexError) as e:
             self._logger.debug(f"Warning: Unexpected error response format: '{response}'. Raising error.")
-            raise InstrumentCommunicationError(f"Could not parse error response: '{response}'") from e
+            raise InstrumentCommunicationError(
+                instrument=self.config.model,
+                command="SYSTem:ERRor?",
+                message=f"Could not parse error response: '{response}'",
+            ) from e
 
         if code != 0:
              self._logger.debug(f"Instrument Error Query: Code={code}, Message='{message}'")
@@ -429,7 +592,9 @@ class Instrument(Generic[ConfigType]):
                 # The 'timeout' parameter of this method is noted here for context.
                 err_msg = f"*OPC? query failed. This may be due to backend communication timeout (related to method's timeout param: {timeout}s)."
                 self._logger.debug(err_msg)
-                raise InstrumentCommunicationError(err_msg) from e
+                raise InstrumentCommunicationError(
+                    instrument=self.config.model, command="*OPC?", message=err_msg
+                ) from e
             # 'finally' block for restoring timeout removed.
         else:
             await self._send_command("*OPC") # This now uses self._backend.write

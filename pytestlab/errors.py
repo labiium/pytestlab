@@ -1,38 +1,67 @@
 import warnings
 
 class InstrumentConnectionError(Exception):
-    """For SCPI instrument connection errors."""
+    """Exception raised for SCPI instrument connection errors."""
 
-    def __init__(self, message="Failed to connect to the instrument."):
+    def __init__(self, instrument=None, message=""):
+        self.instrument = instrument
         self.message = message
-        super().__init__(self.message)
+        if instrument:
+            super().__init__(f"Failed to connect to instrument '{instrument}'. {message}")
+        else:
+            super().__init__(f"Failed to connect to instrument. {message}")
+
 
 class InstrumentCommunicationError(Exception):
-    """For SCPI communication errors."""
+    """Exception raised for SCPI communication errors."""
 
-    def __init__(self, message="Error in SCPI communication."):
+    def __init__(self, instrument=None, command=None, message=""):
+        self.instrument = instrument
+        self.command = command
         self.message = message
-        super().__init__(self.message)
+        full_message = f"Error in SCPI communication with instrument '{instrument}'"
+        if command:
+            full_message += f" while sending command '{command}'"
+        full_message += f". {message}"
+        super().__init__(full_message)
+
 
 class FormulationError(Exception):
-    """Error has occuered in a computation"""
+    """Exception raised when a computation error occurs."""
 
-    def __init__(self, message="Given arguments have resulted in an error in Computation"):
+    def __init__(self, message="An error occurred in a computation."):
+        self.message = message
         super().__init__(self.message)
+
 
 class InstrumentConnectionBusy(Exception):
-    """The instrument is in use somewhere else"""
+    """Exception raised when the instrument is in use somewhere else."""
 
-    def __init__(self, message="The instrument has an open connection elsewhere."):
-        self.message = message
-        super().__init__(self.message)
+    def __init__(self, instrument=None):
+        self.instrument = instrument
+        if instrument:
+            super().__init__(f"The instrument '{instrument}' has an open connection elsewhere.")
+        else:
+            super().__init__("The instrument has an open connection elsewhere.")
+
 
 class InstrumentParameterError(ValueError):
-    """Invalid parameters given to instrument."""
+    """Exception raised for invalid parameters given to an instrument."""
 
-    def __init__(self, message="Invalid parameters given to instrument."):
+    def __init__(self, parameter=None, value=None, valid_range=None, message=""):
+        self.parameter = parameter
+        self.value = value
+        self.valid_range = valid_range
         self.message = message
-        super().__init__(self.message)
+        full_message = "Invalid parameter value for instrument"
+        if parameter:
+            full_message += f" for parameter '{parameter}'"
+        if value is not None:
+            full_message += f": received '{value}'"
+        if valid_range:
+            full_message += f", but expected a value in the range {valid_range}"
+        full_message += f". {message}"
+        super().__init__(full_message)
 
 class InstrumentNotFoundError(Exception):
     """For instrument not found errors."""
@@ -42,11 +71,15 @@ class InstrumentNotFoundError(Exception):
 
 
 class InstrumentConfigurationError(Exception):
-    """For instrument configuration errors."""
+    """Exception raised for instrument configuration errors."""
 
-    def __init__(self, message="Invalid instrument profile configuration. Check conformity to Profile Specification"):
+    def __init__(self, instrument=None, message=""):
+        self.instrument = instrument
         self.message = message
-        super().__init__(self.message)
+        if instrument:
+            super().__init__(f"Invalid configuration for instrument '{instrument}'. {message}")
+        else:
+            super().__init__(f"Invalid instrument configuration. {message}")
         
 
 ## WARNINGS
@@ -59,23 +92,39 @@ class CommunicationError(Warning):
 # Database errors
 
 class DatabaseError(Exception):
-    """For database errors."""
+    """Exception raised for database errors."""
 
-    def __init__(self, message="Error in database operation."):
+    def __init__(self, operation=None, message=""):
+        self.operation = operation
         self.message = message
-        super().__init__(self.message)
+        if operation:
+            super().__init__(f"Error in database operation '{operation}'. {message}")
+        else:
+            super().__init__(f"Error in database operation. {message}")
+
 
 # Experiment errors
-        
-class ExperimentError(Exception):
-    """For experiment errors."""
 
-    def __init__(self, message="Error in experiment operation."):
+
+class ExperimentError(Exception):
+    """Exception raised for experiment errors."""
+
+    def __init__(self, experiment=None, message=""):
+        self.experiment = experiment
         self.message = message
-        super().__init__(self.message)
+        if experiment:
+            super().__init__(f"Error in experiment '{experiment}'. {message}")
+        else:
+            super().__init__(f"Error in experiment. {message}")
+
 
 class InstrumentDataError(Exception):
-    """For errors in instrument data acquisition or parsing."""
-    def __init__(self, message="Instrument data error."):
+    """Exception raised for errors in instrument data acquisition or parsing."""
+
+    def __init__(self, instrument=None, message=""):
+        self.instrument = instrument
         self.message = message
-        super().__init__(self.message)
+        if instrument:
+            super().__init__(f"Instrument data error for '{instrument}'. {message}")
+        else:
+            super().__init__(f"Instrument data error. {message}")

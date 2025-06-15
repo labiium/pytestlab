@@ -79,10 +79,10 @@ class MeasurementSession(contextlib.AbstractAsyncContextManager):
         return False
 
     # ─── Instruments ───────────────────────────────────────────────────
-    def instrument(self, alias: str, config_key: str, /, **kw) -> Any:
+    async def instrument(self, alias: str, config_key: str, /, **kw) -> Any:
         if alias in self._instruments:
             raise ValueError(f"Instrument alias '{alias}' already in use.")
-        inst = AutoInstrument.from_config(config_key, **kw)
+        inst = await AutoInstrument.from_config(config_key, **kw)
         self._instruments[alias] = _InstrumentRecord(alias, config_key, inst)
         return inst
 
