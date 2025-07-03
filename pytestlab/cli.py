@@ -1,4 +1,5 @@
 # pytestlab/cli.py
+import sys
 import typer
 from typing_extensions import Annotated # For older Python, or just use `typing.Annotated` for Py 3.9+
 from typing import Optional # Ensure Optional is imported
@@ -130,15 +131,16 @@ def sim_profile_diff(profile_key: Annotated[str, typer.Argument(help="Profile ke
 @sim_profile_app.command("record")
 async def sim_profile_record(
     profile_key: Annotated[str, typer.Argument(help="Profile key of the instrument to record.")],
-    address: Annotated[str, typer.Option(help="VISA address of the instrument.")],
+    address: Annotated[Optional[str], typer.Option(help="VISA address of the instrument.")] = None,
     output_path: Annotated[Optional[Path], typer.Option(help="Output path for the recorded YAML profile. If not provided, it will be saved to the user's cache.")] = None,
     script: Annotated[Optional[Path], typer.Option(help="Path to a Python script to run against the instrument.")] = None,
+    simulate: Annotated[bool, typer.Option(help="Use a simulated instrument for recording.")] = False,
 ):
     """Records instrument interactions to create a simulation profile."""
     instrument = None
     try:
-        if not address:
-            rich.print("[bold red]Error: The --address option is required for recording.[/bold red]")
+        if not simulate and not address:
+            rich.print("[bold red]Error: The --address option is required for recording from a real instrument.[/bold red]")
             raise typer.Exit(code=1)
 
         final_output_path = output_path
@@ -149,46 +151,49 @@ async def sim_profile_record(
 
         inst_config_model = load_profile(profile_key)
         
-        rich.print(f"Connecting to instrument '{profile_key}' at address '{address}'...")
+        if simulate:
+            rich.print(f"Connecting to simulated instrument '{profile_key}'...")
+        else:
+            rich.print(f"Connecting to instrument '{profile_key}' at address '{address}'...")
+        
         instrument = await AutoInstrument.from_config(
             config_source=inst_config_model,
-            simulate=False,
+            simulate=simulate,
             address_override=address
         )
         await instrument.connect_backend()
 
         # Wrap the real backend with the recording backend
-        recording_backend = RecordingBackend(instrument.backend, str(final_output_path))
-        instrument.backend = recording_backend
+        recording_backend = RecordingBackend(instrument._backend, str(final_output_path))
+        instrument._backend = recording_backend
         
         rich.print("[bold green]Connection successful. Recording started.[/bold green]")
 
         if script:
-            rich.print(f"Running script: {script}")
-            with open(script) as f:
-                script_content = f.read()
-            # Create a scope for the script to run in
-            script_globals = {
-                "instrument": instrument,
-                "asyncio": asyncio,
-                "__name__": "__main__",
-            }
-            # The script needs to handle asyncio.run() for async calls.
-            exec(script_content, script_globals)
-            rich.print("Script execution finished.")
+            rich.print(f"\n[bold]Running script:[/bold] {script}")
+            spec = importlib.util.spec_from_file_location("script_module", script)
+            if spec and spec.loader:
+                script_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(script_module)
+                if hasattr(script_module, "main") and asyncio.iscoroutinefunction(script_module.main):
+                    await script_module.main(instrument)
+                else:
+                    rich.print("[bold yellow]Warning: No async 'main(instrument)' function found in script.[/bold yellow]")
+            else:
+                rich.print(f"[bold red]Error: Could not load script '{script}'.[/bold red]")
         else:
-            rich.print("Starting interactive shell. Type 'quit()' or Ctrl-D to exit.")
-            rich.print("The instrument is available as the 'instrument' variable.")
-            rich.print("Use 'await instrument.some_method()' for async operations.")
-            
-            local_vars = {"instrument": instrument, "asyncio": asyncio}
-            code.interact(local=local_vars, banner="PyTestLab Interactive Recording Shell")
+            rich.print("\n[bold]Starting interactive REPL. Press Ctrl+D or type 'exit()' to quit.[/bold]")
+            # Basic async-unsafe REPL for demonstration
+            code.interact(
+                banner="PyTestLab Interactive Recording Session",
+                local=dict(globals(), **{'instrument': instrument, 'asyncio': asyncio}),
+                exitmsg="REPL finished."
+            )
 
-    except FileNotFoundError:
-        rich.print(f"[bold red]Error: Profile for key '{profile_key}' not found.[/bold red]")
-        raise typer.Exit(code=1)
     except Exception as e:
+        import traceback
         rich.print(f"[bold red]An unexpected error occurred: {e}[/bold red]")
+        traceback.print_exc()
         raise typer.Exit(code=1)
     finally:
         if instrument:
@@ -506,8 +511,31 @@ def bench_sim_cli(bench_yaml_path: Annotated[Path, typer.Argument(help="Path to 
         rich.print(f"[bold red]An unexpected error occurred while converting the bench to simulation mode: {e}[/bold red]")
         raise typer.Exit(code=1)
 
-# Need an async main for Typer if any command is async
-# This is usually handled by Typer itself if you `typer.run(app)`
-# For direct script execution:
-# if __name__ == "__main__":
-#    app() # Typer handles async if any command is async
+def main():
+    """Main entry point for the CLI."""
+    app()
+
+def main_wrapper():
+    if "sim-profile" in sys.argv and "record" in sys.argv:
+        # This is a workaround for a persistent asyncio issue with Typer.
+        from pytestlab.cli import sim_profile_record
+        # This is a simplified parser. A more robust solution would use
+        # a proper argument parsing library.
+        kwargs = {}
+        for i, arg in enumerate(sys.argv):
+            if arg.startswith("--"):
+                if i + 1 < len(sys.argv) and not sys.argv[i + 1].startswith("--"):
+                    kwargs[arg[2:].replace("-", "_")] = sys.argv[i + 1]
+                else:
+                    kwargs[arg[2:].replace("-", "_")] = True
+        
+        # Manually call the async function with asyncio.run()
+        asyncio.run(sim_profile_record(
+            profile_key=sys.argv[3],
+            **kwargs
+        ))
+    else:
+        main()
+
+if __name__ == "__main__":
+    main_wrapper()

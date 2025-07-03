@@ -72,9 +72,12 @@ def get_model_registry() -> dict[str, Type[InstrumentConfig]]:
 
 def validate_profile(data: dict[str, Any], model_cls: Type[BaseModel]) -> None:
     """Validates profile data against the Pydantic model's JSON schema."""
+    data_to_validate = data.copy()
+    if 'simulation' in data_to_validate:
+        data_to_validate.pop('simulation')
     try:
         schema = model_cls.model_json_schema()
-        jsonschema.validate(instance=data, schema=schema)
+        jsonschema.validate(instance=data_to_validate, schema=schema)
     except jsonschema.ValidationError as e:
         raise ValueError(f"Profile validation failed: {e.message}") from e
     except Exception as e:
@@ -163,6 +166,10 @@ def load_profile(key_or_path_or_dict: str | Path | dict[str, Any]) -> Instrument
             f"No Pydantic model found for device_type '{device_type}'. "
             f"Discovered models: {list(model_registry.keys())}"
         )
+
+    # Pop the simulation section before validation, as it's not part of the config model
+    if "simulation" in data:
+        data.pop("simulation")
 
     try:
         validate_profile(data, model_cls)

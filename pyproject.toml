@@ -22,7 +22,8 @@ dependencies    = [
     "requests",
     "pyusb",
     "httpx",
-    "aiofiles"
+    "aiofiles",
+    "typer"
 ]
 
 [tool.hatch.version]
@@ -41,7 +42,7 @@ docs   = [
 ]
 
 [project.scripts]
-pytestlab = "pytestlab.cli:app"
+pytestlab = "pytestlab.cli:main"
 [tool.commitizen]
 name = "cz_conventional_commits"
 version = "0.1.5"

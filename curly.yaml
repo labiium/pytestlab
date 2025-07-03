@@ -3,9 +3,12 @@ base:
   use_gitignore: true 
   ignore:
   - packager
-  - tests
+  # - tests
   - "*.png"
   - htmlcov
+  - "*.csv"
+  - tests/*.json
+  - pytestlab.egg-info
 
 prod:
   language: python
@@ -34,7 +37,7 @@ prod:
   - lm.toml
   - pytestlab/profiles
   - examples/data
-  - measurement
+  # - measurement
   # - pytestlab/config
 
 

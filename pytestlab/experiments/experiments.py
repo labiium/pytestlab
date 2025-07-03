@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import polars as pl
-from typing import Dict, Any, Union, List, Iterator
+from typing import Dict, Any, Union, List, Iterator, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .results import MeasurementResult
 
 # Attempt to import pyarrow; if not available, raise an informative error.
 # try:
@@ -50,16 +53,16 @@ class Experiment:
         """
         self.parameters[name] = ExperimentParameter(name, units, notes)
 
-    def add_trial(self, measurement_result: Union[pl.DataFrame, Dict[str, Any], List[Any]], **parameter_values: Any) -> None:
+    def add_trial(self, measurement_result: Union[pl.DataFrame, Dict[str, Any], List[Any], 'MeasurementResult'], **parameter_values: Any) -> None:
         """
         Add a new trial to the experiment.
         
-        Accepts measurement data in various formats (list, dict, or Polars DataFrame)
+        Accepts measurement data in various formats (list, dict, Polars DataFrame, or MeasurementResult)
         and converts it into a Polars DataFrame if needed. Additional parameter values
         are added as new columns.
         
         Args:
-            measurement_result (Union[pl.DataFrame, Dict[str, Any], List[Any]]): The measurement data.
+            measurement_result (Union[pl.DataFrame, Dict[str, Any], List[Any], MeasurementResult]): The measurement data.
             **parameter_values: Additional parameters to include with this trial.
             
         Raises:
@@ -67,11 +70,23 @@ class Experiment:
                         provided parameter is not defined.
         """
         trial_df: pl.DataFrame
-        if not isinstance(measurement_result, pl.DataFrame):
+        
+        # Special handling for MeasurementResult objects
+        if hasattr(measurement_result, 'values') and hasattr(measurement_result, 'to_dict'):
+            # If it's a MeasurementResult, extract its values
+            if isinstance(measurement_result.values, pl.DataFrame):
+                trial_df = measurement_result.values
+            else:
+                # Convert to dict and then to DataFrame
+                try:
+                    trial_df = pl.DataFrame(measurement_result.to_dict(), strict=False)
+                except Exception as e:
+                    raise ValueError(f"Failed to convert MeasurementResult to DataFrame: {e}") from e
+        elif not isinstance(measurement_result, pl.DataFrame):
             try:
                 trial_df = pl.DataFrame(measurement_result, strict=False)
             except Exception as e:
-                raise ValueError("Failed to convert measurement_result to a Polars DataFrame") from e
+                raise ValueError(f"Failed to convert measurement_result to a Polars DataFrame: {e}") from e
         else:
             trial_df = measurement_result
 

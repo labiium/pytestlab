@@ -1,0 +1,8 @@
+simulation:
+  scpi:
+    VOLTAGE 3.3, (@1): ''
+    :SYSTem:ERRor?: +0,"No error"
+    CURR 0.5, (@1): ''
+    OUTPut:STATe ON, (@1): ''
+    '*IDN?': Simulated,PyTestLab,EDU36311A-SIM,1.0
+    OUTPut:STATe OFF, (@1): ''

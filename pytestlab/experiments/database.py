@@ -110,7 +110,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
     def _adapt_numpy(arr: np.ndarray) -> sqlite3.Binary:
         """Serialize NumPy array to binary with metadata."""
         if not isinstance(arr, np.ndarray):
-            raise TypeError("Expected numpy.ndarray")
+            raise TypeError(f"Expected numpy array, got {type(arr)}")
         
         metadata = {
             "dtype": str(arr.dtype),
@@ -131,14 +131,46 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
     @staticmethod
     def _convert_numpy(blob: bytes) -> np.ndarray:
         """Deserialize binary data back to NumPy array."""
-        metadata_len = int.from_bytes(blob[:4], "little")
-        metadata = pickle.loads(blob[4:4+metadata_len])
-        data_bytes = blob[4+metadata_len:]
+        # Check if this is an LZMA file (XZ signature)
+        if blob[:7] == b'\xfd\x37\x7a\x58\x5a\x00\x00':
+            try:
+                # Direct LZMA compressed data without our metadata header
+                decompressed = lzma.decompress(blob)
+                # Try to read as a pickled numpy array
+                return pickle.loads(decompressed)
+            except Exception as e:
+                # If that fails, try polars DataFrame
+                try:
+                    return pl.read_ipc(decompressed)
+                except:
+                    pass
         
-        if metadata.get("compressed", False):
-            data_bytes = lzma.decompress(data_bytes)
-        
-        return np.frombuffer(data_bytes, dtype=metadata["dtype"]).reshape(metadata["shape"])
+        try:
+            metadata_len = int.from_bytes(blob[:4], "little")
+            metadata = pickle.loads(blob[4:4+metadata_len])
+            data_bytes = blob[4+metadata_len:]
+            
+            if metadata.get("compressed", False):
+                data_bytes = lzma.decompress(data_bytes)
+            
+            return np.frombuffer(data_bytes, dtype=metadata["dtype"]).reshape(metadata["shape"])
+        except Exception as e:
+            # Fallback for legacy or corrupted data
+            try:
+                # Try direct unpickling (old format)
+                return pickle.loads(blob)
+            except:
+                # Try one more approach - direct decompression if it's just compressed data
+                try:
+                    if blob[:7] == b'\xfd\x37\x7a\x58\x5a\x00\x00':
+                        decompressed = lzma.decompress(blob)
+                        # Try as simple numpy array
+                        return np.frombuffer(decompressed, dtype=np.float64)
+                except:
+                    pass
+                    
+                # If all else fails, raise original error
+                raise ValueError(f"Failed to deserialize numpy array: {e}") from e
     
     @staticmethod
     def _adapt_polars(df: pl.DataFrame) -> sqlite3.Binary:
@@ -150,8 +182,48 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
     @staticmethod
     def _convert_polars(blob: bytes) -> pl.DataFrame:
         """Deserialize compressed Arrow IPC back to Polars DataFrame."""
-        decompressed = lzma.decompress(blob)
-        return pl.read_ipc(decompressed)
+        # Check if this is an LZMA file (XZ signature)
+        if blob[:7] == b'\xfd\x37\x7a\x58\x5a\x00\x00':
+            try:
+                # Direct LZMA compressed data
+                decompressed = lzma.decompress(blob)
+                # Try to read as Arrow IPC
+                return pl.read_ipc(decompressed)
+            except Exception:
+                # If that fails, try to unpickle the decompressed data
+                try:
+                    return pickle.loads(decompressed)
+                except:
+                    pass
+        
+        try:
+            decompressed = lzma.decompress(blob)
+            return pl.read_ipc(decompressed)
+        except Exception as e:
+            # Fallback for legacy or corrupted data
+            try:
+                # Try direct unpickling (old format)
+                return pickle.loads(blob)
+            except:
+                # If that fails, try to read as raw Arrow IPC (uncompressed)
+                try:
+                    return pl.read_ipc(blob)
+                except:
+                    # One last attempt - try to create a DataFrame from a numpy array
+                    try:
+                        arr = MeasurementDatabase._convert_numpy(blob)
+                        if isinstance(arr, np.ndarray):
+                            if arr.ndim == 1:
+                                return pl.DataFrame({"values": arr})
+                            else:
+                                # Create a column for each dimension
+                                data = {f"column_{i}": arr[:, i] for i in range(arr.shape[1])}
+                                return pl.DataFrame(data)
+                    except:
+                        pass
+                        
+                    # If all else fails, raise original error
+                    raise ValueError(f"Failed to deserialize Polars DataFrame: {e}") from e
     
     # Custom datetime handling to avoid Python 3.12 deprecation warnings
     @staticmethod
@@ -564,6 +636,8 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
             List of dicts with measurement metadata
         """
         conn = self._get_connection()
+        
+        # First try the FTS table
         cursor = conn.execute("""
             SELECT m.codename, i.name, m.measurement_type, m.units, m.timestamp, m.notes
             FROM measurements_fts f
@@ -574,7 +648,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
             LIMIT ?
         """, (query, limit))
         
-        return [
+        results = [
             {
                 "codename": row[0],
                 "instrument": row[1],
@@ -585,37 +659,31 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
             }
             for row in cursor.fetchall()
         ]
-    
-    # Bulk operations
-    def bulk_store_measurements(
-        self,
-        measurements: List[tuple[Optional[str], MeasurementResult]],
-        show_progress: bool = True
-    ) -> List[str]:
-        """
-        Store multiple measurements efficiently.
         
-        Args:
-            measurements: List of (codename, MeasurementResult) tuples
-            show_progress: Whether to show progress bar
+        # If no results from FTS, try direct instrument name matching
+        if not results:
+            cursor = conn.execute("""
+                SELECT m.codename, i.name, m.measurement_type, m.units, m.timestamp, m.notes
+                FROM measurements m
+                JOIN instruments i ON m.instrument_id = i.instrument_id
+                WHERE i.name LIKE ? OR m.measurement_type LIKE ?
+                ORDER BY m.timestamp DESC
+                LIMIT ?
+            """, (f"%{query}%", f"%{query}%", limit))
+            
+            results = [
+                {
+                    "codename": row[0],
+                    "instrument": row[1],
+                    "measurement_type": row[2],
+                    "units": row[3],
+                    "timestamp": row[4],
+                    "notes": row[5]
+                }
+                for row in cursor.fetchall()
+            ]
         
-        Returns:
-            List of final codenames used
-        """
-        codenames = []
-        iterator = tqdm(measurements, desc="Storing measurements", disable=not show_progress)
-        
-        for codename, measurement in iterator:
-            final_codename = self.store_measurement(codename, measurement)
-            codenames.append(final_codename)
-        
-        return codenames
-    
-    # Database utilities
-    def vacuum(self) -> None:
-        """Optimize database file size and performance."""
-        conn = self._get_connection()
-        conn.execute("VACUUM")
+        return results
     
     def get_stats(self) -> Dict[str, int]:
         """Get database statistics."""
@@ -628,6 +696,11 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
         
         return stats
     
+    def vacuum(self) -> None:
+        """Optimize database file size and performance."""
+        conn = self._get_connection()
+        conn.execute("VACUUM")
+    
     def __repr__(self) -> str:
         stats = self.get_stats()
         return (
@@ -636,7 +709,6 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
             f"  Measurements: {stats['measurements']}\n"
             f"  Instruments: {stats['instruments']}"
         )
-
 
 # Legacy compatibility alias
 Database = MeasurementDatabase

@@ -148,11 +148,13 @@ def safe_eval(expr: str, /, state: dotdict, groups: Tuple[str, ...] = ()) -> Any
 
 
 def _load_yaml(path: Path) -> Dict[str, Any]:
+    print(f"[DEBUG] Loading YAML profile: {path}")
     if not path.exists():
         raise ProfileError(f"Profile file {path} does not exist")
     with path.open("rt", encoding="utf-8") as fh:
         try:
             data = yaml.safe_load(fh) or {}
+            print(f"[DEBUG] YAML loaded from {path}: {data}")
         except yaml.YAMLError as e:
             raise ProfileError(f"Invalid YAML in {path}: {e}") from e
     return data
@@ -285,13 +287,21 @@ class SimBackendV2:  # implements AsyncInstrumentIO
 
     def _load_profile(self) -> Dict[str, Any]:
         main = _load_yaml(self.profile_path)
-        override_path = self.USER_OVERRIDE_ROOT / self.profile_path.relative_to(self.profile_path.anchor)
-        if override_path.exists():
-            user = _load_yaml(override_path)
-            main = _merge_dict(main, user)
-            logger.info("Merged user override `%s` into profile", override_path)
+        # Only try to find a user override if the profile is under the package profiles dir
+        try:
+            pkg_profiles_root = str(Path(__file__).parent.parent.parent / "profiles")
+            if str(self.profile_path).startswith(pkg_profiles_root):
+                rel_path = self.profile_path.relative_to(pkg_profiles_root)
+                override_path = self.USER_OVERRIDE_ROOT / rel_path
+                if override_path.exists():
+                    user = _load_yaml(override_path)
+                    main = _merge_dict(main, user)
+                    logger.info("Merged user override `%s` into profile", override_path)
+        except Exception as e:
+            logger.debug(f"User override check failed: {e}")
         if "simulation" not in main:
-            raise ProfileError("Profile missing required `simulation` section")
+            logger.warning("Profile %s is missing a `simulation` section. Defaulting to empty.", self.profile_path)
+            main["simulation"] = {}
         return main
 
     # ................ dispatcher build ............... #
@@ -323,26 +333,33 @@ class SimBackendV2:  # implements AsyncInstrumentIO
     def _handle_command(self, cmd: str, *, expect_response: bool = False) -> str:
         cmd = cmd.strip()
         upper = cmd.upper()
-        # built-ins first
-        if upper in {"*CLS", "SYST:ERR?", "SYSTEM:ERROR?", ":SYST:ERR?"}:
-            return self._builtin_error_query() if expect_response else self._clear_errors()
-        if upper == "*IDN?":
-            return self._profile.get("identification", "Simulated,PyTestLab,{}-SIM,1.0".format(self.model))
 
-        # user SCPI map
+        # 1. Exact match in user-defined SCPI map (highest priority)
         if upper in self._exact_map:
             return self._execute_entry(self._exact_map[upper], cmd, ())
 
-        # pattern rules
+        # 2. Pattern-based rules
         for rule in self._pattern_rules:
             m = rule.pattern.fullmatch(cmd)
             if m:
                 return self._execute_entry(rule.template, cmd, m.groups())
 
-        # no match → error
-        self._push_error(-113, "Undefined header")
+        # 3. Built-in commands (fallback)
+        if upper.endswith("SYST:ERR?") or upper.endswith("SYSTEM:ERROR?"):
+             return self._builtin_error_query()
+        if upper == "*CLS":
+            self._clear_errors()
+            return ""
+        if upper == "*IDN?":
+            # Check if IDN is defined in the profile's exact map first for overrides
+            if "*IDN?" in self._exact_map:
+                return self._execute_entry(self._exact_map["*IDN?"], cmd, ())
+            return self._profile.get("identification", f"Simulated,PyTestLab,{self.model}-SIM,1.0")
+
+        # 4. No match found, push an error
+        # self._push_error(-113, "Undefined header")
         if expect_response:
-            return "SIM_ERROR:UnknownQuery"
+            return ""
         return ""
 
     # ................ execute a mapping/string ........ #
@@ -410,7 +427,7 @@ class SimBackendV2:  # implements AsyncInstrumentIO
     def _substitute(template: str, groups: Tuple[str, ...]) -> str:
         out = template
         for i, g in enumerate(groups, 1):
-            out = out.replace(f"${i}", g)
+            out = out.replace(f"${i}", g if g is not None else "")
         return out
 
     # ................ error handling ................... #

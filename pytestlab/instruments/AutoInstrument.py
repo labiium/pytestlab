@@ -26,6 +26,7 @@ import warnings
 import yaml
 import httpx
 import aiofiles
+import tempfile
 
 
 class AutoInstrument:
@@ -277,8 +278,13 @@ class AutoInstrument:
         config_data: Dict[str, Any]
         
         # Step 1: Load configuration data from the provided source
-        if isinstance(config_source, dict):
+        config_model: PydanticInstrumentConfig
+        if isinstance(config_source, PydanticInstrumentConfig):
+            config_model = config_source
+            config_data = config_model.model_dump(mode='python')
+        elif isinstance(config_source, dict):
             config_data = config_source
+            config_model = load_profile(config_data)
         elif isinstance(config_source, str):
             try:
                 # Try fetching from the CDN first
@@ -292,10 +298,9 @@ class AutoInstrument:
                 except FileNotFoundError:
                     # If not found in either location, raise an error
                     raise FileNotFoundError(f"Configuration '{config_source}' not found in CDN or local paths.")
+            config_model = load_profile(config_data)
         else:
-            raise TypeError("config_source must be a file path (str) or a dict")
-
-        config_model: PydanticInstrumentConfig = load_profile(config_data)
+            raise TypeError("config_source must be a file path (str), a dict, or an InstrumentConfig object.")
 
         # Override the serial number in the config if one is provided as an argument
         if serial_number is not None and hasattr(config_model, 'serial_number'):
@@ -357,21 +362,46 @@ class AutoInstrument:
 
         # Step 4: Instantiate the appropriate backend based on the mode and configuration
         if final_simulation_mode:
-            # If simulation is active, always use SimBackendV2
+            # Helper to resolve sim profile path
+            def resolve_sim_profile_path(profile_key_or_path: str) -> str:
+                # 1. User override in ~/.pytestlab/profiles
+                user_profile = os.path.expanduser(os.path.join("~/.pytestlab/profiles", profile_key_or_path + ".yaml"))
+                if os.path.exists(user_profile):
+                    return user_profile
+                # 2. User sim_profiles (legacy)
+                user_sim_profile = os.path.expanduser(os.path.join("~/.pytestlab/sim_profiles", profile_key_or_path + ".yaml"))
+                if os.path.exists(user_sim_profile):
+                    return user_sim_profile
+                # 3. Package profile
+                import pytestlab as ptl
+                pkg_profile = os.path.join(os.path.dirname(ptl.__file__), "profiles", profile_key_or_path + ".yaml")
+                if os.path.exists(pkg_profile):
+                    return pkg_profile
+                # 4. Direct path
+                if os.path.exists(profile_key_or_path):
+                    return profile_key_or_path
+                raise FileNotFoundError(f"Simulation profile not found for '{profile_key_or_path}'")
+
             device_model_str = getattr(config_model, "model", "GenericSimulatedModel")
-            if backend_type_hint and "simbackend" == backend_type_hint.lower():
-                warnings.warn(
-                    "SimBackend is deprecated and has been replaced by SimBackendV2.",
-                    DeprecationWarning,
-                )
+            if isinstance(config_source, str):
+                sim_profile_path = os.path.abspath(resolve_sim_profile_path(config_source))
+                if debug_mode:
+                    print(f"Resolved sim profile path: {sim_profile_path}")
+            else:
+                # Write dict config to a temp file
+                with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as tf:
+                    yaml.dump(config_data, tf)
+                    sim_profile_path = os.path.abspath(tf.name)
+                if debug_mode:
+                    print(f"Wrote temp sim profile: {sim_profile_path}")
             backend_instance = SimBackendV2(
-                profile=config_model,
-                device_model=device_model_str,
+                profile_path=sim_profile_path,
+                model=device_model_str,
                 timeout_ms=actual_timeout,
             )
             if debug_mode:
                 print(
-                    f"Using SimBackendV2 for {device_model_str} with timeout {actual_timeout}ms."
+                    f"Using SimBackendV2 for {device_model_str} with timeout {actual_timeout}ms. Profile: {sim_profile_path}"
                 )
         else:
             # For live hardware, determine the backend type (VISA or Lamb)

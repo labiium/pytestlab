@@ -23,9 +23,22 @@ class PowerSupplyChannelConfig(BaseModel):
     output_enabled_default: bool = Field(
         False, description="Default output state for the channel on initialization"
     )
-    # Add other per-channel fields as necessary, e.g.:
+    # Add support for extra fields in YAML profile
+    description: Optional[str] = Field(None, description="Channel description")
+    voltage: Optional[dict] = Field(None, description="Raw voltage range from profile (for migration)")
+    current: Optional[dict] = Field(None, description="Raw current range from profile (for migration)")
+    accuracy: Optional[dict] = Field(None, description="Accuracy dictionary from profile")
     # over_voltage_protection: Optional[float] = Field(None, description="Per-channel Over Voltage Protection setting")
     # over_current_protection: Optional[float] = Field(None, description="Per-channel Over Current Protection setting")
+
+    @model_validator(mode='before')
+    def migrate_profile_fields(cls, values):
+        # Map 'voltage' to 'voltage_range' if present
+        if 'voltage' in values and 'voltage_range' not in values:
+            values['voltage_range'] = Range(**values['voltage'])
+        if 'current' in values and 'current_limit_range' not in values:
+            values['current_limit_range'] = Range(**values['current'])
+        return values
 
 
 class PowerSupplyConfig(InstrumentConfig):
@@ -43,6 +56,15 @@ class PowerSupplyConfig(InstrumentConfig):
     )
     over_current_protection: Optional[Range] = Field(
         None, description="Global Over Current Protection setting for the PSU, if applicable."
+    )
+    line_regulation: Optional[float] = Field(
+        None, description="Line regulation specification for the PSU."
+    )
+    load_regulation: Optional[float] = Field(
+        None, description="Load regulation specification for the PSU."
+    )
+    total_power: Optional[float] = Field(
+        None, description="Total output power rating for the PSU."
     )
     # Add other global PSU settings if any, e.g.:
     # tracking_enabled: Optional[bool] = Field(None, description="Enable/disable channel tracking if supported")

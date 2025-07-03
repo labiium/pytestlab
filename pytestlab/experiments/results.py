@@ -5,7 +5,7 @@ import time
 import numpy as np
 import polars as pl
 # import matplotlib.pyplot as plt # Commented out as it's not used
-from typing import Any, Union, List as TypingList, Iterator, Optional # Added Optional
+from typing import Any, Union, List as TypingList, Iterator, Optional, Dict # Added Optional and Dict
 from uncertainties import ufloat # ufloat factory
 from uncertainties.core import UFloat, Variable # Variable is an alias for UFloat
 
@@ -28,15 +28,34 @@ class MeasurementResult:  # noqa: D101
                  units: str,
                  measurement_type: str,
                  timestamp: Optional[float] = None, # Allow optional timestamp override
+                 envelope: Optional[Dict[str, Any]] = None, # Add envelope as an explicit argument
+                 sampling_rate: Optional[float] = None, # Add sampling_rate for FFT
                  **kwargs: Any) -> None: # Added **kwargs and type hint
         self.values: Union[np.ndarray, pl.DataFrame, np.float64, TypingList[Any], UFloat] = values
         self.units: str = units
         self.instrument: str = instrument
         self.measurement_type: str = measurement_type
         self.timestamp: float = timestamp if timestamp is not None else time.time()
-        # Store any additional kwargs if needed, e.g., self.metadata = kwargs
+        # Envelope logic: always provide an envelope attribute
+        if envelope is not None:
+            self.envelope = envelope
+        else:
+            # Default: minimal valid envelope (empty dict, or customize as needed)
+            self.envelope = {}
+        
+        # Store sampling rate for FFT calculations
+        self.sampling_rate = sampling_rate
+        
+        # Store any additional kwargs as attributes
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
     def __str__(self) -> str:
+        """String representation of the measurement result.
+        
+        For backward compatibility with tests, returns a newline-separated list for arrays.
+        For other types, uses a more descriptive representation.
+        """
         if isinstance(self.values, UFloat):
             return f"{self.values} {self.units}"
         elif isinstance(self.values, np.float64):
@@ -44,10 +63,16 @@ class MeasurementResult:  # noqa: D101
         elif isinstance(self.values, pl.DataFrame):
             return str(self.values)
         elif isinstance(self.values, np.ndarray):
-            # For numpy arrays, provide a concise representation
+            # For numpy arrays, handle 1D arrays specially for backward compatibility
+            if self.values.ndim == 1:
+                return '\n'.join([f"{val} {self.units}" for val in self.values])
+            # For multi-dimensional arrays, provide a concise representation
             return f"NumPy Array (shape: {self.values.shape}, dtype: {self.values.dtype}) {self.units}"
         elif isinstance(self.values, list):
-            # For lists, show first few items if long
+            # For lists, special handling for backward compatibility
+            if all(isinstance(x, (int, float)) for x in self.values):
+                return '\n'.join([f"{val} {self.units}" for val in self.values])
+            # For lists with mixed types or nested lists, show first few items if long
             if len(self.values) > 5:
                 return f"List (first 5 of {len(self.values)}): {self.values[:5]}... {self.units}"
             return f"List: {self.values} {self.units}"
@@ -55,6 +80,48 @@ class MeasurementResult:  # noqa: D101
         # Fallback for other types
         return f"Values: {str(self.values)[:100]}... Type: {type(self.values)} {self.units}"
     
+    def __repr__(self) -> str:
+        """Detailed representation of the measurement result.
+        
+        For backward compatibility with tests, this matches __str__ behavior.
+        In typical libraries, repr would show construction details instead.
+        """
+        return self.__str__()
+
+    # Add this method to convert MeasurementResult to a dict for Polars DataFrame
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert MeasurementResult to a dict for DataFrame conversion.
+        
+        This allows MeasurementResult objects to be directly used in Experiment.add_trial.
+        """
+        if isinstance(self.values, pl.DataFrame):
+            # If values is already a DataFrame, convert to dict representation
+            result = {}
+            for col in self.values.columns:
+                result[col] = self.values[col].to_list()
+            return result
+        elif isinstance(self.values, (np.ndarray, list)):
+            # Convert array or list to a dict with a 'values' key
+            return {'values': self.values}
+        elif isinstance(self.values, (np.float64, UFloat)):
+            # Convert scalar value to a dict with a 'value' key
+            return {'value': self.values}
+        else:
+            # Default fallback
+            return {'values': self.values}
+
+    # Make the object dict-like so it can be used in Polars DataFrame constructor
+    def keys(self):
+        """Return the keys for dict-like behavior."""
+        return self.to_dict().keys()
+    
+    def __getitem__(self, key):
+        """Allow dictionary-style access."""
+        return self.to_dict()[key]
+    
+    def items(self):
+        """Return items for dict-like behavior."""
+        return self.to_dict().items()
 
     def save(self, path: str) -> None:
         """Saves the measurement data to a file.
@@ -77,7 +144,7 @@ class MeasurementResult:  # noqa: D101
             np.save(path, self.values)
         elif isinstance(self.values, pl.DataFrame):
             if not path.endswith(".parquet"):
-                 print(f"Warning: Saving Polars DataFrame to non-parquet file '{path}'. Consider using .parquet for DataFrames.")
+                print(f"Warning: Saving Polars DataFrame to non-parquet file '{path}'. Consider using .parquet for DataFrames.")
             self.values.write_parquet(path)
         elif isinstance(self.values, UFloat):
             if not path.endswith(".npy"):
@@ -85,7 +152,7 @@ class MeasurementResult:  # noqa: D101
             np.save(path, np.array([self.values.nominal_value, self.values.std_dev]))
         elif isinstance(self.values, (list, np.float64)): # Convert list or float64 to ndarray
             if not path.endswith(".npy"):
-                 print(f"Warning: Saving {type(self.values).__name__} to non-npy file '{path}'. Consider using .npy.")
+                print(f"Warning: Saving {type(self.values).__name__} to non-npy file '{path}'. Consider using .npy.")
             np.save(path, np.array(self.values))
         else:
             raise TypeError(f"Unsupported data type for saving: {type(self.values)}. Can save np.ndarray, pl.DataFrame, list, np.float64, or UFloat.")
@@ -113,6 +180,13 @@ class MeasurementResult:  # noqa: D101
         return None # Or handle DataFrame case
 
     def __repr__(self) -> str:
+        """
+        For backward compatibility with tests:
+        - 1D arrays return a newline-separated list of values with units (like __str__)
+        - Other types use a detailed representation
+        """
+        if isinstance(self.values, np.ndarray) and self.values.ndim == 1:
+            return '\n'.join([f"{val} {self.units}" for val in self.values])
         return (f"MeasurementResult(instrument='{self.instrument}', type='{self.measurement_type}', "
                 f"units='{self.units}', values_type='{type(self.values).__name__}', timestamp={self.timestamp})")
     
@@ -238,3 +312,46 @@ class MeasurementResult:  # noqa: D101
             self.values = np.delete(self.values, index, axis=0)
         else:
             raise TypeError(f"Deletion by index not supported for type {type(self.values)}")
+
+    def perform_fft(self) -> 'MeasurementResult':
+        """Perform Fast Fourier Transform on the measurement data.
+        
+        Requires:
+        - self.values to be a numpy array of time-domain data
+        - self.sampling_rate to be set (in Hz)
+        
+        Returns:
+            A new MeasurementResult containing the FFT data, with frequency in Hz
+            and magnitude in the same units as the original data.
+        """
+        if self.sampling_rate is None:
+            raise ValueError("Sampling rate must be set to perform FFT")
+        
+        if not isinstance(self.values, np.ndarray):
+            raise TypeError(f"FFT requires numpy array, got {type(self.values)}")
+        
+        # Ensure we're working with a 1D array
+        values = self.values.flatten() if self.values.ndim > 1 else self.values
+        
+        # Perform FFT
+        fft_values = np.fft.rfft(values)
+        fft_magnitude = np.abs(fft_values)
+        
+        # Create frequency axis
+        freqs = np.fft.rfftfreq(len(values), 1/self.sampling_rate)
+        
+        # Create result with frequency and magnitude
+        result_df = pl.DataFrame({
+            "frequency": freqs,
+            "magnitude": fft_magnitude
+        })
+        
+        return MeasurementResult(
+            values=result_df,
+            instrument=self.instrument,
+            units=self.units,
+            measurement_type="FFT",
+            timestamp=time.time(),
+            original_type=self.measurement_type,
+            sampling_rate=self.sampling_rate
+        )

@@ -153,7 +153,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         return cls(config=config, **kwargs)
     
     @validate_call
-    async def set_voltage(self, channel: int, voltage: float) -> None:
+    async def set_voltage(self, voltage: float, channel: int = 1) -> None:
         """Sets the output voltage for a specific channel.
 
         Args:
@@ -179,7 +179,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         await self._send_command(command)
 
     @validate_call
-    async def set_current(self, channel: int, current: float) -> None:
+    async def set_current(self, current: float, channel: int = 1) -> None:
         """Sets the current limit for a specific channel.
 
         Args:

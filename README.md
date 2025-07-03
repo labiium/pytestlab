@@ -5,7 +5,7 @@
 -->
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/your-org/pytestlab/main/docs/assets/pytestlab_logo.svg"
+  <img src="pytestlab_logo.png"
        alt="PyTestLab logo" width="320"/>
 </p>
 
@@ -143,7 +143,7 @@ Run the test-suite (`pytest`), type-check (`mypy`), lint/format (`ruff`), and ke
 
 MIT © 2022–2025 Emmanuel Olowe & contributors.
 
-Commercial support / custom drivers? Open an issue or contact <pytestlab-support@example.com>.
+Commercial support / custom drivers? Open an issue or contact <support@pytestlab.org>.
 
 ---
 

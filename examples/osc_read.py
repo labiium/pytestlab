@@ -4,7 +4,7 @@ from pytestlab.instruments import AutoInstrument
 # loading the instruments
 async def main():
 
-    osc = AutoInstrument.from_config("keysight/DSOX1204G")
+    osc = await AutoInstrument.from_config("keysight/DSOX1204G")
 
     data = await osc.read_channels(1)
 

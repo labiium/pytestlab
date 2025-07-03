@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import hashlib
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .._log import get_logger
 from .signature import Signer
@@ -67,9 +67,9 @@ def apply_patches(homedir):
                         "prov:type": "ex:MeasurementResult",
                         "prov:label": self.measurement_type,
                         "prov:value": payload["values_sha256"],
-                        "prov:generatedAtTime": datetime.utcfromtimestamp(
-                            self.timestamp
-                        ).isoformat() + "Z",
+                        "prov:generatedAtTime": datetime.fromtimestamp(
+                            self.timestamp, timezone.utc
+                        ).isoformat().replace('+00:00', 'Z'),
                     }
                 }
             }

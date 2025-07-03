@@ -2,31 +2,34 @@ manufacturer: Keysight
 model: EDU36311A
 device_type: power_supply
 channels:
-  - description: Channel 1
-    voltage:
+  - channel_id: 1
+    description: Channel 1
+    voltage_range:
       min_val: 0
       max_val: 6
-    current:
+    current_limit_range:
       min_val: 0
       max_val: 5
     accuracy:
       voltage: 0.05
       current: 0.2
-  - description: Channel 2
-    voltage:
+  - channel_id: 2
+    description: Channel 2
+    voltage_range:
       min_val: 0
       max_val: 30
-    current:
+    current_limit_range:
       min_val: 0
       max_val: 1
     accuracy:
       voltage: 0.05
       current: 0.2
-  - description: Channel 3
-    voltage:
+  - channel_id: 3
+    description: Channel 3
+    voltage_range:
       min_val: 0
       max_val: 30
-    current:
+    current_limit_range:
       min_val: 0
       max_val: 1
     accuracy:
@@ -35,3 +38,17 @@ channels:
 total_power: 90
 line_regulation: 0.01
 load_regulation: 0.01
+simulation:
+  scpi:
+    "*IDN?": "Simulated,PyTestLab,EDU36311A-SIM,1.0"
+    ":SYSTem:ERRor?": '+0,"No error"'
+    "SYST:ERR?": '+0,"No error"'
+    "VOLTage *":
+      set:
+        voltage: "$1"
+    "CURRent *":
+      set:
+        current: "$1"
+    "OUTPut *":
+      set:
+        output: "$1"

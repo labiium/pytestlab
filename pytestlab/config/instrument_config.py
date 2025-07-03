@@ -4,7 +4,7 @@ from typing import Optional
 from .accuracy import AccuracySpec
 
 class InstrumentConfig(BaseModel):
-    model_config = ConfigDict(validate_assignment=True, extra='forbid') # Added model_config
+    model_config = ConfigDict(validate_assignment=True, extra='ignore') # Added model_config
 
     manufacturer: str = Field(..., description="Manufacturer of the instrument")
     model: str = Field(..., description="Model number of the instrument")
