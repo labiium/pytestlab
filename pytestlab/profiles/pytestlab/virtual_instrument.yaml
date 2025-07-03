@@ -1,0 +1,62 @@
+manufacturer: PyTestLab
+model: Virtual-Instrument-1
+device_type: virtual_instrument
+address: "VIRTUAL::INSTRUMENT"
+
+simulation:
+  initial_state:
+    counter: 0
+    status_message: "READY"
+  scpi:
+    "*IDN?": "PyTestLab,Virtual-Instrument-1,0,1.0"
+    "*RST":
+      - "set.voltage = 0"
+      - "set.current = 0"
+      - "set.trigger_state = 'IDLE'"
+      - "set.counter = 0"
+      - "set.status_message = 'RESET'"
+    "SET:VOLT ([-+]?[0-9]*\\.?[0-9]+)":
+      set:
+        voltage: "$1"
+    "SET:CURR ([-+]?[0-9]*\\.?[0-9]+)":
+      set:
+        current: "$1"
+    "MEAS:VOLT?":
+      get: "voltage"
+    "MEAS:CURR?":
+      get: "current"
+    "TRIG:STATE (ARMED|TRIGGERED|IDLE)":
+      set:
+        trigger_state: "$1"
+    "TRIG:STATE?":
+      get: "trigger_state"
+    "COUNT:INC":
+      inc:
+        counter: 1
+    "COUNT:DEC":
+      dec:
+        counter: 1
+    "COUNT?":
+      get: "counter"
+    "STATUS:MSG (.*)":
+      set:
+        status_message: "$1"
+    "STATUS:MSG?":
+      get: "status_message"
+    "DYNAMIC:ADD ([-+]?[0-9]*\\.?[0-9]+)":
+      response: "py: str(state.counter + float(g1))"
+    "DYNAMIC:RAND?":
+      response: "lambda: str(random.randint(1, 100))"
+    ":SYSTem:ERRor?": '+0,"No error"'
+    "FETCH:WAV?":
+      binary: "binary_wave_data.bin"
+    "ERROR:PUSH":
+      - "set.error_condition = True"
+      - "set.error_code = -100"
+      - "set.error_message = 'Custom Error'"
+    "ERROR:CHECK?":
+      response: "py: f'{state.error_code},\"{state.error_message}\"' if state.error_condition else '+0,\"No error\"'"
+      set:
+        error_condition: False
+        error_code: 0
+        error_message: ""
