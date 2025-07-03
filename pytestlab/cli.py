@@ -149,22 +149,22 @@ async def sim_profile_record(
             final_output_path.parent.mkdir(parents=True, exist_ok=True)
             rich.print(f"[yellow]No output path provided. Saving to user cache:[/yellow] {final_output_path}")
 
-        inst_config_model = load_profile(profile_key)
-        
         if simulate:
             rich.print(f"Connecting to simulated instrument '{profile_key}'...")
         else:
             rich.print(f"Connecting to instrument '{profile_key}' at address '{address}'...")
         
         instrument = await AutoInstrument.from_config(
-            config_source=inst_config_model,
+            config_source=profile_key,
             simulate=simulate,
             address_override=address
         )
         await instrument.connect_backend()
 
         # Wrap the real backend with the recording backend
-        recording_backend = RecordingBackend(instrument._backend, str(final_output_path))
+        base_profile_model = load_profile(profile_key)
+        base_profile = base_profile_model.model_dump()
+        recording_backend = RecordingBackend(instrument._backend, str(final_output_path), base_profile=base_profile)
         instrument._backend = recording_backend
         
         rich.print("[bold green]Connection successful. Recording started.[/bold green]")
@@ -511,11 +511,11 @@ def bench_sim_cli(bench_yaml_path: Annotated[Path, typer.Argument(help="Path to 
         rich.print(f"[bold red]An unexpected error occurred while converting the bench to simulation mode: {e}[/bold red]")
         raise typer.Exit(code=1)
 
-def main():
+def run_app():
     """Main entry point for the CLI."""
     app()
 
-def main_wrapper():
+def main():
     if "sim-profile" in sys.argv and "record" in sys.argv:
         # This is a workaround for a persistent asyncio issue with Typer.
         from pytestlab.cli import sim_profile_record
@@ -535,7 +535,7 @@ def main_wrapper():
             **kwargs
         ))
     else:
-        main()
+        run_app()
 
 if __name__ == "__main__":
-    main_wrapper()
+    main()

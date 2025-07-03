@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 import time
 from pathlib import Path
 
@@ -11,9 +12,10 @@ LOGGER = logging.getLogger(__name__)
 class RecordingBackend:
     """A backend that records interactions to a simulation profile."""
 
-    def __init__(self, backend, output_path=None):
+    def __init__(self, backend, output_path=None, base_profile=None):
         self.backend = backend
         self.output_path = output_path
+        self.base_profile = base_profile if base_profile is not None else {}
         self.log = []
         self.start_time = time.monotonic()
 
@@ -43,6 +45,22 @@ class RecordingBackend:
             return response
         raise NotImplementedError("Backend does not support query method.")
 
+    async def query_raw(self, command: str, *args, **kwargs):
+        """Async query to the instrument, log it, and return the response."""
+        if hasattr(self.backend, 'query_raw') and callable(getattr(self.backend, 'query_raw')):
+            result = self.backend.query_raw(command, *args, **kwargs)
+            if asyncio.iscoroutine(result):
+                response = await result
+            else:
+                response = result
+            self.log.append({
+                "type": "query_raw",
+                "command": command.strip(),
+                "response": response
+            })
+            return response
+        raise NotImplementedError("Backend does not support query_raw method.")
+
     def read(self) -> str:
         """Read from the instrument and log it."""
         response = self.backend.read()
@@ -65,12 +83,22 @@ class RecordingBackend:
         for entry in self.log:
             if entry["type"] == "query":
                 scpi_map[entry["command"]] = entry["response"]
+            elif entry["type"] == "query_raw":
+                command_slug = re.sub(r"[^a-zA-Z0-9]", "_", entry["command"])
+                binary_filename = f"{command_slug}.bin"
+                binary_filepath = Path(self.output_path).parent / binary_filename
+                with open(binary_filepath, "wb") as f:
+                    f.write(entry["response"])
+                scpi_map[entry["command"]] = {"binary": binary_filename}
             elif entry["type"] == "write":
                 # For writes, we record the command with an empty response,
                 # which is suitable for commands that don't return a value.
                 scpi_map[entry["command"]] = ""
 
-        profile = {"simulation": {"scpi": scpi_map}}
+        profile = self.base_profile
+        if "simulation" not in profile:
+            profile["simulation"] = {}
+        profile["simulation"]["scpi"] = scpi_map
         print(f"DEBUG: Profile data to be written: {profile}")
         if self.output_path:
             try:

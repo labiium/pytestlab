@@ -10,6 +10,7 @@ from .DCActiveLoad import DCActiveLoad
 from .SpectrumAnalyser import SpectrumAnalyser
 from .VectorNetworkAnalyser import VectorNetworkAnalyser
 from .PowerMeter import PowerMeter
+from .VirtualInstrument import VirtualInstrument
 from .instrument import Instrument, AsyncInstrumentIO # Import AsyncInstrumentIO
 from ..errors import InstrumentConfigurationError # Removed InstrumentNotFoundError as it's not used here
 from ..config.loader import load_profile
@@ -51,6 +52,7 @@ class AutoInstrument:
         "vna": VectorNetworkAnalyser,
         "spectrum_analyzer": SpectrumAnalyser,
         "power_meter": PowerMeter,
+        "virtual_instrument": VirtualInstrument,
     }
 
     @classmethod

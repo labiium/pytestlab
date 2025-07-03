@@ -268,6 +268,8 @@ class SimBackendV2:  # implements AsyncInstrumentIO
 
     async def query_raw(self, cmd: str, delay: float | None = None) -> bytes:
         resp = await self.query(cmd, delay)
+        if isinstance(resp, bytes):
+            return resp
         return resp.encode()
 
     async def close(self) -> None:
@@ -311,7 +313,7 @@ class SimBackendV2:  # implements AsyncInstrumentIO
         scpi_map: Dict[str, Any] = sim.get("scpi", {})
         for raw, val in scpi_map.items():
             # pattern?
-            if ("*" in raw) or any(ch in raw for ch in ".?[](){}+|^$"):
+            if ("*" in raw) or any(ch in raw for ch in ".[](){}+|^$"):
                 # treat as regex; escape SCPI special chars except *
                 patt = raw
                 if "*" in raw and "(" not in raw:
@@ -399,9 +401,16 @@ class SimBackendV2:  # implements AsyncInstrumentIO
             # query
             if "get" in entry:
                 key = entry["get"]
-                response = str(self._state.get(key, ""))
+                response = str(self._state.get(key, self._substitute(key, groups)))
             elif "response" in entry:
                 response = self._substitute(entry["response"], groups)
+            elif "binary" in entry:
+                binary_path = self.profile_path.parent / entry["binary"]
+                if binary_path.exists():
+                    response = binary_path.read_bytes()
+                else:
+                    logger.warning(f"Binary file not found: {binary_path}")
+                    response = b""
 
         # scalar form
         elif isinstance(entry, str):
