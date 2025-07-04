@@ -36,10 +36,11 @@ class Experiment:
     Additionally, printing the Experiment instance (via __str__) shows a
     summary and the head (first few rows) of the data.
     """
-    def __init__(self, name: str, description: str = "") -> None:
+    def __init__(self, name: str, description: str = "", notes: str = "") -> None:
         self.name: str = name
         self.description: str = description
-        self.parameters: Dict[str, ExperimentParameter] = {} 
+        self.notes: str = notes
+        self.parameters: Dict[str, ExperimentParameter] = {}
         self.data: pl.DataFrame = pl.DataFrame()
 
     def add_parameter(self, name: str, units: str, notes: str = "") -> None:
@@ -130,9 +131,10 @@ class Experiment:
             head_data = self.data.head(5)
         else:
             head_data = "No trial data available."
-            
+
         return (f"Experiment: {self.name}\n"
                 f"Description: {self.description}\n"
+                f"Notes: {self.notes or 'No notes'}\n"
                 f"Parameters: {param_str}\n"
                 f"Trial Data (first 5 rows):\n{head_data}")
 

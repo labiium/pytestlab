@@ -14,14 +14,16 @@ import contextlib
 import inspect
 import itertools
 import time
+import asyncio
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable, Dict, Iterable, List, Mapping, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import polars as pl
 from tqdm.auto import tqdm
 
+from ..bench import Bench
 from ..experiments import Experiment
 from ..instruments import AutoInstrument
 
@@ -48,7 +50,7 @@ class _InstrumentRecord:
     auto_close: bool = True
 
 
-class MeasurementSession(contextlib.AbstractAsyncContextManager):
+class MeasurementSession(contextlib.AbstractAsyncContextManager, contextlib.AbstractContextManager):
     """
     Core builder – read the extensive doc-string in earlier assistant response
     for design details.
@@ -56,19 +58,44 @@ class MeasurementSession(contextlib.AbstractAsyncContextManager):
     """
 
     # Construction ------------------------------------------------------
-    def __init__(self, name: str, description: str = "", tz: str = "UTC") -> None:
-        self.name = name
+    def __init__(
+        self,
+        name: Optional[str] = None,
+        description: str = "",
+        tz: str = "UTC",
+        *,
+        bench: Optional[Bench] = None,
+    ) -> None:
+        self.name = name or "Untitled"
         self.description = description
         self.tz = tz
         self.created_at = datetime.now().astimezone().isoformat()
-
         self._parameters: Dict[str, _Parameter] = {}
         self._instruments: Dict[str, _InstrumentRecord] = {}
         self._meas_funcs: List[Tuple[str, T_MeasFunc]] = []
-
         self._data_rows: List[Dict[str, Any]] = []
-        self._experiment: Experiment | None = None
+        self._experiment: Optional[Experiment] = None
         self._has_run = False
+        self._bench = bench
+        
+        # Inherit experiment data from bench if available
+        if bench is not None and bench.experiment is not None:
+            # Assign bench experiment properties
+            self._experiment = bench.experiment
+            self.name = bench.experiment.name
+            self.description = bench.experiment.description
+        
+        # Set up instruments
+        if self._bench:
+            # Print debug info
+            print(f"DEBUG: Setting up {len(self._bench.instruments)} instruments from bench")
+            for alias, inst in self._bench.instruments.items():
+                self._instruments[alias] = _InstrumentRecord(
+                    alias=alias,
+                    resource=f"bench:{alias}",
+                    instance=inst,
+                    auto_close=False,
+                )
 
     # Context management ------------------------------------------------
     async def __aenter__(self) -> "MeasurementSession":  # noqa: D401
@@ -77,11 +104,39 @@ class MeasurementSession(contextlib.AbstractAsyncContextManager):
     async def __aexit__(self, exc_type, exc, tb) -> bool:  # noqa: D401
         await self._disconnect_all_instruments()
         return False
+        
+    def __enter__(self) -> "MeasurementSession":  # noqa: D401
+        """Synchronous context manager entry."""
+        return self
+        
+    def __exit__(self, exc_type, exc, tb) -> bool:  # noqa: D401
+        """Synchronous context manager exit."""
+        # Use asyncio to run the async disconnect method synchronously
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # Create a new loop if we're already in a running event loop
+                loop = asyncio.new_event_loop()
+                loop.run_until_complete(self._disconnect_all_instruments())
+                loop.close()
+            else:
+                loop.run_until_complete(self._disconnect_all_instruments())
+        except Exception:  # noqa: BLE001
+            pass  # Keep original error handling behavior
+        return False
 
     # ─── Instruments ───────────────────────────────────────────────────
     async def instrument(self, alias: str, config_key: str, /, **kw) -> Any:
         if alias in self._instruments:
-            raise ValueError(f"Instrument alias '{alias}' already in use.")
+            record = self._instruments[alias]
+            if not record.resource.startswith("bench:"):
+                raise ValueError(f"Instrument alias '{alias}' already in use.")
+            return record.instance
+        if self._bench:
+            raise ValueError(
+                f"Instrument '{alias}' not found on the bench. "
+                "When using a bench, all instruments must be defined in the bench configuration."
+            )
         inst = await AutoInstrument.from_config(config_key, **kw)
         self._instruments[alias] = _InstrumentRecord(alias, config_key, inst)
         return inst
@@ -128,9 +183,11 @@ class MeasurementSession(contextlib.AbstractAsyncContextManager):
             for meas_name, func in self._meas_funcs:
                 sig = inspect.signature(func)
                 kwargs = {n: v for n, v in param_ctx.items() if n in sig.parameters}
+                for alias, inst_rec in self._instruments.items():
+                    if alias in sig.parameters:
+                        kwargs[alias] = inst_rec.instance
                 if "ctx" in sig.parameters:
                     kwargs["ctx"] = row
-                # Assuming func is now an async function that interacts with async instruments
                 res = await func(**kwargs)
                 if not isinstance(res, Mapping):
                     raise TypeError(f"Measurement '{meas_name}' returned {type(res)}, expected Mapping.")
@@ -145,7 +202,9 @@ class MeasurementSession(contextlib.AbstractAsyncContextManager):
 
         self._has_run = True
         self._build_experiment()
-        return self._experiment  # type: ignore[return-value]
+        if self._bench and self._bench.db:
+            await self._bench.save_experiment()
+        return self._experiment
 
     # ─── Helpers / properties ─────────────────────────────────────────
     @property
@@ -154,25 +213,25 @@ class MeasurementSession(contextlib.AbstractAsyncContextManager):
 
     # ------------------------------------------------------------------
     def _build_experiment(self) -> None:
-        exp = Experiment(self.name, self.description)
-        for p in self._parameters.values():
-            exp.add_parameter(p.name, p.unit or "-", p.notes)
-        exp.add_trial(self.data)
-        self._experiment = exp
+        if self._experiment is None:
+            exp = Experiment(self.name, self.description)
+            for p in self._parameters.values():
+                exp.add_parameter(p.name, p.unit or "-", p.notes)
+            self._experiment = exp
+        self._experiment.add_trial(self.data)
 
     async def _disconnect_all_instruments(self) -> None:
         for rec in self._instruments.values():
+            if not rec.auto_close:
+                continue
             try:
                 close_method = getattr(rec.instance, "close", None)
                 if callable(close_method):
-                    # If close_method is an 'async def' bound method,
-                    # calling it returns a coroutine.
-                    # If it's a regular method, it executes sync.
                     result = close_method()
                     if inspect.isawaitable(result):
                         await result
             except Exception:  # noqa: BLE001
-                pass  # Keep original error handling behavior
+                pass
 
     # Rich Jupyter display --------------------------------------------
     def _repr_html_(self) -> str:  # pragma: no cover

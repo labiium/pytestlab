@@ -10,6 +10,8 @@ from .config.bench_config import BenchConfigExtended, InstrumentEntry
 from .instruments import AutoInstrument
 from .instruments.instrument import Instrument
 from .common.health import HealthReport, HealthStatus
+from .experiments.experiments import Experiment
+from .experiments.database import MeasurementDatabase
 
 # Configure logging
 logger = logging.getLogger("pytestlab.bench")
@@ -170,6 +172,8 @@ class Bench:
         self._instrument_instances: Dict[str, Instrument] = {}
         self._instrument_wrappers: Dict[str, Any] = {}
         self._channel_config: Dict[str, List[int]] = {}  # Stores channel config for each instrument
+        self._experiment: Optional[Experiment] = None
+        self._db: Optional[MeasurementDatabase] = None
 
     @classmethod
     async def open(cls, filepath: Union[str, Path]) -> "Bench":
@@ -202,6 +206,11 @@ class Bench:
         await bench._initialize_instruments()
         await bench._run_automation_hook("pre_experiment")
         logger.info(f"Bench '{config.bench_name}' initialized successfully")
+
+        # Initialize the experiment and database
+        bench.initialize_experiment()
+        bench.initialize_database()
+        
         return bench
 
     async def _initialize_instruments(self):
@@ -518,6 +527,49 @@ class Bench:
             corresponding instrument instances.
         """
         return self._instrument_instances
+
+    @property
+    def experiment(self) -> Optional[Experiment]:
+        """Access the managed Experiment object."""
+        return self._experiment
+
+    @property
+    def db(self) -> Optional[MeasurementDatabase]:
+        """Access the managed MeasurementDatabase object."""
+        return self._db
+
+    def initialize_experiment(self):
+        """Create an Experiment object from the bench configuration."""
+        if self.config.experiment:
+            self._experiment = Experiment(
+                name=self.config.experiment.title,
+                description=self.config.experiment.description,
+                notes=self.config.experiment.notes
+            )
+            logger.info(f"Initialized experiment '{self.config.experiment.title}'")
+
+    def initialize_database(self, db_path: Optional[Union[str, Path]] = None):
+        """Initialize the database if a path is provided in the config or arguments."""
+        db_path = db_path or (self.config.experiment.database_path if self.config.experiment else None)
+        if db_path:
+            self._db = MeasurementDatabase(db_path)
+            logger.info(f"Connected to database at '{db_path}'")
+
+    async def save_experiment(self, notes: str = "") -> Optional[str]:
+        """Save the current experiment to the database.
+        
+        Args:
+            notes: Optional notes to add to the experiment before saving.
+            
+        Returns:
+            The codename of the saved experiment, or None if not saved.
+        """
+        if self._experiment and self._db:
+            logger.info(f"Saving experiment '{self._experiment.name}' to database")
+            return self._db.store_experiment(None, self._experiment, notes=notes)
+        elif not self._db:
+            logger.warning("No database is configured. Experiment will not be saved.")
+        return None
 
     # --- Accessors for traceability, measurement plan, etc. ---
     @property

@@ -8,6 +8,7 @@ class ExperimentSection(BaseModel):
     operator: Optional[str] = None
     date: Optional[str] = None
     notes: Optional[str] = None
+    database_path: Optional[str] = None
 
 class SafetyLimitChannel(BaseModel):
     voltage: Optional[Dict[str, float]] = None  # e.g., {"max": 5.5}

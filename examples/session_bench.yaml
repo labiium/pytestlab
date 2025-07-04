@@ -1,0 +1,43 @@
+# Bench configuration for MeasurementSession integration example
+bench_name: "Transistor Test Bench"
+description: "Bench configuration for transistor characterization measurements"
+version: "1.0.0"
+last_modified: "2025-07-04"
+
+experiment:
+  title: "Transistor IV Characterization"
+  description: "Measure current-voltage characteristics of a test transistor"
+  operator: "Lab Technician"
+  date: "2025-07-04"
+  database_path: "transistor_measurements.db"
+  notes: |
+    This experiment characterizes the current-voltage relationship of 
+    a test transistor under various base bias conditions.
+
+simulate: true
+
+backend_defaults:
+  type: "lamb"
+  timeout_ms: 5000
+
+instruments:
+  # Power supply for transistor biasing
+  psu:
+    profile: "keysight/EDU36311A"
+    backend:
+      type: "lamb"
+  
+  # Multimeter for current measurements
+  dmm:
+    profile: "keysight/EDU34450A"
+    backend:
+      type: "lamb"
+
+traceability:
+  environment:
+    temperature: 25.0  # Celsius
+    humidity: 45.0     # %RH
+  dut:
+    type: "NPN Transistor"
+    part_number: "2N2222A"
+    batch: "B20250704"
