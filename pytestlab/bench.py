@@ -269,9 +269,8 @@ class Bench:
         # Apply safety limits if configured
         if entry.safety_limits:
             wrapped = SafeInstrumentWrapper(instrument, entry.safety_limits, instrument_type)
-            # This warning is intentional and serves as a reminder that safety limits are being enforced.
-            # It helps users understand that direct instrument access is wrapped for their protection.
-            warnings.warn(f"Instrument '{alias}' is running with a safety wrapper.", UserWarning)
+            # Safety wrapper is applied without warning since its use is clear from bench.yaml configuration
+            logger.debug(f"Instrument '{alias}' is running with a safety wrapper")
             self._instrument_instances[alias] = instrument
             self._instrument_wrappers[alias] = wrapped
             setattr(self, alias, wrapped)
