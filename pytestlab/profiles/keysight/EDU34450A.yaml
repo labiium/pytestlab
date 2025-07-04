@@ -1,9 +1,7 @@
-# Keysight EDU34450A — Machine‑readable YAML specification (v2)
-
 device_type: multimeter
 manufacturer: keysight
 model: EDU34450A
-description: "5.5‑digit dual-display digital multimeter"
+description: "5.5-digit dual-display digital multimeter"
 display:
   size_inch: 7.0
   type: "dual-measurement color TFT"
@@ -176,5 +174,3 @@ sampling_rates_rps:
   diode: {FAST: 110}
   continuity: {FAST: 110}
   temperature: {MEDIUM: 4.5}
-
-# End of specification file

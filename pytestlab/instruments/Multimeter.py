@@ -307,38 +307,3 @@ class Multimeter(Instrument[MultimeterConfig]):
         cmd = f"CONFigure:{scpi_function_val} {range_for_query},{resolution_for_query}"
         await self._send_command(cmd)
         self._logger.info(f"Configured DMM for {function.name} with range={range_for_query}, resolution={resolution_for_query}")
-        
-    def set_measurement_function_sync(self, function: DMMFunction) -> None:
-        """
-        Sets the measurement function of the DMM.
-        """
-        warnings.warn(
-            "The 'set_measurement_function_sync' method is deprecated and will be removed in a future version. "
-            "Please use the asynchronous 'set_measurement_function' method instead.",
-            DeprecationWarning,
-            stacklevel=2
-        )
-        # Note: This is not truly synchronous. It schedules the async task.
-
-    def set_trigger_source_sync(self, source: Literal["IMM", "EXT", "BUS"]) -> None:
-        """
-        Sets the trigger source for the DMM.
-        """
-        warnings.warn(
-            "The 'set_trigger_source_sync' method is deprecated and will be removed in a future version. "
-            "Please use the asynchronous 'set_trigger_source' method instead.",
-            DeprecationWarning,
-            stacklevel=2
-        )
-        # Note: Not truly synchronous.
-
-    def measure_sync(self, function: DMMFunction, range_val: Optional[str] = None, resolution: Optional[str] = None) -> MeasurementResult:
-        """
-        Makes a measurement on the multimeter. Incorporates uncertainty if configured.
-        """
-        warnings.warn(
-            "The 'measure_sync' method is deprecated and will be removed in a future version. "
-            "Please use the asynchronous 'measure' method instead.",
-            DeprecationWarning,
-            stacklevel=2
-        )

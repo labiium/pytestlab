@@ -1,51 +1,89 @@
 from __future__ import annotations
 
 """
-DCActiveLoad.py
-
 Instrument driver for a DC Active Load. Provides methods to set the operating mode,
 program the load value, enable/disable the output, and query measurements (current, voltage, power)
 from the Keysight EL30000 Series bench DC electronic loads.
 """
 
 import numpy as np
-import warnings
-from typing import Optional, Union, Dict, Type, Any # Added Type, Any
-from .instrument import Instrument
-from ..errors import InstrumentConfigurationError, InstrumentParameterError
-from ..config import DCActiveLoadConfig
+from typing import Optional, Union, Dict, Type, Any, Literal, List
+from uncertainties import ufloat
+from uncertainties.core import UFloat
+
+from .instrument import Instrument, AsyncInstrumentIO
+from ..errors import InstrumentConfigurationError, InstrumentParameterError, InstrumentCommunicationError
+from ..config.dc_active_load_config import DCActiveLoadConfig, ModeSpec, ReadbackAccuracySpec
 from ..experiments import MeasurementResult
+from ..common.health import HealthReport, HealthStatus
 
 
 class DCActiveLoad(Instrument):
-    """Represents a DC Electronic Load instrument.
+    """Drives a DC Electronic Load instrument, such as the Keysight EL30000 series.
 
     This class provides a driver for controlling a DC Active Load, enabling
     programmatic control over its operating modes and settings. It is designed
-    to work with SCPI-compliant instruments, with commands based on the
-    Keysight EL30000 Series.
+    to work with SCPI-compliant instruments and leverages a detailed Pydantic
+    configuration model to provide uncertainty-aware measurements and feature-rich
+    control.
 
     The driver supports the following primary operations:
     - Setting the operating mode (Constant Current, Voltage, Power, Resistance).
     - Programming the load value for the current mode.
     - Enabling or disabling the load's input.
-    - Measuring voltage, current, and power.
-
-    Attributes:
-        config: The configuration object for the instrument.
-        current_mode: The currently active operating mode (e.g., "CC", "CV").
+    - Measuring voltage, current, and power with uncertainty.
+    - Configuring and controlling transient and battery test modes.
     """
-    def __init__(self, config: Optional[DCActiveLoadConfig] = None, debug_mode: bool = False, simulate: bool = False) -> None:
-        if not isinstance(config, DCActiveLoadConfig):
-            raise InstrumentConfigurationError(
-                "DCActiveLoad", "DCActiveLoadConfig is required for initialization."
-            )
-        super().__init__(config=config, debug_mode=debug_mode, simulate=simulate)
-        self.current_mode: Optional[str] = None
-        self.config: DCActiveLoadConfig # Ensure self.config is correctly typed
+    config: DCActiveLoadConfig  # Type hint for the specific config
+    current_mode: Optional[str] = None
+
+    def __init__(self, config: DCActiveLoadConfig, backend: AsyncInstrumentIO, **kwargs: Any) -> None:
+        super().__init__(config, backend, **kwargs)
+        self.current_mode = None
 
     @classmethod
-    def from_config(cls: Type[DCActiveLoad], config: Union[Dict[str, Any], DCActiveLoadConfig], debug_mode: bool = False, simulate: bool = False) -> DCActiveLoad:
+    def from_config(
+        cls: Type[DCActiveLoad],
+        config: Union[Dict[str, Any], DCActiveLoadConfig],
+        debug_mode: bool = False, simulate: bool = False
+    ) -> DCActiveLoad:
+        """Creates a DCActiveLoad instance from a configuration.
+
+        This factory method allows for the creation of a DCActiveLoad driver from
+        either a raw dictionary or a `DCActiveLoadConfig` object. It simplifies
+        the instantiation process by handling the configuration object creation
+        internally.
+
+        Args:
+            config: A dictionary or a `DCActiveLoadConfig` object containing the
+                    instrument's settings.
+            debug_mode: If True, enables detailed logging for debugging purposes.
+            simulate: If True, initializes the instrument in simulation mode.
+
+        Returns:
+            An initialized DCActiveLoad object.
+
+        Raises:
+            InstrumentConfigurationError: If the provided config is not a dict or
+                                          a `DCActiveLoadConfig` instance.
+        """
+        conf_obj: DCActiveLoadConfig
+        if isinstance(config, dict):
+            conf_obj = DCActiveLoadConfig(**config)
+        elif isinstance(config, DCActiveLoadConfig):
+            conf_obj = config
+        else:
+            raise InstrumentConfigurationError(
+                "DCActiveLoad", "Configuration must be a dict or DCActiveLoadConfig instance."
+            )
+        return cls(config=conf_obj, debug_mode=debug_mode, simulate=simulate)
+
+    @classmethod
+    def from_config(
+        cls: Type[DCActiveLoad],
+        config: Union[Dict[str, Any], DCActiveLoadConfig],
+        debug_mode: bool = False, simulate: bool = False
+    ) -> DCActiveLoad:
         """Creates a DCActiveLoad instance from a configuration.
 
         This factory method allows for the creation of a DCActiveLoad driver from
@@ -99,29 +137,18 @@ class DCActiveLoad(Instrument):
         mode_upper = mode.upper()
         mode_map: Dict[str, str] = {
             "CC": "CURR",
-            "CV": "VOLT",
-            "CP": "POW",
-            "CR": "RES"
+            "CV": "VOLTage",
+            "CP": "POWer",
+            "CR": "RESistance"
         }
-        # Validate the requested mode against the supported modes
         if mode_upper not in mode_map:
             raise InstrumentParameterError(
-                parameter="mode",
-                value=mode,
-                valid_range=list(mode_map.keys()),
-                message=f"Unsupported mode '{mode}'.",
+                parameter="mode", value=mode, valid_range=list(mode_map.keys()),
+                message=f"Unsupported mode '{mode}'. Valid modes are: {', '.join(mode_map.keys())}."
             )
-
-        # Send the corresponding SCPI command to the instrument
         await self._send_command(f"FUNC {mode_map[mode_upper]}")
         self.current_mode = mode_upper
-
-        # Log a human-readable description of the new mode
-        full_mode_description = mode_upper
-        if hasattr(self.config, 'supported_modes') and isinstance(self.config.supported_modes, dict):
-            full_mode_description = self.config.supported_modes.get(mode_upper, mode_upper)
-
-        self._log(f"Operating mode set to {full_mode_description}.")
+        self._log(f"Operating mode set to {mode_upper}.")
 
     async def set_load(self, value: float) -> None:
         """Programs the load's setpoint for the current operating mode.
@@ -140,164 +167,238 @@ class DCActiveLoad(Instrument):
             InstrumentParameterError: If the operating mode has not been set first
                                       by calling `set_mode()`.
         """
-        # Ensure that an operating mode has been selected before setting a value
         if self.current_mode is None:
-            raise InstrumentParameterError(
-                message="Load mode has not been set. Please call set_mode() before setting the load."
-            )
+            raise InstrumentParameterError("Load mode has not been set. Call set_mode() first.")
 
-        # Map the operating mode to the corresponding SCPI command keyword
-        command_map: Dict[str, str] = {
-            "CC": "CURR",
-            "CV": "VOLT",
-            "CP": "POW",
-            "CR": "RES"
-        }
+        command_map = {"CC": "CURRent", "CV": "VOLTage", "CP": "POWer", "CR": "RESistance"}
         scpi_param = command_map.get(self.current_mode)
 
-        # Send the command to the instrument
         if scpi_param:
-            # Future enhancement: Add validation against config ranges if available
-            # e.g., if self.current_mode == "CC" and hasattr(self.config, 'current_set_range'):
-            #   self.config.current_set_range.in_range(value)
-            await self._send_command(f"{scpi_param} {value}")
+            await self._send_command(f"{scpi_param}:LEVel:IMMediate:AMPLitude {value}")
             self._log(f"Load value set to {value} in mode {self.current_mode}.")
         else:
-            # This case should ideally not be reached if `current_mode` is managed correctly
-            raise InstrumentParameterError(
-                message=f"Internal error: Unknown current_mode '{self.current_mode}' for set_load."
-            )
+            raise InstrumentParameterError(f"Internal error: Unknown current_mode '{self.current_mode}'.")
 
-
-    async def output(self, state: bool) -> None:
-        """
-        Enable or disable the active load output.
+    async def enable_input(self, state: bool, channel: int = 1) -> None:
+        """Enables or disables the load's input.
 
         Args:
-            state (bool): True to enable (ON), False to disable (OFF).
+            state: True to enable the input, False to disable.
+            channel: The channel to control (default is 1).
         """
-        await self._send_command(f"OUTP {'ON' if state else 'OFF'}")
-        self._log(f"Output turned {'ON' if state else 'OFF'}.")
+        await self._send_command(f"INPut:STATe {'ON' if state else 'OFF'}, (@{channel})")
+        self._log(f"Input on channel {channel} turned {'ON' if state else 'OFF'}.")
+
+    async def is_input_enabled(self, channel: int = 1) -> bool:
+        """Queries the state of the load's input.
+
+        Returns:
+            True if the input is enabled, False otherwise.
+        """
+        response = await self._query(f"INPut:STATe? (@{channel})")
+        return response.strip() == '1'
+
+    async def short_input(self, state: bool, channel: int = 1) -> None:
+        """Enables or disables a short circuit on the input.
+
+        Args:
+            state: True to enable the short, False to disable.
+            channel: The channel to control (default is 1).
+        """
+        await self._send_command(f"INPut:SHORt:STATe {'ON' if state else 'OFF'}, (@{channel})")
+        self._log(f"Input short on channel {channel} turned {'ON' if state else 'OFF'}.")
+
+    async def set_slew_rate(self, rate: Union[float, str], channel: int = 1) -> None:
+        """Sets the slew rate for the current operating mode.
+
+        Args:
+            rate: The desired slew rate. Units depend on the mode (A/s, V/s, etc.).
+                  Can also be "MIN", "MAX", or "INF".
+            channel: The channel to configure (default is 1).
+        """
+        if self.current_mode is None:
+            raise InstrumentParameterError("Mode must be set before setting slew rate.")
+
+        command_map = {"CC": "CURRent", "CV": "VOLTage", "CP": "POWer", "CR": "RESistance"}
+        scpi_param = command_map.get(self.current_mode)
+        await self._send_command(f"{scpi_param}:SLEW {rate}, (@{channel})")
+        self._log(f"Slew rate for mode {self.current_mode} on channel {channel} set to {rate}.")
+
+    async def set_range(self, value: Union[float, str], channel: int = 1) -> None:
+        """Sets the operating range for the current mode.
+
+        Args:
+            value: The maximum expected value to set the range. Can also be "MIN" or "MAX".
+            channel: The channel to configure (default is 1).
+        """
+        if self.current_mode is None:
+            raise InstrumentParameterError("Mode must be set before setting range.")
+        command_map = {"CC": "CURRent", "CV": "VOLTage", "CP": "POWer", "CR": "RESistance"}
+        scpi_param = command_map.get(self.current_mode)
+        await self._send_command(f"{scpi_param}:RANGe {value}, (@{channel})")
+        self._log(f"Range for mode {self.current_mode} on channel {channel} set for value {value}.")
+
+    async def _get_readback_spec(self, mode: str, unit: str) -> Optional[ReadbackAccuracySpec]:
+        """Helper to find the correct readback accuracy spec from the config."""
+        mode_map_to_config: Dict[str, ModeSpec] = {
+            "CC": self.config.operating_modes.constant_current_CC,
+            "CV": self.config.operating_modes.constant_voltage_CV,
+            "CP": self.config.operating_modes.constant_power_CP,
+            "CR": self.config.operating_modes.constant_resistance_CR,
+        }
+        scpi_param_map = {"A": "CURRent", "V": "VOLTage", "W": "POWer", "Ohm": "RESistance"}
+
+        mode_spec = mode_map_to_config.get(mode)
+        if not mode_spec:
+            return None
+
+        # Query the instrument's current range maximum
+        range_query_cmd = f"{scpi_param_map[unit]}:RANGe?"
+        try:
+            instrument_max_range = float(await self._query(range_query_cmd))
+        except (InstrumentCommunicationError, ValueError):
+            self._log(f"Could not query range for {unit}; cannot determine uncertainty.")
+            return None
+
+        # Find the best matching range spec from the config
+        best_match_spec = None
+        min_delta = float('inf')
+
+        for r_spec in mode_spec.ranges:
+            spec_max_val = 0.0
+            if unit == 'A' and r_spec.max_current_A is not None:
+                spec_max_val = r_spec.max_current_A
+            elif unit == 'V' and r_spec.max_voltage_V is not None:
+                spec_max_val = r_spec.max_voltage_V
+            
+            if spec_max_val > 0 and abs(spec_max_val * 1.02 - instrument_max_range) < min_delta:
+                min_delta = abs(spec_max_val - instrument_max_range)
+                best_match_spec = r_spec
+
+        return best_match_spec.readback_accuracy if best_match_spec else None
+
+    async def _measure_with_uncertainty(
+        self, measurement_type: Literal["current", "voltage", "power"], channel: int = 1
+    ) -> MeasurementResult:
+        """Internal helper to perform a measurement and calculate uncertainty."""
+        scpi_map = {"current": ("CURR", "A"), "voltage": ("VOLT", "V"), "power": ("POW", "W")}
+        scpi_cmd, unit = scpi_map[measurement_type]
+
+        # A single MEASure command is atomic and prevents race conditions.
+        response = await self._query(f"MEASure:{scpi_cmd}? (@{channel})")
+        reading = float(response)
+
+        value_to_return: Union[float, UFloat] = reading
+
+        # Find and apply accuracy spec if mode is set
+        if self.current_mode:
+            accuracy_spec = await self._get_readback_spec(self.current_mode, unit)
+            if accuracy_spec:
+                std_dev = accuracy_spec.calculate_uncertainty(reading, unit)
+                if std_dev > 0:
+                    value_to_return = ufloat(reading, std_dev)
+                    self._log(f"Measured {measurement_type}: {value_to_return} {unit}")
+            else:
+                self._log(f"Warning: No matching accuracy spec found for {measurement_type}. Returning float.")
+        else:
+            self._log("Warning: Mode not set, cannot determine measurement uncertainty.")
+
+        return MeasurementResult(
+            values=value_to_return,
+            instrument=self.config.model,
+            units=unit,
+            measurement_type=measurement_type.capitalize()
+        )
 
     async def measure_current(self) -> MeasurementResult:
-        """
-        Query the instrument for the sinking current.
-
-        Returns:
-            MeasurementResult: Measured current in amperes.
-        """
-        response = await self._query("MEAS:CURR?")
-        value = np.float64(response)
-        self._log(f"Measured current: {value} A")
-        return MeasurementResult(
-            values=value,
-            instrument=self.config.model,
-            units="A",
-            measurement_type="Current"
-        )
+        """Measures the sinking current, including uncertainty if available."""
+        return await self._measure_with_uncertainty("current")
 
     async def measure_voltage(self) -> MeasurementResult:
-        """
-        Query the instrument for the voltage across the load.
-
-        Returns:
-            MeasurementResult: Measured voltage in volts.
-        """
-        response = await self._query("MEAS:VOLT?")
-        value = np.float64(response)
-        self._log(f"Measured voltage: {value} V")
-        return MeasurementResult(
-            values=value,
-            instrument=self.config.model,
-            units="V",
-            measurement_type="Voltage"
-        )
+        """Measures the voltage across the load, including uncertainty if available."""
+        return await self._measure_with_uncertainty("voltage")
 
     async def measure_power(self) -> MeasurementResult:
-        """
-        Query the instrument for the power being dissipated.
+        """Measures the power being dissipated, including uncertainty if available."""
+        return await self._measure_with_uncertainty("power")
 
-        Returns:
-            MeasurementResult: Measured power in watts.
-        """
-        response = await self._query("MEAS:POW?")
-        value = np.float64(response)
-        self._log(f"Measured power: {value} W")
-        return MeasurementResult(
-            values=value,
-            instrument=self.config.model,
-            units="W",
-            measurement_type="Power"
-        )
+    # --- Transient System Methods ---
+    async def configure_transient_mode(self, mode: Literal['CONTinuous', 'PULSe', 'TOGGle', 'LIST'], channel: int = 1) -> None:
+        """Sets the operating mode of the transient generator."""
+        await self._send_command(f"TRANsient:MODE {mode.upper()}, (@{channel})")
 
-    def set_mode_sync(self, mode: str) -> None:
-        """
-        Set the operating mode of the load.
-        """
-        warnings.warn(
-            "The 'set_mode_sync' method is deprecated and will be removed in a future version. "
-            "Please use the asynchronous 'set_mode' method instead.",
-            DeprecationWarning,
-            stacklevel=2
-        )
-        self.set_mode(mode)
+    async def set_transient_level(self, value: float, channel: int = 1) -> None:
+        """Sets the secondary (transient) level for the current operating mode."""
+        if self.current_mode is None:
+            raise InstrumentParameterError("Mode must be set before setting transient level.")
+        command_map = {"CC": "CURRent", "CV": "VOLTage", "CP": "POWer", "CR": "RESistance"}
+        scpi_param = command_map.get(self.current_mode)
+        await self._send_command(f"{scpi_param}:TLEVel {value}, (@{channel})")
 
-    def set_load_sync(self, value: float) -> None:
-        """
-        Program the load value (in A, V, W, or Ω) according to the selected operating mode.
-        """
-        warnings.warn(
-            "The 'set_load_sync' method is deprecated and will be removed in a future version. "
-            "Please use the asynchronous 'set_load' method instead.",
-            DeprecationWarning,
-            stacklevel=2
-        )
-        self.set_load(value)
+    async def start_transient(self, continuous: bool = False, channel: int = 1) -> None:
+        """Initiates the transient trigger system."""
+        await self._send_command(f"INITiate:CONTinuous:TRANsient {'ON' if continuous else 'OFF'}, (@{channel})")
+        if not continuous:
+            await self._send_command(f"INITiate:TRANsient (@{channel})")
 
-    def output_sync(self, state: bool) -> None:
-        """
-        Enable or disable the active load output.
-        """
-        warnings.warn(
-            "The 'output_sync' method is deprecated and will be removed in a future version. "
-            "Please use the asynchronous 'output' method instead.",
-            DeprecationWarning,
-            stacklevel=2
-        )
-        self.output(state)
+    async def stop_transient(self, channel: int = 1) -> None:
+        """Aborts any pending or in-progress transient operations."""
+        await self._send_command(f"ABORt:TRANsient (@{channel})")
 
-    def measure_current_sync(self) -> MeasurementResult:
-        """
-        Query the instrument for the sinking current.
-        """
-        warnings.warn(
-            "The 'measure_current_sync' method is deprecated and will be removed in a future version. "
-            "Please use the asynchronous 'measure_current' method instead.",
-            DeprecationWarning,
-            stacklevel=2
-        )
-        return self.measure_current()
+    # --- Battery Test Methods ---
+    async def enable_battery_test(self, state: bool, channel: int = 1) -> None:
+        """Enables or disables the battery test operation."""
+        await self._send_command(f"BATTery:ENABle {'ON' if state else 'OFF'}, (@{channel})")
 
-    def measure_voltage_sync(self) -> MeasurementResult:
-        """
-        Query the instrument for the voltage across the load.
-        """
-        warnings.warn(
-            "The 'measure_voltage_sync' method is deprecated and will be removed in a future version. "
-            "Please use the asynchronous 'measure_voltage' method instead.",
-            DeprecationWarning,
-            stacklevel=2
-        )
-        return self.measure_voltage()
+    async def set_battery_cutoff_voltage(self, voltage: float, state: bool = True, channel: int = 1) -> None:
+        """Configures the voltage cutoff condition for the battery test."""
+        await self._send_command(f"BATTery:CUTOff:VOLTage:STATe {'ON' if state else 'OFF'}, (@{channel})")
+        if state:
+            await self._send_command(f"BATTery:CUTOff:VOLTage {voltage}, (@{channel})")
 
-    def measure_power_sync(self) -> MeasurementResult:
-        """
-        Query the instrument for the power being dissipated.
-        """
-        warnings.warn(
-            "The 'measure_power_sync' method is deprecated and will be removed in a future version. "
-            "Please use the asynchronous 'measure_power' method instead.",
-            DeprecationWarning,
-            stacklevel=2
-        )
-        return self.measure_power()
+    async def set_battery_cutoff_capacity(self, capacity: float, state: bool = True, channel: int = 1) -> None:
+        """Configures the capacity (Ah) cutoff condition for the battery test."""
+        await self._send_command(f"BATTery:CUTOff:CAPacity:STATe {'ON' if state else 'OFF'}, (@{channel})")
+        if state:
+            await self._send_command(f"BATTery:CUTOff:CAPacity {capacity}, (@{channel})")
+
+    async def set_battery_cutoff_timer(self, time_s: float, state: bool = True, channel: int = 1) -> None:
+        """Configures the timer (seconds) cutoff condition for the battery test."""
+        await self._send_command(f"BATTery:CUTOff:TIMer:STATe {'ON' if state else 'OFF'}, (@{channel})")
+        if state:
+            await self._send_command(f"BATTery:CUTOff:TIMer {time_s}, (@{channel})")
+
+    async def get_battery_test_measurement(self, metric: Literal["capacity", "power", "time"], channel: int = 1) -> float:
+        """Queries a measurement from the ongoing battery test."""
+        scpi_map = {"capacity": "CAPacity", "power": "POWer", "time": "TIMe"}
+        response = await self._query(f"BATTery:MEASure:{scpi_map[metric]}? (@{channel})")
+        return float(response)
+
+    # --- Data Acquisition Methods ---
+    async def fetch_scope_data(self, measurement: Literal["current", "voltage", "power"], channel: int = 1) -> np.ndarray:
+        """Fetches the captured waveform (scope) data as a NumPy array."""
+        scpi_map = {"current": "CURRent", "voltage": "VOLTage", "power": "POWer"}
+        raw_data = await self._query_raw(f"FETCh:ARRay:{scpi_map[measurement]}? (@{channel})")
+        # Assumes the backend handles binary block data parsing; if not, call self._read_to_np
+        return np.frombuffer(raw_data, dtype=np.float32) # Assuming float data
+
+    async def fetch_datalogger_data(self, num_points: int, channel: int = 1) -> List[float]:
+        """Fetches the specified number of logged data points."""
+        response = await self._query(f"FETCh:SCALar:DLOG? {num_points}, (@{channel})")
+        return [float(x) for x in response.split(',')]
+
+async def health_check(self) -> HealthReport:
+        """Performs a health check on the DC Electronic Load."""
+        report = HealthReport()
+        try:
+            report.instrument_idn = await self.id()
+            errors = await self.get_all_errors()
+            if errors:
+                report.status = HealthStatus.WARNING
+                report.warnings.extend([f"Stored Error: {code} - {msg}" for code, msg in errors])
+            else:
+                report.status = HealthStatus.OK
+        except Exception as e:
+            report.status = HealthStatus.ERROR
+            report.errors.append(f"Health check failed: {e}")
+        return report

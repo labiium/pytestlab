@@ -68,6 +68,7 @@ class BenchConfigExtended(BaseModel):
     backend_defaults: Optional[Dict[str, Any]] = None
     simulate: Optional[bool] = False
     description: Optional[str] = None
+    continue_on_automation_error: Optional[bool] = False
 
     @model_validator(mode="after")
     def check_instruments(self) -> "BenchConfigExtended":

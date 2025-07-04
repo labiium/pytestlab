@@ -1,94 +1,126 @@
 manufacturer: Keysight
 model: EL33133A
 device_type: dc_active_load
-serial_number: "SN33133A-001"
-channels:
-  - 1:
-      description: "Primary Channel"
-      min_current: 0.01         # in Amperes
-      max_current: 40.0         # in Amperes
-      current_resolution: 0.001   # in Amperes
-      min_voltage: 0.02         # in Volts
-      max_voltage: 150.0        # in Volts
-      voltage_resolution: 0.005   # in Volts
-supported_modes:
-  CC: "Constant Current"
-  CV: "Constant Voltage"
-  CP: "Constant Power"
-  CR: "Constant Resistance"
-max_current: 40.0             # Overall device capability in Amperes
-max_voltage: 150.0            # Overall device capability in Volts
-max_power: 250.0              # Maximum power in Watts
-calibration:
-  current_calibration_resolution: 0.001  # in Amperes
-  voltage_calibration_resolution: 0.001  # in Volts
-# programming_accuracy:
-#   CC:
-#     low:
-#       percent: 0.05         # 0.05%
-#       absolute: 0.00082     # 820 µA in Amperes
-#     high:
-#       percent: 0.05
-#       absolute: 0.0072      # 7.2 mA in Amperes
-#   CV:
-#     low:
-#       percent: 0.03
-#       absolute: 0.0042      # 4.2 mV in Volts
-#     high:
-#       percent: 0.03
-#       absolute: 0.015       # 15 mV in Volts
-#   CP:
-#     low:
-#       percent: 0.08
-#       absolute: 0.018       # 18 mW in Watts
-#     medium:
-#       percent: 0.08
-#       absolute: 0.15        # 150 mW in Watts
-#     high:
-#       percent: 0.08
-#       absolute: 1.5         # 1.5 W
-#   CR:
-#     low:
-#       percent: 0.1
-#       absolute: 0.16        # 160 mΩ as 0.16 Ω
-#     medium:
-#       percent: 0.1
-#       absolute: 0.5         # 500 mΩ as 0.5 Ω
-#     high:
-#       percent: 0.1
-#       absolute: 0.0018      # 1.8 mΩ as 0.0018 Ω
-# readback_accuracy:
-#   CC:
-#     low:
-#       percent: 0.04
-#       absolute: 0.003       # 3 mA in Amperes
-#     high:
-#       percent: 0.04
-#       absolute: 0.01        # 10 mA in Amperes
-#   CV:
-#     low:
-#       percent: 0.02
-#       absolute: 0.015       # 15 mV in Volts
-#     high:
-#       percent: 0.02
-#       absolute: 0.015       # 15 mV in Volts
-#   CP:
-#     low:
-#       percent: 0.08
-#       absolute: 0.018       # 18 mW in Watts
-#     medium:
-#       percent: 0.08
-#       absolute: 0.15        # 150 mW in Watts
-#     high:
-#       percent: 0.08
-#       absolute: 1.2         # 1.2 W
-#   CR:
-#     low:
-#       percent: 0.1
-#       absolute: 0.16        # 160 mΩ as 0.16 Ω
-#     medium:
-#       percent: 0.1
-#       absolute: 0.5         # 500 mΩ as 0.5 Ω
-#     high:
-#       percent: 0.1
-#       absolute: 0.0018      # 1.8 mΩ as 0.0018 Ω
+
+general_specifications:
+  max_power_W: 250.0
+  max_current_A: 40.0
+  max_voltage_V: 150.0
+  number_of_channels: 1
+
+features:
+  - name: "Transient Operation"
+    description: "Supports transient operation modes (pulse, toggle, continuous)."
+  - name: "Battery Test"
+    description: "Built-in battery test functionality."
+  - name: "Data Acquisition"
+    description: "Scope and datalogger for waveform and measurement capture."
+
+operating_modes:
+  constant_current_CC:
+    ranges:
+      - name: "low"
+        max_current_A: 8.0
+        programming_accuracy:
+          percent_of_setting: 0.05
+          offset_A: 0.00082
+        readback_accuracy:
+          percent_of_reading: 0.04
+          offset_A: 0.003
+      - name: "high"
+        max_current_A: 40.0
+        programming_accuracy:
+          percent_of_setting: 0.05
+          offset_A: 0.0072
+        readback_accuracy:
+          percent_of_reading: 0.04
+          offset_A: 0.01
+  constant_voltage_CV:
+    ranges:
+      - name: "low"
+        max_voltage_V: 30.0
+        programming_accuracy:
+          percent_of_setting: 0.03
+          offset_V: 0.0042
+        readback_accuracy:
+          percent_of_reading: 0.02
+          offset_V: 0.015
+      - name: "high"
+        max_voltage_V: 150.0
+        programming_accuracy:
+          percent_of_setting: 0.03
+          offset_V: 0.015
+        readback_accuracy:
+          percent_of_reading: 0.02
+          offset_V: 0.015
+  constant_power_CP:
+    ranges:
+      - name: "low"
+        range_W: "50W"
+        programming_accuracy:
+          percent_of_setting: 0.08
+          offset_W: 0.018
+        readback_accuracy:
+          percent_of_reading: 0.08
+          offset_W: 0.018
+      - name: "medium"
+        range_W: "250W"
+        programming_accuracy:
+          percent_of_setting: 0.08
+          offset_W: 0.15
+        readback_accuracy:
+          percent_of_reading: 0.08
+          offset_W: 0.15
+      - name: "high"
+        range_W: "250W"
+        programming_accuracy:
+          percent_of_setting: 0.08
+          offset_W: 1.5
+        readback_accuracy:
+          percent_of_reading: 0.08
+          offset_W: 1.2
+  constant_resistance_CR:
+    ranges:
+      - name: "low"
+        range_ohm: "1.8S"
+        programming_accuracy:
+          percent_of_setting: 0.1
+        readback_accuracy:
+          percent_of_reading: 0.1
+      - name: "medium"
+        range_ohm: "0.036S"
+        programming_accuracy:
+          percent_of_setting: 0.1
+        readback_accuracy:
+          percent_of_reading: 0.1
+      - name: "high"
+        range_ohm: "0.036S"
+        programming_accuracy:
+          percent_of_setting: 0.1
+        readback_accuracy:
+          percent_of_reading: 0.1
+
+protection:
+  over_current:
+    settable_range: "0 to 44 A"
+    accuracy: "±(0.5% of setting + 0.4 A)"
+  over_voltage:
+    settable_range: "1 to 157.5 V"
+    accuracy: "±(0.5% of setting + 0.25 V)"
+  over_power:
+    settable_range: "0 to 275 W"
+    accuracy: "±(1% of setting + 1 W)"
+  over_temperature:
+    description: "Internal temperature sensor protects against overheating."
+
+other_characteristics_typical:
+  power_on_time: "2 seconds"
+  command_processing_time: "< 4 ms"
+  calibration:
+    current_calibration_resolution: 0.001
+    voltage_calibration_resolution: 0.001
+
+environmental:
+  operating_temperature: "0 °C to 40 °C"
+  storage_temperature: "-40 °C to 70 °C"
+  humidity: "Up to 80% RH, non-condensing"

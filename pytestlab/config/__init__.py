@@ -9,3 +9,4 @@ from .spectrum_analyzer_config import SpectrumAnalyzerConfig
 from .power_meter_config import PowerMeterConfig
 from .virtual_instrument_config import VirtualInstrumentConfig
 # from .config import ConfigRequires
+from .dc_active_load_config import DCActiveLoadConfig
