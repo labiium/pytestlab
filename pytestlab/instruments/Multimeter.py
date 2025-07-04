@@ -1,21 +1,22 @@
-from __future__ import annotations
+# pytestlab/instruments/multimeter/multimeter.py
+
 
 import re
 from dataclasses import dataclass
-from enum import Enum
-from typing import Any, Literal, Optional, Type, Union
+from typing import Any, Literal, Optional, Type, Union, Tuple
 
-import numpy as np
 from uncertainties import ufloat
 from uncertainties.core import UFloat  # For type hinting float | UFloat
 import warnings
+import math
 
-from ..config.multimeter_config import DMMFunction, MultimeterConfig
-from ..errors import InstrumentConfigurationError, InstrumentParameterError
-from ..experiments import MeasurementResult
+from ..config.multimeter_config import DMMFunction, MultimeterConfig, FunctionSpec
+from ..errors import InstrumentConfigurationError, InstrumentParameterError, InstrumentDataError
+from ..experiments.results import MeasurementResult
 from .instrument import Instrument
+from .._log import get_logger
 
-
+logger = get_logger(__name__)
 @dataclass
 class MultimeterConfigResult:
     """Stores the current measurement configuration of the multimeter.
@@ -56,33 +57,19 @@ class Multimeter(Instrument[MultimeterConfig]):
     """
     config: MultimeterConfig
 
-    def __init__(self, config: MultimeterConfig, debug_mode: bool = False, **kwargs) -> None:
-        """
-        Initializes a Multimeter instance.
+    # The base class `__init__` is sufficient and will be used.
+    # It correctly assigns self.config and self._backend.
 
-        Args:
-            config (MultimeterConfig): The configuration object for the multimeter.
-            debug_mode (bool): Enable debug mode for the instrument.
-        """
-        super().__init__(config=config, debug_mode=debug_mode, **kwargs)
-        # self.config is now an instance of MultimeterConfig, type hinted at class level
-
-        # Initialize the DMM to its default function if specified in config
-        if self.config.default_measurement_function:
-            self.set_measurement_function_sync(self.config.default_measurement_function)
-        if self.config.trigger_source:
-            self.set_trigger_source_sync(self.config.trigger_source)
-        # Apply other initial configurations based on self.config as needed
-
+    # from_config is handled by AutoInstrument, so we don't need a custom implementation here.
     @classmethod
-    def from_config(cls: Type[Multimeter], config: MultimeterConfig, debug_mode: bool = False) -> Multimeter:
-        # Assuming MultimeterConfig can be instantiated from a dict-like config
-        # If MultimeterConfig itself needs specific construction from a dict, that should be handled.
-        # For now, assuming config is already a valid MultimeterConfig object or can be spread.
+    def from_config(cls: Type["Multimeter"], config: MultimeterConfig, debug_mode: bool = False) -> "Multimeter":
+        # This method is generally handled by the `AutoInstrument` factory.
+        # It's provided here for completeness but direct instantiation is preferred
+        # when not using the factory.
         # If config is a dict that needs to be passed to MultimeterConfig constructor:
         # return cls(config=MultimeterConfig(**config), debug_mode=debug_mode)
         # If config is already a MultimeterConfig instance:
-        return cls(config=config, debug_mode=debug_mode)
+        raise NotImplementedError("Please use AutoInstrument.from_config() to create instrument instances.")
     
     async def get_config(self) -> MultimeterConfigResult:
         """Retrieves the current measurement configuration from the DMM.
@@ -103,14 +90,22 @@ class Multimeter(Instrument[MultimeterConfig]):
         # a string like '"VOLT:DC 10,0.0001"'.
         config_str: str = (await self._query("CONFigure?")).replace('"', '').strip()
         try:
+            # Handle cases where resolution is not returned, e.g., "FRES 1.000000E+02"
+            parts = config_str.split()
+            mode_part = parts[0]
+            
+            # Settings part can be complex, find first comma
+            settings_part = " ".join(parts[1:])
+            if ',' in settings_part:
+                range_str, resolution_str = settings_part.split(",", 1)
+            else:
+                range_str = settings_part
+                resolution_str = "N/A" # Resolution not specified in query response
+            
             # Parse the string to extract the mode, range, and resolution.
-            mode_part, settings_part = config_str.split(maxsplit=1)
-            range_str, resolution_str = settings_part.split(",")
             range_value_float: float = float(range_str)
-        except Exception as e:
-            raise InstrumentDataError(
-                self.config.model, f"Failed to parse configuration string: {config_str}"
-            ) from e
+        except (ValueError, IndexError) as e:
+            raise InstrumentDataError(self.config.model, f"Failed to parse configuration string: '{config_str}'") from e
 
         # Determine human-friendly measurement mode and assign units based on mode
         measurement_mode_str: str = "" # Renamed
@@ -122,10 +117,10 @@ class Multimeter(Instrument[MultimeterConfig]):
         elif mode_upper.startswith("CURR"):
             measurement_mode_str = "Current"
             unit_str = "A"
-        elif mode_upper.startswith("RES"):
+        elif "RES" in mode_upper: # Catches RES and FRES
             measurement_mode_str = "Resistance"
             unit_str = "Ohm"
-        elif mode_upper.startswith("FREQ"):
+        elif "FREQ" in mode_upper:
             measurement_mode_str = "Frequency"
             unit_str = "Hz"
         elif mode_upper.startswith("TEMP"):
@@ -137,7 +132,7 @@ class Multimeter(Instrument[MultimeterConfig]):
         return MultimeterConfigResult(
             measurement_mode=measurement_mode_str,
             range_value=range_value_float,
-            resolution=resolution_str,
+            resolution=resolution_str.strip(),
             units=unit_str
         )
 
@@ -151,17 +146,8 @@ class Multimeter(Instrument[MultimeterConfig]):
             function: The desired measurement function, as defined by the
                       `DMMFunction` enum.
         """
-        scpi_command: str
-        if self.config.scpi_commands and self.config.scpi_commands.set_function:
-            try:
-                scpi_command = self.config.scpi_commands.set_function.format(function_value=function.value)
-            except KeyError:
-                self._logger.error(f"SCPI command 'set_function' for {self.config.model} has incorrect format key. Using fallback.")
-                scpi_command = f"FUNC '{function.value}'"
-        else:
-            scpi_command = f"FUNC '{function.value}'"
-        
-        await self._send_command(scpi_command) # Changed to await
+        # Using the recommended SCPI command from the programming guide (page 145)
+        await self._send_command(f'SENSe:FUNCtion "{function.value}"')
         self._logger.info(f"Set measurement function to {function.name} ({function.value})")
 
     async def set_trigger_source(self, source: Literal["IMM", "EXT", "BUS"]) -> None:
@@ -176,35 +162,38 @@ class Multimeter(Instrument[MultimeterConfig]):
         Args:
             source: The desired trigger source.
         """
-        scpi_command: str
-        if self.config.scpi_commands and self.config.scpi_commands.set_trigger_source:
-            try:
-                scpi_command = self.config.scpi_commands.set_trigger_source.format(source_value=source.upper())
-            except KeyError:
-                self._logger.error(f"SCPI command 'set_trigger_source' for {self.config.model} has incorrect format key. Using fallback.")
-                scpi_command = f"TRIG:SOUR {source.upper()}"
-        else:
-            scpi_command = f"TRIG:SOUR {source.upper()}"
-
-        await self._send_command(scpi_command) # Changed to await
+        await self._send_command(f"TRIG:SOUR {source.upper()}")
         self._logger.info(f"Set trigger source to {source}")
 
-    async def _format_range_for_accuracy_key(self, function: DMMFunction, range_numeric: float, range_units: str) -> str: # Keep async if get_config is async
-        """
-        Formats a numeric range and its units into a canonical string for accuracy keys.
-        Example: 10.0, "V" -> "10v"
-        """
-        val_str = str(range_numeric)
-        if val_str.endswith(".0"):
-            val_str = val_str[:-2]
-        
-        unit_key_str = range_units.strip().lower()
-        if not unit_key_str:
-            if "VOLTAGE" in function.name.upper(): unit_key_str = "v"
-            elif "CURRENT" in function.name.upper(): unit_key_str = "a"
-            elif "RESISTANCE" in function.name.upper(): unit_key_str = "ohm"
-            else: self._logger.warning(f"Could not determine unit for accuracy key for range {range_numeric} of function {function.name}")
-        return f"{val_str}{unit_key_str}"
+    def _get_function_spec(self, function: DMMFunction) -> Optional[FunctionSpec]:
+        """Maps a DMMFunction enum to the corresponding spec in the config."""
+        func_map = {
+            DMMFunction.VOLTAGE_DC: self.config.measurement_functions.dc_voltage,
+            DMMFunction.VOLTAGE_AC: self.config.measurement_functions.ac_voltage,
+            DMMFunction.CURRENT_DC: self.config.measurement_functions.dc_current,
+            DMMFunction.CURRENT_AC: self.config.measurement_functions.ac_current,
+            DMMFunction.RESISTANCE: self.config.measurement_functions.resistance,
+            DMMFunction.FRESISTANCE: self.config.measurement_functions.resistance_4wire,
+            DMMFunction.CAPACITANCE: self.config.measurement_functions.capacitance,
+            DMMFunction.FREQUENCY: self.config.measurement_functions.frequency,
+            DMMFunction.TEMPERATURE: self.config.measurement_functions.temperature,
+        }
+        spec = func_map.get(function)
+        if spec is None:
+            logger.warning(f"No measurement specification found for function {function.name}")
+        return spec
+
+    def _get_measurement_unit_and_type(self, function: DMMFunction) -> Tuple[str, str]:
+        """Gets the appropriate unit and name for the MeasurementResult."""
+        if "VOLTAGE" in function.name: return "V", function.name.replace("_", " ").title()
+        if "CURRENT" in function.name: return "A", function.name.replace("_", " ").title()
+        if "RESISTANCE" in function.name: return "Ω", function.name.replace("_", " ").title()
+        if "CAPACITANCE" in function.name: return "F", function.name.replace("_", " ").title()
+        if "FREQUENCY" in function.name: return "Hz", function.name.replace("_", " ").title()
+        if "TEMPERATURE" in function.name: return "°C", function.name.replace("_", " ").title()
+        if "DIODE" in function.name: return "V", function.name.replace("_", " ").title()
+        if "CONTINUITY" in function.name: return "Ω", function.name.replace("_", " ").title()
+        return "", function.name.replace("_", " ").title()
 
     async def measure(self, function: DMMFunction, range_val: Optional[str] = None, resolution: Optional[str] = None) -> MeasurementResult:
         """Performs a measurement and returns the result.
@@ -231,144 +220,94 @@ class Multimeter(Instrument[MultimeterConfig]):
             InstrumentParameterError: If an unsupported `range_val` is provided.
         """
         scpi_function_val = function.value
+        is_autorange = range_val is None or range_val.upper() == "AUTO"
 
-        # Validate the selected range against the supported ranges in the config
-        if range_val is not None and range_val.upper() != "AUTO":
-            supported_ranges: Optional[list[str]] = None
-            if self.config.configuration:
-                if function in [DMMFunction.DC_VOLTAGE, DMMFunction.AC_VOLTAGE] and self.config.configuration.voltage:
-                    supported_ranges = self.config.configuration.voltage
-                elif function in [DMMFunction.DC_CURRENT, DMMFunction.AC_CURRENT] and self.config.configuration.current:
-                    supported_ranges = self.config.configuration.current
-                elif function in [DMMFunction.RESISTANCE_2W, DMMFunction.RESISTANCE_4W] and self.config.configuration.resistance:
-                    supported_ranges = self.config.configuration.resistance
-                elif function == DMMFunction.FREQUENCY and self.config.configuration.frequency_ranges:
-                     supported_ranges = self.config.configuration.frequency_ranges
+        # The MEASure command is a combination of CONFigure, INITiate, and FETCh.
+        # This is convenient but makes querying the actual range used in autorange tricky.
+        # For accurate uncertainty, we will use CONFigure separately when in autorange.
+        if is_autorange:
+            await self.set_measurement_function(function)
+            await self._send_command(f"{function.value}:RANGe:AUTO ON")
+            if resolution:
+                await self._send_command(f"{function.value}:RESolution {resolution.upper()}")
+            
+            response_str = await self._query("READ?")
+        else:
+            # Use the combined MEASure? command for fixed range
+            range_for_query = range_val.upper() if range_val is not None else "AUTO"
+            resolution_for_query = resolution.upper() if resolution is not None else "DEF"
+            query_command = f"MEASURE:{scpi_function_val}? {range_for_query},{resolution_for_query}"
+            self._logger.debug(f"Executing DMM measure query: {query_command}")
+            response_str = await self._query(query_command)
 
-            if supported_ranges:
-                if not any(r.upper() == range_val.upper() for r in supported_ranges):
-                    raise InstrumentParameterError(
-                        parameter="range_val",
-                        value=range_val,
-                        valid_range=supported_ranges,
-                        message=f"Unsupported range for function {function.name}.",
-                    )
-            elif self.config.configuration is None:
-                 self._logger.warning(f"No DMMConfiguration in MultimeterConfig for {self.config.model}. Cannot validate range '{range_val}'.")
-
-        range_for_query = range_val.upper() if range_val is not None else "AUTO"
-        resolution_for_query = resolution.upper() if resolution is not None else "DEF"
-        query_command = f"MEASURE:{scpi_function_val}? {range_for_query},{resolution_for_query}"
+        try:
+            reading = float(response_str)
+        except ValueError:
+            raise InstrumentDataError(self.config.instrument['model'], f"Could not parse measurement reading: '{response_str}'")
         
-        self._logger.debug(f"Executing DMM measure query: {query_command}")
-        response_str: str = await self._query(query_command)
-        reading: float = float(response_str)
         value_to_return: Union[float, UFloat] = reading
 
-        # If accuracy specs are provided, calculate the measurement uncertainty.
-        if self.config.measurement_accuracy:
-            key_range_part: str
-            # Determine the range key for the accuracy lookup table.
-            if range_for_query == "AUTO" or not range_val:
-                # If auto-ranging, we need to query the DMM to find out what range it actually used.
-                try:
-                    current_instrument_config = await self.get_config()
-                    key_range_part = await self._format_range_for_accuracy_key(function, current_instrument_config.range_value, current_instrument_config.units)
-                except Exception as e:
-                    self._logger.warning(f"Could not determine auto-range for accuracy key via get_config(): {e}. Accuracy may not be applied.")
-                    key_range_part = "auto"
-            else:
-                # If a specific range was given, parse it.
-                match_range = re.match(r"([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s*([a-zA-ZμΩ°]+)?", range_val)
-                if match_range:
-                    num_str, unit_str_parsed = match_range.group(1), (match_range.group(2) or "")
-                    try:
-                        num_float = float(num_str)
-                        unit_to_use = unit_str_parsed
-                        if not unit_to_use:  # Infer unit if not explicitly in the string
-                            if "VOLTAGE" in function.name.upper(): unit_to_use = "V"
-                            elif "CURRENT" in function.name.upper(): unit_to_use = "A"
-                            elif "RESISTANCE" in function.name.upper(): unit_to_use = "Ohm"
-                        key_range_part = await self._format_range_for_accuracy_key(function, num_float, unit_to_use)
-                    except ValueError:
-                        self._logger.warning(f"Could not parse numeric part of '{range_val}'. Using raw string for accuracy key.")
-                        key_range_part = range_val.lower()
-                else:
-                    self._logger.warning(f"Could not parse explicit range '{range_val}'. Using raw string for accuracy key.")
-                    key_range_part = range_val.lower()
+        # --- Uncertainty Calculation ---
+        function_spec = self._get_function_spec(function)
+        if function_spec:
+            try:
+                # Determine the actual range used by the instrument to find the correct spec
+                current_instrument_config = await self.get_config()
+                actual_instrument_range = current_instrument_config.range_value
 
-            func_name_upper = function.name.upper()
-            mode_prefix, m_type_key_name = "", ""
-            if "VOLTAGE" in func_name_upper: m_type_key_name = "voltage"
-            elif "CURRENT" in func_name_upper: m_type_key_name = "current"
-            elif "RESISTANCE" in func_name_upper: m_type_key_name = "resistance"
-            elif "FREQUENCY" in func_name_upper: m_type_key_name = "frequency"
-            elif "PERIOD" in func_name_upper: m_type_key_name = "period"
-            elif "TEMPERATURE" in func_name_upper: m_type_key_name = "temperature"
-            elif "DIODE" in func_name_upper: m_type_key_name = "diode"
-            elif "CONTINUITY" in func_name_upper: m_type_key_name = "continuity"
-
-            if "DC" in func_name_upper: mode_prefix = "dc"
-            elif "AC" in func_name_upper: mode_prefix = "ac"
-            elif "2W" in func_name_upper: mode_prefix = "2w"
-            elif "4W" in func_name_upper: mode_prefix = "4w"
-            
-            accuracy_key: Optional[str] = None
-            if m_type_key_name:
-                key_parts = [p for p in [mode_prefix, m_type_key_name, key_range_part if key_range_part != "auto" else None, "range"] if p]
-                accuracy_key = "_".join(key_parts)
-            else:
-                self._logger.warning(f"Could not determine m_type_key_name for {function.name} for accuracy lookup.")
-
-            spec = None
-            if accuracy_key and self.config.measurement_accuracy:
-                self._logger.debug(f"Attempting to find accuracy spec with key: '{accuracy_key}'")
-                spec = self.config.measurement_accuracy.get(accuracy_key)
-
-            if spec:
-                numeric_range_for_spec: Optional[float] = None
-                if key_range_part and key_range_part != "auto":
-                    match = re.match(r"([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s*([a-zA-ZμΩ°]+)?", key_range_part)
-                    if match:
-                        num_val_str, unit_suffix_str = match.group(1), (match.group(2) or "").lower()
-                        try:
-                            num_val = float(num_val_str)
-                            if unit_suffix_str in ["mv", "mω", "mhz", "ma"]: num_val /= 1000.0
-                            elif unit_suffix_str in ["kv", "kω", "khz", "ka"]: num_val *= 1000.0
-                            elif unit_suffix_str in ["mω", "mohm"]: num_val *= 1000000.0
-                            numeric_range_for_spec = num_val
-                        except ValueError:
-                             self._logger.debug(f"Could not parse num value from '{num_val_str}' in '{key_range_part}'.")
+                # Find the matching range specification
+                matching_range_spec = None
+                # Find the smallest nominal range that is >= the actual range used.
+                # Assumes specs in YAML are sorted by nominal value, which is typical.
+                for r_spec in sorted(function_spec.ranges, key=lambda r: r.nominal):
+                    if r_spec.nominal >= actual_instrument_range:
+                        matching_range_spec = r_spec
+                        break
                 
-                sigma = spec.calculate_std_dev(reading, range_value=numeric_range_for_spec)
-                if sigma > 0:
-                    value_to_return = ufloat(reading, sigma)
-                    self._logger.debug(f"Applied accuracy spec '{accuracy_key}', value: {value_to_return}")
-                else:
-                    self._logger.debug(f"Accuracy spec '{accuracy_key}' resulted in sigma <= 0. Returning float.")
-            elif accuracy_key:
-                self._logger.warning(f"No accuracy spec found for key '{accuracy_key}'. Returning float.")
-        else:
-            self._logger.debug("No measurement_accuracy configuration in instrument. Returning float.")
+                # Fallback to the largest range if no suitable one is found (e.g. if actual > largest nominal)
+                if not matching_range_spec:
+                    matching_range_spec = max(function_spec.ranges, key=lambda r: r.nominal)
 
-        units_val = ""
-        measurement_name_val = function.name.replace("_", " ").title()
-        if "VOLTAGE" in func_name_upper: units_val = "V"
-        elif "CURRENT" in func_name_upper: units_val = "A"
-        elif "RESISTANCE" in func_name_upper: units_val = "Ω"
-        elif "FREQUENCY" in func_name_upper: units_val = "Hz"
-        elif "PERIOD" in func_name_upper: units_val = "s"
-        elif "TEMPERATURE" in func_name_upper: units_val = self.config.temperature_unit if self.config and self.config.temperature_unit else "°C"
-        elif "DIODE" in func_name_upper: units_val = "V"
-        elif "CONTINUITY" in func_name_upper: units_val = "Ω"
+                if matching_range_spec:
+                    accuracy_spec = matching_range_spec.default_accuracy
+                    if accuracy_spec:
+                        # Use the spec's nominal value for the '% of range' calculation
+                        range_for_calc = matching_range_spec.nominal
+                        std_dev = accuracy_spec.calculate_uncertainty(reading, range_for_calc)
+                        if std_dev > 0:
+                            value_to_return = ufloat(reading, std_dev)
+                            self._logger.debug(f"Applied accuracy spec for range {range_for_calc}, value: {value_to_return}")
+                        else:
+                             self._logger.debug(f"Calculated uncertainty is zero. Returning float.")
+                    else:
+                        self._logger.warning(f"No applicable accuracy specification found for function '{function.name}' at range {actual_instrument_range}. Returning float.")
+                else:
+                    self._logger.warning(f"Could not find a matching range specification for function '{function.name}' at range {actual_instrument_range}. Returning float.")
+
+            except Exception as e:
+                self._logger.error(f"Error during uncertainty calculation: {e}. Returning float.")
+        else:
+            self._logger.debug(f"No measurement function specification in config for '{function.name}'. Returning float.")
+
+        units_val, measurement_name_val = self._get_measurement_unit_and_type(function)
 
         return MeasurementResult(
             values=value_to_return,
-            instrument=self.config.model if self.config else "Multimeter",
+            instrument=self.config.model,
             units=units_val,
             measurement_type=measurement_name_val,
         )
 
+    async def configure_measurement(self, function: DMMFunction, range_val: Optional[str] = None, resolution: Optional[str] = None):
+        """Configures the instrument for a measurement without triggering it."""
+        scpi_function_val = function.value
+        range_for_query = range_val.upper() if range_val is not None else "AUTO"
+        resolution_for_query = resolution.upper() if resolution is not None else "DEF"
+        # Using CONFigure command as per programming guide page 44
+        cmd = f"CONFigure:{scpi_function_val} {range_for_query},{resolution_for_query}"
+        await self._send_command(cmd)
+        self._logger.info(f"Configured DMM for {function.name} with range={range_for_query}, resolution={resolution_for_query}")
+        
     def set_measurement_function_sync(self, function: DMMFunction) -> None:
         """
         Sets the measurement function of the DMM.
@@ -379,7 +318,7 @@ class Multimeter(Instrument[MultimeterConfig]):
             DeprecationWarning,
             stacklevel=2
         )
-        self.set_measurement_function(function)
+        # Note: This is not truly synchronous. It schedules the async task.
 
     def set_trigger_source_sync(self, source: Literal["IMM", "EXT", "BUS"]) -> None:
         """
@@ -391,7 +330,7 @@ class Multimeter(Instrument[MultimeterConfig]):
             DeprecationWarning,
             stacklevel=2
         )
-        self.set_trigger_source(source)
+        # Note: Not truly synchronous.
 
     def measure_sync(self, function: DMMFunction, range_val: Optional[str] = None, resolution: Optional[str] = None) -> MeasurementResult:
         """
@@ -403,4 +342,3 @@ class Multimeter(Instrument[MultimeterConfig]):
             DeprecationWarning,
             stacklevel=2
         )
-        return self.measure(function, range_val, resolution)

@@ -1,26 +1,180 @@
-manufacturer: Keysight
-model: EDU34450A
+# Keysight EDU34450A — Machine‑readable YAML specification (v2)
+
 device_type: multimeter
-resolution: 5.5
-max_voltage: 1000
-max_resistance: 1.e+8
-max_current: 10
-max_capacitance: 1.e-5
-max_frequency: 1.e+6
-configuration:
-  resolution:
-    - FAST
-    - MEDium
-    - SLOW
-  current:
-    - 1.e-2
-    - 0.1
-    - 1
-    - 3
-    - 10
-  voltage:
-    - 0.1
-    - 1
-    - 10
-    - 100
-    - 750
+manufacturer: keysight
+model: EDU34450A
+description: "5.5‑digit dual-display digital multimeter"
+display:
+  size_inch: 7.0
+  type: "dual-measurement color TFT"
+  digits_resolution: 5.5
+memory:
+  logged_points: 5000
+interfaces:
+  - USB
+  - LAN
+software:
+  name: "PathWave BenchVue DMM"
+  included: true
+resolution_modes: [SLOW, MEDIUM, FAST]
+
+limits:
+  voltage_V: 1000
+  current_A: 3          # continuous rating
+  resistance_ohm: 1e8
+  capacitance_F: 1e-5
+  frequency_Hz: 1e6
+
+measurement_functions:
+  dc_voltage:
+    input_impedance_Mohm:
+      default: 10
+      high_Z_for_ranges_V: [0.1, 1]        # >10 GΩ when Hi‑Z selected
+    ranges:
+      - nominal_V: 0.1
+        accuracy: {percent_reading: 0.018, percent_range: 0.008}
+        temp_coeff_per_C: {percent_reading: 0.0020, percent_range: 0.0008}
+      - nominal_V: 1
+        accuracy: {percent_reading: 0.015, percent_range: 0.005}
+        temp_coeff_per_C: {percent_reading: 0.0015, percent_range: 0.0008}
+      - nominal_V: 10
+        accuracy: {percent_reading: 0.025, percent_range: 0.005}
+        temp_coeff_per_C: {percent_reading: 0.0020, percent_range: 0.0008}
+      - nominal_V: 100
+        accuracy: {percent_reading: 0.025, percent_range: 0.005}
+        temp_coeff_per_C: {percent_reading: 0.0020, percent_range: 0.0008}
+      - nominal_V: 1000
+        accuracy: {percent_reading: 0.027, percent_range: 0.005}
+        temp_coeff_per_C: {percent_reading: 0.0020, percent_range: 0.0008}
+
+  resistance_4wire:
+    open_circuit_voltage_V: 2.8
+    ranges:
+      - nominal_ohm: 1e2
+        test_current_A: 1e-3
+        accuracy: {percent_reading: 0.065, percent_range: 0.010}
+        temp_coeff_per_C: {percent_reading: 0.0080, percent_range: 0.0008}
+      - nominal_ohm: 1e3
+        test_current_A: 5e-4
+        accuracy: {percent_reading: 0.065, percent_range: 0.008}
+        temp_coeff_per_C: {percent_reading: 0.0080, percent_range: 0.0005}
+      - nominal_ohm: 1e4
+        test_current_A: 1e-4
+        accuracy: {percent_reading: 0.065, percent_range: 0.005}
+        temp_coeff_per_C: {percent_reading: 0.0080, percent_range: 0.0005}
+      - nominal_ohm: 1e5
+        test_current_A: 1e-5
+        accuracy: {percent_reading: 0.065, percent_range: 0.005}
+        temp_coeff_per_C: {percent_reading: 0.0080, percent_range: 0.0005}
+      - nominal_ohm: 1e6
+        test_current_A: 1e-6
+        accuracy: {percent_reading: 0.065, percent_range: 0.005}
+        temp_coeff_per_C: {percent_reading: 0.0080, percent_range: 0.0005}
+      - nominal_ohm: 1e7
+        test_current_A: 1e-7
+        accuracy: {percent_reading: 0.300, percent_range: 0.005}
+        temp_coeff_per_C: {percent_reading: 0.0250, percent_range: 0.0005}
+      - nominal_ohm: 1e8
+        test_current_A: 1e-7
+        accuracy: {percent_reading: 2.000, percent_range: 0.005}
+        temp_coeff_per_C: {percent_reading: 0.3000, percent_range: 0.0005}
+
+  dc_current:
+    burden_voltage_V:
+      - {range_A: 0.01, max_V: 0.02}
+      - {range_A: 0.1, max_V: 0.2}
+      - {range_A: 1, max_V: 0.3}
+      - {range_A: 3, max_V: 0.9}
+    ranges:
+      - nominal_A: 0.01
+        accuracy: {percent_reading: 0.10, percent_range: 0.015}
+        temp_coeff_per_C: {percent_reading: 0.008, percent_range: 0.0015}
+      - nominal_A: 0.1
+        accuracy: {percent_reading: 0.10, percent_range: 0.007}
+        temp_coeff_per_C: {percent_reading: 0.008, percent_range: 0.0010}
+      - nominal_A: 1
+        accuracy: {percent_reading: 0.30, percent_range: 0.015}
+        temp_coeff_per_C: {percent_reading: 0.019, percent_range: 0.0015}
+      - nominal_A: 3
+        accuracy: {percent_reading: 0.30, percent_range: 0.007}
+        temp_coeff_per_C: {percent_reading: 0.019, percent_range: 0.0010}
+
+  ac_voltage:
+    bandwidth_Hz: 100000
+    crest_factor_max: 3.0
+    input_impedance_Mohm: 1.1
+    ranges:
+      - nominal_V: 0.1
+        accuracy_45Hz_10kHz: {percent_reading: 0.2, percent_range: 0.1}
+      - nominal_V: 1
+        accuracy_45Hz_10kHz: {percent_reading: 0.2, percent_range: 0.1}
+      - nominal_V: 10
+        accuracy_45Hz_10kHz: {percent_reading: 0.2, percent_range: 0.1}
+      - nominal_V: 100
+        accuracy_45Hz_10kHz: {percent_reading: 0.2, percent_range: 0.1}
+      - nominal_V: 750
+        accuracy_45Hz_10kHz: {percent_reading: 0.2, percent_range: 0.1}
+
+  ac_current:
+    bandwidth_Hz: 10000
+    ranges:
+      - nominal_A: 0.01
+        accuracy_45Hz_1kHz: {percent_reading: 0.5, percent_range: 0.1}
+      - nominal_A: 0.1
+        accuracy_45Hz_1kHz: {percent_reading: 0.5, percent_range: 0.1}
+      - nominal_A: 1
+        accuracy_45Hz_1kHz: {percent_reading: 0.5, percent_range: 0.1}
+      - nominal_A: 3
+        accuracy_45Hz_1kHz: {percent_reading: 0.5, percent_range: 0.1}
+
+  frequency:
+    input_voltage_V: {min: 0.1, max: 750}
+    input_current_A: {min: 0.01, max: 3}
+    range_Hz: {min: 20, max: 1000000}
+    accuracy: {percent_reading: 0.025, counts: 3}
+    resolution:
+      - {span_Hz: "12-119.999", resolution_Hz: 0.001}
+      - {span_kHz: "0.12-1.19999", resolution_kHz: 1e-5}
+      - {span_kHz: "1.2-11.9999", resolution_kHz: 1e-4}
+      - {span_kHz: "12-119.999", resolution_kHz: 0.001}
+      - {span_MHz: "0.12-1.19999", resolution_MHz: 1e-5}
+
+  temperature:
+    sensor: "YSI 44007 thermistor"
+    range_C: {min: -80, max: 150}
+    added_error_C: 0.2
+
+  capacitance:
+    ranges:
+      - {nominal_F: 1e-9, typical_accuracy: {percent_reading: 1, percent_range: 1.5}}
+      - {nominal_F: 1e-8, typical_accuracy: {percent_reading: 1, percent_range: 0.5}}
+      - {nominal_F: 1e-7, typical_accuracy: {percent_reading: 1, percent_range: 0.5}}
+      - {nominal_F: 1e-6, typical_accuracy: {percent_reading: 1, percent_range: 0.5}}
+      - {nominal_F: 1e-5, typical_accuracy: {percent_reading: 1, percent_range: 0.5}}
+      - {nominal_F: 1e-4, typical_accuracy: {percent_reading: 1, percent_range: 0.5}}
+      - {nominal_F: 1e-3, typical_accuracy: {percent_reading: 1, percent_range: 0.5}}
+      - {nominal_F: 1e-2, typical_accuracy: {percent_reading: 2, percent_range: 0.5}}
+
+math_functions:
+  - "NULL"
+  - dBm
+  - dB
+  - Min
+  - Max
+  - Avg
+  - Hold
+  - Limit_Test
+
+sampling_rates_rps:
+  ac_voltage: {SLOW: 1.9, MEDIUM: 19, FAST: 90}
+  dc_voltage: {SLOW: 1.3, MEDIUM: 49, FAST: 110}
+  resistance_2w: {SLOW: 1.4, MEDIUM: 49, FAST: 110}
+  resistance_4w: {SLOW: 1.0, MEDIUM: 5.2, FAST: 5.9}
+  frequency: {SLOW: 0.9, MEDIUM: 9.0}
+  ac_current: {SLOW: 1.9, MEDIUM: 19, FAST: 90}
+  dc_current: {SLOW: 1.7, MEDIUM: 49, FAST: 110}
+  diode: {FAST: 110}
+  continuity: {FAST: 110}
+  temperature: {MEDIUM: 4.5}
+
+# End of specification file

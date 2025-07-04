@@ -7,7 +7,6 @@ from typing import Any, Type, Literal, Union # Added Literal, Union
 import typing # For get_origin, get_args
 import yaml
 from pydantic import BaseModel, ValidationError
-import jsonschema
 from pydantic_core import PydanticUndefined
 from pydantic.fields import FieldInfo
 
@@ -68,20 +67,6 @@ def get_model_registry() -> dict[str, Type[InstrumentConfig]]:
     if _MODEL_REGISTRY_CACHE is None:
         _MODEL_REGISTRY_CACHE = _discover_models()
     return _MODEL_REGISTRY_CACHE
-
-
-def validate_profile(data: dict[str, Any], model_cls: Type[BaseModel]) -> None:
-    """Validates profile data against the Pydantic model's JSON schema."""
-    data_to_validate = data.copy()
-    if 'simulation' in data_to_validate:
-        data_to_validate.pop('simulation')
-    try:
-        schema = model_cls.model_json_schema()
-        jsonschema.validate(instance=data_to_validate, schema=schema)
-    except jsonschema.ValidationError as e:
-        raise ValueError(f"Profile validation failed: {e.message}") from e
-    except Exception as e:
-        raise ValueError(f"An unexpected error occurred during profile validation: {e}") from e
 
 
 def resolve_profile_key_to_path(key: str) -> Path:
@@ -172,7 +157,6 @@ def load_profile(key_or_path_or_dict: str | Path | dict[str, Any]) -> Instrument
         data.pop("simulation")
 
     try:
-        validate_profile(data, model_cls)
         validated_model = model_cls.model_validate(data)
     except (ValidationError, ValueError) as e:
         raise ValueError(f"Profile for device_type '{device_type}' is invalid: {e}") from e

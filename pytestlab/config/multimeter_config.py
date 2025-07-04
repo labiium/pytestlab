@@ -1,108 +1,129 @@
 # pytestlab/config/multimeter_config.py
 
 from enum import Enum
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Dict, Any, Union
 
-from pydantic import BaseModel, Field, ConfigDict # Added ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 from pytestlab.config.instrument_config import InstrumentConfig
+from uncertainties.core import UFloat
 
 
 class DMMFunction(str, Enum):
-    """Enum for DMM measurement functions."""
-    VOLT_DC = "VOLT:DC"
-    VOLT_AC = "VOLT:AC"
-    CURR_DC = "CURR:DC"
-    CURR_AC = "CURR:AC"
-    RES = "RES"  # 2-wire resistance
-    FRES = "FRES"  # 4-wire resistance
-    FREQ = "FREQ"
-    TEMP = "TEMP"
-    DIOD = "DIOD"  # Diode check
-    CONT = "CONT"  # Continuity check
+    """Enum for DMM measurement functions corresponding to SCPI commands."""
+    VOLTAGE_DC = "VOLT:DC"
+    VOLTAGE_AC = "VOLT:AC"
+    CURRENT_DC = "CURR:DC"
+    CURRENT_AC = "CURR:AC"
+    RESISTANCE = "RES"
+    FRESISTANCE = "FRES"
+    FREQUENCY = "FREQ"
+    TEMPERATURE = "TEMP"
+    DIODE = "DIOD"
+    CONTINUITY = "CONT"
+    CAPACITANCE = "CAP"
 
     def __str__(self) -> str:
         return self.value
 
 
-class DMMConfiguration(BaseModel):
-    """
-    Nested model for DMM configuration settings, primarily focused on supported ranges
-    for various measurement functions.
-    """
-    model_config = ConfigDict(validate_assignment=True, extra='forbid', populate_by_name=True)
+class AccuracySpec(BaseModel):
+    """Models the accuracy specification for a given measurement range."""
+    percent_reading: float = Field(..., description="Accuracy component as a percentage of the reading.")
+    percent_range: Optional[float] = Field(default=None, description="Accuracy component as a percentage of the range.")
+    counts: Optional[int] = Field(default=None, description="Accuracy component as a fixed number of counts of the least significant digit.")
 
-    voltage: List[str] = Field(
-        ..., # Now required
-        min_length=1,
-        description="Supported DC voltage ranges (e.g., '100mV', '1V', 'AUTO'). For 'VOLT:DC'."
-    )
-    voltage_ac_ranges: List[str] = Field(
-        ..., # Now required
-        min_length=1,
-        description="Supported AC voltage ranges. For 'VOLT:AC'."
-    )
-    current_dc_ranges: List[str] = Field(
-        ..., # Now required
-        min_length=1,
-        description="Supported DC current ranges. For 'CURR:DC'."
-    )
-    current_ac_ranges: List[str] = Field(
-        ..., # Now required
-        min_length=1,
-        description="Supported AC current ranges. For 'CURR:AC'."
-    )
-    resistance_ranges: List[str] = Field(
-        ..., # Now required
-        min_length=1,
-        description="Supported 2-wire resistance ranges. For 'RES'."
-    )
-    # FRES, FREQ, TEMP can remain optional as not all DMMs support them
-    four_wire_resistance_ranges: Optional[List[str]] = Field(
-        default=None,
-        min_length=1, # If provided, must not be empty
-        alias="fres_ranges",
-        description="Supported 4-wire resistance ranges. For 'FRES'."
-    )
-    frequency_settings: Optional[List[str]] = Field(
-        default=None,
-        min_length=1, # If provided, must not be empty
-        description="Supported frequency measurement settings/configurations."
-    )
-    temperature_units: Optional[List[Literal["C", "F", "K"]]] = Field(
-        default=None,
-        min_length=1, # If provided, must not be empty
-        description="Supported temperature units for 'TEMP' function."
-    )
+    def calculate_uncertainty(self, reading: Union[float, UFloat], range_value: float) -> float:
+        """Calculates the total uncertainty (1-sigma) for a given reading and range."""
+        # Ensure reading is a float for calculation
+        nominal_value = reading.n if isinstance(reading, UFloat) else reading
+        uncertainty = 0.0
+
+        if self.percent_reading is not None:
+            uncertainty += (self.percent_reading / 100.0) * abs(nominal_value)
+        if self.percent_range is not None:
+            uncertainty += (self.percent_range / 100.0) * range_value
+
+        # Note: 'counts' implementation requires knowledge of the instrument's resolution/LSD value,
+        # which is complex. This implementation focuses on percentage-based uncertainty.
+        if self.counts is not None:
+            # A proper implementation would require the resolution value.
+            # This is a placeholder for future enhancement.
+            pass
+
+        return uncertainty
+
+
+class RangeSpec(BaseModel):
+    """Models a single measurement range with its specifications."""
+    model_config = ConfigDict(extra='allow')  # Allow other fields like test_current_A
+
+    nominal_V: Optional[float] = None
+    nominal_ohm: Optional[float] = None
+    nominal_A: Optional[float] = None
+    nominal_F: Optional[float] = None
+
+    accuracy: Optional[AccuracySpec] = None
+    typical_accuracy: Optional[AccuracySpec] = None
+    accuracy_45Hz_10kHz: Optional[AccuracySpec] = None
+    accuracy_45Hz_1kHz: Optional[AccuracySpec] = None
+
+    @field_validator('nominal_V', 'nominal_ohm', 'nominal_A', 'nominal_F', mode='before')
+    @classmethod
+    def validate_float_notation(cls, v):
+        if v is None:
+            return v
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return v
+
+    @property
+    def nominal(self) -> float:
+        """Returns the nominal value of the range, regardless of the unit."""
+        for val in [self.nominal_V, self.nominal_ohm, self.nominal_A, self.nominal_F]:
+            if val is not None:
+                return val
+        raise ValueError("RangeSpec has no nominal value defined.")
+
+    @property
+    def default_accuracy(self) -> Optional[AccuracySpec]:
+        """Returns the primary accuracy spec available."""
+        return self.accuracy or self.typical_accuracy or self.accuracy_45Hz_10kHz or self.accuracy_45Hz_1kHz
+
+
+class FunctionSpec(BaseModel):
+    """Models the specifications for a single measurement function."""
+    model_config = ConfigDict(extra='allow')
+    ranges: Optional[List[RangeSpec]] = None
+
+
+class MeasurementFunctionsSpec(BaseModel):
+    """Container for all measurement function specifications from the YAML."""
+    model_config = ConfigDict(extra='allow')
+    dc_voltage: Optional[FunctionSpec] = None
+    resistance_4wire: Optional[FunctionSpec] = None
+    dc_current: Optional[FunctionSpec] = None
+    ac_voltage: Optional[FunctionSpec] = None
+    ac_current: Optional[FunctionSpec] = None
+    frequency: Optional[FunctionSpec] = None
+    temperature: Optional[FunctionSpec] = None
+    capacitance: Optional[FunctionSpec] = None
+    # 2-wire resistance is often not explicitly listed but can be inferred or added
+    resistance: Optional[FunctionSpec] = None
 
 
 class MultimeterConfig(InstrumentConfig):
-    """Pydantic model for Multimeter configuration."""
-    model_config = ConfigDict(validate_assignment=True, extra='forbid', use_enum_values=True)
+    """Pydantic model for Multimeter configuration, designed to load from a device spec YAML."""
+    model_config = ConfigDict(validate_assignment=True, extra='ignore')
 
-    # device_type is inherited from InstrumentConfig and validated there.
-    # It will be overridden by the specific Literal["DMM"] here.
-    device_type: Literal["DMM", "multimeter"] = Field("DMM", description="Device type identifier for DMMs (e.g. 'DMM', 'multimeter').")
-
-    measurement_function: DMMFunction = Field(
-        default=DMMFunction.VOLT_DC,
+    device_type: Literal["multimeter", "DMM"] = Field(
+        "multimeter", description="Device type identifier for multimeters."
+    )
+    # Runtime/Session settings
+    default_measurement_function: DMMFunction = Field(
+        default=DMMFunction.VOLTAGE_DC,
         description="Primary or default measurement function for the DMM."
-    )
-
-    configuration: DMMConfiguration = Field( # Removed Optional, ensuring it always exists
-        default_factory=DMMConfiguration,
-        description="Specific configuration settings for DMM measurement functions, including supported ranges."
-    )
-
-    resolution: Optional[float] = Field(
-        default=None,
-        gt=0, # Resolution should be positive
-        description="Default measurement resolution. Can be function-specific in practice."
-    )
-    nplc: Optional[float] = Field(
-        default=None,
-        gt=0, # NPLC should be positive
-        description="Default Number of Power Line Cycles for integration time. Can be function-specific."
     )
     trigger_source: Literal["IMM", "EXT", "BUS"] = Field(
         default="IMM",
@@ -112,3 +133,9 @@ class MultimeterConfig(InstrumentConfig):
         default=True,
         description="Enable (True) or disable (False) autoranging for measurements."
     )
+
+    # Fields mapping directly to the YAML specification file
+    limits: Dict[str, Any]
+    measurement_functions: MeasurementFunctionsSpec
+    math_functions: List[str]
+    sampling_rates_rps: Dict[str, Any]
