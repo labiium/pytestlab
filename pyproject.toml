@@ -16,6 +16,7 @@ dependencies    = [
     "pyvisa",
     "pydantic",
     "uncertainties",
+    "cryptography",
     "pyyaml",
     "tqdm",
     "pyscpi",

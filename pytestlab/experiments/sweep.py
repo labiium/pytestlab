@@ -1,8 +1,13 @@
 from __future__ import annotations
 
 import numpy as np
+import functools
 from tqdm import tqdm
-from typing import Callable, List, Tuple, Any, Dict
+from typing import Callable, List, Tuple, Any, Dict, Union, TypeVar, cast, Optional
+
+# Type variables for better typing
+T = TypeVar('T')
+R = TypeVar('R')
 
 # ==========================================
 # Helper Functions (Moved to Top Level)
@@ -10,6 +15,143 @@ from typing import Callable, List, Tuple, Any, Dict
 
 def f_evaluate(params: Tuple[Any, ...], f: Callable[..., Any]) -> Any:
     return f(*params)
+    
+class ParameterSpace:
+    """
+    Represents a parameter space for sweep operations.
+    
+    This class helps define and manage parameter spaces for various sweep strategies,
+    including parameter ranges, constraints, and integration with MeasurementSession.
+    """
+    
+    def __init__(self,
+                 ranges: Union[List[Tuple[float, float]], str, Dict[str, Tuple[float, float]]] = "auto",
+                 names: Optional[List[str]] = None,
+                 constraint: Optional[Callable[[Dict[str, float]], bool]] = None):
+        """
+        Initialize a parameter space.
+        
+        Args:
+            ranges: Parameter ranges in one of these formats:
+                - List of (min, max) tuples: [(min1, max1), (min2, max2), ...]
+                - Dict of {name: (min, max)}: {"x": (0, 10), "y": (-5, 5), ...}
+                - "auto" to extract from MeasurementSession
+            names: Parameter names (required if ranges is a list of tuples)
+            constraint: Optional function that takes a dict of parameter values
+                        and returns True if the combination is valid
+        """
+        self.ranges = ranges
+        self.names = names or []
+        self.constraint = constraint
+        self._session = None
+        
+        # Validate ranges and names
+        if isinstance(ranges, list) and names and len(ranges) != len(names):
+            raise ValueError("Number of ranges must match number of parameter names")
+            
+        # Convert dict to list format if provided as dict
+        if isinstance(ranges, dict):
+            self.names = list(ranges.keys())
+            self.ranges = [ranges[name] for name in self.names]
+    
+    @classmethod
+    def from_session(cls, session, constraint=None):
+        """
+        Create a ParameterSpace from a MeasurementSession.
+        
+        Args:
+            session: A MeasurementSession with defined parameters
+            constraint: Optional constraint function
+            
+        Returns:
+            ParameterSpace: A configured parameter space
+        """
+        space = cls("auto", constraint=constraint)
+        space._session = session
+        
+        # Extract parameter information
+        param_names = []
+        param_ranges = []
+        
+        for name, param in session._parameters.items():
+            param_names.append(name)
+            values = param.values
+            
+            # Calculate range from values
+            min_val = min(values)
+            max_val = max(values)
+            param_ranges.append((min_val, max_val))
+        
+        space.names = param_names
+        space.ranges = param_ranges
+        
+        return space
+    
+    def get_parameters(self):
+        """
+        Get parameter information.
+        
+        Returns:
+            tuple: (names, ranges) where:
+                - names is a list of parameter names
+                - ranges is a list of (min, max) tuples
+        """
+        # If auto, extract from session
+        if self.ranges == "auto":
+            if not self._session:
+                raise ValueError("'auto' ranges require a MeasurementSession")
+            return ParameterSpace.from_session(self._session, self.constraint).get_parameters()
+            
+        return self.names, self.ranges
+    
+    def is_valid(self, param_values: Union[List[float], Dict[str, float]]) -> bool:
+        """
+        Check if a parameter combination is valid according to the constraint.
+        
+        Args:
+            param_values: Parameter values as a list or dict
+            
+        Returns:
+            bool: True if valid, False otherwise
+        """
+        if not self.constraint:
+            return True
+            
+        # Convert list to dict if needed
+        if isinstance(param_values, list):
+            param_dict = dict(zip(self.names, param_values))
+        else:
+            param_dict = param_values
+            
+        return self.constraint(param_dict)
+    
+    def wrap_function(self, func: Callable):
+        """
+        Wrap a function to handle parameter passing and session integration.
+        
+        Args:
+            func: The measurement function to wrap
+            
+        Returns:
+            Callable: A wrapped function that handles parameters appropriately
+        """
+        # Get parameter information
+        names, _ = self.get_parameters()
+        
+        # Define wrapper function for session usage
+        def wrapped_func(*params):
+            # Convert positional params to dict
+            param_dict = dict(zip(names, params))
+            
+            # Apply constraint if any
+            if self.constraint and not self.constraint(param_dict):
+                # Return a default value for invalid combinations
+                return float('nan')
+                
+            # Call the original function with named parameters
+            return func(**param_dict)
+        
+        return wrapped_func
 
 # ==========================================
 # Monte Carlo Sweep
@@ -244,3 +386,260 @@ def gwass(f: Callable[..., Any], param_ranges: List[Tuple[float, float]], q_n: i
 
     results_final.sort(key=lambda x: x[0])
     return results_final[:q_n] # Ensure exactly q_n results if oversampled
+
+
+# ==========================================
+# Rename existing implementation functions
+# ==========================================
+grid_sweep_impl = grid_sweep
+monte_carlo_sweep_impl = monte_carlo_sweep
+gwass_impl = gwass
+
+
+# ==========================================
+# New decorator-based API
+# ==========================================
+
+def grid_sweep(param_space=None, points=10):
+    """
+    Apply a grid sweep to a measurement function.
+    
+    Args:
+        param_space: Parameter space definition, one of:
+            - ParameterSpace object
+            - List of (min, max) tuples
+            - Dict of {name: (min, max)}
+            - "auto" to extract from MeasurementSession
+        points: Points per dimension, either:
+            - Single integer (same for all dimensions)
+            - List of integers (one per dimension)
+            
+    Returns:
+        Callable: A decorator that applies a grid sweep
+        
+    Example:
+        @grid_sweep({"voltage": (0, 10), "current": (0, 1)}, 20)
+        def measure(voltage, current):
+            # Measurement code
+            return result
+            
+        # Or with auto parameter extraction from session
+        @session.acquire
+        @grid_sweep(points=15)
+        async def measure(voltage, current, instrument):
+            # Measurement code
+            return result
+            
+        # With constraint
+        def valid_region(params):
+            return params["voltage"] > 2 * params["current"]
+            
+        @grid_sweep(
+            ParameterSpace({"voltage": (0, 10), "current": (0, 1)}, constraint=valid_region),
+            points=15
+        )
+        def measure(voltage, current):
+            # Measurement code
+            return result
+    """
+    # Handle different param_space types
+    if param_space is None:
+        param_space = "auto"
+        
+    if not isinstance(param_space, ParameterSpace):
+        param_space = ParameterSpace(param_space)
+    
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            # Handle session as first argument
+            if args and hasattr(args[0], '_parameters') and hasattr(args[0], 'acquire'):
+                session = args[0]
+                local_space = ParameterSpace.from_session(session, param_space.constraint)
+                
+                # Create measurement function that closes over the original func
+                def measure_func(**params):
+                    return func(**params, **kwargs)
+                
+                # Get parameters and run grid sweep
+                names, ranges = local_space.get_parameters()
+                wrapped_func = local_space.wrap_function(measure_func)
+                
+                # Run the original grid_sweep function
+                results = grid_sweep_impl(wrapped_func, ranges, points)
+                
+                # Format results if needed
+                return results
+            else:
+                # Standard usage without session
+                if param_space.ranges == "auto":
+                    raise ValueError("'auto' parameter space requires a MeasurementSession")
+                
+                # Get parameters and run grid sweep
+                names, ranges = param_space.get_parameters()
+                wrapped_func = param_space.wrap_function(func)
+                
+                # Run the original grid_sweep function
+                return grid_sweep_impl(wrapped_func, ranges, points)
+        return wrapper
+    return decorator
+
+
+def monte_carlo_sweep(param_space=None, samples=50):
+    """
+    Apply a Monte Carlo sweep to a measurement function.
+    
+    Args:
+        param_space: Parameter space definition, one of:
+            - ParameterSpace object
+            - List of (min, max) tuples
+            - Dict of {name: (min, max)}
+            - "auto" to extract from MeasurementSession
+        samples: Number of samples, either:
+            - Single integer (total samples)
+            - List of integers (samples per dimension)
+            
+    Returns:
+        Callable: A decorator that applies a Monte Carlo sweep
+        
+    Example:
+        @monte_carlo_sweep({"voltage": (0, 10), "current": (0, 1)}, 100)
+        def measure(voltage, current):
+            # Measurement code
+            return result
+            
+        # With constraint function
+        def valid_region(params):
+            return params["voltage"] > 0.5 and params["current"] < 0.8
+            
+        @monte_carlo_sweep(
+            ParameterSpace({"voltage": (0, 10), "current": (0, 1)}, constraint=valid_region),
+            samples=200
+        )
+        def measure(voltage, current):
+            # Measurement code
+            return result
+    """
+    # Handle different param_space types
+    if param_space is None:
+        param_space = "auto"
+        
+    if not isinstance(param_space, ParameterSpace):
+        param_space = ParameterSpace(param_space)
+    
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            # Handle session as first argument
+            if args and hasattr(args[0], '_parameters') and hasattr(args[0], 'acquire'):
+                session = args[0]
+                local_space = ParameterSpace.from_session(session, param_space.constraint)
+                
+                # Create measurement function that closes over the original func
+                def measure_func(**params):
+                    return func(**params, **kwargs)
+                
+                # Get parameters and run Monte Carlo sweep
+                names, ranges = local_space.get_parameters()
+                wrapped_func = local_space.wrap_function(measure_func)
+                
+                # Convert samples to per-dimension if needed
+                samples_list = samples
+                if isinstance(samples, int):
+                    # Equal distribution among parameters
+                    samples_list = [int(samples**(1/len(ranges)))] * len(ranges)
+                
+                # Run the original Monte Carlo sweep function
+                return monte_carlo_sweep_impl(wrapped_func, ranges, samples_list)
+            else:
+                # Standard usage without session
+                if param_space.ranges == "auto":
+                    raise ValueError("'auto' parameter space requires a MeasurementSession")
+                
+                # Get parameters and run Monte Carlo sweep
+                names, ranges = param_space.get_parameters()
+                wrapped_func = param_space.wrap_function(func)
+                
+                # Convert samples to per-dimension if needed
+                samples_list = samples
+                if isinstance(samples, int):
+                    # Equal distribution among parameters
+                    samples_list = [int(samples**(1/len(ranges)))] * len(ranges)
+                
+                return monte_carlo_sweep_impl(wrapped_func, ranges, samples_list)
+        return wrapper
+    return decorator
+
+
+def gwass(param_space=None, budget=100, initial_percentage=0.1):
+    """
+    Apply gradient-weighted adaptive stochastic sampling to a measurement function.
+    
+    Args:
+        param_space: Parameter space definition, one of:
+            - ParameterSpace object
+            - List of (min, max) tuples
+            - Dict of {name: (min, max)}
+            - "auto" to extract from MeasurementSession
+        budget: Total number of function evaluations allowed
+        initial_percentage: Percentage of budget to use for initial grid
+            
+    Returns:
+        Callable: A decorator that applies GWASS
+        
+    Example:
+        @gwass({"voltage": (0, 10), "current": (0, 1)}, budget=200)
+        def measure(voltage, current):
+            # Measurement code
+            return result
+            
+        # Or with constraint
+        def valid_region(params):
+            # Only accept points where voltage > 2*current
+            return params["voltage"] > 2 * params["current"]
+            
+        @gwass(
+            ParameterSpace({"voltage": (0, 10), "current": (0, 1)}, constraint=valid_region),
+            budget=150
+        )
+        def measure(voltage, current):
+            # Measurement code
+            return result
+    """
+    # Handle different param_space types
+    if param_space is None:
+        param_space = "auto"
+        
+    if not isinstance(param_space, ParameterSpace):
+        param_space = ParameterSpace(param_space)
+    
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            # Handle session as first argument
+            if args and hasattr(args[0], '_parameters') and hasattr(args[0], 'acquire'):
+                session = args[0]
+                local_space = ParameterSpace.from_session(session, param_space.constraint)
+                
+                # Create measurement function that closes over the original func
+                def measure_func(**params):
+                    return func(**params, **kwargs)
+                
+                # Get parameters and run GWASS
+                names, ranges = local_space.get_parameters()
+                wrapped_func = local_space.wrap_function(measure_func)
+                
+                # Run the original GWASS function
+                return gwass_impl(wrapped_func, ranges, budget, initial_percentage)
+            else:
+                # Standard usage without session
+                if param_space.ranges == "auto":
+                    raise ValueError("'auto' parameter space requires a MeasurementSession")
+                
+                # Get parameters and run GWASS
+                names, ranges = param_space.get_parameters()
+                wrapped_func = param_space.wrap_function(func)
+                
+                return gwass_impl(wrapped_func, ranges, budget, initial_percentage)
+        return wrapper
+    return decorator
