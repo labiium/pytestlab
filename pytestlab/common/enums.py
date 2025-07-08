@@ -1,5 +1,18 @@
 from enum import Enum
 
+__all__ = [
+    "SCPIOnOff",
+    "WaveformType",
+    "TriggerSlope",
+    "AcquisitionType",
+    "OutputLoadImpedance",
+    "OutputPolarity",
+    "VoltageUnit",
+    "TriggerSource",
+    "SyncMode",
+    "ModulationSource",
+]
+
 class SCPIOnOff(str, Enum):
     ON = "ON"
     OFF = "OFF"

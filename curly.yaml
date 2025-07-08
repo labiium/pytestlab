@@ -1,14 +1,15 @@
 base:
   language: python
-  use_gitignore: true 
+  use_gitignore: true
   ignore:
-  - packager
-  # - tests
-  - "*.png"
-  - htmlcov
-  - "*.csv"
-  - tests/*.json
-  - pytestlab.egg-info
+    - packager
+    # - tests
+    - "*.png"
+    - htmlcov
+    - "*.csv"
+    - "*.json"
+    - pytestlab.egg-info
+    - tests/misc
 
 prod:
   language: python
@@ -23,46 +24,44 @@ prod:
     - examples/example_experiment.py
     - osc_read.py
   ignore:
-  - sweep_test.py
-  - "*.csv"
-  - requirements.txt
-  - .gitignore
-  - packager
-  - tests
-  - "*.png"
-  - "*.egg-info"
-  - "*.ipynb"
-  - "*.npy"
-  - MANIFEST.in
-  - lm.toml
-  - pytestlab/profiles
-  - examples/data
+    - sweep_test.py
+    - "*.csv"
+    - requirements.txt
+    - .gitignore
+    - packager
+    - tests
+    - "*.png"
+    - "*.egg-info"
+    - "*.ipynb"
+    - "*.npy"
+    - MANIFEST.in
+    - lm.toml
+    - pytestlab/profiles
+    - examples/data
   # - measurement
   # - pytestlab/config
 
-
 experiments:
   output: experiments.out
-  path: 
+  path:
   language: python
   ignore:
-  - packager
-  - tests
-  - "*.png"
-  - "*.egg-info"
-  - "*.ipynb"
-  - MANIFEST.in
-  - pytestlab/profiles
-  # - pytestlab/config
-  # - pytestlab/instruments
-  # - pytestlab/experiments
-  - "*.npy"
-  - examples/*sweep*
-  - examples/data
-  - .gitignore
-  - requirements.txt
-  - pytestlab/instruments/InstrumentManager.py
-
+    - packager
+    - tests
+    - "*.png"
+    - "*.egg-info"
+    - "*.ipynb"
+    - MANIFEST.in
+    - pytestlab/profiles
+    # - pytestlab/config
+    # - pytestlab/instruments
+    # - pytestlab/experiments
+    - "*.npy"
+    - examples/*sweep*
+    - examples/data
+    - .gitignore
+    - requirements.txt
+    - pytestlab/instruments/InstrumentManager.py
 
 instruments:
   output: instruments.out
@@ -81,3 +80,37 @@ instruments:
     - .gitignore
     - requirements.txt
     - pytestlab/instruments/InstrumentManager.py
+
+docs:
+  language: python
+  output: docs.out
+  ignore:
+    - .github
+    - .pytest_cache
+    - .ropeproject
+    - __pycache__
+    - examples
+    - examples_ci
+    - pytestlab
+    - scripts
+    - site
+    - tests
+    - .coverage
+    - .gitignore
+    - .pre-commit-config.yaml
+    - CHANGELOG.md
+    - CODE_OF_CONDUCT.md
+    - CONTRIBUTING.md
+    - MANIFEST.in
+    - README.md
+    - curly.out
+    - curly.yaml
+    - debug_compliance.py
+    - debug_patch.py
+    - demo_db.db
+    - lm.yaml
+    - pyproject.toml
+    - pytest.ini
+    - pytestlab_logo.png
+    - recorded_psu_sim.yaml
+    - test_script.py

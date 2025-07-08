@@ -1,11 +1,26 @@
 site_name: PyTestLab
-site_description: 'Scientific test & measurement toolbox for Python.'
-repo_url: https://github.com/your-username/pytestlab # Placeholder, replace with actual repo URL
+docs_dir: en
+site_dir: ../site
+site_description: "Scientific test & measurement toolbox for Python."
+site_author: "LABIIUM"
+copyright: "Copyright &copy; 2023-2024 LABIIUM"
+repo_url: https://github.com/pytestlab/pytestlab
 edit_uri: edit/main/docs/
 
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/pytestlab/pytestlab
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/pytestlab/
+
 theme:
-  name: material
+  name: null
+  custom_dir: themes/labiium_photon
+  logo: img/pytestlab_logo.png
+  favicon: img/favicon.ico
   features:
+    - navigation.instant
     - navigation.tabs
     - navigation.sections
     - toc.integrate
@@ -13,87 +28,75 @@ theme:
     - search.suggest
     - content.code.annotate
     - content.code.copy
-  palette:
-    # Dark mode
-    - media: "(prefers-color-scheme: dark)"
-      scheme: slate
-      primary: teal
-      accent: purple
-      toggle:
-        icon: material/brightness-4
-        name: Switch to light mode
-    # Light mode  
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
-      primary: teal
-      accent: purple
-      toggle:
-        icon: material/brightness-7
-        name: Switch to dark mode
-  font:
-    text: Roboto
-    code: Roboto Mono
 
 plugins:
   - search
+  - i18n:
+      default_language: en
+      languages:
+        en:
+          name: English
+          build: true
+        fr:
+          name: Français
+          build: false # Example for future extension
   - mkdocstrings:
       handlers:
         python:
           options:
             show_root_heading: true
             show_category_heading: true
-            # Consult mkdocstrings documentation for more options
+            docstring_section_style: "spacy"
+            merge_init_into_class: true
+            show_if_no_docstring: true
   - mkdocs-jupyter
+  - awesome-pages
+  - git-revision-date-localized
 
 markdown_extensions:
-  - codehilite:
-      guess_lang: false
-  - pymdownx.highlight:
-      anchor_linenums: true
-      line_spans: __span
-      pygments_lang_class: true
-  - pymdownx.inlinehilite
-  - pymdownx.snippets
-  - pymdownx.superfences:
-      custom_fences:
-        - name: mermaid
-          class: mermaid
-          format: !!python/name:pymdownx.superfences.fence_code_format
   - admonition
   - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
   - attr_list
   - md_in_html
 
 extra_css:
   - stylesheets/extra.css
 
+extra_javascript:
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+
 nav:
   - Home: index.md
   - Installation: installation.md
-  - 'User Guide':
-    - 'Getting Started': user_guide/getting_started.md
-    - 'Async vs. Sync': 'user_guide/async_vs_sync.md'
-    - '10 Minute Tour': tutorials/10_minute_tour.ipynb
-    - 'Connecting to Instruments': user_guide/connecting.md
-    - 'Error Handling': 'user_guide/errors.md'
-    - 'Simulation Mode': user_guide/simulation.md
-    - 'Handling Uncertainty': user_guide/uncertainty.md
-    - 'Bench Descriptors': user_guide/bench_descriptors.md
-    - 'Command-Line Interface': user_guide/cli.md
-  - 'Tutorials':
-    - 'Compliance and Audit': 'tutorials/compliance.ipynb'
-    - 'Custom Validations': 'tutorials/custom_validations.ipynb'
-    - 'Profile Creation': 'tutorials/profile_creation.ipynb'
-  - 'API Reference':
-    - 'Instruments': api/instruments.md
-    - 'Configuration': api/config.md
-    - 'Backends': api/backends.md
-    - 'Measurements': api/measurements.md
-    - 'Experiments & Database': api/experiments.md
-    - 'Errors': api/errors.md
-    - 'Common Utilities': api/common.md
-  - 'Instrument Profiles':
-    - 'Profile Gallery': profiles/gallery.md
-    - 'Creating Profiles': profiles/creating.md
-  - 'Contributing': contributing.md
-  - 'Changelog': changelog.md
+  - "User Guide":
+      - "Getting Started": user_guide/getting_started.md
+      - "Async vs. Sync": user_guide/async_vs_sync.md
+      - "10 Minute Tour": ../tutorials/10_minute_tour.ipynb
+      - "Connecting to Instruments": user_guide/connecting.md
+      - "Error Handling": user_guide/errors.md
+      - "Simulation Mode": user_guide/simulation.md
+      - "Handling Uncertainty": user_guide/uncertainty.md
+      - "Bench Descriptors": user_guide/bench_descriptors.md
+      - "Command-Line Interface": user_guide/cli.md
+  - "Tutorials":
+      - "Compliance and Audit": ../tutorials/compliance.ipynb
+      - "Custom Validations": ../tutorials/custom_validations.ipynb
+      - "Profile Creation": ../tutorials/profile_creation.ipynb
+      - "SmartBench Example": ../tutorials/smartbench.ipynb
+      - "API Example": ../tutorials/example.ipynb
+  - "API Reference":
+      - "Instruments": api/instruments.md
+      - "Configuration": api/config.md
+      - "Backends": api/backends.md
+      - "Measurements": api/measurements.md
+      - "Experiments & Database": api/experiments.md
+      - "Errors": api/errors.md
+      - "Common Utilities": api/common.md
+  - "Instrument Profiles":
+      - "Profile Gallery": profiles/gallery.md
+      - "Creating Profiles": profiles/creating.md
+  - "Contributing": contributing.md
+  - "Changelog": changelog.md

@@ -12,6 +12,16 @@ from pydantic.fields import FieldInfo
 
 from .instrument_config import InstrumentConfig
 
+# --- DUMMY ConfigLoader for mkdocstrings compatibility ---
+class ConfigLoader:
+    """
+    Dummy ConfigLoader class for documentation compatibility.
+    This is not used in runtime code, but allows mkdocstrings to resolve
+    'pytestlab.config.ConfigLoader' for API docs.
+    """
+    pass
+
+
 
 # Global cache for discovered models to avoid re-discovering on every call
 _MODEL_REGISTRY_CACHE: dict[str, Type[InstrumentConfig]] | None = None
@@ -27,14 +37,14 @@ def _discover_models() -> dict[str, Type[InstrumentConfig]]:
 
         if inspect.isclass(member) and issubclass(member, InstrumentConfig) and member is not InstrumentConfig:
             cls = member
-            
+
             if "device_type" in cls.model_fields:
                 field_info: FieldInfo = cls.model_fields["device_type"]
-                
+
                 possible_device_types = set()
 
                 annotation = field_info.annotation
-                
+
                 origin_annotation = typing.get_origin(annotation)
                 args_annotation = typing.get_args(annotation)
 
@@ -48,7 +58,7 @@ def _discover_models() -> dict[str, Type[InstrumentConfig]]:
                      for literal_val in args_annotation:
                         if isinstance(literal_val, str):
                             possible_device_types.add(literal_val)
-                
+
                 if field_info.default is not PydanticUndefined and isinstance(field_info.default, str):
                     possible_device_types.add(field_info.default)
 

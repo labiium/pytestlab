@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="{% if config.theme.language %}{{ config.theme.language }}{% else %}en{% endif %}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="{{ config.site_description }}">
+    <meta name="author" content="LABIIUM">
+    <meta name="robots" content="index, follow">
+
+    <!-- Favicon -->
+    <link rel="icon" href="{{ 'img/favicon.ico'|url }}" type="image/x-icon">
+
+    <title>{% if page.title %}{{ page.title }} - {% endif %}{{ config.site_name }}{% if page.is_404 %} - Page Not Found{% endif %}</title>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="{{ 'css/theme.css'|url }}">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&family=Manrope:wght@800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- Extra head content from plugins -->
+    {% block extrahead %}{% endblock %}
+</head>
+<body{% if page.is_404 %} class="error-page-body"{% endif %}>
+    <div id="background-beams"></div>
+
+    <div class="layout">
+        <!-- Header / Navigation -->
+        <header class="site-header">
+            <div class="container">
+                <div class="header-content">
+                    <div class="logo-container">
+                        <a href="{{ nav.homepage.url|url }}" class="site-logo">
+                            <img src="{{ 'img/pytestlab_logo.png'|url }}" alt="{{ config.site_name }} Logo">
+                            <span class="site-name">{{ config.site_name }}</span>
+                        </a>
+                    </div>
+
+                    <nav class="nav-primary">
+                        <button class="mobile-nav-toggle" aria-label="Toggle navigation">
+                            <span class="line"></span>
+                            <span class="line"></span>
+                            <span class="line"></span>
+                        </button>
+
+                        <ul class="nav-links">
+                            {% for nav_item in nav %}
+                                {% if nav_item.children %}
+                                    <li class="nav-item dropdown {% if nav_item.active %}active{% endif %}">
+                                        <a href="#" class="dropdown-toggle">{{ nav_item.title }}</a>
+                                        <ul class="dropdown-menu glass-card">
+                                            {% for child in nav_item.children %}
+                                                <li class="{% if child.active %}active{% endif %}">
+                                                    <a href="{{ child.url|url }}">{{ child.title }}</a>
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                    </li>
+                                {% else %}
+                                    <li class="nav-item {% if nav_item.active %}active{% endif %}">
+                                        <a href="{{ nav_item.url|url }}">{{ nav_item.title }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                        </ul>
+                    </nav>
+
+                    <div class="header-actions">
+                        {% if config.repo_url %}
+                        <a href="{{ config.repo_url }}" target="_blank" class="beam-button beam-button-sm">
+                            <span class="beam-button-text">GitHub</span>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <main class="main-content">
+            <div class="container">
+                <div class="content-layout">
+                    <!-- Sidebar / Table of Contents -->
+                    {% if not page.is_404 %}
+                    <aside class="sidebar">
+                        <div class="glass-card toc-container">
+                            <div class="toc-header">
+                                <h4>Contents</h4>
+                            </div>
+                            {% if page.toc %}
+                                <ul class="toc">
+                                    {% for toc_item in page.toc %}
+                                        <li class="toc-item level-{{ toc_item.level }}">
+                                            <a href="{{ toc_item.url }}">{{ toc_item.title }}</a>
+                                            {% if toc_item.children %}
+                                                <ul>
+                                                    {% for toc_child in toc_item.children %}
+                                                        <li class="toc-item level-{{ toc_child.level }}">
+                                                            <a href="{{ toc_child.url }}">{{ toc_child.title }}</a>
+                                                        </li>
+                                                    {% endfor %}
+                                                </ul>
+                                            {% endif %}
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            {% endif %}
+                        </div>
+                    </aside>
+                    {% endif %}
+
+                    <!-- Main Content Area -->
+                    <div class="page-content glass-card{% if page.is_404 %} full-width{% endif %}">
+                        <div class="article">
+                            {% if not page.is_404 %}
+                            <h1 class="page-title">{{ page.title }}</h1>
+                            {% if page.meta.subtitle %}
+                                <h2 class="page-subtitle">{{ page.meta.subtitle }}</h2>
+                            {% endif %}
+                            {% endif %}
+
+                            {% block content %}
+                                {{ page.content }}
+                            {% endblock %}
+                        </div>
+
+                        <!-- Page Navigation (Previous/Next) -->
+                        {% if not page.is_404 %}
+                        <div class="page-nav">
+                            {% if page.previous_page %}
+                                <a href="{{ page.previous_page.url|url }}" class="prev-link">
+                                    <span class="nav-label">Previous</span>
+                                    <span class="nav-title">{{ page.previous_page.title }}</span>
+                                </a>
+                            {% endif %}
+
+                            {% if page.next_page %}
+                                <a href="{{ page.next_page.url|url }}" class="next-link">
+                                    <span class="nav-label">Next</span>
+                                    <span class="nav-title">{{ page.next_page.title }}</span>
+                                </a>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="site-footer">
+            <div class="container">
+                <div class="footer-content">
+                    <div class="footer-copyright">
+                        <p>&copy; {{ build_date_utc.strftime('%Y') }} LABIIUM. All rights reserved.</p>
+                        <p>PyTestLab is an open-source project.</p>
+                    </div>
+
+                    <div class="footer-links">
+                        {% if config.repo_url %}
+                            <a href="{{ config.repo_url }}" target="_blank">GitHub</a>
+                        {% endif %}
+                        {% if config.site_url %}
+                            <a href="{{ config.site_url }}">Website</a>
+                        {% endif %}
+                        <a href="{{ 'changelog/'|url }}">Changelog</a>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="{{ 'js/theme.js'|url }}"></script>
+
+    {% if page.is_404 %}
+    <style>
+        .content-layout {
+            grid-template-columns: 1fr !important;
+        }
+
+        .full-width {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .error-page-body #background-beams {
+            background: radial-gradient(ellipse 80% 50% at 50% 50%, rgba(83, 51, 237, 0.2), transparent),
+                        radial-gradient(ellipse 60% 50% at 50% 50%, rgba(4, 226, 220, 0.15), transparent);
+        }
+    </style>
+    {% endif %}
+
+    <!-- Extra scripts from plugins -->
+    {% block extrascripts %}{% endblock %}
+</body>
+</html>

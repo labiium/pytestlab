@@ -10,3 +10,12 @@ class Range(RangeMixin): # RangeMixin already inherits from BaseModel
     pass
 
 # Add other core/common Pydantic models here if identified or needed later.
+
+# --- DUMMY BaseConfig for mkdocstrings compatibility ---
+class BaseConfig(BaseModel):
+    """
+    Dummy BaseConfig class for documentation compatibility.
+    This is not used in runtime code, but allows mkdocstrings to resolve
+    'pytestlab.config.BaseConfig' for API docs.
+    """
+    pass

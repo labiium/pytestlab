@@ -1,0 +1,5 @@
+# MkDocs theme configuration for LABIIUM Photon theme
+name: LABIIUM Photon
+main: main.html
+static_templates:
+  - 404.html

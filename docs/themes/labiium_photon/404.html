@@ -1,0 +1,206 @@
+{% extends "main.html" %}
+
+{% block content %}
+<div class="error-page fade-in">
+    <div class="error-container glass-card">
+        <div class="error-code">404</div>
+        <h1 class="error-title">Signal Lost</h1>
+        <p class="error-message">The pathway you were looking for seems to have scattered through the quantum foam.</p>
+
+        <div class="error-illustration">
+            <div class="wave"></div>
+            <div class="wave"></div>
+            <div class="wave"></div>
+            <div class="particle particle-1"></div>
+            <div class="particle particle-2"></div>
+            <div class="particle particle-3"></div>
+            <div class="particle particle-4"></div>
+        </div>
+
+        <div class="error-actions">
+            <a href="{{ '/'|url }}" class="beam-button">Return to Safe Space</a>
+            <a href="javascript:history.back()" class="text-button">Step Back</a>
+        </div>
+    </div>
+</div>
+
+<style>
+    .error-page {
+        min-height: 60vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: var(--spacing-xl) 0;
+    }
+
+    .error-container {
+        max-width: 600px;
+        width: 100%;
+        padding: var(--spacing-xl);
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .error-code {
+        font-family: var(--font-display);
+        font-size: 8rem;
+        line-height: 1;
+        font-weight: 800;
+        margin-bottom: var(--spacing-md);
+        background: linear-gradient(135deg, var(--lab-violet), var(--lab-aqua));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        letter-spacing: -0.04em;
+        text-shadow: 0 0 30px rgba(83, 51, 237, 0.4);
+    }
+
+    .error-title {
+        font-size: 2.5rem;
+        margin-top: 0;
+        margin-bottom: var(--spacing-md);
+    }
+
+    .error-message {
+        font-size: 1.2rem;
+        color: rgba(255, 255, 255, 0.8);
+        max-width: 400px;
+        margin-left: auto;
+        margin-right: auto;
+        margin-bottom: var(--spacing-xl);
+    }
+
+    .error-actions {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: var(--spacing-md);
+        margin-top: var(--spacing-xl);
+    }
+
+    .text-button {
+        color: var(--lab-aqua);
+        text-decoration: none;
+        transition: text-shadow 0.3s var(--ease-curve), color 0.3s var(--ease-curve);
+        padding: var(--spacing-xs) var(--spacing-md);
+    }
+
+    .text-button:hover {
+        color: var(--photon-white);
+        text-shadow: 0 0 8px rgba(4, 226, 220, 0.5);
+    }
+
+    /* Illustration with animated elements */
+    .error-illustration {
+        position: relative;
+        height: 120px;
+        margin: var(--spacing-xl) 0;
+    }
+
+    .wave {
+        position: absolute;
+        top: 50%;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background: linear-gradient(90deg,
+            transparent 0%,
+            var(--lab-aqua) 20%,
+            var(--lab-violet) 50%,
+            var(--lab-aqua) 80%,
+            transparent 100%);
+        opacity: 0.7;
+        transform: translateY(-50%);
+        animation: wave-animate 6s linear infinite;
+    }
+
+    .wave:nth-child(2) {
+        animation-duration: 8s;
+        opacity: 0.5;
+        top: 60%;
+    }
+
+    .wave:nth-child(3) {
+        animation-duration: 10s;
+        animation-direction: reverse;
+        opacity: 0.3;
+        top: 40%;
+    }
+
+    @keyframes wave-animate {
+        0% {
+            background-position: 0% 50%;
+        }
+        100% {
+            background-position: 100% 50%;
+        }
+    }
+
+    .particle {
+        position: absolute;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--lab-aqua);
+        opacity: 0.7;
+        filter: blur(2px);
+        animation: particle-float 8s ease-in-out infinite;
+    }
+
+    .particle-1 {
+        top: 20%;
+        left: 30%;
+        animation-delay: 0s;
+        background: var(--lab-violet);
+    }
+
+    .particle-2 {
+        top: 60%;
+        left: 60%;
+        animation-delay: -2s;
+    }
+
+    .particle-3 {
+        top: 30%;
+        left: 75%;
+        animation-delay: -4s;
+        background: var(--lab-violet);
+    }
+
+    .particle-4 {
+        top: 70%;
+        left: 15%;
+        animation-delay: -6s;
+    }
+
+    @keyframes particle-float {
+        0%, 100% {
+            transform: translateY(0) scale(1);
+            opacity: 0.7;
+        }
+        50% {
+            transform: translateY(-15px) scale(1.2);
+            opacity: 0.9;
+        }
+    }
+
+    @media (max-width: 640px) {
+        .error-code {
+            font-size: 6rem;
+        }
+
+        .error-title {
+            font-size: 2rem;
+        }
+
+        .error-message {
+            font-size: 1rem;
+        }
+
+        .error-illustration {
+            height: 80px;
+        }
+    }
+</style>
+{% endblock %}
