@@ -88,7 +88,7 @@ async def safe_operation():
 
 ## Further Reading
 
-- [API Exception Reference](../../api/errors.md)
+- [API Exception Reference](../api/errors.md)
 - [Simulation Guide](simulation.md)
 - [Bench Descriptors & Safety Limits](bench_descriptors.md)
 

@@ -72,6 +72,6 @@ If you see a list of available instrument profiles, your installation is success
 
 ## Next Steps
 
-- [Getting Started Guide](getting_started.md)
-- [Async vs. Sync Programming](async_vs_sync.md)
-- [Connecting to Instruments](connecting.md)
+- [Getting Started Guide](user_guide/getting_started.md)
+- [Async vs. Sync Programming](user_guide/async_vs_sync.md)
+- [Connecting to Instruments](user_guide/connecting.md)

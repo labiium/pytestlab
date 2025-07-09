@@ -86,6 +86,6 @@ If your instrument or measurement requires a custom uncertainty model (e.g., tem
 
 - [uncertainties package documentation](https://pythonhosted.org/uncertainties/)
 - [PyTestLab Configuration Models](../api/config.md)
-- [10-Minute Tour: Uncertainty Example](../../tutorials/10_minute_tour.ipynb)
+- [10-Minute Tour: Uncertainty Example](../tutorials/10_minute_tour.ipynb)
 
 ---

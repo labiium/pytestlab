@@ -22,6 +22,29 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // --- Navbar Scroll Effect ---
+  const siteHeader = document.querySelector(".site-header");
+  if (siteHeader) {
+    let lastScrollY = window.scrollY;
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+
+      if (currentScrollY > 50) {
+        siteHeader.classList.add("scrolled");
+      } else {
+        siteHeader.classList.remove("scrolled");
+      }
+
+      lastScrollY = currentScrollY;
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    // Initial check
+    handleScroll();
+  }
+
   // --- Mobile Navigation Toggle ---
   const mobileNavToggle = document.querySelector(".mobile-nav-toggle");
   const navLinks = document.querySelector(".nav-links");
@@ -266,7 +289,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // --- Add style to scrollbar and copy animations for WebKit browsers ---
+  // --- Add style to scrollbar, copy animations, and Jupyter notebook styling for WebKit browsers ---
   const style = document.createElement("style");
   style.textContent = `
         ::-webkit-scrollbar {
@@ -284,6 +307,103 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         ::-webkit-scrollbar-thumb:hover {
             background: var(--lab-violet);
+        }
+
+        /* Jupyter Notebook Styling */
+        .nb-cell {
+            margin-bottom: var(--spacing-lg, 1.5rem);
+        }
+
+        .nb-input, .nb-output {
+            background: rgba(30, 33, 38, 0.75);
+            border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
+            border-radius: var(--border-radius-md, 8px);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            margin-bottom: var(--spacing-md, 1rem);
+            overflow: hidden;
+        }
+
+        .nb-input-prompt, .nb-output-prompt {
+            background: rgba(83, 51, 237, 0.1);
+            border-right: 2px solid var(--lab-violet, #5333ed);
+            color: var(--lab-violet, #5333ed);
+            font-family: var(--font-code, monospace);
+            font-size: 0.85rem;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            min-width: 80px;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nb-output-prompt {
+            background: rgba(4, 226, 220, 0.1);
+            border-right-color: var(--lab-aqua, #04e2dc);
+            color: var(--lab-aqua, #04e2dc);
+        }
+
+        .nb-input-content, .nb-output-content {
+            padding: var(--spacing-md, 1rem);
+        }
+
+        .nb-input pre, .nb-output pre {
+            background: transparent !important;
+            border: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .nb-input code, .nb-output code {
+            background: transparent !important;
+            color: var(--photon-white, #f5f7fa) !important;
+            font-family: var(--font-code, monospace) !important;
+            font-size: 0.9rem !important;
+            line-height: 1.6 !important;
+        }
+
+        .nb-output-text {
+            color: var(--photon-white, #f5f7fa);
+            font-family: var(--font-code, monospace);
+            font-size: 0.9rem;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+
+        .nb-output-image, .nb-output-display-data {
+            text-align: center;
+            padding: var(--spacing-md, 1rem);
+        }
+
+        .nb-output img {
+            max-width: 100%;
+            height: auto;
+            border-radius: var(--border-radius-sm, 4px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .nb-error {
+            background: rgba(255, 84, 96, 0.1) !important;
+            border-color: var(--status-error, #ff5460) !important;
+            color: var(--status-error, #ff5460) !important;
+        }
+
+        .nb-error .nb-output-prompt {
+            background: rgba(255, 84, 96, 0.2);
+            border-right-color: var(--status-error, #ff5460);
+            color: var(--status-error, #ff5460);
+        }
+
+        /* Enhanced code block styling for notebooks */
+        .nb-input .copy-button, .nb-output .copy-button {
+            background: rgba(30, 33, 38, 0.9);
+            border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
+        }
+
+        .nb-input:hover .copy-button, .nb-output:hover .copy-button {
+            opacity: 1;
         }
 
         /* Copy Button Animation */

@@ -143,4 +143,4 @@ You must use an event loop. In scripts, use `asyncio.run()`. In notebooks, use t
 
 ---
 
-For more practical examples, see the [10-Minute Tour](../../tutorials/10_minute_tour.ipynb) and the [Getting Started Guide](getting_started.md).
+For more practical examples, see the [10-Minute Tour](../tutorials/10_minute_tour.ipynb) and the [Getting Started Guide](getting_started.md).

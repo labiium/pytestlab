@@ -71,4 +71,4 @@ asyncio.run(main())
 
 ---
 
-For more advanced usage, see the [Experiments & Sweeps API](experiments.md) and the [10-Minute Tour](../../tutorials/10_minute_tour.ipynb).
+For more advanced usage, see the [Experiments & Sweeps API](experiments.md) and the [10-Minute Tour](../tutorials/10_minute_tour.ipynb).

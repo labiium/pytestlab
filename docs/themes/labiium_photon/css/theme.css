@@ -215,6 +215,14 @@ hr {
     position: sticky;
     top: 0;
     z-index: 100;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
+    transition: all 0.4s var(--ease-curve);
+}
+
+.site-header.scrolled {
     background: rgba(11, 14, 17, 0.8);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
@@ -474,17 +482,23 @@ hr {
     left: 0;
     right: 0;
     bottom: 0;
+    width: 100vw;
+    height: 100vh;
     background: rgba(11, 14, 17, 0.95);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    z-index: 1000;
+    z-index: 9999;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: flex-start;
     padding-top: 15vh;
+    padding-left: var(--spacing-lg);
+    padding-right: var(--spacing-lg);
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.4s var(--ease-curve);
+    overflow-y: auto;
 }
 
 .search-modal.active {
@@ -492,10 +506,23 @@ hr {
     pointer-events: auto;
 }
 
+.search-modal::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(11, 14, 17, 0.3);
+    z-index: -1;
+}
+
 .search-modal-content {
     width: 100%;
     max-width: 700px;
-    padding: 0 var(--spacing-lg);
+    padding: 0;
+    position: relative;
+    z-index: 10;
 }
 
 .search-form {
@@ -552,7 +579,11 @@ hr {
 .search-results {
     max-height: 60vh;
     overflow-y: auto;
-    width: 100%;
+    border-radius: var(--border-radius-md);
+    background: rgba(30, 33, 38, 0.5);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
 }
 
 .search-results-meta {
@@ -561,17 +592,19 @@ hr {
 }
 
 .search-result-item {
-    border-radius: var(--border-radius-md);
-    background: rgba(43, 46, 50, 0.5);
+    background: rgba(30, 33, 38, 0.75);
     border: 1px solid var(--glass-border);
+    border-radius: var(--border-radius-sm);
     margin-bottom: var(--spacing-sm);
     transition: all 0.3s var(--ease-curve);
+    overflow: hidden;
 }
 
 .search-result-item:hover {
-    border-color: var(--lab-violet);
+    background: rgba(30, 33, 38, 0.9);
+    border-color: var(--lab-aqua);
     transform: translateY(-2px);
-    box-shadow: 0 4px 20px rgba(83, 51, 237, 0.2);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
 .search-result-link {
@@ -1056,6 +1089,339 @@ pre[class*="language-"]:hover .lang-badge {
 .article pre code:hover {
     box-shadow: none;
     border-color: transparent;
+}
+
+/* ------------------------------
+ * JUPYTER NOTEBOOK STYLING
+ * ------------------------------ */
+
+/* Notebook cell containers */
+.nb-cell {
+    margin-bottom: var(--spacing-lg);
+    border-radius: var(--border-radius-md);
+    overflow: hidden;
+}
+
+/* Input and output containers */
+.nb-input,
+.nb-output {
+    display: flex;
+    background: var(--glass-frost-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--border-radius-md);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    margin-bottom: var(--spacing-md);
+    overflow: hidden;
+    transition: all 0.3s var(--ease-curve);
+}
+
+.nb-input:hover,
+.nb-output:hover {
+    border-color: var(--glass-border-hover);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+/* Prompt styling */
+.nb-input-prompt,
+.nb-output-prompt {
+    background: rgba(83, 51, 237, 0.15);
+    border-right: 2px solid var(--lab-violet);
+    color: var(--lab-violet);
+    font-family: var(--font-code);
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: var(--spacing-md);
+    min-width: 80px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    position: relative;
+}
+
+.nb-output-prompt {
+    background: rgba(4, 226, 220, 0.15);
+    border-right-color: var(--lab-aqua);
+    color: var(--lab-aqua);
+}
+
+/* Add subtle glow effect to prompts */
+.nb-input-prompt::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(83, 51, 237, 0.1),
+        transparent
+    );
+    opacity: 0;
+    transition: opacity 0.3s var(--ease-curve);
+}
+
+.nb-output-prompt::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(4, 226, 220, 0.1),
+        transparent
+    );
+    opacity: 0;
+    transition: opacity 0.3s var(--ease-curve);
+}
+
+.nb-input:hover .nb-input-prompt::before,
+.nb-output:hover .nb-output-prompt::before {
+    opacity: 1;
+}
+
+/* Content areas */
+.nb-input-content,
+.nb-output-content {
+    flex: 1;
+    padding: var(--spacing-md);
+    position: relative;
+}
+
+/* Code styling within notebooks */
+.nb-input pre,
+.nb-output pre {
+    background: transparent !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+}
+
+.nb-input code,
+.nb-output code {
+    background: transparent !important;
+    color: var(--photon-white) !important;
+    font-family: var(--font-code) !important;
+    font-size: 0.9rem !important;
+    line-height: 1.6 !important;
+    border: none !important;
+    padding: 0 !important;
+}
+
+/* Output text styling */
+.nb-output-text {
+    color: var(--photon-white);
+    font-family: var(--font-code);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* Output images and display data */
+.nb-output-image,
+.nb-output-display-data {
+    text-align: center;
+    padding: var(--spacing-md);
+}
+
+.nb-output img {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--border-radius-sm);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition:
+        transform 0.3s var(--ease-curve),
+        box-shadow 0.3s var(--ease-curve);
+}
+
+.nb-output img:hover {
+    transform: scale(1.02);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* Error styling */
+.nb-error {
+    background: rgba(255, 84, 96, 0.1) !important;
+    border-color: var(--status-error) !important;
+}
+
+.nb-error .nb-output-prompt {
+    background: rgba(255, 84, 96, 0.2);
+    border-right-color: var(--status-error);
+    color: var(--status-error);
+}
+
+.nb-error .nb-output-text {
+    color: var(--status-error);
+}
+
+/* Success/info output styling */
+.nb-success {
+    background: rgba(0, 178, 124, 0.1) !important;
+    border-color: var(--status-success) !important;
+}
+
+.nb-success .nb-output-prompt {
+    background: rgba(0, 178, 124, 0.2);
+    border-right-color: var(--status-success);
+    color: var(--status-success);
+}
+
+/* Warning output styling */
+.nb-warning {
+    background: rgba(255, 176, 46, 0.1) !important;
+    border-color: var(--status-warning) !important;
+}
+
+.nb-warning .nb-output-prompt {
+    background: rgba(255, 176, 46, 0.2);
+    border-right-color: var(--status-warning);
+    color: var(--status-warning);
+}
+
+/* Enhanced copy button for notebook cells */
+.nb-input .copy-button,
+.nb-output .copy-button {
+    position: absolute;
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+    background: rgba(30, 33, 38, 0.9);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--border-radius-sm);
+    color: rgba(255, 255, 255, 0.7);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: 0.8rem;
+    opacity: 0;
+    transition: all 0.3s var(--ease-curve);
+    cursor: pointer;
+    z-index: 10;
+}
+
+.nb-input:hover .copy-button,
+.nb-output:hover .copy-button {
+    opacity: 1;
+}
+
+.nb-input .copy-button:hover,
+.nb-output .copy-button:hover {
+    background: rgba(30, 33, 38, 1);
+    border-color: var(--lab-aqua);
+    color: var(--lab-aqua);
+    transform: translateY(-1px);
+}
+
+/* Execution count styling */
+.nb-execution-count {
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+
+/* Notebook markdown cells */
+.nb-markdown {
+    background: rgba(30, 33, 38, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: var(--border-radius-md);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+}
+
+.nb-markdown h1,
+.nb-markdown h2,
+.nb-markdown h3,
+.nb-markdown h4,
+.nb-markdown h5,
+.nb-markdown h6 {
+    margin-top: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
+}
+
+.nb-markdown h1:first-child,
+.nb-markdown h2:first-child,
+.nb-markdown h3:first-child,
+.nb-markdown h4:first-child,
+.nb-markdown h5:first-child,
+.nb-markdown h6:first-child {
+    margin-top: 0;
+}
+
+/* Tables in notebook outputs */
+.nb-output table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: var(--spacing-md) 0;
+    background: rgba(30, 33, 38, 0.5);
+    border-radius: var(--border-radius-sm);
+    overflow: hidden;
+}
+
+.nb-output th,
+.nb-output td {
+    padding: var(--spacing-sm) var(--spacing-md);
+    text-align: left;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.nb-output th {
+    background: rgba(83, 51, 237, 0.2);
+    color: var(--lab-violet);
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.nb-output tr:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* Progress bars in notebook outputs */
+.nb-progress {
+    background: var(--graphite-30);
+    border-radius: 10px;
+    overflow: hidden;
+    height: 8px;
+    margin: var(--spacing-sm) 0;
+}
+
+.nb-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--lab-violet), var(--lab-aqua));
+    border-radius: 10px;
+    transition: width 0.3s var(--ease-curve);
+}
+
+/* Responsive notebook styling */
+@media (max-width: 768px) {
+    .nb-input,
+    .nb-output {
+        flex-direction: column;
+    }
+
+    .nb-input-prompt,
+    .nb-output-prompt {
+        min-width: auto;
+        text-align: left;
+        border-right: none;
+        border-bottom: 2px solid var(--lab-violet);
+    }
+
+    .nb-output-prompt {
+        border-bottom-color: var(--lab-aqua);
+    }
+
+    .nb-input-content,
+    .nb-output-content {
+        padding: var(--spacing-sm);
+    }
 }
 
 /* Admonitions */

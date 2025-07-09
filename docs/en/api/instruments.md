@@ -59,7 +59,7 @@ All instrument drivers expose "facade" objects for common operations, enabling a
 await scope.channel(1).setup(scale=0.5, offset=0).enable()
 ```
 
-See the [10-Minute Tour](../../tutorials/10_minute_tour.ipynb) for practical examples.
+See the [10-Minute Tour](../tutorials/10_minute_tour.ipynb) for practical examples.
 
 ---
 

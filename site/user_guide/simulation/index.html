@@ -166,23 +166,23 @@
                                             <ul class="dropdown-menu glass-card">
                                                 
                                                     <li class="">
-                                                        <a href="../../../tutorials/10_minute_tour.ipynb">10 Minute Tour</a>
+                                                        <a href="../../tutorials/10_minute_tour/">10 Minute Tour of PyTestLab</a>
                                                     </li>
                                                 
                                                     <li class="">
-                                                        <a href="../../../tutorials/compliance.ipynb">Compliance and Audit</a>
+                                                        <a href="../../tutorials/compliance/">PyTestLab Compliance and Audit Tutorial</a>
                                                     </li>
                                                 
                                                     <li class="">
-                                                        <a href="../../../tutorials/custom_validations.ipynb">Custom Validations</a>
+                                                        <a href="../../tutorials/custom_validations/">Creating and Using Custom Validation Rules in PyTestLab</a>
                                                     </li>
                                                 
                                                     <li class="">
-                                                        <a href="../../../tutorials/profile_creation.ipynb">Profile Creation</a>
+                                                        <a href="../../tutorials/profile_creation/">Creating Custom Instrument Profiles in PyTestLab</a>
                                                     </li>
                                                 
                                                     <li class="">
-                                                        <a href="../../../tutorials/smartbench.ipynb">SmartBench Example</a>
+                                                        <a href="../../tutorials/smartbench/">SmartBench Example</a>
                                                     </li>
                                                 
                                             </ul>
@@ -260,6 +260,10 @@
                                                 
                                                     <li class="">
                                                         <a href="../../changelog/">Changelog</a>
+                                                    </li>
+                                                
+                                                    <li class="">
+                                                        <a href="../../CODE_OF_CONDUCT/">Code of Conduct</a>
                                                     </li>
                                                 
                                             </ul>
@@ -530,41 +534,36 @@ pytestlab sim-profile record keysight/EDU36311A --address "TCPIP0::..."</code></
             const searchInput = document.getElementById('searchInput');
             let searchIndex = null;
 
-            // Load search index with better path resolution
-            const searchPath = window.location.pathname.includes('/site/')
-                ? '../search/search_index.json'
-                : 'search/search_index.json';
+            // Load search index with improved path resolution
+            const currentPath = window.location.pathname;
+            const baseUrl = currentPath.replace(/\/[^\/]*$/, '');
 
-            fetch(searchPath)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Search index not found');
+            // Try multiple search index paths
+            const searchPaths = [
+                'search/search_index.json',
+                '../search/search_index.json',
+                './search/search_index.json',
+                '/search/search_index.json',
+                baseUrl + '/search/search_index.json'
+            ];
+
+            const tryLoadSearchIndex = async () => {
+                for (const path of searchPaths) {
+                    try {
+                        const response = await fetch(path);
+                        if (response.ok) {
+                            searchIndex = await response.json();
+                            console.log('Search index loaded from:', path);
+                            return;
+                        }
+                    } catch (error) {
+                        // Continue to next path
                     }
-                    return response.json();
-                })
-                .then(data => {
-                    searchIndex = data;
-                    console.log('Search index loaded successfully');
-                })
-                .catch((error) => {
-                    console.log('Search index not found, trying alternative paths');
-                    // Try alternative paths
-                    const altPaths = ['../search/search_index.json', './search/search_index.json', '/search/search_index.json'];
+                }
+                console.log('Search functionality disabled - no search index found');
+            };
 
-                    altPaths.reduce((promise, path) => {
-                        return promise.catch(() => {
-                            return fetch(path).then(response => {
-                                if (!response.ok) throw new Error('Not found');
-                                return response.json();
-                            }).then(data => {
-                                searchIndex = data;
-                                console.log('Search index loaded from:', path);
-                            });
-                        });
-                    }, Promise.reject()).catch(() => {
-                        console.log('Search functionality disabled - no search index found');
-                    });
-                });
+            tryLoadSearchIndex();
 
             if (searchButton && searchModal && searchClose) {
                 searchButton.addEventListener('click', function() {
@@ -618,7 +617,23 @@ pytestlab sim-profile record keysight/EDU36311A --address "TCPIP0::..."</code></
                 docs.forEach((doc, i) => {
                     const title = (doc.title || '').toLowerCase();
                     const text = (doc.text || doc.content || '').toLowerCase();
-                    const location = doc.location || doc.url || '#';
+                    let location = doc.location || doc.url || '#';
+
+                    // Fix URL resolution for search results
+                    if (location && location !== '#') {
+                        // Remove leading slash if present and ensure proper relative path
+                        location = location.replace(/^\//, '');
+
+                        // If we're not on the root page, adjust the path
+                        const currentPath = window.location.pathname;
+                        if (currentPath !== '/' && !currentPath.endsWith('/index.html')) {
+                            // Count directory depth to add proper ../
+                            const depth = (currentPath.match(/\//g) || []).length - 1;
+                            if (depth > 0 && !location.startsWith('../')) {
+                                location = '../'.repeat(depth) + location;
+                            }
+                        }
+                    }
 
                     if (title.includes(query) || text.includes(query)) {
                         const titleIndex = title.indexOf(query);
@@ -641,17 +656,33 @@ pytestlab sim-profile record keysight/EDU36311A --address "TCPIP0::..."</code></
                 if (results.length > 0) {
                     metaElement.textContent = `${results.length} result${results.length > 1 ? 's' : ''} found`;
 
-                    resultsElement.innerHTML = results.map(result => `
-                        <div class="search-result-item">
-                            <a href="${result.location}" class="search-result-link">
-                                <div class="search-result-title">${result.title}</div>
-                                <div class="search-result-text">${result.text.substring(0, 150)}...</div>
-                            </a>
-                        </div>
-                    `).join('');
+                    resultsElement.innerHTML = results.map(result => {
+                        // Ensure the search result text is properly escaped
+                        const escapedTitle = result.title.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        const escapedText = result.text.substring(0, 150).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+                        return `
+                            <div class="search-result-item">
+                                <a href="${result.location}" class="search-result-link">
+                                    <div class="search-result-title">${escapedTitle}</div>
+                                    <div class="search-result-text">${escapedText}...</div>
+                                </a>
+                            </div>
+                        `;
+                    }).join('');
+
+                    // Add click handlers to close search modal when clicking results
+                    setTimeout(() => {
+                        const searchResultLinks = resultsElement.querySelectorAll('.search-result-link');
+                        searchResultLinks.forEach(link => {
+                            link.addEventListener('click', () => {
+                                searchModal.classList.remove('active');
+                            });
+                        });
+                    }, 100);
                 } else {
                     metaElement.textContent = 'No results found';
-                    resultsElement.innerHTML = '';
+                    resultsElement.innerHTML = '<div class="search-result-item"><div style="padding: 1rem; color: rgba(255, 255, 255, 0.6); text-align: center;">Try different keywords or check your spelling.</div></div>';
                 }
             }
 

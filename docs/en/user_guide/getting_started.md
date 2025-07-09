@@ -13,7 +13,7 @@ The best way to get started is with our interactive **10-Minute Tour**. This Jup
 - Performing a simple measurement.
 - Storing results in a database.
 
-[➡️ **Start the 10-Minute Tour**](../../tutorials/10_minute_tour.ipynb)
+[➡️ **Start the 10-Minute Tour**](../tutorials/10_minute_tour.ipynb)
 
 ---
 
@@ -66,10 +66,10 @@ asyncio.run(main())
 
 ## 3. Next Steps
 
-- **Explore the [10-Minute Tour](../../tutorials/10_minute_tour.ipynb)** for a hands-on walkthrough.
+- **Explore the [10-Minute Tour](../tutorials/10_minute_tour.ipynb)** for a hands-on walkthrough.
 - Learn about [Async vs. Sync programming](async_vs_sync.md) in PyTestLab.
 - See how to [Connect to real instruments](connecting.md).
-- Browse the [Profile Gallery](../../profiles/gallery.md) for supported devices.
+- Browse the [Profile Gallery](../profiles/gallery.md) for supported devices.
 - Read about [Simulation Mode](simulation.md) for hardware-free development.
 
 ---
