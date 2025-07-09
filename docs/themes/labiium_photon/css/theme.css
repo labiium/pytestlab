@@ -1096,108 +1096,160 @@ pre[class*="language-"]:hover .lang-badge {
     border-color: transparent;
 }
 
-/* ------------------------------
- * JUPYTER NOTEBOOK STYLING
- * ------------------------------ */
+/* =================================
+ * 12. JUPYTER NOTEBOOK ENHANCEMENTS
+ * ================================= */
 
-/* Make Jupyter notebook cells use the same beautiful styling as regular code blocks */
-.nb-input pre,
-.nb-output pre {
+/* Cell container */
+.nb-cell {
+    margin-bottom: var(--spacing-lg, 1.5rem);
     position: relative;
-    margin: var(--spacing-lg) 0;
-    padding: 2.5rem 1.5rem 1.5rem;
-    overflow: auto;
-    border-radius: var(--border-radius-md);
-    background: rgba(26, 29, 32, 0.8) !important;
-    border: 1px solid var(--glass-border);
-    box-shadow:
-        inset 0 0 0 1px rgba(83, 51, 237, 0.2),
-        0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* Base for input and output blocks */
+.nb-input,
+.nb-output {
+    position: relative;
+    border-radius: var(--border-radius-md, 8px);
+    background: var(--glass-frost-bg, rgba(30, 33, 38, 0.75));
+    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
-    transition: all 0.4s var(--ease-curve);
+    margin-bottom: var(--spacing-md, 1rem);
+    display: flex;
+    overflow: hidden;
+    transition: all 0.4s var(--ease-curve, cubic-bezier(0.16, 1, 0.3, 1));
 }
 
-.nb-input pre:hover,
-.nb-output pre:hover {
-    border-color: var(--glass-border-hover);
+.nb-input:hover,
+.nb-output:hover {
+    border-color: var(--glass-border-hover, rgba(255, 255, 255, 0.25));
     transform: translateY(-2px);
-    box-shadow:
-        inset 0 0 0 1px rgba(83, 51, 237, 0.3),
-        0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
-.nb-input pre::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, var(--lab-violet), var(--lab-aqua));
-    opacity: 0.7;
-    border-top-left-radius: var(--border-radius-md);
-    border-top-right-radius: var(--border-radius-md);
+/* Input/Output prompt styling (e.g., In [1]:) */
+.nb-input-prompt,
+.nb-output-prompt {
+    font-family: var(--font-code, monospace);
+    font-size: 0.8rem;
+    font-weight: 500;
+    padding: var(--spacing-md, 1rem);
+    text-align: right;
+    min-width: 90px;
+    user-select: none;
+    flex-shrink: 0;
 }
 
-.nb-output pre::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, var(--lab-aqua), var(--lab-violet));
-    opacity: 0.7;
-    border-top-left-radius: var(--border-radius-md);
-    border-top-right-radius: var(--border-radius-md);
+.nb-input-prompt {
+    background: rgba(83, 51, 237, 0.1);
+    border-right: 2px solid var(--lab-violet, #5333ed);
+    color: var(--lab-violet, #5333ed);
 }
 
-.nb-input pre:hover::before,
-.nb-output pre:hover::before {
-    opacity: 0.8;
+.nb-output-prompt {
+    background: rgba(4, 226, 220, 0.1);
+    border-right: 2px solid var(--lab-aqua, #04e2dc);
+    color: var(--lab-aqua, #04e2dc);
 }
 
-.nb-input code,
-.nb-output code {
-    color: var(--photon-white) !important;
-    background: none;
-    font-family: var(--font-code);
-    font-size: 0.9em;
-    text-align: left;
-    white-space: pre;
-    word-spacing: normal;
-    word-break: normal;
-    word-wrap: normal;
-    line-height: 1.5;
-    tab-size: 4;
-    hyphens: none;
-    border: none;
-    padding: 0;
+/* Content area for code and outputs */
+.nb-input-content,
+.nb-output-content {
+    flex-grow: 1;
+    overflow-x: auto;
+    position: relative;
 }
 
-/* Copy buttons for notebook cells */
-.nb-input pre .copy-button,
-.nb-output pre .copy-button {
+/* Ensure 'pre' and 'code' elements are styled correctly inside notebooks */
+.nb-input-content pre,
+.nb-output-content pre {
+    margin: 0 !important;
+    padding: var(--spacing-md, 1rem) !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+.nb-input-content code,
+.nb-output-content code {
+    background: transparent !important;
+    color: var(--photon-white, #f5f7fa) !important;
+    font-family: var(--font-code, monospace) !important;
+    font-size: 0.9em !important;
+    line-height: 1.6 !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Specific output types */
+.nb-output-text pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.nb-output-image,
+.nb-output-display-data {
+    display: flex;
+    justify-content: center;
+    padding: var(--spacing-md, 1rem);
+}
+
+.nb-output img {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--border-radius-sm, 4px);
+    background: white;
+}
+
+.nb-error {
+    background: rgba(255, 84, 96, 0.1) !important;
+    border-color: var(--status-error, #ff5460) !important;
+}
+
+.nb-error .nb-output-prompt {
+    background: rgba(255, 84, 96, 0.2);
+    border-right-color: var(--status-error, #ff5460);
+    color: var(--status-error, #ff5460);
+}
+
+.nb-error pre {
+    color: #ffcdd2 !important;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* Position copy button and language badge correctly */
+.nb-input-content .copy-button,
+.nb-output-content .copy-button {
     position: absolute;
     top: 0.75rem;
     right: 0.75rem;
     background: linear-gradient(
         135deg,
-        var(--lab-violet),
+        var(--lab-violet, #5333ed),
         rgba(83, 51, 237, 0.8)
     );
-    color: var(--photon-white);
+    color: var(--photon-white, #f5f7fa);
     border: none;
-    border-radius: var(--border-radius-sm);
+    border-radius: var(--border-radius-sm, 4px);
     padding: 0.5rem 0.75rem;
-    font-size: 0.8rem;
-    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-family: var(
+        --font-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        sans-serif
+    );
     font-weight: 500;
     cursor: pointer;
     opacity: 0;
     transform: translateY(-5px);
-    transition: all 0.3s var(--ease-curve);
+    transition: all 0.3s var(--ease-curve, cubic-bezier(0.16, 1, 0.3, 1));
     box-shadow: 0 2px 8px rgba(83, 51, 237, 0.2);
     z-index: 10;
     display: flex;
@@ -1205,102 +1257,170 @@ pre[class*="language-"]:hover .lang-badge {
     gap: 0.25rem;
 }
 
-.nb-input pre:hover .copy-button,
-.nb-output pre:hover .copy-button {
+.nb-input-content:hover .copy-button,
+.nb-output-content:hover .copy-button {
     opacity: 1;
     transform: translateY(0);
 }
 
-.nb-input pre .copy-button:hover,
-.nb-output pre .copy-button:hover {
+.nb-input-content .copy-button:hover,
+.nb-output-content .copy-button:hover {
     box-shadow: 0 4px 15px rgba(83, 51, 237, 0.5);
+    transform: scale(1.05);
 }
 
-.nb-input pre .copy-button.copied,
-.nb-output pre .copy-button.copied {
-    background: linear-gradient(135deg, var(--status-success), #00c98d);
+.nb-input-content .copy-button.copied,
+.nb-output-content .copy-button.copied {
+    background: linear-gradient(
+        135deg,
+        var(--status-success, #00b27c),
+        #00c98d
+    );
     box-shadow: 0 2px 10px rgba(0, 178, 124, 0.3);
 }
 
-/* Language badges for notebook cells */
-.nb-input pre .lang-badge,
-.nb-output pre .lang-badge {
+.nb-input-content .lang-badge,
+.nb-output-content .lang-badge {
     position: absolute;
     bottom: 0.75rem;
     right: 0.75rem;
-    background: rgba(26, 29, 32, 0.8);
-    color: var(--lab-aqua);
-    border-radius: 3px;
-    padding: 0.2rem 0.5rem;
+    background: rgba(11, 14, 17, 0.9);
+    color: var(--lab-aqua, #04e2dc);
+    border-radius: var(--border-radius-sm, 4px);
+    padding: 0.25rem 0.5rem;
     font-size: 0.7rem;
-    font-family: var(--font-code);
+    font-family: var(--font-code, monospace);
     border: 1px solid rgba(4, 226, 220, 0.2);
     font-weight: 500;
     opacity: 0.8;
     z-index: 5;
-    transition: all 0.3s var(--ease-curve);
+    transition: all 0.3s var(--ease-curve, cubic-bezier(0.16, 1, 0.3, 1));
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
 }
 
-.nb-input pre:hover .lang-badge,
-.nb-output pre:hover .lang-badge {
-    opacity: 0.9;
-    border-color: rgba(4, 226, 220, 0.3);
+.nb-input-content:hover .lang-badge,
+.nb-output-content:hover .lang-badge {
+    opacity: 1;
+    border-color: rgba(4, 226, 220, 0.4);
 }
 
-.nb-output pre .lang-badge {
-    color: var(--lab-violet);
-    border-color: rgba(83, 51, 237, 0.2);
+/* Legacy support for existing notebook styles */
+.nb-input pre,
+.nb-output pre {
+    position: relative;
+    margin: 0;
+    padding: var(--spacing-md, 1rem);
+    overflow: auto;
+    border-radius: 0;
+    background: transparent !important;
+    border: none;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 }
 
-.nb-output pre:hover .lang-badge {
-    border-color: rgba(83, 51, 237, 0.3);
-}
-
-/* Basic notebook cell styling */
-.nb-cell {
-    margin-bottom: var(--spacing-lg);
-}
-
-/* Output text styling */
-.nb-output-text {
-    color: var(--photon-white);
-    font-family: var(--font-code);
-    font-size: 0.9rem;
+.nb-input code,
+.nb-output code {
+    color: var(--photon-white, #f5f7fa) !important;
+    background: none !important;
+    font-family: var(--font-code, monospace);
+    font-size: 0.9em;
     line-height: 1.6;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-}
-
-/* Output images */
-.nb-output img {
-    max-width: 100%;
-    height: auto;
-    border-radius: var(--border-radius-sm);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    border: none;
+    padding: 0;
 }
 
 /* Tables in notebook outputs */
 .nb-output table {
     width: 100%;
     border-collapse: collapse;
-    margin: var(--spacing-md) 0;
+    margin: var(--spacing-md, 1rem) 0;
     background: rgba(30, 33, 38, 0.5);
-    border-radius: var(--border-radius-sm);
+    border-radius: var(--border-radius-sm, 4px);
     overflow: hidden;
+    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
 }
 
 .nb-output th,
 .nb-output td {
-    padding: var(--spacing-sm) var(--spacing-md);
+    padding: var(--spacing-sm, 0.75rem) var(--spacing-md, 1rem);
     text-align: left;
-    border-bottom: 1px solid var(--glass-border);
+    border-bottom: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
 }
 
 .nb-output th {
     background: rgba(83, 51, 237, 0.2);
-    color: var(--lab-violet);
+    color: var(--photon-white, #f5f7fa);
     font-weight: 600;
+}
+
+.nb-output td {
+    color: var(--photon-white, #f5f7fa);
+}
+
+/* DataFrame styling */
+.nb-output .dataframe {
+    font-size: 0.85rem;
+}
+
+.nb-output .dataframe thead th {
+    background: rgba(4, 226, 220, 0.1);
+    color: var(--lab-aqua, #04e2dc);
+    border-bottom: 2px solid var(--lab-aqua, #04e2dc);
+}
+
+.nb-output .dataframe tbody tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.nb-output .dataframe tbody tr:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* Plot and image outputs */
+.nb-output .output_png,
+.nb-output .output_jpeg,
+.nb-output .output_svg {
+    text-align: center;
+    margin: var(--spacing-md, 1rem) 0;
+}
+
+.nb-output .output_png img,
+.nb-output .output_jpeg img,
+.nb-output .output_svg img {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--border-radius-sm, 4px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    background: white;
+}
+
+/* Text output formatting */
+.nb-output .output_text {
+    font-family: var(--font-code, monospace);
     font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--photon-white, #f5f7fa);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* Execution count styling */
+.nb-input .execution_count::before {
+    content: "In [";
+}
+
+.nb-input .execution_count::after {
+    content: "]:";
+}
+
+.nb-output .execution_count::before {
+    content: "Out[";
+}
+
+.nb-output .execution_count::after {
+    content: "]:";
 }
 
 /* Admonitions */

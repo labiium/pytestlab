@@ -50,7 +50,9 @@ plugins:
             docstring_section_style: "spacy"
             merge_init_into_class: true
             show_if_no_docstring: true
-  - mkdocs-jupyter
+  - mkdocs-jupyter:
+      include_css: false
+      ignore_h1_titles: true
   - awesome-pages
   - git-revision-date-localized
 
@@ -93,11 +95,11 @@ nav:
       - "Handling Uncertainty": user_guide/uncertainty.md
       - "Command-Line Interface": user_guide/cli.md
   - Tutorials:
-      - "10 Minute Tour": ../tutorials/10_minute_tour.ipynb
-      - "Compliance and Audit": ../tutorials/compliance.ipynb
-      - "Custom Validations": ../tutorials/custom_validations.ipynb
-      - "Profile Creation": ../tutorials/profile_creation.ipynb
-      - "SmartBench Example": ../tutorials/smartbench.ipynb
+      - "10 Minute Tour": tutorials/10_minute_tour.ipynb
+      - "Compliance and Audit": tutorials/compliance.ipynb
+      - "Custom Validations": tutorials/custom_validations.ipynb
+      - "Profile Creation": tutorials/profile_creation.ipynb
+      - "SmartBench Example": tutorials/smartbench.ipynb
   - API:
       - "Instruments": api/instruments.md
       - "Measurements": api/measurements.md
