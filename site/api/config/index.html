@@ -1,2667 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Scientific test & measurement toolbox for Python.">
+    <meta name="author" content="LABIIUM">
+    <meta name="robots" content="index, follow">
 
-<!doctype html>
-<html lang="en" class="no-js">
-  <head>
-    
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width,initial-scale=1">
-      
-        <meta name="description" content="Scientific test & measurement toolbox for Python.">
-      
-      
-      
-      
-        <link rel="prev" href="../instruments/">
-      
-      
-        <link rel="next" href="../backends/">
-      
-      
-      <link rel="icon" href="../../assets/favicon.ico">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.15">
-    
-    
-      
-        <title>Configuration - PyTestLab</title>
-      
-    
-    
-      <link rel="stylesheet" href="../../assets/stylesheets/main.342714a4.min.css">
-      
-        
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
-      
-      
+    <!-- Favicon -->
+    <link rel="icon" href="../../img/favicon.ico" type="image/x-icon">
 
+    <title>Configuration - PyTestLab</title>
 
-    
-    
-      
-    
-    
-      
-        
-        
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
-        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
-      
-    
-    
-      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
-    
-      <link rel="stylesheet" href="../../stylesheets/extra.css">
-    
-    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
-    
-      
+    <!-- CSS -->
+    <link rel="stylesheet" href="../../css/theme.css">
 
-    
-    
-    
-  </head>
-  
-  
-    
-    
-      
-    
-    
-    
-    
-    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="purple">
-  
-    
-    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
-    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
-    <label class="md-overlay" for="__drawer"></label>
-    <div data-md-component="skip">
-      
-        
-        <a href="#configuration-models" class="md-skip">
-          Skip to content
-        </a>
-      
-    </div>
-    <div data-md-component="announce">
-      
-    </div>
-    
-    
-      
+    <!-- Prism.js CSS for syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
 
-<header class="md-header" data-md-component="header">
-  <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="PyTestLab" class="md-header__button md-logo" aria-label="PyTestLab" data-md-component="logo">
-      
-  <img src="../../assets/logo.png" alt="logo">
+    <!-- Search styles -->
+    <style>
+        .search-container {
+            position: relative;
+            margin-right: 1rem;
+        }
 
-    </a>
-    <label class="md-header__button md-icon" for="__drawer">
-      
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
-    </label>
-    <div class="md-header__title" data-md-component="header-title">
-      <div class="md-header__ellipsis">
-        <div class="md-header__topic">
-          <span class="md-ellipsis">
-            PyTestLab
-          </span>
-        </div>
-        <div class="md-header__topic" data-md-component="header-topic">
-          <span class="md-ellipsis">
-            
-              Configuration
-            
-          </span>
-        </div>
-      </div>
-    </div>
-    
-      
-        <form class="md-header__option" data-md-component="palette">
-  
-    
-    
-    
-    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
-    
-      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
-      </label>
-    
-  
-    
-    
-    
-    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
-    
-      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
-      </label>
-    
-  
-</form>
-      
-    
-    
-      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
-    
-    
-    
-      
-      
-        <label class="md-header__button md-icon" for="__search">
-          
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
-        </label>
-        <div class="md-search" data-md-component="search" role="dialog">
-  <label class="md-search__overlay" for="__search"></label>
-  <div class="md-search__inner" role="search">
-    <form class="md-search__form" name="search">
-      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
-      <label class="md-search__icon md-icon" for="__search">
-        
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
-        
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
-      </label>
-      <nav class="md-search__options" aria-label="Search">
-        
-        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
-          
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-        </button>
-      </nav>
-      
-        <div class="md-search__suggest" data-md-component="search-suggest"></div>
-      
-    </form>
-    <div class="md-search__output">
-      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
-        <div class="md-search-result" data-md-component="search-result">
-          <div class="md-search-result__meta">
-            Initializing search
-          </div>
-          <ol class="md-search-result__list" role="presentation"></ol>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-      
-    
-    
-      <div class="md-header__source">
-        <a href="https://github.com/pytestlab/pytestlab" title="Go to repository" class="md-source" data-md-component="source">
-  <div class="md-source__icon md-icon">
-    
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
-  </div>
-  <div class="md-source__repository">
-    GitHub
-  </div>
-</a>
-      </div>
-    
-  </nav>
-  
-</header>
-    
-    <div class="md-container" data-md-component="container">
-      
-      
-        
-          
-            
-<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
-  <div class="md-grid">
-    <ul class="md-tabs__list">
-      
-        
-  
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../.." class="md-tabs__link">
-        
-  
-  
-    
-  
-  Home
+        .md-search {
+            position: relative;
+        }
 
-      </a>
-    </li>
-  
+        .md-search__inner {
+            width: 100%;
+        }
 
-      
-        
-  
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../../installation/" class="md-tabs__link">
-        
-  
-  
-    
-  
-  Installation
+        .md-search__form {
+            position: relative;
+            display: flex;
+            align-items: center;
+            padding: 0 0.5rem;
+            height: 2.4rem;
+            width: 16rem;
+        }
 
-      </a>
-    </li>
-  
+        .md-search__input {
+            flex-grow: 1;
+            height: 100%;
+            background: transparent;
+            border: none;
+            outline: none;
+            padding: 0 0.5rem;
+        }
 
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../user_guide/getting_started/" class="md-tabs__link">
-          
-  
-  
-  User Guide
+        .md-search__icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.8rem;
+            height: 1.8rem;
+            cursor: pointer;
+        }
 
-        </a>
-      </li>
-    
-  
+        .md-search__icon svg {
+            width: 1.2rem;
+            height: 1.2rem;
+        }
 
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../../tutorials/compliance.ipynb" class="md-tabs__link">
-          
-  
-  
-  Tutorials
+        .md-search-result {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            width: 24rem;
+            max-height: 75vh;
+            overflow-y: auto;
+            margin-top: 0.5rem;
+            z-index: 100;
+        }
+    </style>
 
-        </a>
-      </li>
-    
-  
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&family=Manrope:wght@800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 
-      
-        
-  
-  
-  
+    <!-- Extra head content from plugins -->
     
-  
-  
-    
-    
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../instruments/" class="md-tabs__link">
-          
-  
-  
-  API Reference
+</head>
+<body>
+    <div id="background-beams"></div>
 
-        </a>
-      </li>
-    
-  
+    <div class="layout">
+        <!-- Header / Navigation -->
+        <header class="site-header">
+            <div class="container">
+                <div class="header-content">
+                    <div class="logo-container">
+                        <a href="../.." class="site-logo">
+                            <img src="../../img/pytestlab_logo.png" alt="PyTestLab Logo">
+                            <span class="site-name">PyTestLab</span>
+                        </a>
+                    </div>
 
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../profiles/gallery/" class="md-tabs__link">
-          
-  
-  
-  Instrument Profiles
+                    <nav class="nav-primary">
+                        <button class="mobile-nav-toggle" aria-label="Toggle navigation">
+                            <span class="line"></span>
+                            <span class="line"></span>
+                            <span class="line"></span>
+                        </button>
 
-        </a>
-      </li>
-    
-  
+                        <ul class="nav-links">
+                            
+                                
+                            
+                                
+                                    
+                                        <li class="nav-item dropdown ">
+                                            <a href="#" class="dropdown-toggle">Docs</a>
+                                            <ul class="dropdown-menu glass-card">
+                                                
+                                                    <li class="">
+                                                        <a href="../../installation/">Installation</a>
+                                                    </li>
+                                                
+                                                    <li class="">
+                                                        <a href="../../user_guide/getting_started/">Getting Started</a>
+                                                    </li>
+                                                
+                                                    <li class="">
+                                                        <a href="../../user_guide/async_vs_sync/">Async vs. Sync</a>
+                                                    </li>
+                                                
+                                                    <li class="">
+                                                        <a href="../../user_guide/connecting/">Connecting to Instruments</a>
+                                                    </li>
+                                                
+                                                    <li class="">
+                                                        <a href="../../user_guide/simulation/">Simulation Mode</a>
+                                                    </li>
+                                                
+                                                    <li class="">
+                                                        <a href="../../user_guide/bench_descriptors/">Bench Descriptors</a>
+                                                    </li>
+                                                
+                                                    <li class="">
+                                                        <a href="../../user_guide/errors/">Error Handling</a>
+                                                    </li>
+                                                
+                                                    <li class="">
+                                                        <a href="../../user_guide/uncertainty/">Handling Uncertainty</a>
+                                                    </li>
+                                                
+                                                    <li class="">
+                                                        <a href="../../user_guide/cli/">Command-Line Interface</a>
+                                                    </li>
+                                                
+                                            </ul>
+                                        </li>
+                                    
+                                
+                            
+                                
+                                    
+                                        <li class="nav-item dropdown ">
+                                            <a href="#" class="dropdown-toggle">Tutorials</a>
+                                            <ul class="dropdown-menu glass-card">
+                                                
+                                                    <li class="">
+                                                        <a href="../../../tutorials/10_minute_tour.ipynb">10 Minute Tour</a>
+                                                    </li>
+                                                
+                                                    <li class="">
+                                                        <a href="../../../tutorials/compliance.ipynb">Compliance and Audit</a>
+                                                    </li>
+                                                
+                                                    <li class="">
+                                                        <a href="../../../tutorials/custom_validations.ipynb">Custom Validations</a>
+                                                    </li>
+                                                
+                                                    <li class="">
+                                                        <a href="../../../tutorials/profile_creation.ipynb">Profile Creation</a>
+                                                    </li>
+                                                
+                                                    <li class="">
+                                                        <a href="../../../tutorials/smartbench.ipynb">SmartBench Example</a>
+                                                    </li>
+                                                
+                                            </ul>
+                                        </li>
+                                    
+                                
+                            
+                                
+                                    
+                                        <li class="nav-item dropdown active">
+                                            <a href="#" class="dropdown-toggle">API</a>
+                                            <ul class="dropdown-menu glass-card">
+                                                
+                                                    <li class="">
+                                                        <a href="../instruments/">Instruments</a>
+                                                    </li>
+                                                
+                                                    <li class="">
+                                                        <a href="../measurements/">Measurements</a>
+                                                    </li>
+                                                
+                                                    <li class="">
+                                                        <a href="../experiments/">Experiments & Database</a>
+                                                    </li>
+                                                
+                                                    <li class="">
+                                                        <a href="../backends/">Backends</a>
+                                                    </li>
+                                                
+                                                    <li class="active">
+                                                        <a href="./">Configuration</a>
+                                                    </li>
+                                                
+                                                    <li class="">
+                                                        <a href="../errors/">Errors</a>
+                                                    </li>
+                                                
+                                                    <li class="">
+                                                        <a href="../common/">Common Utilities</a>
+                                                    </li>
+                                                
+                                            </ul>
+                                        </li>
+                                    
+                                
+                            
+                                
+                                    
+                                        <li class="nav-item dropdown ">
+                                            <a href="#" class="dropdown-toggle">Instruments</a>
+                                            <ul class="dropdown-menu glass-card">
+                                                
+                                                    <li class="">
+                                                        <a href="../../profiles/gallery/">Profile Gallery</a>
+                                                    </li>
+                                                
+                                                    <li class="">
+                                                        <a href="../../profiles/creating/">Creating Profiles</a>
+                                                    </li>
+                                                
+                                            </ul>
+                                        </li>
+                                    
+                                
+                            
+                                
+                                    
+                                        <li class="nav-item dropdown ">
+                                            <a href="#" class="dropdown-toggle">Community</a>
+                                            <ul class="dropdown-menu glass-card">
+                                                
+                                                    <li class="">
+                                                        <a href="../../contributing/">Contributing</a>
+                                                    </li>
+                                                
+                                                    <li class="">
+                                                        <a href="../../changelog/">Changelog</a>
+                                                    </li>
+                                                
+                                            </ul>
+                                        </li>
+                                    
+                                
+                            
+                        </ul>
+                    </nav>
 
-      
-        
-  
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../../contributing/" class="md-tabs__link">
-        
-  
-  
-    
-  
-  Contributing
+                    <div class="header-actions">
+                        <!-- Search component -->
+                        <div class="search-container">
+                            <button class="search-button" id="searchButton" aria-label="Open Search">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="11" cy="11" r="8"></circle>
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                </svg>
+                            </button>
+                        </div>
 
-      </a>
-    </li>
-  
+                        <!-- Search Modal -->
+                        <div class="search-modal" id="searchModal">
+                            <div class="search-modal-content">
+                                <form class="search-form">
+                                    <input type="text" class="search-input" id="searchInput" placeholder="Search documentation..." autofocus>
+                                    <button type="button" class="search-close" id="searchClose">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                                        </svg>
+                                    </button>
+                                </form>
+                                <div class="search-results">
+                                    <div class="search-results-meta" id="searchResultsMeta">Type to start searching</div>
+                                    <div id="searchResults"></div>
+                                </div>
+                            </div>
+                        </div>
 
-      
-        
-  
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../../changelog/" class="md-tabs__link">
-        
-  
-  
-    
-  
-  Changelog
+                        
+                        <a href="https://github.com/pytestlab/pytestlab" target="_blank" class="beam-button beam-button-sm">
+                            <span class="beam-button-text">GitHub</span>
+                        </a>
+                        
+                    </div>
+                </div>
+            </div>
+        </header>
 
-      </a>
-    </li>
-  
-
-      
-    </ul>
-  </div>
-</nav>
-          
-        
-      
-      <main class="md-main" data-md-component="main">
-        <div class="md-main__inner md-grid">
-          
-            
-              
-              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
-                <div class="md-sidebar__scrollwrap">
-                  <div class="md-sidebar__inner">
+        <!-- Page Content -->
+        <main class="main-content">
+            <div class="container">
+                <div class="content-layout">
+                    <!-- Sidebar / Table of Contents -->
+                    
+                    <aside class="sidebar">
+                        <div class="glass-card toc-container">
+                            <div class="toc-header">
+                                <h4>Contents</h4>
+                            </div>
+                            
+                                <ul class="toc">
+                                    
+                                        <li class="toc-item level-1">
+                                            <a href="#configuration-models">Configuration Models</a>
+                                            
+                                                <ul>
+                                                    
+                                                        <li class="toc-item level-2">
+                                                            <a href="#bench-configuration">Bench Configuration</a>
+                                                        </li>
+                                                    
+                                                        <li class="toc-item level-2">
+                                                            <a href="#pytestlab.config.bench_config.BenchConfigExtended">BenchConfigExtended</a>
+                                                        </li>
+                                                    
+                                                        <li class="toc-item level-2">
+                                                            <a href="#instrument-configuration-models">Instrument Configuration Models</a>
+                                                        </li>
+                                                    
+                                                        <li class="toc-item level-2">
+                                                            <a href="#pytestlab.config.instrument_config.InstrumentConfig">InstrumentConfig</a>
+                                                        </li>
+                                                    
+                                                        <li class="toc-item level-2">
+                                                            <a href="#pytestlab.config.power_supply_config.PowerSupplyConfig">PowerSupplyConfig</a>
+                                                        </li>
+                                                    
+                                                        <li class="toc-item level-2">
+                                                            <a href="#pytestlab.config.oscilloscope_config.OscilloscopeConfig">OscilloscopeConfig</a>
+                                                        </li>
+                                                    
+                                                        <li class="toc-item level-2">
+                                                            <a href="#pytestlab.config.waveform_generator_config.WaveformGeneratorConfig">WaveformGeneratorConfig</a>
+                                                        </li>
+                                                    
+                                                        <li class="toc-item level-2">
+                                                            <a href="#pytestlab.config.multimeter_config.MultimeterConfig">MultimeterConfig</a>
+                                                        </li>
+                                                    
+                                                        <li class="toc-item level-2">
+                                                            <a href="#pytestlab.config.dc_active_load_config.DCActiveLoadConfig">DCActiveLoadConfig</a>
+                                                        </li>
+                                                    
+                                                        <li class="toc-item level-2">
+                                                            <a href="#pytestlab.config.vna_config.VNAConfig">VNAConfig</a>
+                                                        </li>
+                                                    
+                                                        <li class="toc-item level-2">
+                                                            <a href="#pytestlab.config.spectrum_analyzer_config.SpectrumAnalyzerConfig">SpectrumAnalyzerConfig</a>
+                                                        </li>
+                                                    
+                                                        <li class="toc-item level-2">
+                                                            <a href="#pytestlab.config.power_meter_config.PowerMeterConfig">PowerMeterConfig</a>
+                                                        </li>
+                                                    
+                                                        <li class="toc-item level-2">
+                                                            <a href="#pytestlab.config.virtual_instrument_config.VirtualInstrumentConfig">VirtualInstrumentConfig</a>
+                                                        </li>
+                                                    
+                                                        <li class="toc-item level-2">
+                                                            <a href="#accuracy-specification">Accuracy Specification</a>
+                                                        </li>
+                                                    
+                                                        <li class="toc-item level-2">
+                                                            <a href="#pytestlab.config.accuracy.AccuracySpec">AccuracySpec</a>
+                                                        </li>
+                                                    
+                                                        <li class="toc-item level-2">
+                                                            <a href="#configuration-loader">Configuration Loader</a>
+                                                        </li>
+                                                    
+                                                        <li class="toc-item level-2">
+                                                            <a href="#pytestlab.config.loader.ConfigLoader">ConfigLoader</a>
+                                                        </li>
+                                                    
+                                                </ul>
+                                            
+                                        </li>
+                                    
+                                </ul>
+                            
+                        </div>
+                    </aside>
                     
 
-
-  
-
-
-  
-
-<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
-  <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="PyTestLab" class="md-nav__button md-logo" aria-label="PyTestLab" data-md-component="logo">
-      
-  <img src="../../assets/logo.png" alt="logo">
-
-    </a>
-    PyTestLab
-  </label>
-  
-    <div class="md-nav__source">
-      <a href="https://github.com/pytestlab/pytestlab" title="Go to repository" class="md-source" data-md-component="source">
-  <div class="md-source__icon md-icon">
-    
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
-  </div>
-  <div class="md-source__repository">
-    GitHub
-  </div>
-</a>
-    </div>
-  
-  <ul class="md-nav__list" data-md-scrollfix>
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Home
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../installation/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Installation
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
-        
-          
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    User Guide
-    
-  </span>
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3">
-            <span class="md-nav__icon md-icon"></span>
-            User Guide
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../user_guide/getting_started/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Getting Started
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../user_guide/async_vs_sync/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Async vs. Sync
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../tutorials/10_minute_tour.ipynb" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    10 Minute Tour
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../user_guide/connecting/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Connecting to Instruments
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../user_guide/errors/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Error Handling
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../user_guide/simulation/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Simulation Mode
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../user_guide/uncertainty/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Handling Uncertainty
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../user_guide/bench_descriptors/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Bench Descriptors
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../user_guide/cli/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Command-Line Interface
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
-        
-          
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    Tutorials
-    
-  </span>
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4">
-            <span class="md-nav__icon md-icon"></span>
-            Tutorials
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../tutorials/compliance.ipynb" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Compliance and Audit
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../tutorials/custom_validations.ipynb" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Custom Validations
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../tutorials/profile_creation.ipynb" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Profile Creation
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../tutorials/smartbench.ipynb" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    SmartBench Example
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../tutorials/example.ipynb" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    API Example
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-    
-  
-  
-  
-    
-    
-    
-    
-      
-        
-        
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
-        
-          
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
-            
-  
-  
-  <span class="md-ellipsis">
-    API Reference
-    
-  </span>
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_5">
-            <span class="md-nav__icon md-icon"></span>
-            API Reference
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../instruments/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Instruments
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-    
-  
-  
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    Configuration
-    
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
-        
-  
-  
-  <span class="md-ellipsis">
-    Configuration
-    
-  </span>
-  
-
-      </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#bench-configuration" class="md-nav__link">
-    <span class="md-ellipsis">
-      Bench Configuration
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#pytestlab.config.bench_config.BenchConfigExtended" class="md-nav__link">
-    <span class="md-ellipsis">
-      BenchConfigExtended
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="BenchConfigExtended">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.bench_config.BenchConfigExtended-attributes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Attributes
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Attributes">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.bench_config.BenchConfigExtended.automation" class="md-nav__link">
-    <span class="md-ellipsis">
-      automation
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.bench_config.BenchConfigExtended.backend_defaults" class="md-nav__link">
-    <span class="md-ellipsis">
-      backend_defaults
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.bench_config.BenchConfigExtended.bench_name" class="md-nav__link">
-    <span class="md-ellipsis">
-      bench_name
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.bench_config.BenchConfigExtended.changelog" class="md-nav__link">
-    <span class="md-ellipsis">
-      changelog
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.bench_config.BenchConfigExtended.continue_on_automation_error" class="md-nav__link">
-    <span class="md-ellipsis">
-      continue_on_automation_error
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.bench_config.BenchConfigExtended.custom_validations" class="md-nav__link">
-    <span class="md-ellipsis">
-      custom_validations
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.bench_config.BenchConfigExtended.description" class="md-nav__link">
-    <span class="md-ellipsis">
-      description
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.bench_config.BenchConfigExtended.experiment" class="md-nav__link">
-    <span class="md-ellipsis">
-      experiment
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.bench_config.BenchConfigExtended.instruments" class="md-nav__link">
-    <span class="md-ellipsis">
-      instruments
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.bench_config.BenchConfigExtended.last_modified" class="md-nav__link">
-    <span class="md-ellipsis">
-      last_modified
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.bench_config.BenchConfigExtended.measurement_plan" class="md-nav__link">
-    <span class="md-ellipsis">
-      measurement_plan
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.bench_config.BenchConfigExtended.model_config" class="md-nav__link">
-    <span class="md-ellipsis">
-      model_config
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.bench_config.BenchConfigExtended.simulate" class="md-nav__link">
-    <span class="md-ellipsis">
-      simulate
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.bench_config.BenchConfigExtended.traceability" class="md-nav__link">
-    <span class="md-ellipsis">
-      traceability
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.bench_config.BenchConfigExtended.version" class="md-nav__link">
-    <span class="md-ellipsis">
-      version
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.bench_config.BenchConfigExtended-functions" class="md-nav__link">
-    <span class="md-ellipsis">
-      Functions
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Functions">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.bench_config.BenchConfigExtended.check_instruments" class="md-nav__link">
-    <span class="md-ellipsis">
-      check_instruments
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#instrument-configuration-models" class="md-nav__link">
-    <span class="md-ellipsis">
-      Instrument Configuration Models
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Instrument Configuration Models">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#base-instrument-model" class="md-nav__link">
-    <span class="md-ellipsis">
-      Base Instrument Model
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#pytestlab.config.instrument_config.InstrumentConfig" class="md-nav__link">
-    <span class="md-ellipsis">
-      InstrumentConfig
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="InstrumentConfig">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.instrument_config.InstrumentConfig-attributes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Attributes
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Attributes">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.instrument_config.InstrumentConfig.address" class="md-nav__link">
-    <span class="md-ellipsis">
-      address
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.instrument_config.InstrumentConfig.device_type" class="md-nav__link">
-    <span class="md-ellipsis">
-      device_type
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.instrument_config.InstrumentConfig.manufacturer" class="md-nav__link">
-    <span class="md-ellipsis">
-      manufacturer
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.instrument_config.InstrumentConfig.measurement_accuracy" class="md-nav__link">
-    <span class="md-ellipsis">
-      measurement_accuracy
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.instrument_config.InstrumentConfig.model" class="md-nav__link">
-    <span class="md-ellipsis">
-      model
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.instrument_config.InstrumentConfig.model_config" class="md-nav__link">
-    <span class="md-ellipsis">
-      model_config
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.instrument_config.InstrumentConfig.serial_number" class="md-nav__link">
-    <span class="md-ellipsis">
-      serial_number
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#power-supply" class="md-nav__link">
-    <span class="md-ellipsis">
-      Power Supply
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#pytestlab.config.power_supply_config.PowerSupplyConfig" class="md-nav__link">
-    <span class="md-ellipsis">
-      PowerSupplyConfig
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="PowerSupplyConfig">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.power_supply_config.PowerSupplyConfig-attributes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Attributes
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Attributes">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.power_supply_config.PowerSupplyConfig.channels" class="md-nav__link">
-    <span class="md-ellipsis">
-      channels
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.power_supply_config.PowerSupplyConfig.device_type" class="md-nav__link">
-    <span class="md-ellipsis">
-      device_type
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.power_supply_config.PowerSupplyConfig.line_regulation" class="md-nav__link">
-    <span class="md-ellipsis">
-      line_regulation
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.power_supply_config.PowerSupplyConfig.load_regulation" class="md-nav__link">
-    <span class="md-ellipsis">
-      load_regulation
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.power_supply_config.PowerSupplyConfig.model_config" class="md-nav__link">
-    <span class="md-ellipsis">
-      model_config
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.power_supply_config.PowerSupplyConfig.over_current_protection" class="md-nav__link">
-    <span class="md-ellipsis">
-      over_current_protection
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.power_supply_config.PowerSupplyConfig.over_voltage_protection" class="md-nav__link">
-    <span class="md-ellipsis">
-      over_voltage_protection
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.power_supply_config.PowerSupplyConfig.total_power" class="md-nav__link">
-    <span class="md-ellipsis">
-      total_power
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.power_supply_config.PowerSupplyConfig-functions" class="md-nav__link">
-    <span class="md-ellipsis">
-      Functions
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Functions">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.power_supply_config.PowerSupplyConfig.check_channel_ids_unique" class="md-nav__link">
-    <span class="md-ellipsis">
-      check_channel_ids_unique
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#oscilloscope" class="md-nav__link">
-    <span class="md-ellipsis">
-      Oscilloscope
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#pytestlab.config.oscilloscope_config.OscilloscopeConfig" class="md-nav__link">
-    <span class="md-ellipsis">
-      OscilloscopeConfig
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="OscilloscopeConfig">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.oscilloscope_config.OscilloscopeConfig-attributes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Attributes
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Attributes">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.oscilloscope_config.OscilloscopeConfig.bandwidth" class="md-nav__link">
-    <span class="md-ellipsis">
-      bandwidth
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.oscilloscope_config.OscilloscopeConfig.channels" class="md-nav__link">
-    <span class="md-ellipsis">
-      channels
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.oscilloscope_config.OscilloscopeConfig.device_type" class="md-nav__link">
-    <span class="md-ellipsis">
-      device_type
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.oscilloscope_config.OscilloscopeConfig.fft" class="md-nav__link">
-    <span class="md-ellipsis">
-      fft
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.oscilloscope_config.OscilloscopeConfig.franalysis" class="md-nav__link">
-    <span class="md-ellipsis">
-      franalysis
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.oscilloscope_config.OscilloscopeConfig.function_generator" class="md-nav__link">
-    <span class="md-ellipsis">
-      function_generator
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.oscilloscope_config.OscilloscopeConfig.memory" class="md-nav__link">
-    <span class="md-ellipsis">
-      memory
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.oscilloscope_config.OscilloscopeConfig.model_config" class="md-nav__link">
-    <span class="md-ellipsis">
-      model_config
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.oscilloscope_config.OscilloscopeConfig.sampling_rate" class="md-nav__link">
-    <span class="md-ellipsis">
-      sampling_rate
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.oscilloscope_config.OscilloscopeConfig.timebase_settings" class="md-nav__link">
-    <span class="md-ellipsis">
-      timebase_settings
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.oscilloscope_config.OscilloscopeConfig.trigger" class="md-nav__link">
-    <span class="md-ellipsis">
-      trigger
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.oscilloscope_config.OscilloscopeConfig.waveform_update_rate" class="md-nav__link">
-    <span class="md-ellipsis">
-      waveform_update_rate
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#waveform-generator" class="md-nav__link">
-    <span class="md-ellipsis">
-      Waveform Generator
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#pytestlab.config.waveform_generator_config.WaveformGeneratorConfig" class="md-nav__link">
-    <span class="md-ellipsis">
-      WaveformGeneratorConfig
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="WaveformGeneratorConfig">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.waveform_generator_config.WaveformGeneratorConfig-attributes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Attributes
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Attributes">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.waveform_generator_config.WaveformGeneratorConfig.channels" class="md-nav__link">
-    <span class="md-ellipsis">
-      channels
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.waveform_generator_config.WaveformGeneratorConfig.device_type" class="md-nav__link">
-    <span class="md-ellipsis">
-      device_type
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.waveform_generator_config.WaveformGeneratorConfig.model_config" class="md-nav__link">
-    <span class="md-ellipsis">
-      model_config
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.waveform_generator_config.WaveformGeneratorConfig.waveforms" class="md-nav__link">
-    <span class="md-ellipsis">
-      waveforms
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#multimeter" class="md-nav__link">
-    <span class="md-ellipsis">
-      Multimeter
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#pytestlab.config.multimeter_config.MultimeterConfig" class="md-nav__link">
-    <span class="md-ellipsis">
-      MultimeterConfig
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="MultimeterConfig">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.multimeter_config.MultimeterConfig-attributes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Attributes
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Attributes">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.multimeter_config.MultimeterConfig.autorange" class="md-nav__link">
-    <span class="md-ellipsis">
-      autorange
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.multimeter_config.MultimeterConfig.default_measurement_function" class="md-nav__link">
-    <span class="md-ellipsis">
-      default_measurement_function
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.multimeter_config.MultimeterConfig.device_type" class="md-nav__link">
-    <span class="md-ellipsis">
-      device_type
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.multimeter_config.MultimeterConfig.limits" class="md-nav__link">
-    <span class="md-ellipsis">
-      limits
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.multimeter_config.MultimeterConfig.math_functions" class="md-nav__link">
-    <span class="md-ellipsis">
-      math_functions
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.multimeter_config.MultimeterConfig.measurement_functions" class="md-nav__link">
-    <span class="md-ellipsis">
-      measurement_functions
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.multimeter_config.MultimeterConfig.model_config" class="md-nav__link">
-    <span class="md-ellipsis">
-      model_config
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.multimeter_config.MultimeterConfig.sampling_rates_rps" class="md-nav__link">
-    <span class="md-ellipsis">
-      sampling_rates_rps
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.multimeter_config.MultimeterConfig.trigger_source" class="md-nav__link">
-    <span class="md-ellipsis">
-      trigger_source
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#dc-active-load" class="md-nav__link">
-    <span class="md-ellipsis">
-      DC Active Load
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#pytestlab.config.dc_active_load_config.DCActiveLoadConfig" class="md-nav__link">
-    <span class="md-ellipsis">
-      DCActiveLoadConfig
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="DCActiveLoadConfig">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.dc_active_load_config.DCActiveLoadConfig-attributes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Attributes
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Attributes">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.dc_active_load_config.DCActiveLoadConfig.device_type" class="md-nav__link">
-    <span class="md-ellipsis">
-      device_type
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.dc_active_load_config.DCActiveLoadConfig.environmental" class="md-nav__link">
-    <span class="md-ellipsis">
-      environmental
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.dc_active_load_config.DCActiveLoadConfig.features" class="md-nav__link">
-    <span class="md-ellipsis">
-      features
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.dc_active_load_config.DCActiveLoadConfig.general_specifications" class="md-nav__link">
-    <span class="md-ellipsis">
-      general_specifications
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.dc_active_load_config.DCActiveLoadConfig.model_config" class="md-nav__link">
-    <span class="md-ellipsis">
-      model_config
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.dc_active_load_config.DCActiveLoadConfig.operating_modes" class="md-nav__link">
-    <span class="md-ellipsis">
-      operating_modes
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.dc_active_load_config.DCActiveLoadConfig.other_characteristics_typical" class="md-nav__link">
-    <span class="md-ellipsis">
-      other_characteristics_typical
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.dc_active_load_config.DCActiveLoadConfig.protection" class="md-nav__link">
-    <span class="md-ellipsis">
-      protection
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#vector-network-analyzer-vna" class="md-nav__link">
-    <span class="md-ellipsis">
-      Vector Network Analyzer (VNA)
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#pytestlab.config.vna_config.VNAConfig" class="md-nav__link">
-    <span class="md-ellipsis">
-      VNAConfig
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="VNAConfig">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.vna_config.VNAConfig-attributes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Attributes
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Attributes">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.vna_config.VNAConfig.device_type" class="md-nav__link">
-    <span class="md-ellipsis">
-      device_type
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.vna_config.VNAConfig.if_bandwidth" class="md-nav__link">
-    <span class="md-ellipsis">
-      if_bandwidth
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.vna_config.VNAConfig.model_config" class="md-nav__link">
-    <span class="md-ellipsis">
-      model_config
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.vna_config.VNAConfig.num_points" class="md-nav__link">
-    <span class="md-ellipsis">
-      num_points
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.vna_config.VNAConfig.power_level" class="md-nav__link">
-    <span class="md-ellipsis">
-      power_level
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.vna_config.VNAConfig.s_parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      s_parameters
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.vna_config.VNAConfig.start_frequency" class="md-nav__link">
-    <span class="md-ellipsis">
-      start_frequency
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.vna_config.VNAConfig.stop_frequency" class="md-nav__link">
-    <span class="md-ellipsis">
-      stop_frequency
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#spectrum-analyzer" class="md-nav__link">
-    <span class="md-ellipsis">
-      Spectrum Analyzer
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#pytestlab.config.spectrum_analyzer_config.SpectrumAnalyzerConfig" class="md-nav__link">
-    <span class="md-ellipsis">
-      SpectrumAnalyzerConfig
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="SpectrumAnalyzerConfig">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.spectrum_analyzer_config.SpectrumAnalyzerConfig-attributes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Attributes
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Attributes">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.spectrum_analyzer_config.SpectrumAnalyzerConfig.attenuation" class="md-nav__link">
-    <span class="md-ellipsis">
-      attenuation
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.spectrum_analyzer_config.SpectrumAnalyzerConfig.device_type" class="md-nav__link">
-    <span class="md-ellipsis">
-      device_type
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.spectrum_analyzer_config.SpectrumAnalyzerConfig.frequency_center" class="md-nav__link">
-    <span class="md-ellipsis">
-      frequency_center
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.spectrum_analyzer_config.SpectrumAnalyzerConfig.frequency_span" class="md-nav__link">
-    <span class="md-ellipsis">
-      frequency_span
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.spectrum_analyzer_config.SpectrumAnalyzerConfig.model_config" class="md-nav__link">
-    <span class="md-ellipsis">
-      model_config
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.spectrum_analyzer_config.SpectrumAnalyzerConfig.reference_level" class="md-nav__link">
-    <span class="md-ellipsis">
-      reference_level
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.spectrum_analyzer_config.SpectrumAnalyzerConfig.resolution_bandwidth" class="md-nav__link">
-    <span class="md-ellipsis">
-      resolution_bandwidth
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#power-meter" class="md-nav__link">
-    <span class="md-ellipsis">
-      Power Meter
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#pytestlab.config.power_meter_config.PowerMeterConfig" class="md-nav__link">
-    <span class="md-ellipsis">
-      PowerMeterConfig
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="PowerMeterConfig">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.power_meter_config.PowerMeterConfig-attributes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Attributes
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Attributes">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.power_meter_config.PowerMeterConfig.averaging_count" class="md-nav__link">
-    <span class="md-ellipsis">
-      averaging_count
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.power_meter_config.PowerMeterConfig.device_type" class="md-nav__link">
-    <span class="md-ellipsis">
-      device_type
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.power_meter_config.PowerMeterConfig.frequency_compensation_value" class="md-nav__link">
-    <span class="md-ellipsis">
-      frequency_compensation_value
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.power_meter_config.PowerMeterConfig.model_config" class="md-nav__link">
-    <span class="md-ellipsis">
-      model_config
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.power_meter_config.PowerMeterConfig.power_units" class="md-nav__link">
-    <span class="md-ellipsis">
-      power_units
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#virtual-instrument" class="md-nav__link">
-    <span class="md-ellipsis">
-      Virtual Instrument
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#pytestlab.config.virtual_instrument_config.VirtualInstrumentConfig" class="md-nav__link">
-    <span class="md-ellipsis">
-      VirtualInstrumentConfig
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="VirtualInstrumentConfig">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.virtual_instrument_config.VirtualInstrumentConfig-attributes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Attributes
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Attributes">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.virtual_instrument_config.VirtualInstrumentConfig.device_type" class="md-nav__link">
-    <span class="md-ellipsis">
-      device_type
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#accuracy-specification" class="md-nav__link">
-    <span class="md-ellipsis">
-      Accuracy Specification
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#pytestlab.config.accuracy.AccuracySpec" class="md-nav__link">
-    <span class="md-ellipsis">
-      AccuracySpec
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="AccuracySpec">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.accuracy.AccuracySpec-attributes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Attributes
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Attributes">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.accuracy.AccuracySpec.model_config" class="md-nav__link">
-    <span class="md-ellipsis">
-      model_config
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.accuracy.AccuracySpec.offset_value" class="md-nav__link">
-    <span class="md-ellipsis">
-      offset_value
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.accuracy.AccuracySpec.percent_reading" class="md-nav__link">
-    <span class="md-ellipsis">
-      percent_reading
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.accuracy.AccuracySpec-functions" class="md-nav__link">
-    <span class="md-ellipsis">
-      Functions
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Functions">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pytestlab.config.accuracy.AccuracySpec.calculate_std_dev" class="md-nav__link">
-    <span class="md-ellipsis">
-      calculate_std_dev
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#configuration-loader" class="md-nav__link">
-    <span class="md-ellipsis">
-      Configuration Loader
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#pytestlab.config.loader.ConfigLoader" class="md-nav__link">
-    <span class="md-ellipsis">
-      ConfigLoader
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../backends/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Backends
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../measurements/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Measurements
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../experiments/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Experiments & Database
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../errors/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Errors
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../common/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Common Utilities
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
-        
-          
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    Instrument Profiles
-    
-  </span>
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6">
-            <span class="md-nav__icon md-icon"></span>
-            Instrument Profiles
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../profiles/gallery/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Profile Gallery
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../profiles/creating/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Creating Profiles
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../contributing/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Contributing
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../changelog/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Changelog
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-    
-  </ul>
-</nav>
-                  </div>
-                </div>
-              </div>
-            
-            
-          
-          
-            <div class="md-content" data-md-component="content">
-              <article class="md-content__inner md-typeset">
-                
-                  
-
-
-  
-  
-
-
-<h1 id="configuration-models">Configuration Models</h1>
+                    <!-- Main Content Area -->
+                    <div class="page-content glass-card">
+                        <div class="article">
+                            
+                            <h1 class="page-title">Configuration</h1>
+                            
+                            
+
+                            
+                                <h1 id="configuration-models">Configuration Models</h1>
 <p>This section details the Pydantic models used for instrument and bench configuration in PyTestLab. These models define the schema for instrument profiles, bench descriptors, and related configuration files.</p>
 <hr />
 <h2 id="bench-configuration">Bench Configuration</h2>
@@ -2705,7 +460,7 @@
 
 
 <h4 id="pytestlab.config.bench_config.BenchConfigExtended.automation" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">automation</span> <span class="o">=</span> <span class="kc">None</span></code>
+            <code class="highlight language-python">automation = None</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -2726,7 +481,7 @@
 
 
 <h4 id="pytestlab.config.bench_config.BenchConfigExtended.backend_defaults" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">backend_defaults</span> <span class="o">=</span> <span class="kc">None</span></code>
+            <code class="highlight language-python">backend_defaults = None</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -2747,7 +502,7 @@
 
 
 <h4 id="pytestlab.config.bench_config.BenchConfigExtended.bench_name" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">bench_name</span></code>
+            <code class="highlight language-python">bench_name</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
@@ -2767,7 +522,7 @@
 
 
 <h4 id="pytestlab.config.bench_config.BenchConfigExtended.changelog" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">changelog</span> <span class="o">=</span> <span class="kc">None</span></code>
+            <code class="highlight language-python">changelog = None</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -2788,7 +543,7 @@
 
 
 <h4 id="pytestlab.config.bench_config.BenchConfigExtended.continue_on_automation_error" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">continue_on_automation_error</span> <span class="o">=</span> <span class="kc">False</span></code>
+            <code class="highlight language-python">continue_on_automation_error = False</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -2809,7 +564,7 @@
 
 
 <h4 id="pytestlab.config.bench_config.BenchConfigExtended.custom_validations" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">custom_validations</span> <span class="o">=</span> <span class="kc">None</span></code>
+            <code class="highlight language-python">custom_validations = None</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -2830,7 +585,7 @@
 
 
 <h4 id="pytestlab.config.bench_config.BenchConfigExtended.description" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">description</span> <span class="o">=</span> <span class="kc">None</span></code>
+            <code class="highlight language-python">description = None</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -2851,7 +606,7 @@
 
 
 <h4 id="pytestlab.config.bench_config.BenchConfigExtended.experiment" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">experiment</span> <span class="o">=</span> <span class="kc">None</span></code>
+            <code class="highlight language-python">experiment = None</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -2872,7 +627,7 @@
 
 
 <h4 id="pytestlab.config.bench_config.BenchConfigExtended.instruments" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">instruments</span></code>
+            <code class="highlight language-python">instruments</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
@@ -2892,7 +647,7 @@
 
 
 <h4 id="pytestlab.config.bench_config.BenchConfigExtended.last_modified" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">last_modified</span> <span class="o">=</span> <span class="kc">None</span></code>
+            <code class="highlight language-python">last_modified = None</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -2913,7 +668,7 @@
 
 
 <h4 id="pytestlab.config.bench_config.BenchConfigExtended.measurement_plan" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">measurement_plan</span> <span class="o">=</span> <span class="kc">None</span></code>
+            <code class="highlight language-python">measurement_plan = None</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -2934,7 +689,7 @@
 
 
 <h4 id="pytestlab.config.bench_config.BenchConfigExtended.model_config" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">model_config</span> <span class="o">=</span> <span class="n">ConfigDict</span><span class="p">(</span><span class="n">extra</span><span class="o">=</span><span class="s1">&#39;forbid&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">model_config = ConfigDict(extra='forbid')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -2955,7 +710,7 @@
 
 
 <h4 id="pytestlab.config.bench_config.BenchConfigExtended.simulate" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">simulate</span> <span class="o">=</span> <span class="kc">False</span></code>
+            <code class="highlight language-python">simulate = False</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -2976,7 +731,7 @@
 
 
 <h4 id="pytestlab.config.bench_config.BenchConfigExtended.traceability" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">traceability</span> <span class="o">=</span> <span class="kc">None</span></code>
+            <code class="highlight language-python">traceability = None</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -2997,7 +752,7 @@
 
 
 <h4 id="pytestlab.config.bench_config.BenchConfigExtended.version" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">version</span> <span class="o">=</span> <span class="kc">None</span></code>
+            <code class="highlight language-python">version = None</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3019,7 +774,7 @@
 
 
 <h4 id="pytestlab.config.bench_config.BenchConfigExtended.check_instruments" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">check_instruments</span><span class="p">()</span></code>
+            <code class="highlight language-python">check_instruments()</code>
 
 </h4>
 
@@ -3029,16 +784,11 @@
 
             <details class="quote">
               <summary>Source code in <code>pytestlab/config/bench_config.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">74</span>
-<span class="normal">75</span>
-<span class="normal">76</span>
-<span class="normal">77</span>
-<span class="normal">78</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;after&quot;</span><span class="p">)</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">check_instruments</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;BenchConfigExtended&quot;</span><span class="p">:</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">instruments</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;At least one instrument must be defined in &#39;instruments&#39;.&quot;</span><span class="p">)</span>
-    <span class="k">return</span> <span class="bp">self</span>
-</code></pre></div></td></tr></table></div>
+              <pre class="highlight"><code class="language-python">@model_validator(mode="after")
+def check_instruments(self) -&gt; "BenchConfigExtended":
+    if not self.instruments:
+        raise ValueError("At least one instrument must be defined in 'instruments'.")
+    return self</code></pre>
             </details>
     </div>
 
@@ -3094,7 +844,7 @@
 
 
 <h4 id="pytestlab.config.instrument_config.InstrumentConfig.address" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">address</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Instrument connection address (e.g., VISA resource string)&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">address = Field(None, description='Instrument connection address (e.g., VISA resource string)')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3115,7 +865,7 @@
 
 
 <h4 id="pytestlab.config.instrument_config.InstrumentConfig.device_type" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">device_type</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Type of the device (e.g., &#39;PSU&#39;, &#39;Oscilloscope&#39;)&quot;</span><span class="p">)</span></code>
+            <code class="highlight language-python">device_type = Field(..., description="Type of the device (e.g., 'PSU', 'Oscilloscope')")</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3136,7 +886,7 @@
 
 
 <h4 id="pytestlab.config.instrument_config.InstrumentConfig.manufacturer" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">manufacturer</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Manufacturer of the instrument&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">manufacturer = Field(..., description='Manufacturer of the instrument')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3157,7 +907,7 @@
 
 
 <h4 id="pytestlab.config.instrument_config.InstrumentConfig.measurement_accuracy" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">measurement_accuracy</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Measurement accuracy specifications&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">measurement_accuracy = Field(default_factory=dict, description='Measurement accuracy specifications')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3178,7 +928,7 @@
 
 
 <h4 id="pytestlab.config.instrument_config.InstrumentConfig.model" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">model</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Model number of the instrument&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">model = Field(..., description='Model number of the instrument')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3199,7 +949,7 @@
 
 
 <h4 id="pytestlab.config.instrument_config.InstrumentConfig.model_config" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">model_config</span> <span class="o">=</span> <span class="n">ConfigDict</span><span class="p">(</span><span class="n">validate_assignment</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="s1">&#39;ignore&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">model_config = ConfigDict(validate_assignment=True, extra='ignore')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3220,7 +970,7 @@
 
 
 <h4 id="pytestlab.config.instrument_config.InstrumentConfig.serial_number" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">serial_number</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Serial number of the instrument&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">serial_number = Field(None, description='Serial number of the instrument')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3288,7 +1038,7 @@
 
 
 <h4 id="pytestlab.config.power_supply_config.PowerSupplyConfig.channels" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">channels</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;List of power supply channel configurations&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">channels = Field(..., min_length=1, description='List of power supply channel configurations')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3309,7 +1059,7 @@
 
 
 <h4 id="pytestlab.config.power_supply_config.PowerSupplyConfig.device_type" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">device_type</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="s1">&#39;PSU&#39;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Device type identifier, must be &#39;PSU&#39; or &#39;power_supply&#39;.&quot;</span><span class="p">)</span></code>
+            <code class="highlight language-python">device_type = Field('PSU', description="Device type identifier, must be 'PSU' or 'power_supply'.")</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3330,7 +1080,7 @@
 
 
 <h4 id="pytestlab.config.power_supply_config.PowerSupplyConfig.line_regulation" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">line_regulation</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Line regulation specification for the PSU.&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">line_regulation = Field(None, description='Line regulation specification for the PSU.')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3351,7 +1101,7 @@
 
 
 <h4 id="pytestlab.config.power_supply_config.PowerSupplyConfig.load_regulation" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">load_regulation</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Load regulation specification for the PSU.&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">load_regulation = Field(None, description='Load regulation specification for the PSU.')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3372,7 +1122,7 @@
 
 
 <h4 id="pytestlab.config.power_supply_config.PowerSupplyConfig.model_config" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">model_config</span> <span class="o">=</span> <span class="n">ConfigDict</span><span class="p">(</span><span class="n">validate_assignment</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="s1">&#39;forbid&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">model_config = ConfigDict(validate_assignment=True, extra='forbid')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3393,7 +1143,7 @@
 
 
 <h4 id="pytestlab.config.power_supply_config.PowerSupplyConfig.over_current_protection" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">over_current_protection</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Global Over Current Protection setting for the PSU, if applicable.&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">over_current_protection = Field(None, description='Global Over Current Protection setting for the PSU, if applicable.')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3414,7 +1164,7 @@
 
 
 <h4 id="pytestlab.config.power_supply_config.PowerSupplyConfig.over_voltage_protection" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">over_voltage_protection</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Global Over Voltage Protection setting for the PSU, if applicable.&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">over_voltage_protection = Field(None, description='Global Over Voltage Protection setting for the PSU, if applicable.')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3435,7 +1185,7 @@
 
 
 <h4 id="pytestlab.config.power_supply_config.PowerSupplyConfig.total_power" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">total_power</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Total output power rating for the PSU.&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">total_power = Field(None, description='Total output power rating for the PSU.')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3457,7 +1207,7 @@
 
 
 <h4 id="pytestlab.config.power_supply_config.PowerSupplyConfig.check_channel_ids_unique" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">check_channel_ids_unique</span><span class="p">()</span></code>
+            <code class="highlight language-python">check_channel_ids_unique()</code>
 
 </h4>
 
@@ -3467,20 +1217,13 @@
 
             <details class="quote">
               <summary>Source code in <code>pytestlab/config/power_supply_config.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">72</span>
-<span class="normal">73</span>
-<span class="normal">74</span>
-<span class="normal">75</span>
-<span class="normal">76</span>
-<span class="normal">77</span>
-<span class="normal">78</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;after&#39;</span><span class="p">)</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">check_channel_ids_unique</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;PowerSupplyConfig&#39;</span><span class="p">:</span>
-    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">channels</span><span class="p">:</span>
-        <span class="n">ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">ch</span><span class="o">.</span><span class="n">channel_id</span> <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">channels</span><span class="p">]</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ids</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">ids</span><span class="p">)):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Channel IDs must be unique.&quot;</span><span class="p">)</span>
-    <span class="k">return</span> <span class="bp">self</span>
-</code></pre></div></td></tr></table></div>
+              <pre class="highlight"><code class="language-python">@model_validator(mode='after')
+def check_channel_ids_unique(self) -&gt; 'PowerSupplyConfig':
+    if self.channels:
+        ids = [ch.channel_id for ch in self.channels]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Channel IDs must be unique.")
+    return self</code></pre>
             </details>
     </div>
 
@@ -3534,7 +1277,7 @@
 
 
 <h4 id="pytestlab.config.oscilloscope_config.OscilloscopeConfig.bandwidth" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">bandwidth</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Analog bandwidth of the oscilloscope in Hz&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">bandwidth = Field(..., gt=0, description='Analog bandwidth of the oscilloscope in Hz')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3555,7 +1298,7 @@
 
 
 <h4 id="pytestlab.config.oscilloscope_config.OscilloscopeConfig.channels" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">channels</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;List of channel configurations&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">channels = Field(..., min_length=1, description='List of channel configurations')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3576,7 +1319,7 @@
 
 
 <h4 id="pytestlab.config.oscilloscope_config.OscilloscopeConfig.device_type" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">device_type</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="s1">&#39;oscilloscope&#39;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Type of the device (oscilloscope)&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">device_type = Field('oscilloscope', description='Type of the device (oscilloscope)')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3597,7 +1340,7 @@
 
 
 <h4 id="pytestlab.config.oscilloscope_config.OscilloscopeConfig.fft" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">fft</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;FFT capabilities, if available&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">fft = Field(None, description='FFT capabilities, if available')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3618,7 +1361,7 @@
 
 
 <h4 id="pytestlab.config.oscilloscope_config.OscilloscopeConfig.franalysis" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">franalysis</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Frequency Response Analysis capabilities, if available&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">franalysis = Field(None, description='Frequency Response Analysis capabilities, if available')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3639,7 +1382,7 @@
 
 
 <h4 id="pytestlab.config.oscilloscope_config.OscilloscopeConfig.function_generator" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">function_generator</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Integrated function generator capabilities, if available&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">function_generator = Field(None, description='Integrated function generator capabilities, if available')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3660,7 +1403,7 @@
 
 
 <h4 id="pytestlab.config.oscilloscope_config.OscilloscopeConfig.memory" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">memory</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Maximum memory depth (e.g., in points or seconds)&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">memory = Field(..., gt=0, description='Maximum memory depth (e.g., in points or seconds)')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3681,7 +1424,7 @@
 
 
 <h4 id="pytestlab.config.oscilloscope_config.OscilloscopeConfig.model_config" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">model_config</span> <span class="o">=</span> <span class="n">ConfigDict</span><span class="p">(</span><span class="n">validate_assignment</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="s1">&#39;forbid&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">model_config = ConfigDict(validate_assignment=True, extra='forbid')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3702,7 +1445,7 @@
 
 
 <h4 id="pytestlab.config.oscilloscope_config.OscilloscopeConfig.sampling_rate" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">sampling_rate</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Maximum sampling rate in Samples/sec&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">sampling_rate = Field(..., gt=0, description='Maximum sampling rate in Samples/sec')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3723,7 +1466,7 @@
 
 
 <h4 id="pytestlab.config.oscilloscope_config.OscilloscopeConfig.timebase_settings" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">timebase_settings</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Global timebase settings, if applicable beyond per-channel&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">timebase_settings = Field(None, description='Global timebase settings, if applicable beyond per-channel')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3744,7 +1487,7 @@
 
 
 <h4 id="pytestlab.config.oscilloscope_config.OscilloscopeConfig.trigger" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">trigger</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Trigger system configuration&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">trigger = Field(..., description='Trigger system configuration')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3765,7 +1508,7 @@
 
 
 <h4 id="pytestlab.config.oscilloscope_config.OscilloscopeConfig.waveform_update_rate" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">waveform_update_rate</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Waveform update rate in waveforms/sec&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">waveform_update_rate = Field(..., gt=0, description='Waveform update rate in waveforms/sec')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3831,7 +1574,7 @@
 
 
 <h4 id="pytestlab.config.waveform_generator_config.WaveformGeneratorConfig.channels" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">channels</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;List of waveform generator channel configurations&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">channels = Field(..., min_length=1, description='List of waveform generator channel configurations')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3852,7 +1595,7 @@
 
 
 <h4 id="pytestlab.config.waveform_generator_config.WaveformGeneratorConfig.device_type" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">device_type</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="s1">&#39;waveform_generator&#39;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Type of the device (e.g., &#39;AWG&#39;, &#39;waveform_generator&#39;)&quot;</span><span class="p">)</span></code>
+            <code class="highlight language-python">device_type = Field('waveform_generator', description="Type of the device (e.g., 'AWG', 'waveform_generator')")</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3873,7 +1616,7 @@
 
 
 <h4 id="pytestlab.config.waveform_generator_config.WaveformGeneratorConfig.model_config" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">model_config</span> <span class="o">=</span> <span class="n">ConfigDict</span><span class="p">(</span><span class="n">validate_assignment</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="s1">&#39;forbid&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">model_config = ConfigDict(validate_assignment=True, extra='forbid')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3894,7 +1637,7 @@
 
 
 <h4 id="pytestlab.config.waveform_generator_config.WaveformGeneratorConfig.waveforms" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">waveforms</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Waveform capabilities configuration&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">waveforms = Field(..., description='Waveform capabilities configuration')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3962,7 +1705,7 @@
 
 
 <h4 id="pytestlab.config.multimeter_config.MultimeterConfig.autorange" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">autorange</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Enable (True) or disable (False) autoranging for measurements.&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">autorange = Field(default=True, description='Enable (True) or disable (False) autoranging for measurements.')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -3983,7 +1726,7 @@
 
 
 <h4 id="pytestlab.config.multimeter_config.MultimeterConfig.default_measurement_function" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">default_measurement_function</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="n">DMMFunction</span><span class="o">.</span><span class="n">VOLTAGE_DC</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Primary or default measurement function for the DMM.&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">default_measurement_function = Field(default=DMMFunction.VOLTAGE_DC, description='Primary or default measurement function for the DMM.')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -4004,7 +1747,7 @@
 
 
 <h4 id="pytestlab.config.multimeter_config.MultimeterConfig.device_type" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">device_type</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="s1">&#39;multimeter&#39;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Device type identifier for multimeters.&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">device_type = Field('multimeter', description='Device type identifier for multimeters.')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -4025,7 +1768,7 @@
 
 
 <h4 id="pytestlab.config.multimeter_config.MultimeterConfig.limits" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">limits</span></code>
+            <code class="highlight language-python">limits</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
@@ -4045,7 +1788,7 @@
 
 
 <h4 id="pytestlab.config.multimeter_config.MultimeterConfig.math_functions" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">math_functions</span></code>
+            <code class="highlight language-python">math_functions</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
@@ -4065,7 +1808,7 @@
 
 
 <h4 id="pytestlab.config.multimeter_config.MultimeterConfig.measurement_functions" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">measurement_functions</span></code>
+            <code class="highlight language-python">measurement_functions</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
@@ -4085,7 +1828,7 @@
 
 
 <h4 id="pytestlab.config.multimeter_config.MultimeterConfig.model_config" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">model_config</span> <span class="o">=</span> <span class="n">ConfigDict</span><span class="p">(</span><span class="n">validate_assignment</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="s1">&#39;ignore&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">model_config = ConfigDict(validate_assignment=True, extra='ignore')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -4106,7 +1849,7 @@
 
 
 <h4 id="pytestlab.config.multimeter_config.MultimeterConfig.sampling_rates_rps" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">sampling_rates_rps</span></code>
+            <code class="highlight language-python">sampling_rates_rps</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
@@ -4126,7 +1869,7 @@
 
 
 <h4 id="pytestlab.config.multimeter_config.MultimeterConfig.trigger_source" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">trigger_source</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="s1">&#39;IMM&#39;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Default trigger source: IMM (Immediate), EXT (External), BUS (Software/System).&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">trigger_source = Field(default='IMM', description='Default trigger source: IMM (Immediate), EXT (External), BUS (Software/System).')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -4194,7 +1937,7 @@
 
 
 <h4 id="pytestlab.config.dc_active_load_config.DCActiveLoadConfig.device_type" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">device_type</span></code>
+            <code class="highlight language-python">device_type</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
@@ -4214,7 +1957,7 @@
 
 
 <h4 id="pytestlab.config.dc_active_load_config.DCActiveLoadConfig.environmental" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">environmental</span></code>
+            <code class="highlight language-python">environmental</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
@@ -4234,7 +1977,7 @@
 
 
 <h4 id="pytestlab.config.dc_active_load_config.DCActiveLoadConfig.features" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">features</span></code>
+            <code class="highlight language-python">features</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
@@ -4254,7 +1997,7 @@
 
 
 <h4 id="pytestlab.config.dc_active_load_config.DCActiveLoadConfig.general_specifications" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">general_specifications</span></code>
+            <code class="highlight language-python">general_specifications</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
@@ -4274,7 +2017,7 @@
 
 
 <h4 id="pytestlab.config.dc_active_load_config.DCActiveLoadConfig.model_config" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">model_config</span> <span class="o">=</span> <span class="n">ConfigDict</span><span class="p">(</span><span class="n">validate_assignment</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="s1">&#39;forbid&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">model_config = ConfigDict(validate_assignment=True, extra='forbid')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -4295,7 +2038,7 @@
 
 
 <h4 id="pytestlab.config.dc_active_load_config.DCActiveLoadConfig.operating_modes" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">operating_modes</span></code>
+            <code class="highlight language-python">operating_modes</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
@@ -4315,7 +2058,7 @@
 
 
 <h4 id="pytestlab.config.dc_active_load_config.DCActiveLoadConfig.other_characteristics_typical" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">other_characteristics_typical</span></code>
+            <code class="highlight language-python">other_characteristics_typical</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
@@ -4335,7 +2078,7 @@
 
 
 <h4 id="pytestlab.config.dc_active_load_config.DCActiveLoadConfig.protection" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">protection</span></code>
+            <code class="highlight language-python">protection</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
@@ -4400,7 +2143,7 @@
 
 
 <h4 id="pytestlab.config.vna_config.VNAConfig.device_type" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">device_type</span> <span class="o">=</span> <span class="s1">&#39;vna&#39;</span></code>
+            <code class="highlight language-python">device_type = 'vna'</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -4421,7 +2164,7 @@
 
 
 <h4 id="pytestlab.config.vna_config.VNAConfig.if_bandwidth" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">if_bandwidth</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;IF bandwidth in Hz&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">if_bandwidth = Field(None, description='IF bandwidth in Hz')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -4442,7 +2185,7 @@
 
 
 <h4 id="pytestlab.config.vna_config.VNAConfig.model_config" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">model_config</span> <span class="o">=</span> <span class="n">ConfigDict</span><span class="p">(</span><span class="n">validate_assignment</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="s1">&#39;forbid&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">model_config = ConfigDict(validate_assignment=True, extra='forbid')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -4463,7 +2206,7 @@
 
 
 <h4 id="pytestlab.config.vna_config.VNAConfig.num_points" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">num_points</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Number of points in the sweep&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">num_points = Field(None, description='Number of points in the sweep')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -4484,7 +2227,7 @@
 
 
 <h4 id="pytestlab.config.vna_config.VNAConfig.power_level" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">power_level</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Source power level in dBm&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">power_level = Field(None, description='Source power level in dBm')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -4505,7 +2248,7 @@
 
 
 <h4 id="pytestlab.config.vna_config.VNAConfig.s_parameters" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">s_parameters</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;S11&#39;</span><span class="p">,</span> <span class="s1">&#39;S21&#39;</span><span class="p">],</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;List of S-parameters to measure (e.g., [&#39;S11&#39;, &#39;S21&#39;])&quot;</span><span class="p">)</span></code>
+            <code class="highlight language-python">s_parameters = Field(default_factory=lambda: ['S11', 'S21'], description="List of S-parameters to measure (e.g., ['S11', 'S21'])")</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -4526,7 +2269,7 @@
 
 
 <h4 id="pytestlab.config.vna_config.VNAConfig.start_frequency" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">start_frequency</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Start frequency for the sweep in Hz&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">start_frequency = Field(None, description='Start frequency for the sweep in Hz')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -4547,7 +2290,7 @@
 
 
 <h4 id="pytestlab.config.vna_config.VNAConfig.stop_frequency" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">stop_frequency</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Stop frequency for the sweep in Hz&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">stop_frequency = Field(None, description='Stop frequency for the sweep in Hz')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -4613,7 +2356,7 @@
 
 
 <h4 id="pytestlab.config.spectrum_analyzer_config.SpectrumAnalyzerConfig.attenuation" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">attenuation</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Input attenuation in dB&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">attenuation = Field(None, description='Input attenuation in dB')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -4634,7 +2377,7 @@
 
 
 <h4 id="pytestlab.config.spectrum_analyzer_config.SpectrumAnalyzerConfig.device_type" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">device_type</span> <span class="o">=</span> <span class="s1">&#39;spectrum_analyzer&#39;</span></code>
+            <code class="highlight language-python">device_type = 'spectrum_analyzer'</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -4655,7 +2398,7 @@
 
 
 <h4 id="pytestlab.config.spectrum_analyzer_config.SpectrumAnalyzerConfig.frequency_center" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">frequency_center</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Center frequency in Hz&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">frequency_center = Field(None, description='Center frequency in Hz')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -4676,7 +2419,7 @@
 
 
 <h4 id="pytestlab.config.spectrum_analyzer_config.SpectrumAnalyzerConfig.frequency_span" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">frequency_span</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Frequency span in Hz&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">frequency_span = Field(None, description='Frequency span in Hz')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -4697,7 +2440,7 @@
 
 
 <h4 id="pytestlab.config.spectrum_analyzer_config.SpectrumAnalyzerConfig.model_config" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">model_config</span> <span class="o">=</span> <span class="n">ConfigDict</span><span class="p">(</span><span class="n">validate_assignment</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="s1">&#39;forbid&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">model_config = ConfigDict(validate_assignment=True, extra='forbid')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -4718,7 +2461,7 @@
 
 
 <h4 id="pytestlab.config.spectrum_analyzer_config.SpectrumAnalyzerConfig.reference_level" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">reference_level</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Reference level in dBm&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">reference_level = Field(None, description='Reference level in dBm')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -4739,7 +2482,7 @@
 
 
 <h4 id="pytestlab.config.spectrum_analyzer_config.SpectrumAnalyzerConfig.resolution_bandwidth" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">resolution_bandwidth</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Resolution bandwidth in Hz (RBW)&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">resolution_bandwidth = Field(None, description='Resolution bandwidth in Hz (RBW)')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -4805,7 +2548,7 @@
 
 
 <h4 id="pytestlab.config.power_meter_config.PowerMeterConfig.averaging_count" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">averaging_count</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Number of readings to average for a measurement&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">averaging_count = Field(None, description='Number of readings to average for a measurement')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -4826,7 +2569,7 @@
 
 
 <h4 id="pytestlab.config.power_meter_config.PowerMeterConfig.device_type" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">device_type</span> <span class="o">=</span> <span class="s1">&#39;power_meter&#39;</span></code>
+            <code class="highlight language-python">device_type = 'power_meter'</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -4847,7 +2590,7 @@
 
 
 <h4 id="pytestlab.config.power_meter_config.PowerMeterConfig.frequency_compensation_value" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">frequency_compensation_value</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Frequency for sensor compensation in Hz&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">frequency_compensation_value = Field(None, description='Frequency for sensor compensation in Hz')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -4868,7 +2611,7 @@
 
 
 <h4 id="pytestlab.config.power_meter_config.PowerMeterConfig.model_config" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">model_config</span> <span class="o">=</span> <span class="n">ConfigDict</span><span class="p">(</span><span class="n">validate_assignment</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="s1">&#39;forbid&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">model_config = ConfigDict(validate_assignment=True, extra='forbid')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -4889,7 +2632,7 @@
 
 
 <h4 id="pytestlab.config.power_meter_config.PowerMeterConfig.power_units" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">power_units</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="s1">&#39;dBm&#39;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Units for power measurement&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">power_units = Field('dBm', description='Units for power measurement')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -4957,7 +2700,7 @@
 
 
 <h4 id="pytestlab.config.virtual_instrument_config.VirtualInstrumentConfig.device_type" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">device_type</span> <span class="o">=</span> <span class="s1">&#39;virtual_instrument&#39;</span></code>
+            <code class="highlight language-python">device_type = 'virtual_instrument'</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -5029,7 +2772,7 @@ or other forms depending on how specs are given (e.g., % of range).</p>
 
 
 <h4 id="pytestlab.config.accuracy.AccuracySpec.model_config" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">model_config</span> <span class="o">=</span> <span class="n">ConfigDict</span><span class="p">(</span><span class="n">validate_assignment</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="s1">&#39;forbid&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">model_config = ConfigDict(validate_assignment=True, extra='forbid')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -5050,7 +2793,7 @@ or other forms depending on how specs are given (e.g., % of range).</p>
 
 
 <h4 id="pytestlab.config.accuracy.AccuracySpec.offset_value" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">offset_value</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Fixed offset accuracy in units of the measurement (e.g., 0.005 V)&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">offset_value = Field(None, ge=0, description='Fixed offset accuracy in units of the measurement (e.g., 0.005 V)')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -5071,7 +2814,7 @@ or other forms depending on how specs are given (e.g., % of range).</p>
 
 
 <h4 id="pytestlab.config.accuracy.AccuracySpec.percent_reading" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">percent_reading</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Accuracy as a percentage of the reading (e.g., 0.0001 for 0.01%)&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python">percent_reading = Field(None, ge=0, description='Accuracy as a percentage of the reading (e.g., 0.0001 for 0.01%)')</code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -5093,7 +2836,7 @@ or other forms depending on how specs are given (e.g., % of range).</p>
 
 
 <h4 id="pytestlab.config.accuracy.AccuracySpec.calculate_std_dev" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">calculate_std_dev</span><span class="p">(</span><span class="n">reading_value</span><span class="p">,</span> <span class="n">range_value</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python">calculate_std_dev(reading_value, range_value=None)</code>
 
 </h4>
 
@@ -5107,82 +2850,44 @@ Assumes reading_value is positive for typical instrument readings.</p>
 
             <details class="quote">
               <summary>Source code in <code>pytestlab/config/accuracy.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">19</span>
-<span class="normal">20</span>
-<span class="normal">21</span>
-<span class="normal">22</span>
-<span class="normal">23</span>
-<span class="normal">24</span>
-<span class="normal">25</span>
-<span class="normal">26</span>
-<span class="normal">27</span>
-<span class="normal">28</span>
-<span class="normal">29</span>
-<span class="normal">30</span>
-<span class="normal">31</span>
-<span class="normal">32</span>
-<span class="normal">33</span>
-<span class="normal">34</span>
-<span class="normal">35</span>
-<span class="normal">36</span>
-<span class="normal">37</span>
-<span class="normal">38</span>
-<span class="normal">39</span>
-<span class="normal">40</span>
-<span class="normal">41</span>
-<span class="normal">42</span>
-<span class="normal">43</span>
-<span class="normal">44</span>
-<span class="normal">45</span>
-<span class="normal">46</span>
-<span class="normal">47</span>
-<span class="normal">48</span>
-<span class="normal">49</span>
-<span class="normal">50</span>
-<span class="normal">51</span>
-<span class="normal">52</span>
-<span class="normal">53</span>
-<span class="normal">54</span>
-<span class="normal">55</span>
-<span class="normal">56</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_std_dev</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reading_value</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">range_value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Calculates the standard deviation (sigma) for a given reading.</span>
-<span class="sd">    This is a simplified example; real datasheets can be more complex.</span>
-<span class="sd">    Assumes reading_value is positive for typical instrument readings.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">reading_value</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="c1"># Or handle as per specific instrument/measurement context</span>
-        <span class="c1"># For now, using absolute value for calculation if negative readings are possible and meaningful</span>
-        <span class="c1"># reading_value = abs(reading_value)</span>
-        <span class="k">pass</span> <span class="c1"># Assuming reading_value is typically positive or magnitude.</span>
+              <pre class="highlight"><code class="language-python">def calculate_std_dev(self, reading_value: float, range_value: Optional[float] = None) -&gt; float:
+    """
+    Calculates the standard deviation (sigma) for a given reading.
+    This is a simplified example; real datasheets can be more complex.
+    Assumes reading_value is positive for typical instrument readings.
+    """
+    if reading_value &lt; 0:
+        # Or handle as per specific instrument/measurement context
+        # For now, using absolute value for calculation if negative readings are possible and meaningful
+        # reading_value = abs(reading_value)
+        pass # Assuming reading_value is typically positive or magnitude.
 
-    <span class="n">variance</span> <span class="o">=</span> <span class="mf">0.0</span>
-    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">percent_reading</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">percent_reading</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;percent_reading must be non-negative.&quot;</span><span class="p">)</span>
-        <span class="n">variance</span> <span class="o">+=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">percent_reading</span> <span class="o">*</span> <span class="n">reading_value</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+    variance = 0.0
+    if self.percent_reading is not None:
+        if self.percent_reading &lt; 0:
+            raise ValueError("percent_reading must be non-negative.")
+        variance += (self.percent_reading * reading_value)**2
 
-    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">offset_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">offset_value</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;offset_value must be non-negative.&quot;</span><span class="p">)</span>
-        <span class="n">variance</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">offset_value</span><span class="o">**</span><span class="mi">2</span>
+    if self.offset_value is not None:
+        if self.offset_value &lt; 0:
+            raise ValueError("offset_value must be non-negative.")
+        variance += self.offset_value**2
 
-    <span class="c1"># Example for percent_range if it were added:</span>
-    <span class="c1"># percent_range: Optional[float] = Field(None, ge=0, description=&quot;Accuracy as a percentage of the range&quot;)</span>
-    <span class="c1"># if self.percent_range is not None and range_value is not None:</span>
-    <span class="c1">#     if self.percent_range &lt; 0:</span>
-    <span class="c1">#         raise ValueError(&quot;percent_range must be non-negative.&quot;)</span>
-    <span class="c1">#     if range_value &lt;= 0: # Range should be positive</span>
-    <span class="c1">#         raise ValueError(&quot;range_value must be positive for percent_range calculation.&quot;)</span>
-    <span class="c1">#     variance += (self.percent_range * range_value)**2</span>
+    # Example for percent_range if it were added:
+    # percent_range: Optional[float] = Field(None, ge=0, description="Accuracy as a percentage of the range")
+    # if self.percent_range is not None and range_value is not None:
+    #     if self.percent_range &lt; 0:
+    #         raise ValueError("percent_range must be non-negative.")
+    #     if range_value &lt;= 0: # Range should be positive
+    #         raise ValueError("range_value must be positive for percent_range calculation.")
+    #     variance += (self.percent_range * range_value)**2
 
-    <span class="k">if</span> <span class="n">variance</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span> <span class="c1"># Should not happen with non-negative inputs and squaring</span>
-         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Calculated variance is negative, check inputs and logic.&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">variance</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span> <span class="c1"># No spec provided, or spec results in zero uncertainty</span>
-        <span class="k">return</span> <span class="mf">0.0</span> <span class="c1"># Or raise an error, or return a very small number if appropriate</span>
+    if variance &lt; 0.0: # Should not happen with non-negative inputs and squaring
+         raise ValueError("Calculated variance is negative, check inputs and logic.")
+    if variance == 0.0: # No spec provided, or spec results in zero uncertainty
+        return 0.0 # Or raise an error, or return a very small number if appropriate
 
-    <span class="k">return</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">variance</span><span class="p">)</span>
-</code></pre></div></td></tr></table></div>
+    return math.sqrt(variance)</code></pre>
             </details>
     </div>
 
@@ -5228,112 +2933,254 @@ This is not used in runtime code, but allows mkdocstrings to resolve
 
 </div><hr />
 <p>For more information on creating and validating instrument profiles, see the <a href="../../profiles/creating/">Creating Profiles Guide</a>.</p>
+                            
+                        </div>
 
+                        <!-- Page Navigation (Previous/Next) -->
+                        
+                        <div class="page-nav">
+                            
+                                <a href="../backends/" class="prev-link">
+                                    <span class="nav-label">Previous</span>
+                                    <span class="nav-title">Backends</span>
+                                </a>
+                            
 
-
-
-
-
-
-  
-    
-  
-  
-
-
-  <aside class="md-source-file">
-    
-      
-  <span class="md-source-file__fact">
-    <span class="md-icon" title="Last update">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
-    </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 8, 2025 17:30:54 UTC">July 8, 2025</span>
-  </span>
-
-    
-    
-    
-    
-  </aside>
-
-
-
-
-
-                
-              </article>
+                            
+                                <a href="../errors/" class="next-link">
+                                    <span class="nav-label">Next</span>
+                                    <span class="nav-title">Errors</span>
+                                </a>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
             </div>
-          
-          
-<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
-        </div>
-        
-          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
-  
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
-  Back to top
-</button>
-        
-      </main>
-      
-        <footer class="md-footer">
-  
-  <div class="md-footer-meta md-typeset">
-    <div class="md-footer-meta__inner md-grid">
-      <div class="md-copyright">
-  
-  
-    Made with
-    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
-      Material for MkDocs
-    </a>
-  
-</div>
-      
-        <div class="md-social">
-  
-    
-    
-    
-    
-      
-      
-    
-    <a href="https://github.com/pytestlab/pytestlab" target="_blank" rel="noopener" title="github.com" class="md-social__link">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8M97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
-    </a>
-  
-    
-    
-    
-    
-      
-      
-    
-    <a href="https://pypi.org/project/pytestlab/" target="_blank" rel="noopener" title="pypi.org" class="md-social__link">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 404c11.1 0 20.1 9.1 20.1 20.3 0 11.3-9 20.4-20.1 20.4-11 0-20.1-9.2-20.1-20.4.1-11.3 9.1-20.3 20.1-20.3M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.7-142.6c-11.1 0-20.1-9.1-20.1-20.3.1-11.3 9-20.4 20.1-20.4 11 0 20.1 9.2 20.1 20.4s-9 20.3-20.1 20.3"/></svg>
-    </a>
-  
-</div>
-      
+        </main>
+
+        <!-- Footer -->
+        <footer class="site-footer">
+            <div class="container">
+                <div class="footer-content">
+                    <div class="footer-copyright">
+                        <p>&copy; 2025 LABIIUM. All rights reserved.</p>
+                        <p>PyTestLab is an open-source project.</p>
+                    </div>
+
+                    <div class="footer-links">
+                        
+                            <a href="https://github.com/pytestlab/pytestlab" target="_blank">GitHub</a>
+                        
+                        
+                        <a href="../../changelog/">Changelog</a>
+                    </div>
+                </div>
+            </div>
+        </footer>
     </div>
-  </div>
-</footer>
-      
-    </div>
-    <div class="md-dialog" data-md-component="dialog">
-      <div class="md-dialog__inner md-typeset"></div>
-    </div>
+
+    <!-- JavaScript -->
+    <script src="../../js/theme.js"></script>
+
+    <!-- Search and Enhanced functionality -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // --- Search Modal ---
+            const searchButton = document.getElementById('searchButton');
+            const searchModal = document.getElementById('searchModal');
+            const searchClose = document.getElementById('searchClose');
+            const searchInput = document.getElementById('searchInput');
+            let searchIndex = null;
+
+            // Load search index with better path resolution
+            const searchPath = window.location.pathname.includes('/site/')
+                ? '../search/search_index.json'
+                : 'search/search_index.json';
+
+            fetch(searchPath)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Search index not found');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    searchIndex = data;
+                    console.log('Search index loaded successfully');
+                })
+                .catch((error) => {
+                    console.log('Search index not found, trying alternative paths');
+                    // Try alternative paths
+                    const altPaths = ['../search/search_index.json', './search/search_index.json', '/search/search_index.json'];
+
+                    altPaths.reduce((promise, path) => {
+                        return promise.catch(() => {
+                            return fetch(path).then(response => {
+                                if (!response.ok) throw new Error('Not found');
+                                return response.json();
+                            }).then(data => {
+                                searchIndex = data;
+                                console.log('Search index loaded from:', path);
+                            });
+                        });
+                    }, Promise.reject()).catch(() => {
+                        console.log('Search functionality disabled - no search index found');
+                    });
+                });
+
+            if (searchButton && searchModal && searchClose) {
+                searchButton.addEventListener('click', function() {
+                    searchModal.classList.add('active');
+                    setTimeout(() => {
+                        searchInput.focus();
+                    }, 100);
+                });
+
+                searchClose.addEventListener('click', function() {
+                    searchModal.classList.remove('active');
+                });
+
+                // Close on escape key
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape' && searchModal.classList.contains('active')) {
+                        searchModal.classList.remove('active');
+                    }
+                });
+            }
+
+            if (searchInput) {
+                searchInput.addEventListener('input', function() {
+                    const query = this.value.trim().toLowerCase();
+                    const searchResultsMeta = document.getElementById('searchResultsMeta');
+                    const searchResults = document.getElementById('searchResults');
+
+                    if (query.length > 1) {
+                        searchResultsMeta.textContent = 'Searching...';
+                        searchResults.innerHTML = '';
+
+                        if (searchIndex) {
+                            const results = performSearch(query, searchIndex);
+                            displaySearchResults(results, searchResultsMeta, searchResults);
+                        } else {
+                            searchResultsMeta.textContent = 'Loading search index...';
+                            searchResults.innerHTML = '<div class="search-result-item"><p style="color: var(--lab-aqua); padding: 1rem;">Search index is loading. If this persists, make sure the site has been built with <code>mkdocs build</code>.</p></div>';
+                        }
+                    } else {
+                        searchResultsMeta.textContent = 'Type to start searching';
+                        searchResults.innerHTML = '';
+                    }
+                });
+            }
+
+            function performSearch(query, index) {
+                const results = [];
+                // Handle different search index formats
+                const docs = index.docs || index.articles || [];
+
+                docs.forEach((doc, i) => {
+                    const title = (doc.title || '').toLowerCase();
+                    const text = (doc.text || doc.content || '').toLowerCase();
+                    const location = doc.location || doc.url || '#';
+
+                    if (title.includes(query) || text.includes(query)) {
+                        const titleIndex = title.indexOf(query);
+                        const textIndex = text.indexOf(query);
+                        const score = (titleIndex >= 0 ? 10 : 0) + (textIndex >= 0 ? 1 : 0);
+
+                        results.push({
+                            title: doc.title || 'Untitled',
+                            location: location,
+                            text: text || 'No description available',
+                            score: score
+                        });
+                    }
+                });
+
+                return results.sort((a, b) => b.score - a.score).slice(0, 10);
+            }
+
+            function displaySearchResults(results, metaElement, resultsElement) {
+                if (results.length > 0) {
+                    metaElement.textContent = `${results.length} result${results.length > 1 ? 's' : ''} found`;
+
+                    resultsElement.innerHTML = results.map(result => `
+                        <div class="search-result-item">
+                            <a href="${result.location}" class="search-result-link">
+                                <div class="search-result-title">${result.title}</div>
+                                <div class="search-result-text">${result.text.substring(0, 150)}...</div>
+                            </a>
+                        </div>
+                    `).join('');
+                } else {
+                    metaElement.textContent = 'No results found';
+                    resultsElement.innerHTML = '';
+                }
+            }
+
+            // --- Enhanced Code Block Copy functionality ---
+            const codeBlocks = document.querySelectorAll('pre');
+            codeBlocks.forEach(block => {
+                // Add copy button
+                const copyButton = document.createElement('button');
+                copyButton.className = 'copy-button';
+                copyButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path></svg>Copy';
+                copyButton.setAttribute('aria-label', 'Copy code to clipboard');
+
+                copyButton.addEventListener('click', () => {
+                    const code = block.querySelector('code')?.textContent || block.textContent;
+
+                    navigator.clipboard.writeText(code).then(() => {
+                        copyButton.classList.add('copied');
+                        copyButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>Copied!';
+
+                        setTimeout(() => {
+                            copyButton.classList.remove('copied');
+                            copyButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path></svg>Copy';
+                        }, 2000);
+                    }).catch(err => {
+                        console.error('Failed to copy:', err);
+                    });
+                });
+
+                block.appendChild(copyButton);
+
+                // Add language indicator
+                const language = block.querySelector('code')?.className.match(/language-(\w+)/)?.[1];
+                if (language) {
+                    const langBadge = document.createElement('div');
+                    langBadge.className = 'lang-badge';
+
+                    // Format language name to be more readable
+                    const langMap = {
+                        'py': 'Python',
+                        'js': 'JavaScript',
+                        'ts': 'TypeScript',
+                        'html': 'HTML',
+                        'css': 'CSS',
+                        'yaml': 'YAML',
+                        'json': 'JSON',
+                        'bash': 'Shell',
+                        'sh': 'Shell',
+                        'sql': 'SQL',
+                        'cpp': 'C++'
+                    };
+
+                    const displayLang = langMap[language] || language.charAt(0).toUpperCase() + language.slice(1);
+                    langBadge.textContent = displayLang;
+                    block.appendChild(langBadge);
+                }
+            });
+        });
+    </script>
+
     
+
+    <!-- Extra scripts from plugins -->
     
-    
-      
-      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.instant", "navigation.tabs", "navigation.sections", "toc.integrate", "navigation.top", "search.suggest", "content.code.annotate", "content.code.copy"], "search": "../../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
-    
-    
-      <script src="../../assets/javascripts/bundle.56ea9cef.min.js"></script>
-      
-    
-  </body>
+
+    <!-- Prism.js for syntax highlighting -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+</body>
 </html>

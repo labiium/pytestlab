@@ -3,17 +3,17 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <meta name="description" content="Scientific test & measurement toolbox for Python." />
+        <meta name="description" content="{{ config.site_description }}" />
         <meta name="author" content="LABIIUM" />
 
         <title>
-            PyTestLab - Enlightened Measurement for Modern Science
+            {{ config.site_name }} - Enlightened Measurement for Modern Science
         </title>
 
         <!-- Favicon -->
         <link
             rel="icon"
-            href="img/favicon.ico"
+            href="{{ 'img/favicon.ico'|url }}"
             type="image/x-icon"
         />
 
@@ -1137,13 +1137,13 @@
             <div class="container">
                 <div class="header-content">
                     <div class="logo-container">
-                        <a href="." class="site-logo">
+                        <a href="{{ nav.homepage.url|url }}" class="site-logo">
                             <img
-                                src="img/pytestlab_logo.png"
-                                alt="PyTestLab Logo"
+                                src="{{ 'img/pytestlab_logo.png'|url }}"
+                                alt="{{ config.site_name }} Logo"
                             />
                             <span class="site-name"
-                                >PyTestLab</span
+                                >{{ config.site_name }}</span
                             >
                         </a>
                     </div>
@@ -1162,25 +1162,25 @@
                         <ul class="nav-links">
                             <li class="nav-item">
                                 <a
-                                    href="user_guide/getting_started/"
+                                    href="{{ 'user_guide/getting_started/'|url }}"
                                     >Docs</a
                                 >
                             </li>
                             <li class="nav-item">
-                                <a href="api/instruments/">API</a>
+                                <a href="{{ 'api/instruments/'|url }}">API</a>
                             </li>
                             <li class="nav-item">
-                                <a href="tutorials/10_minute_tour/"
+                                <a href="{{ 'tutorials/10_minute_tour/'|url }}"
                                     >Tutorials</a
                                 >
                             </li>
                             <li class="nav-item">
-                                <a href="profiles/gallery/"
+                                <a href="{{ 'profiles/gallery/'|url }}"
                                     >Instruments</a
                                 >
                             </li>
                             <li class="nav-item">
-                                <a href="contributing/"
+                                <a href="{{ 'contributing/'|url }}"
                                     >Contribute</a
                                 >
                             </li>
@@ -1213,7 +1213,7 @@
                         </button>
 
                         <a
-                            href="https://github.com/pytestlab/pytestlab"
+                            href="{{ config.repo_url }}"
                             target="_blank"
                             class="beam-button beam-button-sm"
                         >
@@ -1279,11 +1279,11 @@
                     </p>
                     <div class="hero-actions">
                         <a
-                            href="user_guide/getting_started/"
+                            href="{{ 'user_guide/getting_started/'|url }}"
                             class="beam-button"
                             >Explore Documentation</a
                         >
-                        <a href="installation/" class="ghost-button"
+                        <a href="{{ 'installation/'|url }}" class="ghost-button"
                             >Installation Guide</a
                         >
                     </div>
@@ -1453,11 +1453,11 @@
                         transform how you measure, test, and analyze.
                     </p>
                     <div class="cta-actions">
-                        <a href="installation/" class="beam-button"
+                        <a href="{{ 'installation/'|url }}" class="beam-button"
                             >Get Started</a
                         >
                         <a
-                            href="tutorials/10_minute_tour/"
+                            href="{{ 'tutorials/10_minute_tour/'|url }}"
                             class="ghost-button"
                             >10-Minute Tour</a
                         >
@@ -1472,8 +1472,8 @@
                 <div class="footer-content">
                     <div class="footer-brand">
                         <img
-                            src="img/pytestlab_logo.png"
-                            alt="PyTestLab Logo"
+                            src="{{ 'img/pytestlab_logo.png'|url }}"
+                            alt="{{ config.site_name }} Logo"
                         />
                         <p>
                             A modern, async-first Python toolbox for laboratory
@@ -1487,24 +1487,24 @@
                             <ul class="footer-link-list">
                                 <li>
                                     <a
-                                        href="user_guide/getting_started/"
+                                        href="{{ 'user_guide/getting_started/'|url }}"
                                         >Getting Started</a
                                     >
                                 </li>
                                 <li>
                                     <a
-                                        href="user_guide/async_vs_sync/"
+                                        href="{{ 'user_guide/async_vs_sync/'|url }}"
                                         >Async vs Sync</a
                                     >
                                 </li>
                                 <li>
-                                    <a href="user_guide/simulation/"
+                                    <a href="{{ 'user_guide/simulation/'|url }}"
                                         >Simulation Mode</a
                                     >
                                 </li>
                                 <li>
                                     <a
-                                        href="user_guide/bench_descriptors/"
+                                        href="{{ 'user_guide/bench_descriptors/'|url }}"
                                         >Bench Descriptors</a
                                     >
                                 </li>
@@ -1514,22 +1514,22 @@
                             <h3>Reference</h3>
                             <ul class="footer-link-list">
                                 <li>
-                                    <a href="api/instruments/"
+                                    <a href="{{ 'api/instruments/'|url }}"
                                         >Instruments</a
                                     >
                                 </li>
                                 <li>
-                                    <a href="api/measurements/"
+                                    <a href="{{ 'api/measurements/'|url }}"
                                         >Measurements</a
                                     >
                                 </li>
                                 <li>
-                                    <a href="api/experiments/"
+                                    <a href="{{ 'api/experiments/'|url }}"
                                         >Experiments</a
                                     >
                                 </li>
                                 <li>
-                                    <a href="api/backends/"
+                                    <a href="{{ 'api/backends/'|url }}"
                                         >Backends</a
                                     >
                                 </li>
@@ -1539,20 +1539,20 @@
                             <h3>Community</h3>
                             <ul class="footer-link-list">
                                 <li>
-                                    <a href="https://github.com/pytestlab/pytestlab">GitHub</a>
+                                    <a href="{{ config.repo_url }}">GitHub</a>
                                 </li>
                                 <li>
-                                    <a href="contributing/"
+                                    <a href="{{ 'contributing/'|url }}"
                                         >Contributing</a
                                     >
                                 </li>
                                 <li>
-                                    <a href="changelog/"
+                                    <a href="{{ 'changelog/'|url }}"
                                         >Changelog</a
                                     >
                                 </li>
                                 <li>
-                                    <a href="user_guide/cli/"
+                                    <a href="{{ 'user_guide/cli/'|url }}"
                                         >CLI Tools</a
                                     >
                                 </li>
@@ -1562,11 +1562,12 @@
                 </div>
                 <div class="footer-bottom">
                     <div class="footer-copyright">
-                        &copy; 2025 Copyright &copy; 2023-2024 LABIIUM. All rights reserved.
+                        &copy; {{ build_date_utc.strftime('%Y') }} {{
+                        config.copyright or "LABIIUM" }}. All rights reserved.
                     </div>
                     <div class="footer-social">
                         <a
-                            href="https://github.com/pytestlab/pytestlab"
+                            href="{{ config.repo_url }}"
                             class="social-link"
                             target="_blank"
                             aria-label="GitHub"

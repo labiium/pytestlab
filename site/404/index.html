@@ -10,7 +10,7 @@
     <!-- Favicon -->
     <link rel="icon" href="../img/favicon.ico" type="image/x-icon">
 
-    <title>Contributing - PyTestLab</title>
+    <title>404 - PyTestLab</title>
 
     <!-- CSS -->
     <link rel="stylesheet" href="../css/theme.css">
@@ -250,12 +250,12 @@
                             
                                 
                                     
-                                        <li class="nav-item dropdown active">
+                                        <li class="nav-item dropdown ">
                                             <a href="#" class="dropdown-toggle">Community</a>
                                             <ul class="dropdown-menu glass-card">
                                                 
-                                                    <li class="active">
-                                                        <a href="./">Contributing</a>
+                                                    <li class="">
+                                                        <a href="../contributing/">Contributing</a>
                                                     </li>
                                                 
                                                     <li class="">
@@ -322,51 +322,6 @@
                                 <h4>Contents</h4>
                             </div>
                             
-                                <ul class="toc">
-                                    
-                                        <li class="toc-item level-1">
-                                            <a href="#contributing-to-pytestlab">Contributing to PyTestLab</a>
-                                            
-                                                <ul>
-                                                    
-                                                        <li class="toc-item level-2">
-                                                            <a href="#code-of-conduct">Code of Conduct</a>
-                                                        </li>
-                                                    
-                                                        <li class="toc-item level-2">
-                                                            <a href="#getting-started">Getting Started</a>
-                                                        </li>
-                                                    
-                                                        <li class="toc-item level-2">
-                                                            <a href="#development-workflow">Development Workflow</a>
-                                                        </li>
-                                                    
-                                                        <li class="toc-item level-2">
-                                                            <a href="#code-style-quality">Code Style &amp; Quality</a>
-                                                        </li>
-                                                    
-                                                        <li class="toc-item level-2">
-                                                            <a href="#documentation">Documentation</a>
-                                                        </li>
-                                                    
-                                                        <li class="toc-item level-2">
-                                                            <a href="#tests">Tests</a>
-                                                        </li>
-                                                    
-                                                        <li class="toc-item level-2">
-                                                            <a href="#submitting-a-pull-request">Submitting a Pull Request</a>
-                                                        </li>
-                                                    
-                                                        <li class="toc-item level-2">
-                                                            <a href="#need-help">Need Help?</a>
-                                                        </li>
-                                                    
-                                                </ul>
-                                            
-                                        </li>
-                                    
-                                </ul>
-                            
                         </div>
                     </aside>
                     
@@ -375,89 +330,15 @@
                     <div class="page-content glass-card">
                         <div class="article">
                             
-                            <h1 class="page-title">Contributing</h1>
+                            <h1 class="page-title">404</h1>
                             
                             
 
                             
-                                <h1 id="contributing-to-pytestlab">Contributing to PyTestLab</h1>
-<p>Thank you for your interest in contributing to PyTestLab! Your help makes this project better for everyone in the scientific and engineering community.</p>
-<p>This guide explains how to get started, the development workflow, and best practices for contributing code, documentation, and ideas.</p>
+                                <hr />
+<p>title: Page Not Found
+is_404: true</p>
 <hr />
-<h2 id="code-of-conduct">Code of Conduct</h2>
-<p>All contributors are expected to follow the <a href="CODE_OF_CONDUCT.md">PyTestLab Code of Conduct</a>. Please help us keep the community welcoming and inclusive.</p>
-<hr />
-<h2 id="getting-started">Getting Started</h2>
-<ol>
-<li><strong>Fork the repository</strong> on GitHub.</li>
-<li><strong>Clone your fork</strong> locally:
-    <pre class="highlight"><code class="language-bash">git clone https://github.com/YOUR_USERNAME/pytestlab.git
-cd pytestlab</code></pre></li>
-<li><strong>Set up a virtual environment</strong> (recommended):
-    <pre class="highlight"><code class="language-bash">python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate</code></pre></li>
-<li><strong>Install dependencies</strong> (including development tools):
-    <pre class="highlight"><code class="language-bash">pip install -e .[dev,full]</code></pre></li>
-<li><strong>Install pre-commit hooks</strong> (for linting and formatting):
-    <pre class="highlight"><code class="language-bash">pre-commit install</code></pre></li>
-</ol>
-<hr />
-<h2 id="development-workflow">Development Workflow</h2>
-<ul>
-<li><strong>Create a feature branch</strong> for your work:
-    <pre class="highlight"><code class="language-bash">git checkout -b feat/short-description</code></pre></li>
-<li><strong>Make your changes</strong> (code, docs, or tests).</li>
-<li><strong>Add or update tests</strong> to cover your changes.</li>
-<li><strong>Run the test suite</strong>:
-    <pre class="highlight"><code class="language-bash">pytest</code></pre></li>
-<li><strong>Run pre-commit checks</strong> (these will also run automatically on commit):
-    <pre class="highlight"><code class="language-bash">pre-commit run --all-files</code></pre></li>
-<li><strong>Commit using Conventional Commits</strong> (enforced by commitizen):
-    <pre class="highlight"><code class="language-bash">cz c</code></pre></li>
-<li><strong>Push your branch</strong> to your fork:
-    <pre class="highlight"><code class="language-bash">git push origin feat/short-description</code></pre></li>
-<li><strong>Open a Pull Request</strong> against the <code>main</code> branch on GitHub.</li>
-</ul>
-<hr />
-<h2 id="code-style-quality">Code Style &amp; Quality</h2>
-<ul>
-<li><strong>Linting &amp; Formatting:</strong> PyTestLab uses <a href="https://docs.astral.sh/ruff/">Ruff</a> for linting and formatting, and <a href="https://black.readthedocs.io/">Black</a> for code style. These are enforced by pre-commit.</li>
-<li><strong>Type Checking:</strong> Use <a href="http://mypy-lang.org/">MyPy</a> for static type checking.</li>
-<li><strong>Commit Messages:</strong> Follow the <a href="https://www.conventionalcommits.org/">Conventional Commits</a> specification. Use <code>cz c</code> to help format your commit messages.</li>
-</ul>
-<hr />
-<h2 id="documentation">Documentation</h2>
-<ul>
-<li><strong>Docs live in <code>docs/</code></strong> and are written in Markdown or Jupyter Notebooks.</li>
-<li><strong>API docs</strong> are generated using <a href="https://mkdocstrings.github.io/">mkdocstrings</a>.</li>
-<li><strong>To preview docs locally:</strong>
-    <pre class="highlight"><code class="language-bash">mkdocs serve</code></pre></li>
-<li><strong>Update or add docstrings</strong> to your code as needed.</li>
-</ul>
-<hr />
-<h2 id="tests">Tests</h2>
-<ul>
-<li><strong>Unit tests</strong> live in the <code>tests/</code> directory.</li>
-<li><strong>All new features and bugfixes must include tests.</strong></li>
-<li><strong>Run the full test suite before submitting a PR.</strong></li>
-</ul>
-<hr />
-<h2 id="submitting-a-pull-request">Submitting a Pull Request</h2>
-<ul>
-<li>Ensure your branch is up to date with <code>main</code>.</li>
-<li>Provide a clear title and description for your PR.</li>
-<li>Link to any relevant issues.</li>
-<li>Be responsive to code review feedback.</li>
-</ul>
-<hr />
-<h2 id="need-help">Need Help?</h2>
-<ul>
-<li><strong>Bugs &amp; Feature Requests:</strong> Open an issue on GitHub.</li>
-<li><strong>Questions:</strong> Use GitHub Discussions or reach out via the project chat (see the README for links).</li>
-<li><strong>Security Issues:</strong> Please report security vulnerabilities privately to the maintainers.</li>
-</ul>
-<hr />
-<p>Thank you for helping make PyTestLab better!</p>
                             
                         </div>
 
@@ -465,17 +346,7 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate</code></pre></li
                         
                         <div class="page-nav">
                             
-                                <a href="../profiles/creating/" class="prev-link">
-                                    <span class="nav-label">Previous</span>
-                                    <span class="nav-title">Creating Profiles</span>
-                                </a>
-                            
 
-                            
-                                <a href="../changelog/" class="next-link">
-                                    <span class="nav-label">Next</span>
-                                    <span class="nav-title">Changelog</span>
-                                </a>
                             
                         </div>
                         

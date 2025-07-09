@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="48" viewBox="0 0 120 48" fill="none">
+  <defs>
+    <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#5333ed;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#04e2dc;stop-opacity:1" />
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Logo Symbol -->
+  <g transform="translate(4, 8)">
+    <!-- Outer ring -->
+    <circle cx="16" cy="16" r="14" fill="none" stroke="url(#logoGradient)" stroke-width="2" opacity="0.6"/>
+
+    <!-- Inner elements representing measurement/lab equipment -->
+    <circle cx="16" cy="16" r="3" fill="url(#logoGradient)" filter="url(#glow)"/>
+
+    <!-- Measurement lines -->
+    <line x1="6" y1="16" x2="12" y2="16" stroke="url(#logoGradient)" stroke-width="1.5" opacity="0.8"/>
+    <line x1="20" y1="16" x2="26" y2="16" stroke="url(#logoGradient)" stroke-width="1.5" opacity="0.8"/>
+    <line x1="16" y1="6" x2="16" y2="12" stroke="url(#logoGradient)" stroke-width="1.5" opacity="0.8"/>
+    <line x1="16" y1="20" x2="16" y2="26" stroke="url(#logoGradient)" stroke-width="1.5" opacity="0.8"/>
+
+    <!-- Corner indicators -->
+    <circle cx="11" cy="11" r="1.5" fill="#04e2dc" opacity="0.7"/>
+    <circle cx="21" cy="11" r="1.5" fill="#5333ed" opacity="0.7"/>
+    <circle cx="11" cy="21" r="1.5" fill="#5333ed" opacity="0.7"/>
+    <circle cx="21" cy="21" r="1.5" fill="#04e2dc" opacity="0.7"/>
+  </g>
+
+  <!-- Text -->
+  <text x="40" y="20" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="url(#logoGradient)">PyTestLab</text>
+  <text x="40" y="32" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#f5f7fa" opacity="0.7">Scientific Measurement</text>
+</svg>

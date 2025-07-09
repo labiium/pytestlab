@@ -1,0 +1,714 @@
+{% extends "main.html" %}
+
+{% block content %}
+<div class="landing-page">
+    <!-- Hero Section -->
+    <section class="hero-section fade-in">
+        <div class="hero-content">
+            <h1 class="hero-title">
+                <span class="gradient-text-light">Enlightened Measurement</span>
+                <br>
+                <span class="gradient-text-accent">for Modern Science</span>
+            </h1>
+            <p class="hero-subtitle">
+                PyTestLab is a modern, async-first Python toolbox for laboratory test-and-measurement automation, data management, and analysis. Move faster, build smarter, and trust your results.
+            </p>
+            <div class="hero-actions">
+                <a href="{{ 'user_guide/getting_started/'|url }}" class="beam-button">Explore Features</a>
+                <a href="{{ config.repo_url }}" target="_blank" class="ghost-button">View on GitHub</a>
+            </div>
+        </div>
+        <div class="hero-glow"></div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features-section fade-in" id="features">
+        <div class="section-header">
+            <h2>A Toolbox Built for Velocity</h2>
+            <p class="section-description">Stop wrestling with legacy APIs. Start building reproducible experiments.</p>
+        </div>
+        <div class="feature-cards">
+            <div class="glass-card feature-card">
+                <div class="feature-icon violet-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10 21h4c4.4 0 8-3.6 8-8V5c0-4.4-3.6-8-8-8h-4C5.6-1 2 2.6 2 7v8c0 4.4 3.6 8 8 8Z" opacity=".4"></path>
+                        <path d="m15.5 12-4 4-4-4"></path>
+                    </svg>
+                </div>
+                <h3>Async by Design</h3>
+                <p>Run parallel tests and non-blocking I/O with native `async/await`. Maximize instrument uptime and slash test execution times.</p>
+            </div>
+            <div class="glass-card feature-card">
+                <div class="feature-icon aqua-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M2 12h2.5a1 1 0 0 1 .8.4 1 1 0 0 0 1.4 0 1 1 0 0 1 1.6 0 1 1 0 0 0 1.4 0 1 1 0 0 1 1.6 0 1 1 0 0 0 1.4 0 1 1 0 0 1 1.6 0 1 1 0 0 0 1.4 0 1 1 0 0 1 .8-.4H22"></path>
+                        <path d="M6.5 12v-2" opacity=".4"></path>
+                        <path d="M9.5 12v6" opacity=".4"></path>
+                        <path d="M12.5 12v-4" opacity=".4"></path>
+                        <path d="M15.5 12v8" opacity=".4"></path>
+                        <path d="M18.5 12v-5" opacity=".4"></path>
+                    </svg>
+                </div>
+                <h3>Unified Driver Layer</h3>
+                <p>A consistent, high-level API across oscilloscopes, PSUs, DMMs, and more. Swap instruments without rewriting your test logic.</p>
+            </div>
+            <div class="glass-card feature-card">
+                <div class="feature-icon violet-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                        <path d="M22 4 12 14.01l-3-3" opacity=".4"></path>
+                    </svg>
+                </div>
+                <h3>Declarative & Validated</h3>
+                <p>Define instruments and benches with simple YAML files, validated by Pydantic. Catch configuration errors before they hit the hardware.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Code Showcase Section -->
+    <section class="code-showcase-section fade-in" id="code-showcase">
+        <div class="section-header">
+            <h2>An API Designed for Flow</h2>
+            <p class="section-description">Follow the journey from a single command to a complete, automated experiment.</p>
+        </div>
+
+        <div id="code-scrolly-container" class="code-scrolly-container">
+            <div class="code-story-container">
+                <!-- Mobile Stepper (hidden on desktop) -->
+                <div class="code-story-mobile-stepper" id="mobile-stepper"></div>
+
+                <div class="code-story-grid">
+                    <!-- Story Steps -->
+                    <div class="story-steps">
+                        <div id="story-step-1" class="code-story-step">
+                            <h3 class="aqua-text">1. Hello, Instrument</h3>
+                            <p>Start simple. Connect to any instrument with one line. PyTestLab's `AutoInstrument` handles the backend, even providing a full simulation for development and CI.</p>
+                        </div>
+                        <div id="story-step-2" class="code-story-step">
+                            <h3 class="aqua-text">2. Define Your Bench</h3>
+                            <p>Describe your entire lab bench in a simple, readable YAML file. Specify instruments, connection details, and even safety limits to prevent accidents.</p>
+                        </div>
+                        <div id="story-step-3" class="code-story-step">
+                            <h3 class="aqua-text">3. Run Your Bench</h3>
+                            <p>Bring your bench to life. The `Bench` context manager handles all connections and provides access to your instruments by the aliases you defined. Safety limits are enforced automatically.</p>
+                        </div>
+                        <div id="story-step-4" class="code-story-step">
+                            <h3 class="aqua-text">4. Design Experiments</h3>
+                            <p>Go beyond simple commands. Use the declarative `MeasurementSession` to design complex experiments, sweep multiple parameters, and automatically collect structured data, ready for analysis.</p>
+                        </div>
+                    </div>
+
+                    <!-- Code Display -->
+                    <div class="code-display-wrapper">
+                        <div class="glass-card code-block">
+                            <pre><code id="code-display"></code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section fade-in" id="cta">
+        <div class="glass-card cta-container">
+            <h2>Ready to Accelerate Your Research?</h2>
+            <p class="cta-description">PyTestLab is ready for your lab. Get started today and transform how you measure, test, and analyze.</p>
+            <div class="cta-actions">
+                <a href="{{ 'installation/'|url }}" class="beam-button">Get Started</a>
+                <a href="{{ 'tutorials/10_minute_tour/'|url }}" class="ghost-button">10-Minute Tour</a>
+            </div>
+        </div>
+    </section>
+</div>
+
+<style>
+    /* Landing Page Styles */
+    .landing-page {
+        overflow: hidden;
+        width: 100%;
+    }
+
+    /* Hide sidebar */
+    .landing-page + .sidebar {
+        display: none;
+    }
+
+    /* Hide regular page title */
+    .landing-page .page-title {
+        display: none;
+    }
+
+    /* Hero Section */
+    .hero-section {
+        min-height: 80vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        position: relative;
+        padding: 4rem 2rem;
+    }
+
+    .hero-content {
+        max-width: 900px;
+        position: relative;
+        z-index: 1;
+    }
+
+    .hero-title {
+        font-size: 3.5rem;
+        line-height: 1.2;
+        margin-bottom: 1.5rem;
+        letter-spacing: -0.02em;
+    }
+
+    .hero-subtitle {
+        font-size: 1.5rem;
+        color: rgba(255, 255, 255, 0.8);
+        max-width: 700px;
+        margin: 0 auto 2.5rem;
+        line-height: 1.6;
+    }
+
+    .hero-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+    }
+
+    .hero-glow {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 100%;
+        height: 100%;
+        background: radial-gradient(circle at center, rgba(83, 51, 237, 0.15) 0%, transparent 70%);
+        z-index: 0;
+        opacity: 0.7;
+    }
+
+    /* Ghost Button */
+    .ghost-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.7rem 1.25rem;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: var(--border-radius-md, 8px);
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--photon-white, #f5f7fa);
+        font-weight: 600;
+        transition: all 0.3s var(--ease-curve, cubic-bezier(0.16, 1, 0.3, 1));
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }
+
+    .ghost-button:hover {
+        transform: translateY(-2px);
+        border-color: rgba(4, 226, 220, 0.4);
+        background: rgba(4, 226, 220, 0.1);
+        color: var(--photon-white);
+        text-decoration: none;
+    }
+
+    /* Sections */
+    .features-section,
+    .code-showcase-section,
+    .cta-section {
+        padding: 6rem 2rem;
+        margin: 2rem auto;
+        max-width: 1200px;
+    }
+
+    .section-header {
+        text-align: center;
+        margin-bottom: 3rem;
+    }
+
+    .section-header h2 {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .section-description {
+        font-size: 1.25rem;
+        color: rgba(255, 255, 255, 0.8);
+        max-width: 700px;
+        margin: 0 auto;
+    }
+
+    /* Feature Cards */
+    .feature-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+        margin-top: 3rem;
+    }
+
+    .feature-card {
+        padding: 2rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        transition: transform 0.4s var(--ease-curve, cubic-bezier(0.16, 1, 0.3, 1));
+    }
+
+    .feature-card:hover {
+        transform: translateY(-8px);
+        border-color: var(--glass-border-hover, rgba(255, 255, 255, 0.25));
+    }
+
+    .feature-icon {
+        width: 3rem;
+        height: 3rem;
+        border-radius: 0.75rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .feature-icon svg {
+        width: 1.5rem;
+        height: 1.5rem;
+    }
+
+    .violet-icon {
+        background: rgba(83, 51, 237, 0.1);
+        border: 1px solid rgba(83, 51, 237, 0.3);
+        color: var(--lab-violet, #5333ed);
+    }
+
+    .aqua-icon {
+        background: rgba(4, 226, 220, 0.1);
+        border: 1px solid rgba(4, 226, 220, 0.3);
+        color: var(--lab-aqua, #04e2dc);
+    }
+
+    /* Code Showcase */
+    .code-scrolly-container {
+        margin-top: 3rem;
+    }
+
+    .code-story-container {
+        width: 100%;
+    }
+
+    .code-story-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 3rem;
+        align-items: center;
+    }
+
+    .code-story-step {
+        padding: 2rem 0;
+        opacity: 0.4;
+        transition: opacity 0.4s var(--ease-curve, cubic-bezier(0.16, 1, 0.3, 1));
+    }
+
+    .code-story-step.is-active {
+        opacity: 1;
+    }
+
+    .code-story-step h3 {
+        font-size: 1.75rem;
+        margin-bottom: 1rem;
+    }
+
+    .code-story-step p {
+        font-size: 1.1rem;
+        line-height: 1.6;
+    }
+
+    .aqua-text {
+        color: var(--lab-aqua, #04e2dc);
+    }
+
+    .code-display-wrapper {
+        position: sticky;
+        top: 6rem;
+        height: 500px;
+    }
+
+    .code-block {
+        height: 100%;
+        overflow: auto;
+        padding: 1.5rem;
+        position: relative;
+    }
+
+    .code-block pre {
+        margin: 0;
+        height: 100%;
+    }
+
+    /* Code typing animation effect */
+    .typing-cursor {
+        display: inline-block;
+        width: 2px;
+        height: 1.2em;
+        background-color: var(--lab-aqua, #04e2dc);
+        margin-left: 2px;
+        vertical-align: middle;
+        animation: cursor-blink 1s step-end infinite;
+    }
+
+    @keyframes cursor-blink {
+        from, to { background-color: transparent; }
+        50% { background-color: var(--lab-aqua, #04e2dc); }
+    }
+
+    /* CTA Section */
+    .cta-container {
+        text-align: center;
+        padding: 3rem;
+    }
+
+    .cta-container h2 {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .cta-description {
+        font-size: 1.25rem;
+        color: rgba(255, 255, 255, 0.8);
+        max-width: 700px;
+        margin: 0 auto 2rem;
+    }
+
+    .cta-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+    }
+
+    /* Gradients */
+    .gradient-text-light {
+        background: linear-gradient(to right, var(--photon-white), rgba(255, 255, 255, 0.7));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
+    .gradient-text-accent {
+        background: linear-gradient(to right, var(--lab-violet, #5333ed), var(--lab-aqua, #04e2dc));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
+    /* Fade-in Animation */
+    .fade-in {
+        opacity: 0;
+        transform: translateY(30px);
+        transition: opacity 1s var(--ease-curve, cubic-bezier(0.16, 1, 0.3, 1)),
+                    transform 1s var(--ease-curve, cubic-bezier(0.16, 1, 0.3, 1));
+    }
+
+    .fade-in.visible {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    /* Mobile-specific Styles */
+    .code-story-mobile-stepper {
+        display: none;
+        justify-content: center;
+        align-items: center;
+        gap: 0.75rem;
+        margin: 1.5rem 0;
+    }
+
+    .code-story-mobile-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--glass-border, rgba(255, 255, 255, 0.1));
+        border: 2px solid var(--lab-violet, #5333ed);
+        transition: background 0.3s, border 0.3s;
+        cursor: pointer;
+    }
+
+    .code-story-mobile-dot.active {
+        background: var(--lab-violet, #5333ed);
+        border: 2px solid var(--lab-aqua, #04e2dc);
+    }
+
+    /* Responsive Styles */
+    @media (max-width: 1024px) {
+        .hero-title {
+            font-size: 3rem;
+        }
+
+        .hero-subtitle {
+            font-size: 1.25rem;
+        }
+
+        .section-header h2 {
+            font-size: 2.2rem;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .code-story-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+
+        .code-display-wrapper {
+            position: relative;
+            top: 0;
+            height: 350px;
+            order: -1;
+        }
+
+        .code-story-mobile-stepper {
+            display: flex;
+        }
+
+        .story-steps .code-story-step {
+            display: none;
+            padding: 1rem 0;
+        }
+
+        .story-steps .code-story-step.is-active {
+            display: block;
+        }
+
+        .hero-actions,
+        .cta-actions {
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .hero-section {
+            min-height: 70vh;
+        }
+
+        .hero-title {
+            font-size: 2.5rem;
+        }
+
+        .features-section,
+        .code-showcase-section,
+        .cta-section {
+            padding: 4rem 1.5rem;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .hero-title {
+            font-size: 2rem;
+        }
+
+        .hero-subtitle {
+            font-size: 1rem;
+        }
+
+        .section-header h2 {
+            font-size: 1.8rem;
+        }
+
+        .section-description {
+            font-size: 1rem;
+        }
+    }
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // Fade in animations
+    const fadeElements = document.querySelectorAll('.fade-in');
+    const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+                observer.unobserve(entry.target);
+            }
+        });
+    }, {
+        threshold: 0.1
+    });
+
+    fadeElements.forEach(element => {
+        observer.observe(element);
+    });
+
+    // Code snippets for the code showcase
+    const codeSnippets = [
+        // Step 1
+        `<span class="token keyword">import</span> asyncio
+<span class="token keyword">from</span> pytestlab.instruments <span class="token keyword">import</span> AutoInstrument
+
+<span class="token comment"># PyTestLab can run without hardware!</span>
+<span class="token keyword">async def</span> <span class="token function">main</span>():
+    scope = AutoInstrument.from_config(
+        <span class="token string">"keysight/DSOX1204G"</span>, <span class="token parameter">simulate</span>=<span class="token boolean">True</span>
+    )
+    <span class="token keyword">await</span> scope.connect_backend()
+
+    <span class="token comment"># Use a clean, chainable API</span>
+    <span class="token keyword">await</span> scope.channel(<span class="token number">1</span>).setup(scale=<span class="token number">0.5</span>).enable()
+    <span class="token keyword">await</span> scope.trigger.setup_edge(source=<span class="token string">"CH1"</span>, level=<span class="token number">0.2</span>)
+
+    <span class="token comment"># Get data back as a Polars DataFrame</span>
+    trace = <span class="token keyword">await</span> scope.read_channels(<span class="token number">1</span>)
+    print(trace.head())
+
+    <span class="token keyword">await</span> scope.close()
+
+asyncio.run(main())`,
+        // Step 2
+        `<span class="token comment"># bench.yaml</span>
+<span class="token yaml-key">bench_name</span>: <span class="token string">"Power-Amp Characterisation"</span>
+<span class="token yaml-key">simulate</span>: <span class="token boolean">false</span>
+
+<span class="token yaml-key">instruments</span>:
+  <span class="token yaml-key">psu</span>:
+    <span class="token yaml-key">profile</span>: <span class="token string">"keysight/EDU36311A"</span>
+    <span class="token yaml-key">address</span>: <span class="token string">"TCPIP0::172.22.1.5::INSTR"</span>
+    <span class="token yaml-key">safety_limits</span>:
+      <span class="token yaml-key">channels</span>:
+        <span class="token number">1</span>: {<span class="token yaml-key">voltage</span>: {<span class="token yaml-key">max</span>: <span class="token number">6.0</span>}, <span class="token yaml-key">current</span>: {<span class="token yaml-key">max</span>: <span class="token number">3</span>}}
+  <span class="token yaml-key">dmm</span>:
+    <span class="token yaml-key">profile</span>: <span class="token string">"keysight/34470A"</span>
+    <span class="token yaml-key">address</span>: <span class="token string">"USB0::...::INSTR"</span>`,
+        // Step 3
+        `<span class="token keyword">import</span> asyncio, pytestlab
+
+<span class="token keyword">async def</span> <span class="token function">run_bench</span>():
+    <span class="token comment"># Context manager handles connections & safety</span>
+    <span class="token keyword">async with</span> <span class="token keyword">await</span> pytestlab.Bench.open(<span class="token string">"bench.yaml"</span>) <span class="token keyword">as</span> bench:
+
+        <span class="token comment"># Access instruments by their alias</span>
+        v = <span class="token keyword">await</span> bench.dmm.measure_voltage_dc()
+        print(f<span class="token string">"Measured: {v.values:.4f} {v.units}"</span>)
+
+        <span class="token comment"># Safety limits are automatically enforced</span>
+        <span class="token keyword">try</span>:
+            <span class="token keyword">await</span> bench.psu.channel(<span class="token number">1</span>).set_voltage(<span class="token number">7.0</span>)
+        <span class="token keyword">except</span> SafetyLimitError <span class="token keyword">as</span> e:
+            print(f<span class="token string">"\\nError: {e}"</span>)
+
+asyncio.run(run_bench())`,
+        // Step 4
+        `<span class="token keyword">from</span> pytestlab.measurements <span class="token keyword">import</span> MeasurementSession
+
+<span class="token comment"># Declaratively build a complex experiment</span>
+<span class="token keyword">async def</span> <span class="token function">run_sweep</span>():
+    <span class="token keyword">async with</span> MeasurementSession(<span class="token string">"MOSFET IV Curve"</span>) <span class="token keyword">as</span> meas:
+        meas.instrument(<span class="token string">"psu"</span>, <span class="token string">"keysight/EDU36311A"</span>, address=<span class="token string">"..."</span>)
+        meas.instrument(<span class="token string">"dmm"</span>, <span class="token string">"keysight/34470A"</span>, address=<span class="token string">"..."</span>)
+
+        meas.parameter(<span class="token string">"v_gate"</span>, range(<span class="token number">0</span>, <span class="token number">5</span>, <span class="token number">0.5</span>), unit=<span class="token string">"V"</span>)
+        meas.parameter(<span class="token string">"v_drain"</span>, [<span class="token number">0.1</span>, <span class="token number">1.0</span>, <span class="token number">5.0</span>], unit=<span class="token string">"V"</span>)
+
+        <span class="token decorator">@meas.acquire</span>
+        <span class="token keyword">async def</span> <span class="token function">drain_current</span>(psu, dmm, v_gate, v_drain):
+            <span class="token keyword">await</span> psu.channel(<span class="token number">1</span>).set_voltage(v_gate)
+            <span class="token keyword">await</span> psu.channel(<span class="token number">2</span>).set_voltage(v_drain)
+            <span class="token keyword">return</span> <span class="token keyword">await</span> dmm.measure_current_dc()
+
+        results = <span class="token keyword">await</span> meas.run()
+        print(results.data.head())
+
+asyncio.run(run_sweep())`
+    ];
+
+    // Function to type code with animation
+    function typeCode(code, element, callback) {
+        let i = 0;
+        let isTag = false;
+        const speed = 1; // Typing speed
+        element.innerHTML = '';
+
+        function type() {
+            if (i < code.length) {
+                const char = code.charAt(i);
+                if (char === '<') isTag = true;
+
+                element.innerHTML = code.substring(0, i + 1) +
+                                  '<span class="typing-cursor"></span>';
+
+                if (char === '>') isTag = false;
+
+                i++;
+                const currentSpeed = isTag ? 0 : speed;
+                setTimeout(type, currentSpeed);
+            } else {
+                element.innerHTML = code;
+                if (callback) callback();
+            }
+        }
+
+        type();
+    }
+
+    // Code story steps interaction
+    const storySteps = document.querySelectorAll('.code-story-step');
+    const codeDisplay = document.getElementById('code-display');
+    let activeStep = 0;
+
+    function setActiveStep(index) {
+        // Update active step
+        storySteps.forEach((step, i) => {
+            step.classList.toggle('is-active', i === index);
+        });
+
+        // Update mobile dots
+        const dots = document.querySelectorAll('.code-story-mobile-dot');
+        dots.forEach((dot, i) => {
+            dot.classList.toggle('active', i === index);
+        });
+
+        // Animate code
+        if (codeDisplay) {
+            typeCode(codeSnippets[index], codeDisplay);
+        }
+
+        activeStep = index;
+    }
+
+    // Setup mobile stepper
+    const mobileStepper = document.getElementById('mobile-stepper');
+    if (mobileStepper) {
+        for (let i = 0; i < storySteps.length; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'code-story-mobile-dot' + (i === 0 ? ' active' : '');
+            dot.addEventListener('click', () => setActiveStep(i));
+            mobileStepper.appendChild(dot);
+        }
+    }
+
+    // Desktop scrolling behavior with IntersectionObserver
+    const isMobile = () => window.innerWidth < 768;
+
+    if (!isMobile() && storySteps.length) {
+        const storyObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const index = parseInt(entry.target.id.split('-')[2]) - 1;
+                    setActiveStep(index);
+                }
+            });
+        }, { threshold: 0.6 });
+
+        storySteps.forEach(step => storyObserver.observe(step));
+    } else {
+        // For mobile, show first step by default
+        setActiveStep(0);
+    }
+
+    // Window resize handler to adjust mobile/desktop behavior
+    window.addEventListener('resize', () => {
+        if (isMobile()) {
+            setActiveStep(activeStep);
+        }
+    });
+});
+</script>
+{% endblock %}
+""</script>
