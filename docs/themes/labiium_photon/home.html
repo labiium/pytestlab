@@ -802,6 +802,24 @@
             .token.yaml-key {
                 color: #e06c75;
             }
+            .token.key {
+                color: #e06c75;
+            }
+            .token.scalar {
+                color: #98c379;
+            }
+            .token.punctuation {
+                color: #abb2bf;
+            }
+            .token.important {
+                color: #c678dd;
+            }
+            .token.tag {
+                color: #e06c75;
+            }
+            .token.atrule {
+                color: #c678dd;
+            }
 
             /* Copy Button for Code */
             .copy-button {
@@ -1436,7 +1454,7 @@
                         <div class="glass-card code-block">
                             <pre><code id="codeDisplay"></code></pre>
                             <button class="copy-button">Copy</button>
-                            <div class="lang-badge">python</div>
+                            <div class="lang-badge">Python</div>
                         </div>
                     </div>
                 </div>
@@ -1756,11 +1774,11 @@ asyncio.run(run_sweep())`,
                 const storySteps =
                     document.querySelectorAll(".code-story-step");
 
-                function typeCode(code, element) {
+                function typeCode(code, element, language = "python") {
                     let i = 0;
                     const speed = 2; // Typing speed
                     element.textContent = "";
-                    element.className = "language-python"; // Set language for highlighting
+                    element.className = `language-${language}`; // Set language for highlighting
 
                     function type() {
                         if (i < code.length) {
@@ -1783,7 +1801,26 @@ asyncio.run(run_sweep())`,
                 // Initialize with first code snippet after Prism loads
                 function initializeCodeDisplay() {
                     if (codeDisplay) {
-                        typeCode(codeSnippets[0], codeDisplay);
+                        const languages = [
+                            "python",
+                            "yaml",
+                            "python",
+                            "python",
+                        ];
+                        const languageNames = [
+                            "Python",
+                            "YAML",
+                            "Python",
+                            "Python",
+                        ];
+
+                        // Set initial language badge
+                        const langBadge = document.querySelector(".lang-badge");
+                        if (langBadge) {
+                            langBadge.textContent = languageNames[0];
+                        }
+
+                        typeCode(codeSnippets[0], codeDisplay, languages[0]);
                     }
                 }
 
@@ -1795,11 +1832,15 @@ asyncio.run(run_sweep())`,
                 }
 
                 // Set up event listeners for step selection
-                storySteps.forEach((step, index) => {
+                storySteps.forEach((step) => {
                     step.addEventListener("click", () => {
                         // Update active state
                         storySteps.forEach((s) => s.classList.remove("active"));
                         step.classList.add("active");
+
+                        // Get the step index from data-step attribute
+                        const stepIndex =
+                            parseInt(step.getAttribute("data-step")) || 0;
 
                         // Type new code with appropriate language class
                         if (codeDisplay) {
@@ -1809,8 +1850,26 @@ asyncio.run(run_sweep())`,
                                 "python",
                                 "python",
                             ];
-                            codeDisplay.className = `language-${languages[index]}`;
-                            typeCode(codeSnippets[index], codeDisplay);
+                            const languageNames = [
+                                "Python",
+                                "YAML",
+                                "Python",
+                                "Python",
+                            ];
+
+                            // Update language badge
+                            const langBadge =
+                                document.querySelector(".lang-badge");
+                            if (langBadge) {
+                                langBadge.textContent =
+                                    languageNames[stepIndex];
+                            }
+
+                            typeCode(
+                                codeSnippets[stepIndex],
+                                codeDisplay,
+                                languages[stepIndex],
+                            );
                         }
                     });
                 });

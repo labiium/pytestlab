@@ -211,6 +211,114 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // --- Enhanced Jupyter Notebook Cell Processing ---
+  const notebookCodeBlocks = document.querySelectorAll(
+    ".nb-input pre, .nb-output pre",
+  );
+  notebookCodeBlocks.forEach((block) => {
+    // Add enhanced copy button
+    const copyButton = document.createElement("button");
+    copyButton.className = "copy-button";
+    copyButton.innerHTML =
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path></svg>Copy';
+    copyButton.setAttribute("aria-label", "Copy code to clipboard");
+
+    copyButton.addEventListener("click", () => {
+      const code =
+        block.querySelector("code")?.textContent || block.textContent;
+
+      // Add ripple effect
+      const ripple = document.createElement("span");
+      ripple.className = "copy-ripple";
+      copyButton.appendChild(ripple);
+
+      setTimeout(() => {
+        ripple.remove();
+      }, 600);
+
+      navigator.clipboard
+        .writeText(code)
+        .then(() => {
+          copyButton.classList.add("copied");
+          copyButton.innerHTML =
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"></polyline></svg>Copied!';
+
+          // Success pulse effect
+          const pulse = document.createElement("span");
+          pulse.className = "success-pulse";
+          block.appendChild(pulse);
+
+          setTimeout(() => {
+            pulse.remove();
+          }, 1000);
+
+          setTimeout(() => {
+            copyButton.classList.remove("copied");
+            copyButton.innerHTML =
+              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path></svg>Copy';
+          }, 2000);
+        })
+        .catch((err) => {
+          console.error("Failed to copy:", err);
+          copyButton.classList.add("error");
+          copyButton.textContent = "Error!";
+
+          setTimeout(() => {
+            copyButton.classList.remove("error");
+            copyButton.innerHTML =
+              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path></svg>Copy';
+          }, 2000);
+        });
+    });
+
+    block.appendChild(copyButton);
+
+    // Add language badge
+    const codeElement = block.querySelector("code");
+    if (codeElement) {
+      let language = null;
+
+      // Try to detect language from class
+      const classList = codeElement.className.match(/language-(\w+)/);
+      if (classList) {
+        language = classList[1];
+      } else if (block.closest(".nb-input")) {
+        // Default to Python for input cells
+        language = "python";
+      }
+
+      if (language) {
+        const langBadge = document.createElement("div");
+        langBadge.className = "lang-badge";
+
+        // Format language name
+        const langMap = {
+          py: "Python",
+          python: "Python",
+          js: "JavaScript",
+          javascript: "JavaScript",
+          ts: "TypeScript",
+          html: "HTML",
+          css: "CSS",
+          yaml: "YAML",
+          json: "JSON",
+          bash: "Shell",
+          sh: "Shell",
+          sql: "SQL",
+          cpp: "C++",
+          r: "R",
+        };
+
+        const displayLang =
+          langMap[language.toLowerCase()] ||
+          language.charAt(0).toUpperCase() + language.slice(1);
+
+        langBadge.textContent = displayLang;
+        block.appendChild(langBadge);
+      }
+    }
+  });
+
   // --- Glass card hover effects ---
   const glassCards = document.querySelectorAll(".glass-card");
   glassCards.forEach((card) => {

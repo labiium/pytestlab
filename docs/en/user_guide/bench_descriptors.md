@@ -8,7 +8,7 @@ The configuration for a bench is defined in a YAML file.
 
 A `bench.yaml` file is a declarative way to describe your entire test setup. It can include instrument definitions, safety limits, automation scripts, and metadata for traceability.
 
-```yaml title="bench.yaml"
+```yaml
 bench_name: "Power Amplifier Characterization"
 description: "A bench for testing the gain and efficiency of a power amplifier."
 version: "1.0"
@@ -109,7 +109,7 @@ async def main():
             # Access instruments by their alias.
             # The API is the same as using a standalone instrument.
             await bench.psu.channel(1).set(voltage=3.3, current_limit=0.5).on()
-            
+
             # Perform a measurement with the DMM.
             dc_voltage = await bench.dmm.measure_voltage_dc()
             print(f"Measured Voltage: {dc_voltage.values:.4f} V")

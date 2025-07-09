@@ -19,3 +19,4 @@ coverage.xml
 # Database files (from demos/tests)
 *.db
 demo_db.db
+site
