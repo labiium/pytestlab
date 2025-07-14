@@ -48,7 +48,7 @@
     --spacing-xxl: 3rem;
 
     /* Component dimensions */
-    --header-height: 70px;
+    --header-height: 80px;
     --sidebar-width: 260px;
     --border-radius-sm: 4px;
     --border-radius-md: 8px;
@@ -101,10 +101,9 @@ body {
 
 /* Basic container */
 .container {
-    width: 100%;
     max-width: 1400px;
     margin: 0 auto;
-    padding: 0 var(--spacing-md);
+    padding: 0 var(--spacing-lg);
 }
 
 /* ------------------------------
@@ -201,6 +200,12 @@ hr {
     gap: var(--spacing-xl);
 }
 
+/* Homepage and 404 layout - full width content */
+.page-content.full-width {
+    grid-column: 1 / -1;
+    max-width: none;
+}
+
 @media (max-width: 1024px) {
     .content-layout {
         grid-template-columns: 1fr;
@@ -220,6 +225,8 @@ hr {
     -webkit-backdrop-filter: none;
     box-shadow: none;
     transition: all 0.4s var(--ease-curve);
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
 }
 
 .site-header.scrolled {
@@ -234,7 +241,9 @@ hr {
     justify-content: space-between;
     align-items: center;
     height: 100%;
-    padding: 0 var(--spacing-md);
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 var(--spacing-lg);
 }
 
 .logo-container {
@@ -647,7 +656,9 @@ code[class*="language-"] {
     hyphens: none;
 }
 
-pre[class*="language-"] {
+pre[class*="language-"],
+.highlight pre,
+.codehilite pre {
     position: relative;
     margin: var(--spacing-lg) 0;
     padding: 2.5rem 1.5rem 1.5rem;
@@ -658,9 +669,17 @@ pre[class*="language-"] {
     box-shadow:
         inset 0 0 0 1px rgba(83, 51, 237, 0.2),
         0 4px 20px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    transition: all 0.4s var(--ease-curve);
+    font-family: var(--font-code, monospace);
+    font-size: 0.9rem;
+    line-height: 1.6;
 }
 
-pre[class*="language-"]:hover {
+pre[class*="language-"]:hover,
+.highlight pre:hover,
+.codehilite pre:hover {
     border-color: var(--glass-border-hover);
     transform: translateY(-2px);
     box-shadow:
@@ -668,7 +687,9 @@ pre[class*="language-"]:hover {
         0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
-pre[class*="language-"]::before {
+pre[class*="language-"]::before,
+.highlight pre::before,
+.codehilite pre::before {
     content: "";
     position: absolute;
     top: 0;
@@ -814,24 +835,32 @@ pre[class*="language-"] .copy-button.copied {
     box-shadow: 0 2px 10px rgba(0, 178, 124, 0.3);
 }
 
-pre[class*="language-"] .lang-badge {
+pre[class*="language-"] .lang-badge,
+.highlight pre .lang-badge,
+.codehilite pre .lang-badge {
     position: absolute;
     bottom: 0.75rem;
     right: 0.75rem;
-    background: rgba(26, 29, 32, 0.8);
+    background: rgba(11, 14, 17, 0.9);
     color: var(--lab-aqua);
-    border-radius: 3px;
-    padding: 0.2rem 0.5rem;
+    border-radius: var(--border-radius-sm, 4px);
+    padding: 0.25rem 0.5rem;
     font-size: 0.7rem;
     font-family: var(--font-code);
     border: 1px solid rgba(4, 226, 220, 0.2);
-    opacity: 0.7;
-    transition: opacity 0.3s var(--ease-curve);
+    font-weight: 500;
+    opacity: 0.8;
+    z-index: 5;
+    transition: all 0.3s var(--ease-curve);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
 }
 
-pre[class*="language-"]:hover .lang-badge {
-    opacity: 0.9;
-    border-color: rgba(4, 226, 220, 0.3);
+pre[class*="language-"]:hover .lang-badge,
+.highlight pre:hover .lang-badge,
+.codehilite pre:hover .lang-badge {
+    opacity: 1;
+    border-color: rgba(4, 226, 220, 0.4);
 }
 
 /* ------------------------------
@@ -1329,6 +1358,156 @@ pre[class*="language-"]:hover .lang-badge {
     line-height: 1.6;
     border: none;
     padding: 0;
+}
+
+/* Enhanced syntax highlighting for notebook content */
+.nb-input-content .token.keyword,
+.nb-output-content .token.keyword {
+    color: var(--lab-violet, #5333ed) !important;
+    font-weight: 600;
+}
+
+.nb-input-content .token.string,
+.nb-output-content .token.string {
+    color: var(--lab-aqua, #04e2dc) !important;
+}
+
+.nb-input-content .token.number,
+.nb-output-content .token.number {
+    color: #f59e0b !important;
+}
+
+.nb-input-content .token.function,
+.nb-output-content .token.function {
+    color: #8b5cf6 !important;
+}
+
+.nb-input-content .token.operator,
+.nb-output-content .token.operator {
+    color: #ef4444 !important;
+}
+
+.nb-input-content .token.comment,
+.nb-output-content .token.comment {
+    color: #6b7280 !important;
+    font-style: italic;
+}
+
+.nb-input-content .token.builtin,
+.nb-output-content .token.builtin {
+    color: #10b981 !important;
+}
+
+/* JupyterLab/Jupyter extension support */
+.jp-InputArea .token.keyword,
+.jp-OutputArea .token.keyword {
+    color: var(--lab-violet, #5333ed) !important;
+    font-weight: 600;
+}
+
+.jp-InputArea .token.string,
+.jp-OutputArea .token.string {
+    color: var(--lab-aqua, #04e2dc) !important;
+}
+
+.jp-InputArea .token.number,
+.jp-OutputArea .token.number {
+    color: #f59e0b !important;
+}
+
+.jp-InputArea .token.function,
+.jp-OutputArea .token.function {
+    color: #8b5cf6 !important;
+}
+
+.jp-InputArea .token.operator,
+.jp-OutputArea .token.operator {
+    color: #ef4444 !important;
+}
+
+.jp-InputArea .token.comment,
+.jp-OutputArea .token.comment {
+    color: #6b7280 !important;
+    font-style: italic;
+}
+
+.jp-InputArea .token.builtin,
+.jp-OutputArea .token.builtin {
+    color: #10b981 !important;
+}
+
+/* ================================
+ * YAML SYNTAX HIGHLIGHTING
+ * ================================ */
+.language-yaml .token.key {
+    color: var(--lab-violet, #5333ed) !important;
+    font-weight: 600;
+}
+
+.language-yaml .token.atrule {
+    color: var(--lab-violet, #5333ed) !important;
+    font-weight: 600;
+}
+
+.language-yaml .token.string {
+    color: var(--lab-aqua, #04e2dc) !important;
+}
+
+.language-yaml .token.scalar {
+    color: #f59e0b !important;
+}
+
+.language-yaml .token.punctuation {
+    color: var(--photon-white, #f5f7fa) !important;
+}
+
+.language-yaml .token.boolean {
+    color: #ec4899 !important;
+    font-weight: 500;
+}
+
+.language-yaml .token.number {
+    color: #f59e0b !important;
+}
+
+.language-yaml .token.comment {
+    color: #6b7280 !important;
+    font-style: italic;
+}
+
+.language-yaml .token.anchor,
+.language-yaml .token.alias {
+    color: #8b5cf6 !important;
+}
+
+.language-yaml .token.tag {
+    color: #ef4444 !important;
+}
+
+/* Enhanced YAML code blocks */
+pre[class*="language-yaml"],
+.highlight-yaml pre,
+.codehilite-yaml pre {
+    background: rgba(26, 29, 32, 0.8) !important;
+    border-left: 3px solid var(--lab-violet, #5333ed);
+}
+
+pre[class*="language-yaml"]::before,
+.highlight-yaml pre::before,
+.codehilite-yaml pre::before {
+    content: "YAML";
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    background: rgba(83, 51, 237, 0.1);
+    color: var(--lab-violet, #5333ed);
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--border-radius-sm, 4px);
+    font-size: 0.7rem;
+    font-family: var(--font-code, monospace);
+    border: 1px solid rgba(83, 51, 237, 0.2);
+    font-weight: 500;
+    opacity: 0.8;
 }
 
 /* Tables in notebook outputs */

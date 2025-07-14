@@ -148,7 +148,7 @@ class DCActiveLoad(Instrument):
             )
         await self._send_command(f"FUNC {mode_map[mode_upper]}")
         self.current_mode = mode_upper
-        self._log(f"Operating mode set to {mode_upper}.")
+        self._logger(f"Operating mode set to {mode_upper}.")
 
     async def set_load(self, value: float) -> None:
         """Programs the load's setpoint for the current operating mode.
@@ -175,7 +175,7 @@ class DCActiveLoad(Instrument):
 
         if scpi_param:
             await self._send_command(f"{scpi_param}:LEVel:IMMediate:AMPLitude {value}")
-            self._log(f"Load value set to {value} in mode {self.current_mode}.")
+            self._logger(f"Load value set to {value} in mode {self.current_mode}.")
         else:
             raise InstrumentParameterError(f"Internal error: Unknown current_mode '{self.current_mode}'.")
 
@@ -187,7 +187,7 @@ class DCActiveLoad(Instrument):
             channel: The channel to control (default is 1).
         """
         await self._send_command(f"INPut:STATe {'ON' if state else 'OFF'}, (@{channel})")
-        self._log(f"Input on channel {channel} turned {'ON' if state else 'OFF'}.")
+        self._logger(f"Input on channel {channel} turned {'ON' if state else 'OFF'}.")
 
     async def is_input_enabled(self, channel: int = 1) -> bool:
         """Queries the state of the load's input.
@@ -206,7 +206,7 @@ class DCActiveLoad(Instrument):
             channel: The channel to control (default is 1).
         """
         await self._send_command(f"INPut:SHORt:STATe {'ON' if state else 'OFF'}, (@{channel})")
-        self._log(f"Input short on channel {channel} turned {'ON' if state else 'OFF'}.")
+        self._logger(f"Input short on channel {channel} turned {'ON' if state else 'OFF'}.")
 
     async def set_slew_rate(self, rate: Union[float, str], channel: int = 1) -> None:
         """Sets the slew rate for the current operating mode.
@@ -222,7 +222,7 @@ class DCActiveLoad(Instrument):
         command_map = {"CC": "CURRent", "CV": "VOLTage", "CP": "POWer", "CR": "RESistance"}
         scpi_param = command_map.get(self.current_mode)
         await self._send_command(f"{scpi_param}:SLEW {rate}, (@{channel})")
-        self._log(f"Slew rate for mode {self.current_mode} on channel {channel} set to {rate}.")
+        self._logger(f"Slew rate for mode {self.current_mode} on channel {channel} set to {rate}.")
 
     async def set_range(self, value: Union[float, str], channel: int = 1) -> None:
         """Sets the operating range for the current mode.
@@ -236,7 +236,7 @@ class DCActiveLoad(Instrument):
         command_map = {"CC": "CURRent", "CV": "VOLTage", "CP": "POWer", "CR": "RESistance"}
         scpi_param = command_map.get(self.current_mode)
         await self._send_command(f"{scpi_param}:RANGe {value}, (@{channel})")
-        self._log(f"Range for mode {self.current_mode} on channel {channel} set for value {value}.")
+        self._logger(f"Range for mode {self.current_mode} on channel {channel} set for value {value}.")
 
     async def _get_readback_spec(self, mode: str, unit: str) -> Optional[ReadbackAccuracySpec]:
         """Helper to find the correct readback accuracy spec from the config."""
@@ -257,7 +257,7 @@ class DCActiveLoad(Instrument):
         try:
             instrument_max_range = float(await self._query(range_query_cmd))
         except (InstrumentCommunicationError, ValueError):
-            self._log(f"Could not query range for {unit}; cannot determine uncertainty.")
+            self._logger(f"Could not query range for {unit}; cannot determine uncertainty.")
             return None
 
         # Find the best matching range spec from the config
@@ -270,7 +270,7 @@ class DCActiveLoad(Instrument):
                 spec_max_val = r_spec.max_current_A
             elif unit == 'V' and r_spec.max_voltage_V is not None:
                 spec_max_val = r_spec.max_voltage_V
-            
+
             if spec_max_val > 0 and abs(spec_max_val * 1.02 - instrument_max_range) < min_delta:
                 min_delta = abs(spec_max_val - instrument_max_range)
                 best_match_spec = r_spec
@@ -297,11 +297,11 @@ class DCActiveLoad(Instrument):
                 std_dev = accuracy_spec.calculate_uncertainty(reading, unit)
                 if std_dev > 0:
                     value_to_return = ufloat(reading, std_dev)
-                    self._log(f"Measured {measurement_type}: {value_to_return} {unit}")
+                    self._logger(f"Measured {measurement_type}: {value_to_return} {unit}")
             else:
-                self._log(f"Warning: No matching accuracy spec found for {measurement_type}. Returning float.")
+                self._logger(f"Warning: No matching accuracy spec found for {measurement_type}. Returning float.")
         else:
-            self._log("Warning: Mode not set, cannot determine measurement uncertainty.")
+            self._logger("Warning: Mode not set, cannot determine measurement uncertainty.")
 
         return MeasurementResult(
             values=value_to_return,

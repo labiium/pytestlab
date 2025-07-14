@@ -50,20 +50,14 @@ plugins:
             docstring_section_style: "spacy"
             merge_init_into_class: true
             show_if_no_docstring: true
-  - mkdocs-jupyter:
-      include_css: false
-      ignore_h1_titles: true
+  - mkdocs-jupyter
   - awesome-pages
   - git-revision-date-localized
 
 markdown_extensions:
   - admonition
   - pymdownx.details
-  - pymdownx.superfences:
-      custom_fences:
-        - name: mermaid
-          class: mermaid
-          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.superfences
   - pymdownx.tabbed:
       alternate_style: true
   - pymdownx.highlight:

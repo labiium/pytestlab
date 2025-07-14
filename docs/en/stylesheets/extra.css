@@ -1,0 +1,524 @@
+/* ====================================
+ * MKDOCS-JUPYTER NOTEBOOK ENHANCEMENTS
+ * ==================================== */
+
+/* Target mkdocs-jupyter generated content specifically */
+.jupyter-wrapper {
+    margin: var(--spacing-lg, 1.5rem) 0;
+}
+
+/* Notebook cell containers */
+.jp-Cell,
+.cell {
+    margin-bottom: var(--spacing-lg, 1.5rem);
+    border-radius: var(--border-radius-md, 8px);
+    overflow: hidden;
+    background: var(--glass-frost-bg, rgba(30, 33, 38, 0.75));
+    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    transition: all 0.4s var(--ease-curve, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+.jp-Cell:hover,
+.cell:hover {
+    border-color: var(--glass-border-hover, rgba(255, 255, 255, 0.25));
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+/* Input areas */
+.jp-InputArea,
+.input_area {
+    display: flex;
+    align-items: stretch;
+    background: transparent;
+}
+
+.jp-InputPrompt,
+.input_prompt {
+    background: rgba(83, 51, 237, 0.1);
+    border-right: 2px solid var(--lab-violet, #5333ed);
+    color: var(--lab-violet, #5333ed);
+    font-family: var(--font-code, monospace);
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: var(--spacing-md, 1rem);
+    min-width: 90px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    text-align: center;
+    user-select: none;
+    flex-shrink: 0;
+}
+
+.jp-InputArea-editor,
+.input_area .highlight {
+    flex: 1;
+    position: relative;
+}
+
+/* Output areas */
+.jp-OutputArea,
+.output_area {
+    margin-top: 0;
+}
+
+.jp-OutputPrompt,
+.output_prompt {
+    background: rgba(4, 226, 220, 0.1);
+    border-right: 2px solid var(--lab-aqua, #04e2dc);
+    color: var(--lab-aqua, #04e2dc);
+    font-family: var(--font-code, monospace);
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: var(--spacing-md, 1rem);
+    min-width: 90px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    text-align: center;
+    user-select: none;
+    flex-shrink: 0;
+}
+
+.jp-OutputArea-output,
+.output {
+    display: flex;
+    align-items: stretch;
+    background: transparent;
+    margin-bottom: var(--spacing-sm, 0.75rem);
+}
+
+.jp-OutputArea-output:last-child,
+.output:last-child {
+    margin-bottom: 0;
+}
+
+/* Code styling within notebooks */
+.jp-InputArea .jp-Editor,
+.input_area .codehilite {
+    background: transparent !important;
+    border: none !important;
+    margin: 0;
+    padding: var(--spacing-md, 1rem);
+}
+
+.jp-InputArea pre,
+.jp-OutputArea pre,
+.input_area pre,
+.output pre {
+    background: transparent !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: var(--spacing-md, 1rem) !important;
+    font-family: var(--font-code, 'IBM Plex Mono', monospace);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--photon-white, #f5f7fa);
+    overflow-x: auto;
+    white-space: pre;
+    word-wrap: normal;
+}
+
+.jp-InputArea code,
+.jp-OutputArea code,
+.input_area code,
+.output code {
+    background: transparent !important;
+    color: var(--photon-white, #f5f7fa) !important;
+    font-family: var(--font-code, 'IBM Plex Mono', monospace) !important;
+    font-size: 0.9rem !important;
+    line-height: 1.6 !important;
+    border: none !important;
+    padding: 0 !important;
+}
+
+/* Output content styling */
+.jp-OutputArea-executeResult,
+.jp-OutputArea-output > div,
+.output_area .output_subarea {
+    flex: 1;
+    padding: var(--spacing-md, 1rem);
+    overflow-x: auto;
+}
+
+/* Text outputs */
+.jp-OutputArea-output .jp-OutputArea-executeResult pre,
+.output_area .output_text pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    color: var(--photon-white, #f5f7fa);
+}
+
+/* Image outputs */
+.jp-OutputArea-output img,
+.output_png img,
+.output_jpeg img,
+.output_svg svg {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--border-radius-sm, 4px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    background: white;
+    display: block;
+    margin: 0 auto;
+}
+
+.jp-OutputArea-output .jp-OutputArea-executeResult:has(img),
+.output_png,
+.output_jpeg,
+.output_svg {
+    text-align: center;
+    padding: var(--spacing-lg, 1.5rem);
+}
+
+/* HTML outputs */
+.jp-OutputArea-output .jp-OutputArea-executeResult > div,
+.output_html {
+    color: var(--photon-white, #f5f7fa);
+}
+
+/* Table outputs */
+.jp-OutputArea table,
+.output table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: var(--spacing-md, 1rem) 0;
+    background: rgba(30, 33, 38, 0.5);
+    border-radius: var(--border-radius-sm, 4px);
+    overflow: hidden;
+    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
+    font-size: 0.85rem;
+}
+
+.jp-OutputArea table th,
+.jp-OutputArea table td,
+.output table th,
+.output table td {
+    padding: var(--spacing-sm, 0.75rem) var(--spacing-md, 1rem);
+    text-align: left;
+    border-bottom: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
+    color: var(--photon-white, #f5f7fa);
+}
+
+.jp-OutputArea table th,
+.output table th {
+    background: rgba(4, 226, 220, 0.1);
+    color: var(--lab-aqua, #04e2dc);
+    border-bottom: 2px solid var(--lab-aqua, #04e2dc);
+    font-weight: 600;
+}
+
+.jp-OutputArea table tbody tr:nth-child(even),
+.output table tbody tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.jp-OutputArea table tbody tr:hover,
+.output table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* DataFrame styling (pandas outputs) */
+.dataframe {
+    font-size: 0.85rem !important;
+    margin: var(--spacing-md, 1rem) 0 !important;
+}
+
+.dataframe thead th {
+    background: rgba(4, 226, 220, 0.1) !important;
+    color: var(--lab-aqua, #04e2dc) !important;
+    border-bottom: 2px solid var(--lab-aqua, #04e2dc) !important;
+}
+
+/* Error outputs */
+.jp-OutputArea-output .jp-OutputArea-executeResult.jp-OutputArea-executeResult--error,
+.output_area .output_subarea.output_stderr {
+    background: rgba(255, 84, 96, 0.1) !important;
+    border-left: 3px solid var(--status-error, #ff5460);
+}
+
+.jp-OutputArea-output .jp-OutputArea-executeResult.jp-OutputArea-executeResult--error pre,
+.output_area .output_subarea.output_stderr pre {
+    color: #ffcdd2 !important;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* Markdown cells */
+.jp-MarkdownCell,
+.text_cell {
+    background: transparent;
+    border: none;
+    padding: var(--spacing-md, 1rem);
+}
+
+.jp-MarkdownCell .jp-MarkdownOutput,
+.text_cell .text_cell_render {
+    color: var(--photon-white, #f5f7fa);
+    line-height: 1.6;
+}
+
+.jp-MarkdownCell h1,
+.jp-MarkdownCell h2,
+.jp-MarkdownCell h3,
+.jp-MarkdownCell h4,
+.jp-MarkdownCell h5,
+.jp-MarkdownCell h6,
+.text_cell h1,
+.text_cell h2,
+.text_cell h3,
+.text_cell h4,
+.text_cell h5,
+.text_cell h6 {
+    color: var(--photon-white, #f5f7fa);
+    margin-top: var(--spacing-lg, 1.5rem);
+    margin-bottom: var(--spacing-md, 1rem);
+}
+
+/* Raw cells */
+.jp-RawCell,
+.raw_cell {
+    background: rgba(26, 29, 32, 0.8);
+    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.05));
+}
+
+/* Execution counts */
+.jp-InputPrompt .jp-InputPrompt-input,
+.input_prompt bdi {
+    font-weight: 600;
+    color: inherit;
+}
+
+.jp-OutputPrompt .jp-OutputPrompt-output,
+.output_prompt bdi {
+    font-weight: 600;
+    color: inherit;
+}
+
+/* Copy buttons for notebook cells */
+.jp-InputArea,
+.jp-OutputArea-output,
+.input_area,
+.output {
+    position: relative;
+}
+
+.jp-InputArea::after,
+.jp-OutputArea-output::after,
+.input_area::after,
+.output::after {
+    content: 'Copy';
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    background: linear-gradient(135deg, var(--lab-violet, #5333ed), rgba(83, 51, 237, 0.8));
+    color: var(--photon-white, #f5f7fa);
+    border: none;
+    border-radius: var(--border-radius-sm, 4px);
+    padding: 0.4rem 0.6rem;
+    font-size: 0.75rem;
+    font-family: var(--font-ui, system-ui);
+    font-weight: 500;
+    cursor: pointer;
+    opacity: 0;
+    transform: translateY(-5px);
+    transition: all 0.3s var(--ease-curve, cubic-bezier(0.16, 1, 0.3, 1));
+    box-shadow: 0 2px 8px rgba(83, 51, 237, 0.2);
+    z-index: 10;
+}
+
+.jp-InputArea:hover::after,
+.jp-OutputArea-output:hover::after,
+.input_area:hover::after,
+.output:hover::after {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Language badges */
+.jp-InputArea::before,
+.input_area::before {
+    content: 'Python';
+    position: absolute;
+    bottom: 0.75rem;
+    right: 0.75rem;
+    background: rgba(11, 14, 17, 0.9);
+    color: var(--lab-violet, #5333ed);
+    border-radius: var(--border-radius-sm, 4px);
+    padding: 0.25rem 0.5rem;
+    font-size: 0.7rem;
+    font-family: var(--font-code, monospace);
+    border: 1px solid rgba(83, 51, 237, 0.2);
+    font-weight: 500;
+    opacity: 0.8;
+    z-index: 5;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.jp-OutputArea-output::before,
+.output::before {
+    content: 'Output';
+    position: absolute;
+    bottom: 0.75rem;
+    right: 0.75rem;
+    background: rgba(11, 14, 17, 0.9);
+    color: var(--lab-aqua, #04e2dc);
+    border-radius: var(--border-radius-sm, 4px);
+    padding: 0.25rem 0.5rem;
+    font-size: 0.7rem;
+    font-family: var(--font-code, monospace);
+    border: 1px solid rgba(4, 226, 220, 0.2);
+    font-weight: 500;
+    opacity: 0.8;
+    z-index: 5;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .jp-Cell,
+    .cell {
+        margin-bottom: var(--spacing-md, 1rem);
+    }
+
+    .jp-InputArea,
+    .jp-OutputArea-output,
+    .input_area,
+    .output {
+        flex-direction: column;
+    }
+
+    .jp-InputPrompt,
+    .jp-OutputPrompt,
+    .input_prompt,
+    .output_prompt {
+        min-width: auto;
+        text-align: left;
+        border-right: none;
+        border-bottom: 2px solid;
+        padding: 0.5rem 1rem;
+    }
+
+    .jp-InputArea::after,
+    .jp-OutputArea-output::after,
+    .input_area::after,
+    .output::after {
+        top: 0.5rem;
+        right: 0.5rem;
+        font-size: 0.7rem;
+        padding: 0.3rem 0.5rem;
+    }
+
+    .jp-InputArea::before,
+    .jp-OutputArea-output::before,
+    .input_area::before,
+    .output::before {
+        bottom: 0.5rem;
+        right: 0.5rem;
+        font-size: 0.65rem;
+    }
+}
+
+/* Dark mode enhancements */
+@media (prefers-color-scheme: dark) {
+    .jp-OutputArea img,
+    .output img {
+        filter: brightness(0.9) contrast(1.1);
+    }
+}
+
+/* Print styles */
+@media print {
+    .jp-Cell,
+    .cell {
+        break-inside: avoid;
+        background: white !important;
+        border: 1px solid #ccc !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+    }
+
+    .jp-InputArea::after,
+    .jp-OutputArea-output::after,
+    .jp-InputArea::before,
+    .jp-OutputArea-output::before,
+    .input_area::after,
+    .output::after,
+    .input_area::before,
+    .output::before {
+        display: none !important;
+    }
+
+    .jp-InputPrompt,
+    .jp-OutputPrompt,
+    .input_prompt,
+    .output_prompt {
+        background: #f3f4f6 !important;
+        color: #374151 !important;
+        border-color: #d1d5db !important;
+    }
+}
+
+/* Accessibility enhancements */
+@media (prefers-reduced-motion: reduce) {
+    .jp-Cell,
+    .cell {
+        transition: none !important;
+    }
+
+    .jp-InputArea::after,
+    .jp-OutputArea-output::after,
+    .input_area::after,
+    .output::after {
+        transition: none !important;
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .jp-Cell,
+    .cell {
+        border-width: 2px !important;
+        border-color: currentColor !important;
+    }
+
+    .jp-InputPrompt,
+    .jp-OutputPrompt,
+    .input_prompt,
+    .output_prompt {
+        border-width: 3px !important;
+    }
+}
+
+/* Matplotlib figure styling */
+.jp-OutputArea .jp-OutputArea-executeResult .matplotlib-figure,
+.output .output_png .matplotlib-figure {
+    text-align: center;
+    padding: var(--spacing-lg, 1.5rem);
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: var(--border-radius-sm, 4px);
+    margin: var(--spacing-md, 1rem) 0;
+}
+
+/* Plotly and other interactive outputs */
+.jp-OutputArea .jp-OutputArea-executeResult .plotly-graph-div,
+.output .output_subarea .plotly-graph-div {
+    border-radius: var(--border-radius-sm, 4px);
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.95);
+    margin: var(--spacing-md, 1rem) 0;
+}
+
+/* Widgets and interactive elements */
+.jp-OutputArea .jupyter-widgets,
+.output .jupyter-widgets {
+    background: rgba(30, 33, 38, 0.5);
+    border-radius: var(--border-radius-sm, 4px);
+    padding: var(--spacing-md, 1rem);
+    margin: var(--spacing-md, 1rem) 0;
+}

@@ -211,111 +211,510 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // --- Enhanced Jupyter Notebook Cell Processing ---
-  const notebookCodeBlocks = document.querySelectorAll(
-    ".nb-input pre, .nb-output pre",
-  );
-  notebookCodeBlocks.forEach((block) => {
-    // Add enhanced copy button
+  // --- Enhanced Code Block Processing (All Types) ---
+  // Process all code blocks with modern glassmorphism design
+  const processAllCodeBlocks = () => {
+    // Enhanced code block processing for all pre elements
+    document.querySelectorAll("pre:not(.enhanced)").forEach((block) => {
+      enhanceCodeBlock(block);
+      block.classList.add("enhanced");
+    });
+
+    // Process notebook cells and convert them to our enhanced structure
+    document.querySelectorAll(".jp-Cell, .cell").forEach((cell) => {
+      if (!cell.classList.contains("processed")) {
+        enhanceNotebookCell(cell);
+        cell.classList.add("processed");
+      }
+    });
+
+    // Also handle legacy notebook structures
+    document.querySelectorAll(".nb-input, .nb-output").forEach((container) => {
+      if (!container.classList.contains("enhanced")) {
+        enhanceNotebookContainer(container);
+        container.classList.add("enhanced");
+      }
+    });
+
+    // Handle direct pre blocks in notebooks
+    document
+      .querySelectorAll(".nb-input pre, .nb-output pre")
+      .forEach((block) => {
+        if (!block.closest(".nb-input-content, .nb-output-content")) {
+          wrapNotebookBlock(block);
+        }
+      });
+
+    // Apply syntax highlighting to all code blocks
+    applySyntaxHighlighting();
+  };
+
+  const enhanceNotebookCell = (cell) => {
+    const cellType =
+      cell.classList.contains("jp-CodeCell") ||
+      cell.classList.contains("code_cell")
+        ? "code"
+        : "markdown";
+
+    if (cellType === "code") {
+      const inputArea = cell.querySelector(".jp-InputArea, .input_area");
+      const outputArea = cell.querySelector(".jp-OutputArea, .output_area");
+
+      if (inputArea) {
+        enhanceInputArea(inputArea);
+      }
+      if (outputArea) {
+        enhanceOutputArea(outputArea);
+      }
+    }
+  };
+
+  const enhanceNotebookContainer = (container) => {
+    const isInput = container.classList.contains("nb-input");
+    const pre = container.querySelector("pre");
+
+    if (pre) {
+      // Create enhanced structure
+      const prompt = document.createElement("div");
+      prompt.className = isInput ? "nb-input-prompt" : "nb-output-prompt";
+      prompt.textContent = isInput ? "In [●]:" : "Out[●]:";
+
+      const content = document.createElement("div");
+      content.className = isInput ? "nb-input-content" : "nb-output-content";
+
+      // Move pre to content div
+      content.appendChild(pre);
+
+      // Clear container and add new structure
+      container.innerHTML = "";
+      container.appendChild(prompt);
+      container.appendChild(content);
+
+      // Add interactive features
+      addNotebookInteractivity(content, isInput);
+    }
+  };
+
+  const enhanceInputArea = (inputArea) => {
+    const container = document.createElement("div");
+    container.className = "nb-input";
+
+    const prompt = document.createElement("div");
+    prompt.className = "nb-input-prompt";
+    prompt.innerHTML = 'In [<span class="execution-count">●</span>]:';
+
+    const content = document.createElement("div");
+    content.className = "nb-input-content";
+
+    // Move existing content
+    while (inputArea.firstChild) {
+      content.appendChild(inputArea.firstChild);
+    }
+
+    container.appendChild(prompt);
+    container.appendChild(content);
+    inputArea.parentNode.replaceChild(container, inputArea);
+
+    addNotebookInteractivity(content, true);
+  };
+
+  const enhanceOutputArea = (outputArea) => {
+    const outputs = outputArea.querySelectorAll(
+      ".jp-OutputArea-output, .output",
+    );
+
+    outputs.forEach((output, index) => {
+      const container = document.createElement("div");
+      container.className = "nb-output";
+
+      const prompt = document.createElement("div");
+      prompt.className = "nb-output-prompt";
+      prompt.innerHTML = 'Out[<span class="execution-count">●</span>]:';
+
+      const content = document.createElement("div");
+      content.className = "nb-output-content";
+
+      // Move output content
+      while (output.firstChild) {
+        content.appendChild(output.firstChild);
+      }
+
+      container.appendChild(prompt);
+      container.appendChild(content);
+      output.parentNode.replaceChild(container, output);
+
+      addNotebookInteractivity(content, false);
+    });
+  };
+
+  const wrapNotebookBlock = (block) => {
+    const isInput = block.closest(".nb-input");
+    const content = document.createElement("div");
+    content.className = isInput ? "nb-input-content" : "nb-output-content";
+
+    block.parentNode.insertBefore(content, block);
+    content.appendChild(block);
+
+    addNotebookInteractivity(content, isInput);
+  };
+
+  const addNotebookInteractivity = (contentDiv, isInput) => {
+    const pre = contentDiv.querySelector("pre");
+    if (!pre) return;
+
+    // Add copy button with enhanced styling
     const copyButton = document.createElement("button");
     copyButton.className = "copy-button";
-    copyButton.innerHTML =
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path></svg>Copy';
+    copyButton.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+      </svg>
+      Copy
+    `;
+    copyButton.setAttribute("aria-label", "Copy code to clipboard");
+
+    copyButton.addEventListener("click", async () => {
+      const code = pre.querySelector("code")?.textContent || pre.textContent;
+
+      try {
+        await navigator.clipboard.writeText(code);
+
+        // Success animation
+        copyButton.classList.add("copied");
+        copyButton.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20,6 9,17 4,12"></polyline>
+          </svg>
+          Copied!
+        `;
+
+        // Add success pulse
+        const pulse = document.createElement("div");
+        pulse.className = "success-pulse";
+        contentDiv.appendChild(pulse);
+
+        setTimeout(() => pulse.remove(), 1000);
+
+        // Reset button
+        setTimeout(() => {
+          copyButton.classList.remove("copied");
+          copyButton.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+            </svg>
+            Copy
+          `;
+        }, 2000);
+      } catch (err) {
+        console.error("Failed to copy:", err);
+        copyButton.textContent = "Error!";
+        setTimeout(() => {
+          copyButton.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+            </svg>
+            Copy
+          `;
+        }, 2000);
+      }
+    });
+
+    contentDiv.appendChild(copyButton);
+
+    // Add language badge
+    const langBadge = document.createElement("div");
+    langBadge.className = "lang-badge";
+
+    let language = "Text";
+    if (isInput) {
+      language = "Python";
+    } else {
+      // Try to detect from code element
+      const codeEl = pre.querySelector('code[class*="language-"]');
+      if (codeEl) {
+        const match = codeEl.className.match(/language-(\w+)/);
+        if (match) {
+          language = match[1];
+        }
+      }
+
+      // Check for error outputs
+      if (
+        contentDiv.closest(".nb-error") ||
+        pre.textContent.includes("Traceback")
+      ) {
+        language = "Error";
+      }
+    }
+
+    // Format language display
+    const langMap = {
+      py: "Python",
+      python: "Python",
+      js: "JavaScript",
+      javascript: "JavaScript",
+      ts: "TypeScript",
+      html: "HTML",
+      css: "CSS",
+      yaml: "YAML",
+      json: "JSON",
+      bash: "Shell",
+      sh: "Shell",
+      sql: "SQL",
+      cpp: "C++",
+      r: "R",
+      error: "Error",
+    };
+
+    const displayLang =
+      langMap[language.toLowerCase()] ||
+      language.charAt(0).toUpperCase() + language.slice(1);
+
+    langBadge.textContent = displayLang;
+    contentDiv.appendChild(langBadge);
+  };
+
+  const enhanceCodeBlock = (pre) => {
+    if (!pre || pre.hasAttribute("data-enhanced")) return;
+
+    // Add copy button
+    const copyButton = document.createElement("button");
+    copyButton.className = "copy-button";
+    copyButton.innerHTML = "Copy";
     copyButton.setAttribute("aria-label", "Copy code to clipboard");
 
     copyButton.addEventListener("click", () => {
-      const code =
-        block.querySelector("code")?.textContent || block.textContent;
-
-      // Add ripple effect
-      const ripple = document.createElement("span");
-      ripple.className = "copy-ripple";
-      copyButton.appendChild(ripple);
-
-      setTimeout(() => {
-        ripple.remove();
-      }, 600);
+      const code = pre.querySelector("code")?.textContent || pre.textContent;
 
       navigator.clipboard
         .writeText(code)
         .then(() => {
           copyButton.classList.add("copied");
-          copyButton.innerHTML =
-            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"></polyline></svg>Copied!';
-
-          // Success pulse effect
-          const pulse = document.createElement("span");
-          pulse.className = "success-pulse";
-          block.appendChild(pulse);
-
-          setTimeout(() => {
-            pulse.remove();
-          }, 1000);
+          copyButton.textContent = "Copied!";
 
           setTimeout(() => {
             copyButton.classList.remove("copied");
-            copyButton.innerHTML =
-              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path></svg>Copy';
+            copyButton.textContent = "Copy";
           }, 2000);
         })
         .catch((err) => {
           console.error("Failed to copy:", err);
-          copyButton.classList.add("error");
           copyButton.textContent = "Error!";
-
           setTimeout(() => {
-            copyButton.classList.remove("error");
-            copyButton.innerHTML =
-              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path></svg>Copy';
+            copyButton.textContent = "Copy";
           }, 2000);
         });
     });
 
-    block.appendChild(copyButton);
+    pre.appendChild(copyButton);
 
     // Add language badge
-    const codeElement = block.querySelector("code");
-    if (codeElement) {
-      let language = null;
+    const code = pre.querySelector("code");
+    if (code) {
+      let language = detectLanguage(code, pre);
 
-      // Try to detect language from class
-      const classList = codeElement.className.match(/language-(\w+)/);
-      if (classList) {
-        language = classList[1];
-      } else if (block.closest(".nb-input")) {
-        // Default to Python for input cells
-        language = "python";
+      const langBadge = document.createElement("div");
+      langBadge.className = "lang-badge";
+      langBadge.textContent = formatLanguageName(language);
+      pre.appendChild(langBadge);
+    }
+
+    pre.setAttribute("data-enhanced", "true");
+  };
+
+  const detectLanguage = (codeEl, pre) => {
+    // Check existing language classes
+    const existingLang = codeEl.className.match(/language-(\w+)/);
+    if (existingLang) return existingLang[1];
+
+    // Check parent div classes
+    const parentDiv = codeEl.closest(
+      'div[class*="highlight"], div[class*="codehilite"]',
+    );
+    if (parentDiv) {
+      const classMatch = parentDiv.className.match(
+        /highlight-(\w+)|language-(\w+)|codehilite-(\w+)/,
+      );
+      if (classMatch) return classMatch[1] || classMatch[2] || classMatch[3];
+    }
+
+    const content = codeEl.textContent;
+
+    // YAML detection (enhanced)
+    if (
+      content.includes(":") &&
+      (content.includes("command:") ||
+        content.includes("parameters:") ||
+        content.includes("settings:") ||
+        content.match(/^\s*\w+:\s*$/m) ||
+        content.match(/^\s*-\s+\w+:/m))
+    ) {
+      return "yaml";
+    }
+
+    // Python detection
+    if (
+      content.includes("def ") ||
+      content.includes("import ") ||
+      content.includes("from ") ||
+      content.includes("print(") ||
+      content.includes("class ") ||
+      codeEl.closest(".nb-input, .jp-InputArea")
+    ) {
+      return "python";
+    }
+
+    // JSON detection
+    if (
+      (content.trim().startsWith("{") && content.trim().endsWith("}")) ||
+      (content.trim().startsWith("[") && content.trim().endsWith("]"))
+    ) {
+      return "json";
+    }
+
+    // Shell/Bash detection
+    if (
+      content.includes("$ ") ||
+      content.includes("#!/bin/bash") ||
+      content.includes("cd ") ||
+      content.includes("pip install")
+    ) {
+      return "bash";
+    }
+
+    // Default fallback
+    if (codeEl.closest(".nb-input, .jp-InputArea")) return "python";
+    return "text";
+  };
+
+  const formatLanguageName = (language) => {
+    const langMap = {
+      py: "Python",
+      python: "Python",
+      js: "JavaScript",
+      javascript: "JavaScript",
+      ts: "TypeScript",
+      yaml: "YAML",
+      yml: "YAML",
+      json: "JSON",
+      bash: "Shell",
+      sh: "Shell",
+      html: "HTML",
+      css: "CSS",
+      sql: "SQL",
+      cpp: "C++",
+      text: "Text",
+    };
+    return (
+      langMap[language] || language.charAt(0).toUpperCase() + language.slice(1)
+    );
+  };
+
+  const applySyntaxHighlighting = () => {
+    // Wait for DOM to be ready and Prism to be loaded
+    if (!window.Prism || !document.body) {
+      setTimeout(applySyntaxHighlighting, 100);
+      return;
+    }
+
+    // Target all code elements that haven't been highlighted
+    const codeElements = document.querySelectorAll(
+      "pre code:not([data-highlighted])",
+    );
+
+    codeElements.forEach((codeEl) => {
+      const pre = codeEl.closest("pre");
+      if (!pre) return;
+
+      // Detect and apply language
+      const language = detectLanguage(codeEl, pre);
+
+      // Add language classes if not already present
+      if (!codeEl.className.includes("language-")) {
+        codeEl.classList.add(`language-${language}`);
+        pre.classList.add(`language-${language}`);
       }
 
-      if (language) {
-        const langBadge = document.createElement("div");
-        langBadge.className = "lang-badge";
+      // Mark as processed
+      codeEl.setAttribute("data-highlighted", "true");
 
-        // Format language name
-        const langMap = {
-          py: "Python",
-          python: "Python",
-          js: "JavaScript",
-          javascript: "JavaScript",
-          ts: "TypeScript",
-          html: "HTML",
-          css: "CSS",
-          yaml: "YAML",
-          json: "JSON",
-          bash: "Shell",
-          sh: "Shell",
-          sql: "SQL",
-          cpp: "C++",
-          r: "R",
-        };
-
-        const displayLang =
-          langMap[language.toLowerCase()] ||
-          language.charAt(0).toUpperCase() + language.slice(1);
-
-        langBadge.textContent = displayLang;
-        block.appendChild(langBadge);
+      // Apply Prism highlighting
+      try {
+        if (window.Prism && window.Prism.highlightElement) {
+          window.Prism.highlightElement(codeEl);
+        }
+      } catch (e) {
+        console.warn("Prism highlighting failed for", language, ":", e);
       }
+    });
+  };
+
+  // Process all code blocks on load and when new content is added
+  processAllCodeBlocks();
+
+  // Use MutationObserver to handle dynamically loaded notebook content
+  const notebookObserver = new MutationObserver((mutations) => {
+    let shouldProcess = false;
+    mutations.forEach((mutation) => {
+      if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
+        mutation.addedNodes.forEach((node) => {
+          if (
+            node.nodeType === 1 &&
+            (node.classList?.contains("jp-Cell") ||
+              node.classList?.contains("cell") ||
+              node.classList?.contains("nb-input") ||
+              node.classList?.contains("nb-output") ||
+              node.querySelector?.(".jp-Cell, .cell, .nb-input, .nb-output"))
+          ) {
+            shouldProcess = true;
+          }
+        });
+      }
+    });
+
+    if (shouldProcess) {
+      setTimeout(processAllCodeBlocks, 100);
+    }
+  });
+
+  notebookObserver.observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
+
+  // Enhanced Prism loading and application
+  const initializeSyntaxHighlighting = () => {
+    // Apply highlighting immediately if Prism is loaded
+    if (window.Prism) {
+      applySyntaxHighlighting();
+    }
+
+    // Also apply after delays to catch dynamically loaded content
+    setTimeout(applySyntaxHighlighting, 300);
+    setTimeout(applySyntaxHighlighting, 1000);
+    setTimeout(applySyntaxHighlighting, 2000);
+  };
+
+  // Initialize when DOM is ready
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initializeSyntaxHighlighting);
+  } else {
+    initializeSyntaxHighlighting();
+  }
+
+  // Re-apply when Prism loads (if it loads after this script)
+  window.addEventListener("load", () => {
+    setTimeout(applySyntaxHighlighting, 200);
+    setTimeout(processAllCodeBlocks, 300);
+  });
+
+  // Force reprocessing on page visibility change (helps with dynamic content)
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+      setTimeout(processAllCodeBlocks, 100);
     }
   });
 
@@ -397,9 +796,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // --- Add style to scrollbar, copy animations, and Jupyter notebook styling for WebKit browsers ---
-  const style = document.createElement("style");
-  style.textContent = `
+  // --- Enhanced Dynamic Styling for Modern UI ---
+  const dynamicStyles = document.createElement("style");
+  dynamicStyles.textContent = `
+        /* Enhanced Scrollbar Styling */
         ::-webkit-scrollbar {
             width: 12px;
             height: 12px;
@@ -409,165 +809,207 @@ document.addEventListener("DOMContentLoaded", () => {
             border-radius: 10px;
         }
         ::-webkit-scrollbar-thumb {
-            background: var(--graphite-70);
+            background: var(--graphite-70, #42454A);
             border-radius: 10px;
             border: 3px solid rgba(30, 33, 38, 0.3);
+            transition: all 0.3s ease;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: var(--lab-violet);
+            background: var(--lab-violet, #5333ed);
+            border-color: rgba(83, 51, 237, 0.2);
         }
 
-        /* Jupyter Notebook Styling */
-        .nb-cell {
-            margin-bottom: var(--spacing-lg, 1.5rem);
-        }
-
-        .nb-input, .nb-output {
-            background: rgba(30, 33, 38, 0.75);
-            border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
-            border-radius: var(--border-radius-md, 8px);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            margin-bottom: var(--spacing-md, 1rem);
-            overflow: hidden;
-        }
-
-        .nb-input-prompt, .nb-output-prompt {
-            background: rgba(83, 51, 237, 0.1);
-            border-right: 2px solid var(--lab-violet, #5333ed);
-            color: var(--lab-violet, #5333ed);
-            font-family: var(--font-code, monospace);
-            font-size: 0.85rem;
-            font-weight: 500;
-            padding: 0.5rem 1rem;
-            min-width: 80px;
-            text-align: center;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .nb-output-prompt {
-            background: rgba(4, 226, 220, 0.1);
-            border-right-color: var(--lab-aqua, #04e2dc);
-            color: var(--lab-aqua, #04e2dc);
-        }
-
-        .nb-input-content, .nb-output-content {
-            padding: var(--spacing-md, 1rem);
-        }
-
-        .nb-input pre, .nb-output pre {
-            background: transparent !important;
-            border: none !important;
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-
-        .nb-input code, .nb-output code {
-            background: transparent !important;
-            color: var(--photon-white, #f5f7fa) !important;
-            font-family: var(--font-code, monospace) !important;
-            font-size: 0.9rem !important;
-            line-height: 1.6 !important;
-        }
-
-        .nb-output-text {
-            color: var(--photon-white, #f5f7fa);
-            font-family: var(--font-code, monospace);
-            font-size: 0.9rem;
-            line-height: 1.6;
-            white-space: pre-wrap;
-        }
-
-        .nb-output-image, .nb-output-display-data {
-            text-align: center;
-            padding: var(--spacing-md, 1rem);
-        }
-
-        .nb-output img {
-            max-width: 100%;
-            height: auto;
-            border-radius: var(--border-radius-sm, 4px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        }
-
-        .nb-error {
-            background: rgba(255, 84, 96, 0.1) !important;
-            border-color: var(--status-error, #ff5460) !important;
-            color: var(--status-error, #ff5460) !important;
-        }
-
-        .nb-error .nb-output-prompt {
-            background: rgba(255, 84, 96, 0.2);
-            border-right-color: var(--status-error, #ff5460);
-            color: var(--status-error, #ff5460);
-        }
-
-        /* Enhanced code block styling for notebooks */
-        .nb-input .copy-button, .nb-output .copy-button {
-            background: rgba(30, 33, 38, 0.9);
-            border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
-        }
-
-        .nb-input:hover .copy-button, .nb-output:hover .copy-button {
-            opacity: 1;
-        }
-
-        /* Copy Button Animation */
-        .copy-ripple {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 5px;
-            height: 5px;
-            background: rgba(255, 255, 255, 0.8);
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            animation: copy-ripple 0.6s ease-out;
-            pointer-events: none;
-        }
-
-        @keyframes copy-ripple {
-            0% {
-                width: 5px;
-                height: 5px;
-                opacity: 1;
-            }
-            100% {
-                width: 100px;
-                height: 100px;
-                opacity: 0;
-            }
-        }
-
+        /* Enhanced Copy and Success Animations */
         .success-pulse {
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
             border-radius: var(--border-radius-md, 8px);
-            box-shadow: 0 0 0 0 rgba(0, 178, 124, 0.7);
-            opacity: 0.6;
-            animation: success-pulse 1s ease-out;
+            border: 2px solid var(--status-success, #00b27c);
+            opacity: 0.8;
+            animation: success-pulse 1s cubic-bezier(0.16, 1, 0.3, 1);
             pointer-events: none;
+            z-index: 100;
         }
 
         @keyframes success-pulse {
             0% {
-                box-shadow: 0 0 0 0 rgba(0, 178, 124, 0.7);
+                transform: scale(1);
+                opacity: 0.8;
             }
-            70% {
-                box-shadow: 0 0 0 15px rgba(0, 178, 124, 0);
+            50% {
+                transform: scale(1.02);
+                opacity: 0.6;
             }
             100% {
-                box-shadow: 0 0 0 0 rgba(0, 178, 124, 0);
+                transform: scale(1.05);
                 opacity: 0;
             }
         }
+
+        /* Enhanced Prism.js Integration for Notebooks */
+        .nb-input-content .token.comment,
+        .nb-output-content .token.comment,
+        .jp-InputArea .token.comment,
+        .jp-OutputArea .token.comment {
+            color: #6b7280 !important;
+            font-style: italic;
+        }
+
+        .nb-input-content .token.keyword,
+        .nb-output-content .token.keyword,
+        .jp-InputArea .token.keyword,
+        .jp-OutputArea .token.keyword {
+            color: var(--lab-violet, #5333ed) !important;
+            font-weight: 600;
+        }
+
+        .nb-input-content .token.string,
+        .nb-output-content .token.string,
+        .jp-InputArea .token.string,
+        .jp-OutputArea .token.string {
+            color: var(--lab-aqua, #04e2dc) !important;
+        }
+
+        .nb-input-content .token.number,
+        .nb-output-content .token.number,
+        .jp-InputArea .token.number,
+        .jp-OutputArea .token.number {
+            color: #f59e0b !important;
+        }
+
+        .nb-input-content .token.function,
+        .nb-output-content .token.function,
+        .jp-InputArea .token.function,
+        .jp-OutputArea .token.function {
+            color: #8b5cf6 !important;
+        }
+
+        .nb-input-content .token.operator,
+        .nb-output-content .token.operator,
+        .jp-InputArea .token.operator,
+        .jp-OutputArea .token.operator {
+            color: #ef4444 !important;
+        }
+
+        .nb-input-content .token.builtin,
+        .nb-output-content .token.builtin,
+        .jp-InputArea .token.builtin,
+        .jp-OutputArea .token.builtin {
+            color: #10b981 !important;
+        }
+
+        /* YAML-specific syntax highlighting */
+        .language-yaml .token.key {
+            color: var(--lab-violet, #5333ed) !important;
+            font-weight: 600;
+        }
+
+        .language-yaml .token.punctuation {
+            color: var(--photon-white, #f5f7fa) !important;
+        }
+
+        .language-yaml .token.string {
+            color: var(--lab-aqua, #04e2dc) !important;
+        }
+
+        .language-yaml .token.scalar {
+            color: #f59e0b !important;
+        }
+
+        /* Responsive Design Enhancements */
+        @media (max-width: 768px) {
+            .nb-input, .nb-output {
+                flex-direction: column;
+            }
+
+            .nb-input-prompt, .nb-output-prompt {
+                min-width: auto;
+                text-align: left;
+                border-right: none;
+                border-bottom: 2px solid;
+                padding: 0.5rem 1rem;
+            }
+
+            .nb-input-content .copy-button,
+            .nb-output-content .copy-button {
+                top: 0.5rem;
+                right: 0.5rem;
+                font-size: 0.7rem;
+                padding: 0.3rem 0.5rem;
+            }
+
+            .nb-input-content .lang-badge,
+            .nb-output-content .lang-badge {
+                bottom: 0.5rem;
+                right: 0.5rem;
+                font-size: 0.65rem;
+            }
+        }
+
+        /* Dark mode enhancements */
+        @media (prefers-color-scheme: dark) {
+            .nb-output img {
+                filter: brightness(0.9) contrast(1.1);
+            }
+        }
+
+        /* Print styles for notebooks */
+        @media print {
+            .nb-input, .nb-output {
+                break-inside: avoid;
+                background: white !important;
+                border: 1px solid #ccc !important;
+                box-shadow: none !important;
+                backdrop-filter: none !important;
+            }
+
+            .nb-input-content .copy-button,
+            .nb-output-content .copy-button,
+            .nb-input-content .lang-badge,
+            .nb-output-content .lang-badge {
+                display: none !important;
+            }
+
+            .nb-input-prompt, .nb-output-prompt {
+                background: #f3f4f6 !important;
+                color: #374151 !important;
+                border-color: #d1d5db !important;
+            }
+        }
+
+        /* Accessibility enhancements */
+        @media (prefers-reduced-motion: reduce) {
+            .nb-input, .nb-output {
+                transition: none !important;
+            }
+
+            .nb-input-content .copy-button,
+            .nb-output-content .copy-button {
+                transition: none !important;
+            }
+
+            .success-pulse {
+                animation: none !important;
+                opacity: 0 !important;
+            }
+        }
+
+        /* High contrast mode support */
+        @media (prefers-contrast: high) {
+            .nb-input, .nb-output {
+                border-width: 2px !important;
+                border-color: currentColor !important;
+            }
+
+            .nb-input-prompt, .nb-output-prompt {
+                border-width: 3px !important;
+            }
+        }
     `;
-  document.head.appendChild(style);
+  document.head.appendChild(dynamicStyles);
   // --- 404 Page Enhancements ---
   const is404Page = document.body.classList.contains("error-page-body");
 

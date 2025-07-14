@@ -22,7 +22,7 @@ All instrument methods that involve I/O are **async functions** (coroutines). Yo
 
 ### Example: Async Oscilloscope Measurement
 
-```python title="Async Oscilloscope Example"
+```python
 import asyncio
 import pytestlab
 

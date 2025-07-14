@@ -15,8 +15,121 @@
     <!-- CSS -->
     <link rel="stylesheet" href="{{ 'css/theme.css'|url }}">
 
-    <!-- Prism.js CSS for syntax highlighting -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <!-- Enhanced Prism.js CSS for LABIIUM Photonic theme -->
+    <style>
+        /* LABIIUM Photonic Prism.js Theme */
+        code[class*="language-"],
+        pre[class*="language-"] {
+            color: var(--photon-white, #f5f7fa);
+            background: none;
+            text-shadow: 0 1px rgba(0, 0, 0, 0.3);
+            font-family: var(--font-code, 'IBM Plex Mono', Consolas, 'Courier New', monospace);
+            font-size: 0.9em;
+            text-align: left;
+            white-space: pre;
+            word-spacing: normal;
+            word-break: normal;
+            word-wrap: normal;
+            line-height: 1.6;
+            tab-size: 4;
+            hyphens: none;
+        }
+
+        .token.comment,
+        .token.prolog,
+        .token.doctype,
+        .token.cdata {
+            color: #6b7280;
+            font-style: italic;
+        }
+
+        .token.punctuation {
+            color: #d1d5db;
+        }
+
+        .token.property,
+        .token.tag,
+        .token.constant,
+        .token.symbol,
+        .token.deleted {
+            color: #ef4444;
+        }
+
+        .token.boolean,
+        .token.number {
+            color: #f59e0b;
+        }
+
+        .token.selector,
+        .token.attr-name,
+        .token.string,
+        .token.char,
+        .token.builtin,
+        .token.inserted {
+            color: var(--lab-aqua, #04e2dc);
+        }
+
+        .token.operator,
+        .token.entity,
+        .token.url,
+        .language-css .token.string,
+        .style .token.string,
+        .token.variable {
+            color: #ec4899;
+        }
+
+        .token.atrule,
+        .token.attr-value,
+        .token.function,
+        .token.class-name {
+            color: #8b5cf6;
+        }
+
+        .token.keyword {
+            color: var(--lab-violet, #5333ed);
+            font-weight: 600;
+        }
+
+        .token.regex,
+        .token.important {
+            color: #f59e0b;
+        }
+
+        .token.important,
+        .token.bold {
+            font-weight: bold;
+        }
+
+        .token.italic {
+            font-style: italic;
+        }
+
+        .token.entity {
+            cursor: help;
+        }
+
+        /* Python-specific highlighting */
+        .language-python .token.decorator {
+            color: var(--lab-violet, #5333ed);
+        }
+
+        .language-python .token.triple-quoted-string {
+            color: var(--lab-aqua, #04e2dc);
+        }
+
+        /* Enhanced notebook-specific styling */
+        .nb-input-content .token.keyword,
+        .nb-output-content .token.keyword {
+            color: var(--lab-violet, #5333ed) !important;
+            text-shadow: 0 0 10px rgba(83, 51, 237, 0.3);
+        }
+
+        .nb-input-content .token.string,
+        .nb-output-content .token.string {
+            color: var(--lab-aqua, #04e2dc) !important;
+            text-shadow: 0 0 10px rgba(4, 226, 220, 0.3);
+        }
+    </style>
 
     <!-- Search styles -->
     <style>
@@ -110,7 +223,7 @@
 
                         <ul class="nav-links">
                             {% for nav_item in nav %}
-                                {% if nav_item.title != "Home" %}
+                                {% if nav_item.title != "Home" or not page.is_homepage %}
                                     {% if nav_item.children %}
                                         <li class="nav-item dropdown {% if nav_item.active %}active{% endif %}">
                                             <a href="#" class="dropdown-toggle">{{ nav_item.title }}</a>
@@ -177,7 +290,7 @@
             <div class="container">
                 <div class="content-layout">
                     <!-- Sidebar / Table of Contents -->
-                    {% if not page.is_404 %}
+                    {% if not page.is_404 and not page.is_homepage %}
                     <aside class="sidebar">
                         <div class="glass-card toc-container">
                             <div class="toc-header">
@@ -206,9 +319,9 @@
                     {% endif %}
 
                     <!-- Main Content Area -->
-                    <div class="page-content glass-card{% if page.is_404 %} full-width{% endif %}">
+                    <div class="page-content glass-card{% if page.is_404 %} full-width{% endif %}{% if page.is_homepage %} full-width{% endif %}">
                         <div class="article">
-                            {% if not page.is_404 %}
+                            {% if not page.is_404 and not page.is_homepage %}
                             <h1 class="page-title">{{ page.title }}</h1>
                             {% if page.meta.subtitle %}
                                 <h2 class="page-subtitle">{{ page.meta.subtitle }}</h2>
@@ -221,7 +334,7 @@
                         </div>
 
                         <!-- Page Navigation (Previous/Next) -->
-                        {% if not page.is_404 %}
+                        {% if not page.is_404 and not page.is_homepage %}
                         <div class="page-nav">
                             {% if page.previous_page %}
                                 <a href="{{ page.previous_page.url|url }}" class="prev-link">
@@ -430,60 +543,6 @@
                     resultsElement.innerHTML = '<div class="search-result-item"><div style="padding: 1rem; color: rgba(255, 255, 255, 0.6); text-align: center;">Try different keywords or check your spelling.</div></div>';
                 }
             }
-
-            // --- Enhanced Code Block Copy functionality ---
-            const codeBlocks = document.querySelectorAll('pre');
-            codeBlocks.forEach(block => {
-                // Add copy button
-                const copyButton = document.createElement('button');
-                copyButton.className = 'copy-button';
-                copyButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path></svg>Copy';
-                copyButton.setAttribute('aria-label', 'Copy code to clipboard');
-
-                copyButton.addEventListener('click', () => {
-                    const code = block.querySelector('code')?.textContent || block.textContent;
-
-                    navigator.clipboard.writeText(code).then(() => {
-                        copyButton.classList.add('copied');
-                        copyButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>Copied!';
-
-                        setTimeout(() => {
-                            copyButton.classList.remove('copied');
-                            copyButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path></svg>Copy';
-                        }, 2000);
-                    }).catch(err => {
-                        console.error('Failed to copy:', err);
-                    });
-                });
-
-                block.appendChild(copyButton);
-
-                // Add language indicator
-                const language = block.querySelector('code')?.className.match(/language-(\w+)/)?.[1];
-                if (language) {
-                    const langBadge = document.createElement('div');
-                    langBadge.className = 'lang-badge';
-
-                    // Format language name to be more readable
-                    const langMap = {
-                        'py': 'Python',
-                        'js': 'JavaScript',
-                        'ts': 'TypeScript',
-                        'html': 'HTML',
-                        'css': 'CSS',
-                        'yaml': 'YAML',
-                        'json': 'JSON',
-                        'bash': 'Shell',
-                        'sh': 'Shell',
-                        'sql': 'SQL',
-                        'cpp': 'C++'
-                    };
-
-                    const displayLang = langMap[language] || language.charAt(0).toUpperCase() + language.slice(1);
-                    langBadge.textContent = displayLang;
-                    block.appendChild(langBadge);
-                }
-            });
         });
     </script>
 
@@ -511,6 +570,41 @@
 
     <!-- Prism.js for syntax highlighting -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+
+    <!-- Enhanced Prism.js Configuration -->
+    <script>
+        // Configure Prism.js for better syntax highlighting
+        if (window.Prism) {
+            // Set autoloader path
+            Prism.plugins.autoloader.languages_path = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/';
+
+            // Ensure manual highlighting is available
+            Prism.manual = false;
+
+            // Add custom YAML token patterns
+            if (Prism.languages.yaml) {
+                Prism.languages.yaml.key = {
+                    pattern: /(\s*(?:^|[:\-,[{\r\n?])[ \t]*)[^\r\n{[\]},#\s]+?(?=\s*:\s)/,
+                    lookbehind: true,
+                    alias: 'atrule'
+                };
+            }
+
+            // Force re-highlighting after all languages are loaded
+            document.addEventListener('DOMContentLoaded', function() {
+                setTimeout(function() {
+                    if (window.Prism && window.Prism.highlightAll) {
+                        Prism.highlightAll();
+                    }
+                }, 500);
+            });
+        }
+    </script>
 </body>
 </html>
