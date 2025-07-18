@@ -1,3 +1,5 @@
+PyTestLab/pytestlab/schemas/oscilloscope.json
+```
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "OscilloscopeConfig",
@@ -5,17 +7,11 @@
     "properties": {
         "manufacturer": {
             "type": "string",
-            "description": "Manufacturer of the oscilloscope",
-            "enum": [
-                "Keysight"
-            ]
+            "description": "Manufacturer of the oscilloscope"
         },
         "model": {
             "type": "string",
-            "description": "Model identifier",
-            "enum": [
-                "DSOX1204G"
-            ]
+            "description": "Model identifier"
         },
         "device_type": {
             "type": "string",
@@ -32,11 +28,7 @@
                 "types": {
                     "type": "array",
                     "items": {
-                        "type": "string",
-                        "enum": [
-                            "HIGH",
-                            "LOW"
-                        ]
+                        "type": "string"
                     },
                     "minItems": 1,
                     "uniqueItems": true
@@ -44,16 +36,7 @@
                 "modes": {
                     "type": "array",
                     "items": {
-                        "type": "string",
-                        "enum": [
-                            "EDGE",
-                            "GLITch",
-                            "PATTern",
-                            "SHOLd",
-                            "TRANsition",
-                            "TV",
-                            "SBUS1"
-                        ]
+                        "type": "string"
                     },
                     "minItems": 1,
                     "uniqueItems": true
@@ -61,13 +44,7 @@
                 "slopes": {
                     "type": "array",
                     "items": {
-                        "type": "string",
-                        "enum": [
-                            "POS",
-                            "NEG",
-                            "EITH",
-                            "ALT"
-                        ]
+                        "type": "string"
                     },
                     "minItems": 1,
                     "uniqueItems": true
@@ -81,8 +58,7 @@
         },
         "channels": {
             "type": "array",
-            "minItems": 4,
-            "maxItems": 4,
+            "minItems": 1,
             "items": {
                 "type": "object",
                 "properties": {
@@ -107,11 +83,7 @@
                     "input_coupling": {
                         "type": "array",
                         "items": {
-                            "type": "string",
-                            "enum": [
-                                "DC",
-                                "AC"
-                            ]
+                            "type": "string"
                         },
                         "minItems": 1,
                         "uniqueItems": true
@@ -122,11 +94,7 @@
                     "probe_attenuation": {
                         "type": "array",
                         "items": {
-                            "type": "number",
-                            "enum": [
-                                1,
-                                10
-                            ]
+                            "type": "number"
                         },
                         "minItems": 1,
                         "uniqueItems": true
@@ -191,13 +159,7 @@
                 "window_types": {
                     "type": "array",
                     "items": {
-                        "type": "string",
-                        "enum": [
-                            "RECTangular",
-                            "HANNing",
-                            "FLATtop",
-                            "BHARris"
-                        ]
+                        "type": "string"
                     },
                     "minItems": 1,
                     "uniqueItems": true
@@ -205,11 +167,7 @@
                 "units": {
                     "type": "array",
                     "items": {
-                        "type": "string",
-                        "enum": [
-                            "DECibel",
-                            "VRMS"
-                        ]
+                        "type": "string"
                     },
                     "minItems": 1,
                     "uniqueItems": true
@@ -226,15 +184,7 @@
                 "waveform_types": {
                     "type": "array",
                     "items": {
-                        "type": "string",
-                        "enum": [
-                            "SINE",
-                            "SQUare",
-                            "RAMp",
-                            "PULse",
-                            "NOISe",
-                            "DC"
-                        ]
+                        "type": "string"
                     },
                     "minItems": 1,
                     "uniqueItems": true
@@ -242,11 +192,7 @@
                 "supported_states": {
                     "type": "array",
                     "items": {
-                        "type": "string",
-                        "enum": [
-                            "ON",
-                            "OFF"
-                        ]
+                        "type": "string"
                     },
                     "minItems": 1,
                     "uniqueItems": true
@@ -326,11 +272,7 @@
                 "load": {
                     "type": "array",
                     "items": {
-                        "type": "string",
-                        "enum": [
-                            "ONEMeg",
-                            "FIFTy"
-                        ]
+                        "type": "string"
                     },
                     "minItems": 1,
                     "uniqueItems": true
@@ -338,22 +280,18 @@
                 "trace": {
                     "type": "array",
                     "items": {
-                        "type": "string",
-                        "enum": [
-                            "NONE",
-                            "ALL",
-                            "GAIN",
-                            "PHASe"
-                        ]
+                        "type": "string"
                     },
                     "minItems": 1,
                     "uniqueItems": true
                 },
                 "mode": {
-                    "type": "string",
-                    "enum": [
-                        "SWE"
-                    ]
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "minItems": 1,
+                    "uniqueItems": true
                 }
             },
             "required": [

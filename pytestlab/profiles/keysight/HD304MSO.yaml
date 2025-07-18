@@ -1,0 +1,148 @@
+manufacturer: Keysight
+model: HD304MSO
+device_type: oscilloscope
+trigger:
+  types:
+    - Zone
+    - Edge
+    - Edge-then-Edge
+    - Pulse width
+    - Runt
+    - Setup and hold
+    - Rise/fall time
+    - Pattern
+    - Or
+    - I2C
+    - SPI
+    - RS-232/422/485/UART
+    - CAN, CAN FD, CAN XL
+    - LIN
+    - SENT
+  modes:
+    - Normal
+    - Auto
+    - Single
+    - Force
+  slopes:
+    - Rising
+    - Falling
+    - Alternating
+    - Either
+channels:
+  - description: Analog Channel 1
+    channel_range:
+      min_val: 0.0001
+      max_val: 10
+    input_coupling:
+      - AC
+      - DC
+    input_impedance: 1000000
+    probe_attenuation:
+      - 1
+      - 10
+    timebase:
+      range:
+        min_val: 5.0e-10
+        max_val: 50
+      horizontal_resolution: 3200000000.0
+  - description: Analog Channel 2
+    channel_range:
+      min_val: 0.0001
+      max_val: 10
+    input_coupling:
+      - AC
+      - DC
+    input_impedance: 1000000
+    probe_attenuation:
+      - 1
+      - 10
+    timebase:
+      range:
+        min_val: 5.0e-10
+        max_val: 50
+      horizontal_resolution: 3200000000.0
+  - description: Analog Channel 3
+    channel_range:
+      min_val: 0.0001
+      max_val: 10
+    input_coupling:
+      - AC
+      - DC
+    input_impedance: 1000000
+    probe_attenuation:
+      - 1
+      - 10
+    timebase:
+      range:
+        min_val: 5.0e-10
+        max_val: 50
+      horizontal_resolution: 3200000000.0
+  - description: Analog Channel 4
+    channel_range:
+      min_val: 0.0001
+      max_val: 10
+    input_coupling:
+      - AC
+      - DC
+    input_impedance: 1000000
+    probe_attenuation:
+      - 1
+      - 10
+    timebase:
+      range:
+        min_val: 5.0e-10
+        max_val: 50
+      horizontal_resolution: 3200000000.0
+bandwidth: 1000000000
+sampling_rate: 3200000000
+memory: 100000000
+waveform_update_rate: 1300000
+fft:
+  window_types:
+    - Hanning
+    - Flat Top
+    - Rectangular
+    - Blackman-Harris
+    - Bartlett
+  units:
+    - dBm
+    - dBV
+function_generator:
+  waveform_types:
+    - Sine
+    - Square
+    - Ramp
+    - Pulse
+    - DC
+    - Noise
+    - Sine Cardinal (Sinc)
+    - Exponential Rise
+    - Exponential Fall
+    - Cardiac
+    - Gaussian Pulse
+    - Arbitrary
+  supported_states:
+    - Normal
+    - Single shot
+  offset:
+    min_val: -8.0
+    max_val: 8.0
+  frequency:
+    min_val: 0.01
+    max_val: 100000000
+  amplitude:
+    min_val: 0.002
+    max_val: 10.0
+franalysis:
+  sweep_points:
+    min_val: 10
+    max_val: 1000
+  load:
+    - 50 Ohm
+    - 1 MOhm
+  trace:
+    - Gain
+    - Phase
+  mode:
+    - Logarithmic
+    - Linear

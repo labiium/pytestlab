@@ -38,6 +38,13 @@ prod:
     - lm.toml
     - pytestlab/profiles
     - examples/data
+    # - tests
+    - "*.png"
+    - htmlcov
+    - "*.csv"
+    - "*.json"
+    - pytestlab.egg-info
+    - tests/misc
   # - measurement
   # - pytestlab/config
 
@@ -80,7 +87,13 @@ instruments:
     - .gitignore
     - requirements.txt
     - pytestlab/instruments/InstrumentManager.py
-
+    - packager
+    - "*.png"
+    - htmlcov
+    - "*.csv"
+    - "*.json"
+    - pytestlab.egg-info
+    - tests/misc
 docs:
   language: python
   output: docs.out
