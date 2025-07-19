@@ -43,10 +43,24 @@ class PSUChannelFacade:
             await self._psu.set_current(self._channel, current_limit)
         return self
 
-    async def on(self) -> Self:
-        """Enables the output of this channel."""
-        await self._psu.output(self._channel, True)
+    @validate_call
+    async def slew(self, duration_s: Optional[float] = None, enabled: bool = True) -> Self:
+        """Configures the slew rate (ramp time) for this channel.
+
+        Args:
+            duration_s: The time in seconds for the voltage to ramp to its
+                        set value. If None, the duration is not changed.
+            enabled:    True to enable slew, False to disable.
+
+        Returns:
+            The `PSUChannelFacade` instance for method chaining.
+        """
+        if duration_s is not None:
+            await self._psu.set_slew_rate(self._channel, duration_s)
+        await self._psu.enable_slew_rate(self._channel, enabled)
         return self
+
+
 
     async def off(self) -> Self:
         """Disables the output of this channel."""
@@ -198,6 +212,38 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         await self._send_command(commands[0])
 
     @validate_call
+    async def set_slew_rate(self, channel: int, duration_s: float) -> None:
+        """Sets the slew rate (ramp duration) for a specific channel.
+
+        Args:
+            channel: The channel number (1-based).
+            duration_s: The time in seconds for the voltage to ramp to the set value.
+        """
+        if not self.config.channels or not (1 <= channel <= len(self.config.channels)):
+            num_ch = len(self.config.channels) if self.config.channels else 0
+            raise InstrumentParameterError(f"Channel number {channel} is out of range (1-{num_ch}).")
+
+        duration_ms = int(duration_s * 1000)
+        commands = self.scpi_engine.build("set_slew_rate", channel=channel, duration_ms=duration_ms)
+        await self._send_command(commands[0])
+
+    @validate_call
+    async def enable_slew_rate(self, channel: int, state: bool) -> None:
+        """Enables or disables the slew rate feature for a specific channel.
+
+        Args:
+            channel: The channel number (1-based).
+            state: True to enable slew, False to disable.
+        """
+        if not self.config.channels or not (1 <= channel <= len(self.config.channels)):
+            num_ch = len(self.config.channels) if self.config.channels else 0
+            raise InstrumentParameterError(f"Channel number {channel} is out of range (1-{num_ch}).")
+
+        command_name = "enable_slew_rate" if state else "disable_slew_rate"
+        commands = self.scpi_engine.build(command_name, channel=channel)
+        await self._send_command(commands[0])
+
+    @validate_call
     async def output(self, channel: Union[int, List[int]], state: bool = True) -> None:
         """Enables or disables the output for one or more channels.
 
@@ -243,7 +289,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         await self._send_command(commands[0])
 
     @validate_call
-    async def read_voltage(self, channel: int) -> float:
+    async def read_voltage(self, channel: int) -> Any:
         """Reads the measured output voltage from a specific channel.
 
         Args:
@@ -261,7 +307,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         commands = self.scpi_engine.build("measure_voltage", channel=channel)
         reading: float = self.scpi_engine.parse("measure_voltage", await self._query(commands[0]))
 
-        value_to_return: float = reading
+        value_to_return: Any = reading
 
         if self.config.measurement_accuracy:
             mode_key = f"read_voltage_ch{channel}"
@@ -286,7 +332,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         return value_to_return
 
     @validate_call
-    async def read_current(self, channel: int) -> float:
+    async def read_current(self, channel: int) -> Any:
         """Reads the measured output current from a specific channel.
 
         Args:
@@ -304,7 +350,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         commands = self.scpi_engine.build("measure_current", channel=channel)
         reading: float = self.scpi_engine.parse("measure_current", await self._query(commands[0]))
 
-        value_to_return: float = reading
+        value_to_return: Any = reading
 
         if self.config.measurement_accuracy:
             mode_key = f"read_current_ch{channel}"
