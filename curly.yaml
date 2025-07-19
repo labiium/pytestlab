@@ -16,14 +16,16 @@ prod:
   docs_comments_only: true
   output: prod.out
   docs_ignore:
-    - examples/sweep.py
-    - examples/measurement.py
-    - examples/plot.py
-    - examples/smartbench.py
+    - examples/bench_example.py
+    - examples/bench_session_integration.py
+    - examples/database_integration_example.py
     - examples/example_database.py
     - examples/example_experiment.py
-    - osc_read.py
+    - examples/bench_sweep_exampl.py
+    - examples/sweep_integration_example.py
   ignore:
+    - docs
+    - pytestlab/tests
     - sweep_test.py
     - "*.csv"
     - requirements.txt

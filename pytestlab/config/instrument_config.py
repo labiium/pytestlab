@@ -14,7 +14,7 @@ class InstrumentConfig(BaseModel):
     measurement_accuracy: Optional[dict[str, AccuracySpec]] = Field(default_factory=dict, description="Measurement accuracy specifications")
     # further complex yaml
     # ------------------------- NEW  (SCPI) ------------------------------ #
-    scpi: dict[str, Any] = Field(
+    scpi:Optional[dict[str, Any]] = Field(
         ...,
         description=(
             "Raw SCPI section copied verbatim from the YAML profile.  "
