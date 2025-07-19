@@ -15,7 +15,7 @@ class InstrumentConfig(BaseModel):
     # further complex yaml
     # ------------------------- NEW  (SCPI) ------------------------------ #
     scpi:Optional[dict[str, Any]] = Field(
-        ...,
+        default_factory=dict,
         description=(
             "Raw SCPI section copied verbatim from the YAML profile.  "
             "Must contain 'commands:' and/or 'queries:' or a 'variants:' block."
