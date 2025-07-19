@@ -38,6 +38,74 @@ channels:
 total_power: 90
 line_regulation: 0.01
 load_regulation: 0.01
+scpi:
+  commands:
+    set_voltage:
+      template: "VOLT {voltage}, (@{channel})"
+      defaults: { channel: 1 }
+      validators:
+        voltage: { min: 0, max: 30 }
+        channel: { min: 1, max: 3 }
+
+    set_current:
+      template: "CURR {current}, (@{channel})"
+      defaults: { channel: 1 }
+      validators:
+        current: { min: 0, max: 5 }
+        channel: { min: 1, max: 3 }
+
+    set_output:
+      template: "OUTP:STAT {state}, (@{channel})"
+      defaults: { channel: 1 }
+      enums:
+        state:
+          { on: "ON", off: "OFF", true: "ON", false: "OFF", 1: "ON", 0: "OFF" }
+      validators:
+        channel: { min: 1, max: 3 }
+
+    set_display:
+      template: "DISP {state}"
+      enums:
+        state: { on: "ON", off: "OFF", true: "ON", false: "OFF" }
+
+    reset:
+      template: "*RST"
+
+  queries:
+    identify:
+      template: "*IDN?"
+      response:
+        type: str
+
+    measure_voltage:
+      template: "MEAS:VOLT? (@{channel})"
+      defaults: { channel: 1 }
+      validators:
+        channel: { min: 1, max: 3 }
+      response:
+        type: float
+
+    measure_current:
+      template: "MEAS:CURR? (@{channel})"
+      defaults: { channel: 1 }
+      validators:
+        channel: { min: 1, max: 3 }
+      response:
+        type: float
+
+    get_output_state:
+      template: "OUTP:STAT? (@{channel})"
+      defaults: { channel: 1 }
+      validators:
+        channel: { min: 1, max: 3 }
+      response:
+        type: str
+
+    system_error:
+      template: "SYST:ERR?"
+      response:
+        type: str
+
 simulation:
   scpi:
     "*IDN?": "Simulated,PyTestLab,EDU36311A-SIM,1.0"

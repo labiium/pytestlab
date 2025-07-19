@@ -6,7 +6,10 @@ from typing import List, Optional, Literal, Dict, Any, Union
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 from pytestlab.config.instrument_config import InstrumentConfig
-from uncertainties.core import UFloat
+try:
+    from uncertainties.core import UFloat
+except ImportError:
+    UFloat = float
 
 
 class DMMFunction(str, Enum):

@@ -10,6 +10,7 @@ import asyncio
 from ..errors import InstrumentConnectionBusy, InstrumentConfigurationError, InstrumentNotFoundError, InstrumentCommunicationError, InstrumentConnectionError, InstrumentParameterError
 from ..config import InstrumentConfig # Assuming InstrumentConfig is the base Pydantic model
 from ..common.health import HealthReport, HealthStatus # Adjusted import
+from .scpi_engine import SCPIEngine
 import time
 
 # Forward reference for ConfigType if InstrumentConfig is not fully defined/imported yet,
@@ -128,12 +129,12 @@ class Instrument(Generic[ConfigType]):
         self.config = config
         self._backend = backend # This will be an AsyncInstrumentIO instance
         self._command_log = []
-        
+
         logger_name = self.config.model if hasattr(self.config, 'model') else self.__class__.__name__
         self._logger = get_logger(logger_name)
-        
-        self._logger.info(f"Instrument '{logger_name}': Initializing with backend '{type(backend).__name__}'.")
 
+        self._logger.info(f"Instrument '{logger_name}': Initializing with backend '{type(backend).__name__}'.")
+        self.scpi_engine = SCPIEngine(self.config.scpi)
     # Note: from_config might need to become async or handle async backend instantiation.
     # This will be addressed when AutoInstrument is updated.
     @classmethod
@@ -212,7 +213,7 @@ class Instrument(Generic[ConfigType]):
                     self.config.model,
                     f"Invalid SCPI binary block: Length digit char '{len_digits_char}' is not a digit.",
                 )
-            
+
             num_digits_for_length = int(len_digits_char)
             if num_digits_for_length == 0:
                 raise InstrumentDataError(
@@ -222,14 +223,14 @@ class Instrument(Generic[ConfigType]):
 
             data_length_str = data[2 : 2 + num_digits_for_length].decode('ascii')
             actual_data_length = int(data_length_str)
-            
+
             data_start_index = 2 + num_digits_for_length
             waveform_bytes_segment = data[data_start_index : data_start_index + actual_data_length]
-            
+
             # Data type (e.g., np.uint8, np.int16, np.float32) should ideally be determined
             # by the instrument's :WAVeform:FORMat setting. Defaulting to uint8.
             np_array = np.frombuffer(waveform_bytes_segment, dtype=np.uint8)
-            
+
             if len(waveform_bytes_segment) != actual_data_length:
                 self._logger.debug(f"Warning: SCPI binary block data length mismatch. Expected {actual_data_length} bytes, got {len(waveform_bytes_segment)} bytes in segment.")
 
@@ -299,7 +300,7 @@ class Instrument(Generic[ConfigType]):
                 command=query,
                 message=f"Failed to query instrument: {e}",
             ) from e
-        
+
     async def _query_raw(self, query: str, delay: Optional[float] = None) -> bytes:
         """Sends a query and returns a raw binary response.
 
@@ -364,7 +365,7 @@ class Instrument(Generic[ConfigType]):
         This is a basic implementation; specific event setup (*ESE) might be needed.
         """
         result = 0
-        max_attempts = 100 
+        max_attempts = 100
         attempts = 0
         while result == 0 and attempts < max_attempts:
             try:
@@ -379,7 +380,7 @@ class Instrument(Generic[ConfigType]):
                 ) from e
             await asyncio.sleep(0.1)
             attempts += 1
-        
+
         if attempts >= max_attempts and result == 0 :
             self._logger.debug("Warning: _wait_event timed out polling *ESR?. ESR did not become non-zero.")
         else:
@@ -427,7 +428,7 @@ class Instrument(Generic[ConfigType]):
         name = await self._query("*IDN?")
         self._logger.debug(f"Connected to {name}")
         return name
-    
+
     async def close(self) -> None:
         """Close the connection to the instrument via the backend."""
         try:
@@ -484,7 +485,7 @@ class Instrument(Generic[ConfigType]):
             fail_msg = f"Failed: Code {code}. Errors: {details}"
             self._logger.debug(fail_msg)
             return fail_msg
-    
+
     @classmethod
     def requires(cls, requirement: str) -> Callable:
         """
@@ -497,7 +498,7 @@ class Instrument(Generic[ConfigType]):
                         self.config.model,
                         "Config object missing 'requires' method for decorator.",
                     )
-                
+
                 if self.config.requires(requirement):
                     return func(self, *args, **kwargs)
                 else:
@@ -545,7 +546,7 @@ class Instrument(Generic[ConfigType]):
         else:
              self._logger.debug(f"Retrieved {len(errors)} error(s) from queue: {errors}")
         return errors
-    
+
     async def get_error(self) -> Tuple[int, str]:
         """
         Reads and clears the oldest error from the instrument's error queue.
@@ -600,7 +601,7 @@ class Instrument(Generic[ConfigType]):
             await self._send_command("*OPC") # This now uses self._backend.write
             self._logger.debug("Operation complete command (*OPC) sent (non-blocking). Status polling required.")
             return None
-        
+
     async def set_communication_timeout(self, timeout_ms: int) -> None:
         """Sets the communication timeout on the backend."""
         await self._backend.set_timeout(timeout_ms)

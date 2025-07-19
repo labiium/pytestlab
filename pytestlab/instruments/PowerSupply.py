@@ -1,16 +1,14 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Type, Union, Generic, Self
+from typing import Any, Dict, List, Optional, Union, Self
 from pydantic import validate_call # Added validate_call
 
 from .instrument import Instrument
-from .scpi_maps import KeysightEDU36311APSU_SCPI # Import the SCPI map
+from .scpi_engine import SCPIEngine
 from ..errors import InstrumentConfigurationError, InstrumentParameterError
 from ..config import PowerSupplyConfig # V2 model
 from ..common.enums import SCPIOnOff # Added SCPIOnOff
-# from ..experiments import MeasurementResult # Though not directly used for return type, good for context
 from uncertainties import ufloat
-from uncertainties.core import UFloat # For type hinting float | UFloat
 
 
 class PSUChannelFacade:
@@ -55,11 +53,11 @@ class PSUChannelFacade:
         await self._psu.output(self._channel, False)
         return self
 
-    async def get_voltage(self) -> float | UFloat:
+    async def get_voltage(self) -> float:
         """Reads the measured voltage from this channel."""
         return await self._psu.read_voltage(self._channel)
 
-    async def get_current(self) -> float | UFloat:
+    async def get_current(self) -> float:
         """Reads the measured current from this channel."""
         return await self._psu.read_current(self._channel)
 
@@ -72,8 +70,8 @@ class PSUChannelFacade:
         Raises:
             InstrumentParameterError: If the instrument returns an unexpected state.
         """
-        command = f"{self._psu.SCPI_MAP.OUTPUT_STATE_QUERY_BASE} (@{self._channel})"
-        state_str = (await self._psu._query(command)).strip().upper()
+        commands = self._psu.scpi_engine.build("get_output_state", channel=self._channel)
+        state_str = self._psu.scpi_engine.parse("get_output_state", await self._psu._query(commands[0]))
         if state_str in ("1", "ON"):
             return True
         elif state_str in ("0", "OFF"):
@@ -93,7 +91,7 @@ class PSUChannelConfig:
         current: The measured current of the channel.
         state: The output state of the channel ("ON" or "OFF").
     """
-    def __init__(self, voltage: float | UFloat, current: float | UFloat, state: Union[int, str]) -> None:
+    def __init__(self, voltage: float, current: float, state: Union[int, str]) -> None:
         """Initializes the PSUChannelConfig.
 
         Args:
@@ -101,8 +99,8 @@ class PSUChannelConfig:
             current: The current value for the channel.
             state: The state of the channel (e.g., 0, 1, "ON", "OFF").
         """
-        self.voltage: float | UFloat = voltage
-        self.current: float | UFloat = current
+        self.voltage: float = voltage
+        self.current: float = current
         self.state: str # Store state as string "ON" or "OFF" for consistency
         if isinstance(state, str):
             # Normalize state from various string inputs like "1", "0", "ON", "OFF"
@@ -136,22 +134,21 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
     Attributes:
         config: The Pydantic configuration object (`PowerSupplyConfig`)
                 containing settings specific to this PSU.
-        SCPI_MAP: An object that maps generic functions to model-specific SCPI commands.
+        scpi_engine: The SCPI engine for building and parsing commands.
     """
     model_config = {"arbitrary_types_allowed": True}
     config: PowerSupplyConfig
-    SCPI_MAP = KeysightEDU36311APSU_SCPI() # Instance of the map
 
-    # __init__ already expects PowerSupplyConfig V2 due to class Generic type and type hint
-    # def __init__(self, config: PowerSupplyConfig, backend: _Backend, **kwargs: Any): # backend not in current code
-    #     super().__init__(config=config, backend=backend, **kwargs)
-    #     # self.config is now a validated PowerSupplyConfig V2 instance
-    # No change needed to __init__ based on current file content, it already takes PowerSupplyConfig
+    def __init__(self, config: PowerSupplyConfig, **kwargs: Any):
+        super().__init__(config=config, **kwargs)
+        # Initialize SCPI engine from the config
+        if config.scpi:
+            self.scpi_engine = SCPIEngine(config.scpi, variant=config.scpi_variant)
+        else:
+            raise InstrumentConfigurationError("No SCPI configuration found in instrument config")
 
-    @classmethod
-    def from_config(cls: Type['PowerSupply'], config: PowerSupplyConfig, **kwargs: Any) -> 'PowerSupply':
-        return cls(config=config, **kwargs)
-    
+    # PowerSupply uses the base Instrument.__init__ method
+
     @validate_call
     async def set_voltage(self, channel: int, voltage: float) -> None:
         """Sets the output voltage for a specific channel.
@@ -174,9 +171,9 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         channel_config = self.config.channels[channel - 1]
         channel_config.voltage_range.assert_in_range(voltage, name=f"Voltage for channel {channel}")
 
-        # Construct and send the SCPI command
-        command = f"{self.SCPI_MAP.VOLTAGE_SET_BASE} {voltage}, (@{channel})"
-        await self._send_command(command)
+        # Build and send the SCPI command
+        commands = self.scpi_engine.build("set_voltage", channel=channel, voltage=voltage)
+        await self._send_command(commands[0])
 
     @validate_call
     async def set_current(self, channel: int, current: float) -> None:
@@ -197,8 +194,8 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
 
         channel_config = self.config.channels[channel - 1] # channel is 1-based
         channel_config.current_limit_range.assert_in_range(current, name=f"Current for channel {channel}") # Assuming current_limit_range from example
-        command = f"{self.SCPI_MAP.CURRENT_SET_BASE} {current}, (@{channel})"
-        await self._send_command(command)
+        commands = self.scpi_engine.build("set_current", channel=channel, current=current)
+        await self._send_command(commands[0])
 
     @validate_call
     async def output(self, channel: Union[int, List[int]], state: bool = True) -> None:
@@ -229,11 +226,11 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         for ch_num in channels_to_process:
             if not (1 <= ch_num <= num_configured_channels):
                 raise InstrumentParameterError(f"Channel number {ch_num} is out of range (1-{num_configured_channels}).")
-        
-        argument = ",".join(map(str, channels_to_process))
-        scpi_state = SCPIOnOff.ON.value if state else SCPIOnOff.OFF.value
-        command = f"{self.SCPI_MAP.OUTPUT_STATE_SET_BASE} {scpi_state}, (@{argument})"
-        await self._send_command(command)
+
+        # Send command for each channel individually
+        for ch_num in channels_to_process:
+            commands = self.scpi_engine.build("set_output", channel=ch_num, state=state)
+            await self._send_command(commands[0])
 
     @validate_call
     async def display(self, state: bool) -> None:
@@ -242,22 +239,18 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         Args:
             state: True to turn the display on, False to turn it off.
         """
-        scpi_state = SCPIOnOff.ON.value if state else SCPIOnOff.OFF.value
-        await self._send_command(f"DISP {scpi_state}")
+        commands = self.scpi_engine.build("set_display", state=state)
+        await self._send_command(commands[0])
 
     @validate_call
-    async def read_voltage(self, channel: int) -> float | UFloat:
+    async def read_voltage(self, channel: int) -> float:
         """Reads the measured output voltage from a specific channel.
-
-        If measurement accuracy is defined in the configuration, this method
-        will return a `UFloat` object containing the value and its uncertainty.
-        Otherwise, it returns a standard float.
 
         Args:
             channel: The channel number to measure (1-based).
 
         Returns:
-            The measured voltage as a float or `UFloat`.
+            The measured voltage as a float.
 
         Raises:
             InstrumentParameterError: If the channel number is invalid.
@@ -265,11 +258,10 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         if not self.config.channels or not (1 <= channel <= len(self.config.channels)):
             num_ch = len(self.config.channels) if self.config.channels else 0
             raise InstrumentParameterError(f"Channel number {channel} is out of range (1-{num_ch}).")
-        command = f"{self.SCPI_MAP.MEAS_VOLTAGE_QUERY_BASE} (@{channel})"
-        response_str: str = await self._query(command)
-        reading: float = float(response_str)
-        
-        value_to_return: float | UFloat = reading
+        commands = self.scpi_engine.build("measure_voltage", channel=channel)
+        reading: float = self.scpi_engine.parse("measure_voltage", await self._query(commands[0]))
+
+        value_to_return: float = reading
 
         if self.config.measurement_accuracy:
             mode_key = f"read_voltage_ch{channel}"
@@ -279,7 +271,10 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
             if spec:
                 sigma = spec.calculate_std_dev(reading, range_value=None)
                 if sigma > 0:
-                    value_to_return = ufloat(reading, sigma)
+                    try:
+                        value_to_return = ufloat(reading, sigma)
+                    except:
+                        value_to_return = reading
                     self._logger.debug(f"Applied accuracy spec '{mode_key}', value: {value_to_return}")
                 else:
                     self._logger.debug(f"Accuracy spec '{mode_key}' resulted in sigma=0. Returning float.")
@@ -287,22 +282,18 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
                 self._logger.debug(f"No accuracy spec found for read_voltage on channel {channel} with key '{mode_key}'. Returning float.")
         else:
             self._logger.debug(f"No measurement_accuracy configuration in instrument for read_voltage on channel {channel}. Returning float.")
-        
+
         return value_to_return
 
     @validate_call
-    async def read_current(self, channel: int) -> float | UFloat:
+    async def read_current(self, channel: int) -> float:
         """Reads the measured output current from a specific channel.
-
-        If measurement accuracy is defined in the configuration, this method
-        will return a `UFloat` object containing the value and its uncertainty.
-        Otherwise, it returns a standard float.
 
         Args:
             channel: The channel number to measure (1-based).
 
         Returns:
-            The measured current as a float or `UFloat`.
+            The measured current as a float.
 
         Raises:
             InstrumentParameterError: If the channel number is invalid.
@@ -310,11 +301,10 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         if not self.config.channels or not (1 <= channel <= len(self.config.channels)):
             num_ch = len(self.config.channels) if self.config.channels else 0
             raise InstrumentParameterError(f"Channel number {channel} is out of range (1-{num_ch}).")
-        command = f"{self.SCPI_MAP.MEAS_CURRENT_QUERY_BASE} (@{channel})"
-        response_str: str = await self._query(command)
-        reading: float = float(response_str)
+        commands = self.scpi_engine.build("measure_current", channel=channel)
+        reading: float = self.scpi_engine.parse("measure_current", await self._query(commands[0]))
 
-        value_to_return: float | UFloat = reading
+        value_to_return: float = reading
 
         if self.config.measurement_accuracy:
             mode_key = f"read_current_ch{channel}"
@@ -324,7 +314,10 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
             if spec:
                 sigma = spec.calculate_std_dev(reading, range_value=None)
                 if sigma > 0:
-                    value_to_return = ufloat(reading, sigma)
+                    try:
+                        value_to_return = ufloat(reading, sigma)
+                    except:
+                        value_to_return = reading
                     self._logger.debug(f"Applied accuracy spec '{mode_key}', value: {value_to_return}")
                 else:
                     self._logger.debug(f"Accuracy spec '{mode_key}' resulted in sigma=0. Returning float.")
@@ -351,16 +344,16 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         if not self.config.channels:
             self._logger.warning("No channels defined in the PowerSupplyConfig. Cannot get configuration.")
             return results
-        
+
         num_channels = len(self.config.channels)
 
         for channel_num in range(1, num_channels + 1): # Iterate 1-indexed channel numbers
-            voltage_val: float | UFloat = await self.read_voltage(channel_num) # Already uses @validate_call
-            current_val: float | UFloat = await self.read_current(channel_num) # Already uses @validate_call
-            # Query output state using SCPI_MAP
-            output_state_command = f"{self.SCPI_MAP.OUTPUT_STATE_QUERY_BASE} (@{channel_num})"
-            state_str: str = await self._query(output_state_command)
-            
+            voltage_val: float = await self.read_voltage(channel_num) # Already uses @validate_call
+            current_val: float = await self.read_current(channel_num) # Already uses @validate_call
+            # Query output state using SCPI engine
+            commands = self.scpi_engine.build("get_output_state", channel=channel_num)
+            state_str: str = self.scpi_engine.parse("get_output_state", await self._query(commands[0]))
+
             results[channel_num] = PSUChannelConfig(
                 voltage=voltage_val,
                 current=current_val,
@@ -378,7 +371,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
 
         Returns:
             PSUChannelFacade: A facade object for the specified channel.
-        
+
         Raises:
             InstrumentParameterError: If channel number is invalid.
         """
@@ -394,10 +387,12 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         Returns:
             str: The instrument identification string.
         """
-        return await self._query(self.SCPI_MAP.IDN)
+        commands = self.scpi_engine.build("identify")
+        return self.scpi_engine.parse("identify", await self._query(commands[0]))
 
     async def reset(self) -> None:
         """
         Resets the instrument to its factory default settings.
         """
-        await self._send_command(self.SCPI_MAP.RESET)
+        commands = self.scpi_engine.build("reset")
+        await self._send_command(commands[0])

@@ -1,6 +1,6 @@
 from __future__ import annotations
-from pydantic import BaseModel, Field, ConfigDict # Added ConfigDict
-from typing import Optional
+from pydantic import BaseModel, Field, ConfigDict
+from typing import Optional, Any
 from .accuracy import AccuracySpec
 
 class InstrumentConfig(BaseModel):
@@ -12,4 +12,20 @@ class InstrumentConfig(BaseModel):
     serial_number: Optional[str] = Field(None, description="Serial number of the instrument")
     address: Optional[str] = Field(None, description="Instrument connection address (e.g., VISA resource string)") # Example common field
     measurement_accuracy: Optional[dict[str, AccuracySpec]] = Field(default_factory=dict, description="Measurement accuracy specifications")
-    # ... other common fields ...
+    # further complex yaml
+    # ------------------------- NEW  (SCPI) ------------------------------ #
+    scpi: dict[str, Any] = Field(
+        ...,
+        description=(
+            "Raw SCPI section copied verbatim from the YAML profile.  "
+            "Must contain 'commands:' and/or 'queries:' or a 'variants:' block."
+        ),
+    )
+
+    scpi_variant: Optional[str] = Field(
+        None,
+        description=(
+            "Name of the variant inside scpi.variants to be used with this "
+            "instrument.  Leave empty if not using the multi-variant feature."
+        ),
+    )

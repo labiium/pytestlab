@@ -1,0 +1,144 @@
+manufacturer: rohdeschwarz
+model: NGE102B
+device_type: power_supply
+channels:
+  - channel_id: 1
+    description: Channel 1
+    voltage_range:
+      min_val: 0
+      max_val: 32
+    current_limit_range:
+      min_val: 0
+      max_val: 3
+  - channel_id: 2
+    description: Channel 2
+    voltage_range:
+      min_val: 0
+      max_val: 32
+    current_limit_range:
+      min_val: 0
+      max_val: 3
+total_power: 66
+scpi:
+  commands:
+    set_voltage:
+      sequence:
+        - "INST:NSEL {channel}"
+        - "VOLT {voltage}"
+      defaults: { channel: 1 }
+      validators:
+        channel: { min: 1, max: 2 }
+        voltage: { min: 0, max: 32 }
+
+    set_current:
+      sequence:
+        - "INST:NSEL {channel}"
+        - "CURR {current}"
+      defaults: { channel: 1 }
+      validators:
+        channel: { min: 1, max: 2 }
+        current: { min: 0, max: 3 }
+
+    set_output:
+      sequence:
+        - "INST:NSEL {channel}"
+        - "OUTP:STAT {state}"
+      defaults: { channel: 1 }
+      enums:
+        state:
+          { on: "ON", off: "OFF", true: "ON", false: "OFF", 1: "ON", 0: "OFF" }
+      validators:
+        channel: { min: 1, max: 2 }
+
+    set_slew_rate:
+      sequence:
+        - "INST:NSEL {channel}"
+        - "VOLT:RAMP:DUR {duration_ms}"
+      defaults: { channel: 1 }
+      validators:
+        channel: { min: 1, max: 2 }
+        duration_ms: { min: 10, max: 10000 }
+
+    enable_slew_rate:
+      sequence:
+        - "INST:NSEL {channel}"
+        - "VOLT:RAMP:STAT ON"
+      defaults: { channel: 1 }
+      validators:
+        channel: { min: 1, max: 2 }
+
+    disable_slew_rate:
+      sequence:
+        - "INST:NSEL {channel}"
+        - "VOLT:RAMP:STAT OFF"
+      defaults: { channel: 1 }
+      validators:
+        channel: { min: 1, max: 2 }
+
+    reset:
+      template: "*RST"
+
+  queries:
+    identify:
+      template: "*IDN?"
+      response:
+        type: str
+
+    measure_voltage:
+      sequence:
+        - "INST:NSEL {channel}"
+        - "MEAS:VOLT?"
+      defaults: { channel: 1 }
+      validators:
+        channel: { min: 1, max: 2 }
+      response:
+        type: float
+
+    measure_current:
+      sequence:
+        - "INST:NSEL {channel}"
+        - "MEAS:CURR?"
+      defaults: { channel: 1 }
+      validators:
+        channel: { min: 1, max: 2 }
+      response:
+        type: float
+
+    get_output_state:
+      sequence:
+        - "INST:NSEL {channel}"
+        - "OUTP?"
+      defaults: { channel: 1 }
+      validators:
+        channel: { min: 1, max: 2 }
+      response:
+        type: str
+
+    system_error:
+      template: "SYST:ERR?"
+      response:
+        type: str
+
+simulation:
+  scpi:
+    "*IDN?": "Rohde&Schwarz,NGE102B-SIM,123456,1.40"
+    "SYST:ERR?": '+0,"No error"'
+    "INST:NSEL *": ""
+    "VOLT *":
+      set:
+        voltage: "$1"
+    "CURR *":
+      set:
+        current: "$1"
+    "OUTP:STAT *":
+      set:
+        output: "$1"
+    "MEAS:VOLT?": "5.0"
+    "MEAS:CURR?": "1.0"
+    "OUTP?": "1"
+    "VOLT:RAMP:DUR *":
+      set:
+        duration_ms: "$1"
+    "VOLT:RAMP:STAT *":
+      set:
+        state: "$1"
