@@ -12,7 +12,7 @@ or
 >>> from pytestlab.measurements import Measurement
 """
 
-__version__ = "0.1.5"  # Update this line to change the version
+__version__ = "0.2.1"  # Update this line to change the version
 
 from importlib import metadata as _metadata
 import logging # Required for set_log_level
