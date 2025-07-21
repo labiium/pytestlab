@@ -1,0 +1,112 @@
+metadata:
+  name: "Real PSU and Oscilloscope Bench"
+  version: "1.0" 
+  description: "Bench configuration for PSU and oscilloscope using LAMB backend"
+  operator: "Test Engineer"
+  date: "2025-07-21"
+  notes: |
+    This configuration uses real instruments connected via LAMB server.
+    Ensure LAMB server is running and instruments are properly connected.
+
+# Use real hardware (not simulation)
+simulate: false
+
+# Default backend configuration for all instruments
+backend_defaults:
+  type: "lamb"
+  url: "http://lamb-server:8000"
+  timeout_ms: 15000
+
+instruments:
+  psu:
+    profile: "keysight/EDU36311A"
+    description: "Keysight EDU36311A Triple Output Power Supply"
+    backend:
+      type: "lamb"
+      url: "http://lamb-server:8000"
+      timeout_ms: 15000
+      # Optional: specify exact instrument if multiple of same model
+      # model_name: "EDU36311A"
+      # serial_number: "MY12345678"
+    safety_limits:
+      channels:
+        1:
+          voltage: {"max": 6.0, "min": 0.0}
+          current: {"max": 1.0, "min": 0.0}
+        2:
+          voltage: {"max": 25.0, "min": 0.0}
+          current: {"max": 1.0, "min": 0.0}
+        3:
+          voltage: {"max": 6.0, "min": -25.0}
+          current: {"max": 1.0, "min": 0.0}
+
+  osc:
+    profile: "keysight/DSOX1204G"
+    description: "Keysight DSOX1204G Digital Oscilloscope"
+    backend:
+      type: "lamb"
+      url: "http://lamb-server:8000"
+      timeout_ms: 15000
+      # Optional: specify exact instrument if multiple of same model
+      # model_name: "DSOX1204G"
+      # serial_number: "MY87654321"
+    configuration:
+      # Default oscilloscope settings
+      timebase:
+        scale: 0.001  # 1ms/div
+        position: 0.0
+      channels:
+        1:
+          scale: 1.0    # 1V/div
+          offset: 0.0
+          coupling: "DC"
+          enabled: true
+        2:
+          scale: 1.0
+          offset: 0.0
+          coupling: "DC"
+          enabled: false
+        3:
+          enabled: false
+        4:
+          enabled: false
+      trigger:
+        source: "CHAN1"
+        level: 2.5
+        mode: "EDGE"
+        slope: "POS"
+
+# Global safety settings
+safety:
+  max_power_per_channel: 6.0  # Watts
+  emergency_stop_enabled: true
+  auto_disable_on_error: true
+
+# Automation macros for common operations
+macros:
+  safe_startup:
+    description: "Safely initialize all instruments"
+    steps:
+      - instrument: "psu"
+        action: "set_voltage"
+        channel: 1
+        value: 0.0
+      - instrument: "psu" 
+        action: "set_current"
+        channel: 1
+        value: 0.1
+      - instrument: "osc"
+        action: "set_timebase_scale"
+        value: 0.001
+
+  safe_shutdown:
+    description: "Safely shut down all instruments"
+    steps:
+      - instrument: "psu"
+        action: "output"
+        channel: 1
+        value: false
+      - instrument: "psu"
+        action: "set_voltage"
+        channel: 1
+        value: 0.0

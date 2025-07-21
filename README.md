@@ -39,10 +39,11 @@
 * **Plug-and-play profiles** – YAML descriptors validated by Pydantic & JSON-schema.  
   Browse ready-made Keysight profiles in `pytestlab/profiles/keysight`.
 * **Simulation mode** – develop anywhere using the built-in `SimBackend` (no hardware required, deterministic outputs for CI).
+* **Record & Replay** – record real instrument sessions and replay them exactly for reproducible measurements, offline analysis, and regression testing with strict sequence validation.
 * **Bench descriptors** – group multiple instruments in one `bench.yaml`, define safety limits, automation hooks, traceability and measurement plans.
 * **High-level measurement builder** – notebook-friendly `MeasurementSession` for parameter sweeps that stores data as Polars DataFrames and exports straight to the experiment database.
 * **Rich database** – compressed storage of experiments & measurements with full-text search (`MeasurementDatabase`).
-* **Powerful CLI** – `pytestlab …` commands to list/validate profiles, query instruments, convert benches to simulation, etc.
+* **Powerful CLI** – `pytestlab …` commands to list/validate profiles, query instruments, convert benches to simulation, replay sessions, etc.
 * **Extensible back-ends** – VISA, Lamb server, pure simulation; drop-in new transports via the `AsyncInstrumentIO` protocol.
 * **Docs & examples** – Jupyter tutorials, MkDocs site, and 40+ ready-to-run scripts in `examples/`.
 
@@ -109,6 +110,116 @@ async def run():
 
 asyncio.run(run())
 ```
+
+### 4. Record & Replay Sessions
+
+Record real instrument interactions and replay them exactly:
+
+```bash
+# Record a measurement session
+pytestlab replay record my_measurement.py --bench bench.yaml --output session.yaml
+
+# Replay the recorded session
+pytestlab replay run my_measurement.py --session session.yaml
+```
+
+Perfect for reproducible measurements, offline analysis, and catching script changes!
+
+---
+
+## 🔄 Record & Replay Mode
+
+PyTestLab's **Record & Replay** system enables you to capture real instrument interactions and replay them with exact sequence validation. This powerful feature supports reproducible measurements, offline development, and regression testing.
+
+### Core Benefits
+
+- **🎯 Reproducible Measurements** – Exact same SCPI command sequences every time
+- **🛡️ Measurement Integrity** – Scripts cannot deviate from validated sequences  
+- **🔬 Offline Analysis** – Run complex measurements without real hardware
+- **🧪 Regression Testing** – Catch unintended script modifications immediately
+
+### How It Works
+
+1. **Recording Phase**: The `SessionRecordingBackend` wraps your real instrument backends and logs all commands, responses, and timestamps to a YAML session file.
+
+2. **Replay Phase**: The `ReplayBackend` loads the session and validates that your script executes the exact same command sequence. Any deviation triggers a `ReplayMismatchError`.
+
+### Usage Examples
+
+#### Basic Recording & Replay
+```bash
+# Record a measurement with real instruments
+pytestlab replay record voltage_sweep.py --bench lab_bench.yaml --output sweep_session.yaml
+
+# Replay the exact sequence (simulated)
+pytestlab replay run voltage_sweep.py --session sweep_session.yaml
+```
+
+#### Programmatic Usage
+```python
+import asyncio
+from pytestlab.instruments import AutoInstrument
+from pytestlab.instruments.backends import ReplayBackend
+
+async def main():
+    # Load a recorded session
+    replay_backend = ReplayBackend("recorded_session.yaml")
+    
+    # Create instrument with replay backend
+    psu = AutoInstrument.from_config(
+        "keysight/EDU36311A", 
+        backend_override=replay_backend
+    )
+    
+    await psu.connect_backend()
+    
+    # This will replay the exact recorded sequence
+    await psu.set_voltage(1, 5.0)
+    voltage = await psu.read_voltage(1)
+    
+    await psu.close()
+
+asyncio.run(main())
+```
+
+#### Session File Format
+```yaml
+psu:
+  profile: keysight/EDU36311A
+  log:
+  - type: query
+    command: '*IDN?'
+    response: 'Keysight Technologies,EDU36311A,CN61130056,K-01.08.03-01.00-01.08-02.00'
+    timestamp: 0.029241038020700216
+  - type: write
+    command: 'VOLT 5.0, (@1)'
+    timestamp: 0.8096857140189968
+  - type: query
+    command: 'MEAS:VOLT? (@1)'
+    response: '+4.99918100E+00'
+    timestamp: 1.614894539990928
+```
+
+### Error Detection
+
+If your script deviates from the recorded sequence:
+
+```python
+# During recording: set_voltage(1, 5.0) 
+# During replay: set_voltage(1, 3.0)  # ← Different value!
+
+# Raises: ReplayMismatchError: Expected 'VOLT 5.0, (@1)' but got 'VOLT 3.0, (@1)'
+```
+
+### Advanced Features
+
+- **Multi-instrument sessions** – Record PSU, oscilloscope, DMM interactions simultaneously
+- **Timestamp preservation** – Exact timing information for analysis
+- **Automatic error checking** – Captures instrument `:SYSTem:ERRor?` queries
+- **CLI integration** – Full command-line workflow support
+- **Backend flexibility** – Works with VISA, LAMB, and custom backends
+
+See `examples/replay_mode/` for complete working examples and tutorials.
 
 ---
 

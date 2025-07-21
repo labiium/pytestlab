@@ -1,0 +1,280 @@
+psu:
+  profile: keysight/EDU36311A
+  log:
+  - type: query
+    command: '*IDN?'
+    response: Keysight Technologies,EDU36311A,CN61130056,K-01.08.03-01.00-01.08-02.00
+    timestamp: 0.029241038020700216
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 0.05952404800336808
+  - type: write
+    command: CURR 0.1, (@1)
+    timestamp: 0.7136540680075996
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 0.7607276790076867
+  - type: write
+    command: OUTP:STAT ON, (@1)
+    timestamp: 0.7608416990260594
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 0.8095190090243705
+  - type: write
+    command: VOLT 1.0, (@1)
+    timestamp: 0.8096857140189968
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 0.8605584310134873
+  - type: query
+    command: MEAS:VOLT? (@1)
+    response: '+9.99749200E-01'
+    timestamp: 1.614894539990928
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 1.6653101610136218
+  - type: query
+    command: MEAS:CURR? (@1)
+    response: '-1.81949100E-04'
+    timestamp: 1.8179384610266425
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 1.8474137970479205
+  - type: write
+    command: VOLT 2.0, (@1)
+    timestamp: 1.8477647810359485
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 1.893527214997448
+  - type: query
+    command: MEAS:VOLT? (@1)
+    response: '+1.99975700E+00'
+    timestamp: 2.685098393994849
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 2.714876195997931
+  - type: query
+    command: MEAS:CURR? (@1)
+    response: '-1.17560000E-04'
+    timestamp: 2.8894098440068774
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 2.940518637013156
+  - type: write
+    command: VOLT 3.0, (@1)
+    timestamp: 2.9409106030361727
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 2.988402200047858
+  - type: query
+    command: MEAS:VOLT? (@1)
+    response: '+2.99956500E+00'
+    timestamp: 3.7550609330064617
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 3.7838526720297523
+  - type: query
+    command: MEAS:CURR? (@1)
+    response: '-5.31906000E-05'
+    timestamp: 3.9585980620468035
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 3.985859028995037
+  - type: write
+    command: VOLT 4.0, (@1)
+    timestamp: 3.9868850560160354
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 4.055959702003747
+  - type: query
+    command: MEAS:VOLT? (@1)
+    response: '+3.99937300E+00'
+    timestamp: 4.825577684037853
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 4.858935145020951
+  - type: query
+    command: MEAS:CURR? (@1)
+    response: '+1.11985700E-05'
+    timestamp: 5.02867143903859
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 5.05748667800799
+  - type: write
+    command: VOLT 5.0, (@1)
+    timestamp: 5.05797890399117
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 5.104712458036374
+  - type: query
+    command: MEAS:VOLT? (@1)
+    response: '+4.99918100E+00'
+    timestamp: 5.89524102199357
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 5.922975030029193
+  - type: query
+    command: MEAS:CURR? (@1)
+    response: '-8.77922900E-05'
+    timestamp: 6.098288797016721
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 6.127793133025989
+  - type: write
+    command: OUTP:STAT OFF, (@1)
+    timestamp: 6.127971042005811
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 6.177673010039143
+  - type: write
+    command: VOLT 0.0, (@1)
+    timestamp: 6.1777680100058205
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 6.225596240023151
+osc:
+  profile: keysight/DSOX1204G
+  log:
+  - type: query
+    command: '*IDN?'
+    response: KEYSIGHT TECHNOLOGIES,DSOX1204G,CN63197144,02.12.2021071625
+    timestamp: 0.08468247798737139
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 0.11512141500134021
+  - type: write
+    command: :TIMebase:SCALe 0.001
+    timestamp: 0.11525928595801815
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 0.17506976198637858
+  - type: write
+    command: :TIMebase:POSition 0.0
+    timestamp: 0.1750944479717873
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 0.22484674799488857
+  - type: query
+    command: '*OPC?'
+    response: '1'
+    timestamp: 0.2533399459789507
+  - type: write
+    command: :CHANnel1:SCALe 1.0
+    timestamp: 0.253401446971111
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 0.30313341395230964
+  - type: write
+    command: :CHANnel1:OFFSet 0.0
+    timestamp: 0.303150377003476
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 0.3649904989870265
+  - type: query
+    command: '*OPC?'
+    response: '1'
+    timestamp: 0.39403499895706773
+  - type: write
+    command: CHANnel1:DISPlay ON
+    timestamp: 0.3941027029650286
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 0.45569302700459957
+  - type: write
+    command: :TRIG:SOUR CHANnel1
+    timestamp: 0.45576486096251756
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 0.5041778349550441
+  - type: write
+    command: :TRIGger:LEVel 2.5, CHANnel1
+    timestamp: 0.5042008719756268
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 0.5546839190064929
+  - type: write
+    command: :TRIGger:SLOPe POS
+    timestamp: 0.5547251229872927
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 0.6036275829537772
+  - type: write
+    command: :TRIGger:MODE EDGE
+    timestamp: 0.6036396019626409
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 0.6648132379632443
+  - type: query
+    command: '*OPC?'
+    response: '1'
+    timestamp: 0.7134383249795064
+  - type: query
+    command: MEAS:VPP? CHAN1
+    response: +280E-03
+    timestamp: 1.4958587769651785
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 1.5250271849799901
+  - type: query
+    command: MEAS:VPP? CHAN1
+    response: +280E-03
+    timestamp: 2.523635890975129
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 2.554733202967327
+  - type: query
+    command: MEAS:VPP? CHAN1
+    response: +280E-03
+    timestamp: 3.6253231180016883
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 3.655006068001967
+  - type: query
+    command: MEAS:VPP? CHAN1
+    response: +280E-03
+    timestamp: 4.684210623963736
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 4.714866043999791
+  - type: query
+    command: MEAS:VPP? CHAN1
+    response: +280E-03
+    timestamp: 5.753735293983482
+  - type: query
+    command: :SYSTem:ERRor?
+    response: +0,"No error"
+    timestamp: 5.805559389991686

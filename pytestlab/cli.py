@@ -9,6 +9,7 @@ import rich # For pretty printing
 from rich.syntax import Syntax
 import importlib.util # For finding profile paths
 import pkgutil # For finding profile paths
+import types # For creating a simple namespace for the replay bench
 
 import os
 import shutil
@@ -19,6 +20,8 @@ import code
 from pytestlab.config.loader import load_profile, resolve_profile_key_to_path
 from pytestlab.instruments import AutoInstrument
 from pytestlab.instruments.backends.recording_backend import RecordingBackend
+from pytestlab.instruments.backends.session_recording_backend import SessionRecordingBackend
+from pytestlab.instruments.backends.replay_backend import ReplayBackend
 # For bench commands (anticipating section 6.2)
 from pytestlab.config.bench_config import BenchConfigExtended
 from pytestlab.bench import Bench
@@ -29,6 +32,10 @@ profile_app = typer.Typer(name="profile", help="Manage instrument profiles.")
 instrument_app = typer.Typer(name="instrument", help="Interact with instruments.")
 bench_app = typer.Typer(name="bench", help="Manage bench configurations.")
 sim_profile_app = typer.Typer(name="sim-profile", help="Manage simulation profiles.")
+
+# Create a new Typer app for replay commands
+replay_app = typer.Typer(name="replay", help="Record and replay complex measurement sessions.")
+app.add_typer(replay_app)
 
 app.add_typer(profile_app)
 app.add_typer(instrument_app)
@@ -511,6 +518,128 @@ def bench_sim_cli(bench_yaml_path: Annotated[Path, typer.Argument(help="Path to 
         rich.print(f"[bold red]An unexpected error occurred while converting the bench to simulation mode: {e}[/bold red]")
         raise typer.Exit(code=1)
 
+# --- Replay Commands ---
+@replay_app.command("record")
+async def replay_record(
+    script: Annotated[Path, typer.Argument(help="Path to the Python script to execute.")],
+    bench_config: Annotated[Path, typer.Option("--bench", help="Path to the bench.yaml configuration file.")],
+    output: Annotated[Path, typer.Option("--output", help="Path to save the recorded session YAML file.")],
+):
+    """Records a measurement session by running a script against a real bench."""
+    rich.print(f"[bold cyan]Starting recording session...[/bold cyan]")
+    rich.print(f"Bench Config: {bench_config}")
+    rich.print(f"Script: {script}")
+    rich.print(f"Output File: {output}")
+
+    bench = None
+    try:
+        bench = await Bench.open(bench_config)
+        recorded_data = {}
+
+        rich.print("\n[bold]Wrapping instrument backends for recording:[/bold]")
+        for alias, instrument in bench.instruments.items():
+            profile_key = bench.config.instruments[alias].profile
+            session_log = []
+            recorded_data[alias] = {"profile": profile_key, "log": session_log}
+            instrument._backend = SessionRecordingBackend(instrument._backend, session_log)
+            rich.print(f"  - Wrapped '{alias}'")
+
+        rich.print("\n[bold]Executing script...[/bold]")
+        spec = importlib.util.spec_from_file_location("script_module", script)
+        if not spec or not spec.loader:
+            raise FileNotFoundError(f"Could not load script module from {script}")
+        script_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(script_module)
+
+        if hasattr(script_module, "main") and asyncio.iscoroutinefunction(script_module.main):
+            await script_module.main(bench)
+        else:
+            raise TypeError("Script must contain an async function `main(bench)`.")
+
+        rich.print("[bold green]Script execution finished.[/bold green]")
+
+    except Exception as e:
+        rich.print(f"[bold red]An error occurred during recording: {e}[/bold red]")
+        import traceback
+        traceback.print_exc()
+        raise typer.Exit(code=1)
+    finally:
+        if bench:
+            await bench.close_all()
+
+    rich.print(f"\n[bold]Saving recorded session to {output}...[/bold]")
+    with open(output, "w") as f:
+        yaml.dump(recorded_data, f, sort_keys=False, default_flow_style=False)
+    rich.print("[bold green]Recording complete.[/bold green]")
+
+
+@replay_app.command("run")
+async def replay_run(
+    script: Annotated[Path, typer.Argument(help="Path to the Python script to execute.")],
+    session: Annotated[Path, typer.Option("--session", help="Path to the recorded session YAML file.")],
+):
+    """Replays a recorded measurement session against a simulated bench."""
+    rich.print(f"[bold cyan]Starting replay session...[/bold cyan]")
+    rich.print(f"Session File: {session}")
+    rich.print(f"Script: {script}")
+
+    if not session.exists():
+        rich.print(f"[bold red]Error: Session file not found at {session}[/bold red]")
+        raise typer.Exit(code=1)
+
+    with open(session) as f:
+        session_data = yaml.safe_load(f)
+
+    replay_bench = types.SimpleNamespace()
+    instrument_instances = {}
+    instrument_aliases = list(session_data.keys())
+
+    try:
+        rich.print("\n[bold]Building replay bench from session file:[/bold]")
+        for alias in instrument_aliases:
+            data = session_data[alias]
+            profile_key = data["profile"]
+            session_log = data["log"]
+            
+            replay_backend = ReplayBackend(session_log, model_name=alias)
+            
+            instrument = await AutoInstrument.from_config(
+                config_source=profile_key,
+                backend_override=replay_backend
+            )
+            await instrument.connect_backend() # Connects the replay backend
+            
+            setattr(replay_bench, alias, instrument)
+            instrument_instances[alias] = instrument
+            rich.print(f"  - Created instrument '{alias}' for replay.")
+
+        replay_bench.instruments = instrument_instances
+
+        rich.print("\n[bold]Executing script in replay mode...[/bold]")
+        spec = importlib.util.spec_from_file_location("script_module", script)
+        if not spec or not spec.loader:
+            raise FileNotFoundError(f"Could not load script module from {script}")
+        script_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(script_module)
+
+        if hasattr(script_module, "main") and asyncio.iscoroutinefunction(script_module.main):
+            await script_module.main(replay_bench)
+        else:
+            raise TypeError("Script must contain an async function `main(bench)`.")
+
+        rich.print("[bold green]Script execution finished successfully.[/bold green]")
+
+    except Exception as e:
+        rich.print(f"[bold red]An error occurred during replay: {e}[/bold red]")
+        import traceback
+        traceback.print_exc()
+        raise typer.Exit(code=1)
+    finally:
+        for inst in instrument_instances.values():
+            await inst.close()
+            
+    rich.print("[bold green]Replay complete.[/bold green]")
+
 def run_app():
     """Main entry point for the CLI."""
     app()
@@ -534,6 +663,42 @@ def main():
             profile_key=sys.argv[3],
             **kwargs
         ))
+    elif "replay" in sys.argv and ("record" in sys.argv or "run" in sys.argv):
+        # Handle async replay commands
+        if "record" in sys.argv:
+            from pytestlab.cli import replay_record
+            # Parse arguments for replay record
+            script_path = Path(sys.argv[3]) if len(sys.argv) > 3 else None
+            bench_config = None
+            output = None
+            
+            for i, arg in enumerate(sys.argv):
+                if arg == "--bench" and i + 1 < len(sys.argv):
+                    bench_config = Path(sys.argv[i + 1])
+                elif arg == "--output" and i + 1 < len(sys.argv):
+                    output = Path(sys.argv[i + 1])
+            
+            if script_path and bench_config and output:
+                asyncio.run(replay_record(script_path, bench_config, output))
+            else:
+                rich.print("[bold red]Error: Missing required arguments for replay record[/bold red]")
+                sys.exit(1)
+                
+        elif "run" in sys.argv:
+            from pytestlab.cli import replay_run
+            # Parse arguments for replay run
+            script_path = Path(sys.argv[3]) if len(sys.argv) > 3 else None
+            session = None
+            
+            for i, arg in enumerate(sys.argv):
+                if arg == "--session" and i + 1 < len(sys.argv):
+                    session = Path(sys.argv[i + 1])
+            
+            if script_path and session:
+                asyncio.run(replay_run(script_path, session))
+            else:
+                rich.print("[bold red]Error: Missing required arguments for replay run[/bold red]")
+                sys.exit(1)
     else:
         run_app()
 

@@ -7,6 +7,18 @@ base:
     - "*.png"
     - htmlcov
     - "*.csv"
+    - .pre-commit-config.yaml
+    - .ropeproject
+    - CHANGELOG.md
+    - CODE_OF_CONDUCT.md
+    - CONTRIBUTING.md
+    - MANIFEST.in
+    - README.md
+    - debug_compliance.py
+    - debug_patch.py
+    - demo_db.db
+    - docs
+    - examples
     - "*.json"
     - pytestlab.egg-info
     - tests/misc
@@ -23,6 +35,7 @@ prod:
     - examples/example_experiment.py
     - examples/bench_sweep_exampl.py
     - examples/sweep_integration_example.py
+    - pytestlab/common/enums.py
   ignore:
     - docs
     - pytestlab/tests

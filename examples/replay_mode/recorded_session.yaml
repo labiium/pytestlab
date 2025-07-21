@@ -1,0 +1,79 @@
+psu:
+  profile: keysight/EDU36311A
+  log:
+  - type: query
+    command: "*IDN?"
+    response: "Keysight Technologies,EDU36311A,MY12345678,A.02.14.01"
+    timestamp: 0.1
+  - type: write
+    command: "OUTP:STAT ON"
+    timestamp: 0.5
+  - type: write
+    command: "VOLT 0.0"
+    timestamp: 1.0
+  - type: write
+    command: "CURR 0.1"
+    timestamp: 1.1
+  - type: write
+    command: "VOLT 1.0"
+    timestamp: 2.0
+  - type: write
+    command: "VOLT 2.0"
+    timestamp: 3.0
+  - type: write
+    command: "VOLT 3.0"
+    timestamp: 4.0
+  - type: write
+    command: "VOLT 2.0"
+    timestamp: 5.0
+  - type: write
+    command: "VOLT 1.0"
+    timestamp: 6.0
+  - type: write
+    command: "VOLT 0.0"
+    timestamp: 7.0
+  - type: write
+    command: "OUTP:STAT OFF"
+    timestamp: 8.0
+
+dmm:
+  profile: keysight/EDU34450A
+  log:
+  - type: query
+    command: "*IDN?"
+    response: "Keysight Technologies,EDU34450A,MY87654321,A.01.03.07"
+    timestamp: 0.2
+  - type: write
+    command: "FUNC 'VOLT:DC'"
+    timestamp: 0.6
+  - type: write
+    command: "RANG:AUTO ON"
+    timestamp: 0.7
+  - type: query
+    command: "READ?"
+    response: "0.001234"
+    timestamp: 1.5
+  - type: query
+    command: "READ?"
+    response: "1.000987"
+    timestamp: 2.5
+  - type: query
+    command: "READ?"
+    response: "2.001456"
+    timestamp: 3.5
+  - type: query
+    command: "READ?"
+    response: "3.002123"
+    timestamp: 4.5
+  - type: query
+    command: "READ?"
+    response: "2.001789"
+    timestamp: 5.5
+  - type: query
+    command: "READ?"
+    response: "1.000567"
+    timestamp: 6.5
+  - type: query
+    command: "READ?"
+    response: "0.000891"
+    timestamp: 7.5

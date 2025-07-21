@@ -1,0 +1,30 @@
+metadata:
+  name: "Example PSU and DMM Bench"
+  version: "1.0"
+  description: "Simple bench with power supply and multimeter for replay demo"
+  operator: "Test Engineer"
+  date: "2025-07-21"
+
+simulate: false
+
+backend_defaults:
+  type: "lamb"
+  timeout_ms: 10000
+
+instruments:
+  psu:
+    profile: "keysight/EDU36311A"
+    backend:
+      type: "lamb"
+      timeout_ms: 10000
+    safety_limits:
+      channels:
+        1:
+          voltage: {"max": 5.5}
+          current: {"max": 1.0}
+
+  dmm:
+    profile: "keysight/EDU34450A"
+    backend:
+      type: "lamb"
+      timeout_ms: 10000

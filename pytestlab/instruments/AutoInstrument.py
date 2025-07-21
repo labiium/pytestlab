@@ -21,6 +21,7 @@ from .backends.async_visa_backend import AsyncVisaBackend
 from .backends.sim_backend import SimBackend  # Path has changed
 from .backends.sim_backend_v2 import SimBackendV2
 from .backends.lamb import AsyncLambBackend  # Class name changed from LambInstrument
+from .backends.replay_backend import ReplayBackend # Add this import
 
 import os
 import warnings
@@ -228,15 +229,16 @@ class AutoInstrument:
 
     @classmethod
     async def from_config(cls: Type[AutoInstrument],
-                    config_source: Union[str, Dict[str, Any]],
-                    *args,
-                    serial_number: Optional[str] = None,
-                    debug_mode: bool = False, # For logging during config load
-                    simulate: Optional[bool] = None,
-                    backend_type_hint: Optional[str] = None,
-                    address_override: Optional[str] = None,
-                    timeout_override_ms: Optional[int] = None
-                   ) -> Instrument[Any]: # Returns an instance of a subclass of Instrument
+                          config_source: Union[str, Dict[str, Any], PydanticInstrumentConfig], # Adjusted type hint
+                          *args,
+                          serial_number: Optional[str] = None,
+                          debug_mode: bool = False,
+                          simulate: Optional[bool] = None,
+                          backend_type_hint: Optional[str] = None,
+                          address_override: Optional[str] = None,
+                          timeout_override_ms: Optional[int] = None,
+                          backend_override: Optional[AsyncInstrumentIO] = None # Add this new parameter
+                         ) -> Instrument[Any]:
         """Initializes an instrument from a configuration source.
 
         This is the primary factory method for creating instrument instances. It
@@ -279,181 +281,192 @@ class AutoInstrument:
 
         config_data: Dict[str, Any]
         
-        # Step 1: Load configuration data from the provided source
-        config_model: PydanticInstrumentConfig
-        if isinstance(config_source, PydanticInstrumentConfig):
-            config_model = config_source
-            config_data = config_model.model_dump(mode='python')
-        elif isinstance(config_source, dict):
-            config_data = config_source
-            config_model = load_profile(config_data)
-        elif isinstance(config_source, str):
-            try:
-                # Try fetching from the CDN first
-                config_data = await cls.get_config_from_cdn(config_source)
-                if debug_mode: print(f"Successfully loaded configuration for '{config_source}' from CDN.")
-            except FileNotFoundError:
-                try:
-                    # Fallback to local file system if not found on CDN
-                    config_data = await cls.get_config_from_local(config_source)
-                    if debug_mode: print(f"Successfully loaded configuration for '{config_source}' from local.")
-                except FileNotFoundError:
-                    # If not found in either location, raise an error
-                    raise FileNotFoundError(f"Configuration '{config_source}' not found in CDN or local paths.")
-            config_model = load_profile(config_data)
-        else:
-            raise TypeError("config_source must be a file path (str), a dict, or an InstrumentConfig object.")
-
-        # Override the serial number in the config if one is provided as an argument
-        if serial_number is not None and hasattr(config_model, 'serial_number'):
-            config_model.serial_number = serial_number # type: ignore
-
+        # Step 1: Add the backend_override check at the beginning
         backend_instance: AsyncInstrumentIO
 
-        # Step 2: Determine the final simulation mode based on a clear priority
-        final_simulation_mode: bool
-        if simulate is not None:
-            # Highest priority: explicit argument to the function
-            final_simulation_mode = simulate
-            if debug_mode: print(f"Simulation mode explicitly set to {final_simulation_mode} by argument.")
-        else:
-            # Second priority: environment variable
-            env_simulate = os.getenv("PYTESTLAB_SIMULATE")
-            if env_simulate is not None:
-                final_simulation_mode = env_simulate.lower() in ('true', '1', 'yes')
-                if debug_mode: print(f"Simulation mode set to {final_simulation_mode} by PYTESTLAB_SIMULATE environment variable.")
-            else:
-                # Lowest priority: default to False
-                final_simulation_mode = False
-                if debug_mode: print(f"Simulation mode defaulted to {final_simulation_mode} (no explicit argument or PYTESTLAB_SIMULATE).")
-
-        # Step 3: Determine the actual communication address and timeout
-        actual_address: Optional[str]
-        if address_override is not None:
-            # Argument override has the highest priority for address
-            actual_address = address_override
-            if debug_mode: print(f"Address overridden to '{actual_address}'.")
-        else:
-            # Otherwise, get the address from the configuration data
-            actual_address = getattr(config_model, 'address', getattr(config_model, 'resource_name', None))
-            if debug_mode: print(f"Address from config: '{actual_address}'.")
-
-        actual_timeout: int
-        default_communication_timeout_ms = 30000 # Default if not in override or config
-        if timeout_override_ms is not None:
-            actual_timeout = timeout_override_ms
-            if debug_mode: print(f"Timeout overridden to {actual_timeout}ms.")
-        else:
-            # Assuming 'communication.timeout_ms' or 'communication_timeout_ms' might exist
-            # Prefer 'communication_timeout_ms' as per previous logic if 'communication' object isn't standard
-            timeout_from_config = getattr(config_model, 'communication_timeout_ms', None)
-            if hasattr(config_model, 'communication') and hasattr(config_model.communication, 'timeout_ms'): # type: ignore
-                 timeout_from_config = config_model.communication.timeout_ms # type: ignore
-            
-            if isinstance(timeout_from_config, int) and timeout_from_config > 0:
-                actual_timeout = timeout_from_config
-                if debug_mode: print(f"Timeout from config: {actual_timeout}ms.")
-            else:
-                actual_timeout = default_communication_timeout_ms
-                if debug_mode: print(f"Warning: Invalid or missing timeout in config, using default {actual_timeout}ms.")
-        
-        if not isinstance(actual_timeout, int) or actual_timeout <= 0: # Final safety check
-            actual_timeout = default_communication_timeout_ms
-            if debug_mode: print(f"Warning: Corrected invalid timeout to default {actual_timeout}ms.")
-
-
-        # Step 4: Instantiate the appropriate backend based on the mode and configuration
-        if final_simulation_mode:
-            # Helper to resolve sim profile path
-            def resolve_sim_profile_path(profile_key_or_path: str) -> str:
-                # 1. User override in ~/.pytestlab/profiles
-                user_profile = os.path.expanduser(os.path.join("~/.pytestlab/profiles", profile_key_or_path + ".yaml"))
-                if os.path.exists(user_profile):
-                    return user_profile
-                # 2. User sim_profiles (legacy)
-                user_sim_profile = os.path.expanduser(os.path.join("~/.pytestlab/sim_profiles", profile_key_or_path + ".yaml"))
-                if os.path.exists(user_sim_profile):
-                    return user_sim_profile
-                # 3. Package profile
-                import pytestlab as ptl
-                pkg_profile = os.path.join(os.path.dirname(ptl.__file__), "profiles", profile_key_or_path + ".yaml")
-                if os.path.exists(pkg_profile):
-                    return pkg_profile
-                # 4. Direct path
-                if os.path.exists(profile_key_or_path):
-                    return profile_key_or_path
-                raise FileNotFoundError(f"Simulation profile not found for '{profile_key_or_path}'")
-
-            device_model_str = getattr(config_model, "model", "GenericSimulatedModel")
-            if isinstance(config_source, str):
-                sim_profile_path = os.path.abspath(resolve_sim_profile_path(config_source))
-                if debug_mode:
-                    print(f"Resolved sim profile path: {sim_profile_path}")
-            else:
-                # Write dict config to a temp file
-                with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as tf:
-                    yaml.dump(config_data, tf)
-                    sim_profile_path = os.path.abspath(tf.name)
-                if debug_mode:
-                    print(f"Wrote temp sim profile: {sim_profile_path}")
-            backend_instance = SimBackendV2(
-                profile_path=sim_profile_path,
-                model=device_model_str,
-                timeout_ms=actual_timeout,
-            )
+        if backend_override:
+            backend_instance = backend_override
             if debug_mode:
-                print(
-                    f"Using SimBackendV2 for {device_model_str} with timeout {actual_timeout}ms. Profile: {sim_profile_path}"
-                )
-        else:
-            # For live hardware, determine the backend type (VISA or Lamb)
-            if backend_type_hint:
-                # Explicit hint overrides any inference
-                chosen_backend_type = backend_type_hint.lower()
-                if debug_mode: print(f"Backend type hint provided: '{chosen_backend_type}'.")
-            elif actual_address and "LAMB::" in actual_address.upper():
-                # Infer 'lamb' backend from the address format
-                chosen_backend_type = 'lamb'
-                if debug_mode: print(f"Inferred backend type: 'lamb' from address '{actual_address}'.")
-            elif actual_address:
-                # Infer 'visa' for any other address type
-                chosen_backend_type = 'visa'
-                if debug_mode: print(f"Inferred backend type: 'visa' from address '{actual_address}'.")
+                print(f"Using provided backend override: {type(backend_instance).__name__}")
+            # When overriding, we still need the config model. The rest of the logic can be simplified.
+            if isinstance(config_source, PydanticInstrumentConfig):
+                config_model = config_source
             else:
-                # Default to 'lamb' if no address is provided (e.g., for remote discovery)
-                chosen_backend_type = 'lamb'
-                if debug_mode: print(f"Defaulting backend type to 'lamb' (no address present).")
+                config_model = load_profile(config_source)
+        else:
+            # Step 1: Load configuration data from the provided source
+            config_model: PydanticInstrumentConfig
+            if isinstance(config_source, PydanticInstrumentConfig):
+                config_model = config_source
+                config_data = config_model.model_dump(mode='python')
+            elif isinstance(config_source, dict):
+                config_data = config_source
+                config_model = load_profile(config_data)
+            elif isinstance(config_source, str):
+                try:
+                    # Try fetching from the CDN first
+                    config_data = await cls.get_config_from_cdn(config_source)
+                    if debug_mode: print(f"Successfully loaded configuration for '{config_source}' from CDN.")
+                except FileNotFoundError:
+                    try:
+                        # Fallback to local file system if not found on CDN
+                        config_data = await cls.get_config_from_local(config_source)
+                        if debug_mode: print(f"Successfully loaded configuration for '{config_source}' from local.")
+                    except FileNotFoundError:
+                        # If not found in either location, raise an error
+                        raise FileNotFoundError(f"Configuration '{config_source}' not found in CDN or local paths.")
+                config_model = load_profile(config_data)
+            else:
+                raise TypeError("config_source must be a file path (str), a dict, or an InstrumentConfig object.")
 
-            if chosen_backend_type == 'visa':
-                if actual_address is None:
-                    raise InstrumentConfigurationError(
-                        config_source, "Missing address/resource_name for VISA backend."
+            # Override the serial number in the config if one is provided as an argument
+            if serial_number is not None and hasattr(config_model, 'serial_number'):
+                config_model.serial_number = serial_number # type: ignore
+
+            # Step 2: Determine the final simulation mode based on a clear priority
+            final_simulation_mode: bool
+            if simulate is not None:
+                # Highest priority: explicit argument to the function
+                final_simulation_mode = simulate
+                if debug_mode: print(f"Simulation mode explicitly set to {final_simulation_mode} by argument.")
+            else:
+                # Second priority: environment variable
+                env_simulate = os.getenv("PYTESTLAB_SIMULATE")
+                if env_simulate is not None:
+                    final_simulation_mode = env_simulate.lower() in ('true', '1', 'yes')
+                    if debug_mode: print(f"Simulation mode set to {final_simulation_mode} by PYTESTLAB_SIMULATE environment variable.")
+                else:
+                    # Lowest priority: default to False
+                    final_simulation_mode = False
+                    if debug_mode: print(f"Simulation mode defaulted to {final_simulation_mode} (no explicit argument or PYTESTLAB_SIMULATE).")
+
+            # Step 3: Determine the actual communication address and timeout
+            actual_address: Optional[str]
+            if address_override is not None:
+                # Argument override has the highest priority for address
+                actual_address = address_override
+                if debug_mode: print(f"Address overridden to '{actual_address}'.")
+            else:
+                # Otherwise, get the address from the configuration data
+                actual_address = getattr(config_model, 'address', getattr(config_model, 'resource_name', None))
+                if debug_mode: print(f"Address from config: '{actual_address}'.")
+
+            actual_timeout: int
+            default_communication_timeout_ms = 30000 # Default if not in override or config
+            if timeout_override_ms is not None:
+                actual_timeout = timeout_override_ms
+                if debug_mode: print(f"Timeout overridden to {actual_timeout}ms.")
+            else:
+                # Assuming 'communication.timeout_ms' or 'communication_timeout_ms' might exist
+                # Prefer 'communication_timeout_ms' as per previous logic if 'communication' object isn't standard
+                timeout_from_config = getattr(config_model, 'communication_timeout_ms', None)
+                if hasattr(config_model, 'communication') and hasattr(config_model.communication, 'timeout_ms'): # type: ignore
+                     timeout_from_config = config_model.communication.timeout_ms # type: ignore
+                
+                if isinstance(timeout_from_config, int) and timeout_from_config > 0:
+                    actual_timeout = timeout_from_config
+                    if debug_mode: print(f"Timeout from config: {actual_timeout}ms.")
+                else:
+                    actual_timeout = default_communication_timeout_ms
+                    if debug_mode: print(f"Warning: Invalid or missing timeout in config, using default {actual_timeout}ms.")
+            
+            if not isinstance(actual_timeout, int) or actual_timeout <= 0: # Final safety check
+                actual_timeout = default_communication_timeout_ms
+                if debug_mode: print(f"Warning: Corrected invalid timeout to default {actual_timeout}ms.")
+
+
+            # Step 4: Instantiate the appropriate backend based on the mode and configuration
+            if final_simulation_mode:
+                # Helper to resolve sim profile path
+                def resolve_sim_profile_path(profile_key_or_path: str) -> str:
+                    # 1. User override in ~/.pytestlab/profiles
+                    user_profile = os.path.expanduser(os.path.join("~/.pytestlab/profiles", profile_key_or_path + ".yaml"))
+                    if os.path.exists(user_profile):
+                        return user_profile
+                    # 2. User sim_profiles (legacy)
+                    user_sim_profile = os.path.expanduser(os.path.join("~/.pytestlab/sim_profiles", profile_key_or_path + ".yaml"))
+                    if os.path.exists(user_sim_profile):
+                        return user_sim_profile
+                    # 3. Package profile
+                    import pytestlab as ptl
+                    pkg_profile = os.path.join(os.path.dirname(ptl.__file__), "profiles", profile_key_or_path + ".yaml")
+                    if os.path.exists(pkg_profile):
+                        return pkg_profile
+                    # 4. Direct path
+                    if os.path.exists(profile_key_or_path):
+                        return profile_key_or_path
+                    raise FileNotFoundError(f"Simulation profile not found for '{profile_key_or_path}'")
+
+                device_model_str = getattr(config_model, "model", "GenericSimulatedModel")
+                if isinstance(config_source, str):
+                    sim_profile_path = os.path.abspath(resolve_sim_profile_path(config_source))
+                    if debug_mode:
+                        print(f"Resolved sim profile path: {sim_profile_path}")
+                else:
+                    # Write dict config to a temp file
+                    with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as tf:
+                        yaml.dump(config_data, tf)
+                        sim_profile_path = os.path.abspath(tf.name)
+                    if debug_mode:
+                        print(f"Wrote temp sim profile: {sim_profile_path}")
+                backend_instance = SimBackendV2(
+                    profile_path=sim_profile_path,
+                    model=device_model_str,
+                    timeout_ms=actual_timeout,
+                )
+                if debug_mode:
+                    print(
+                        f"Using SimBackendV2 for {device_model_str} with timeout {actual_timeout}ms. Profile: {sim_profile_path}"
                     )
-                backend_instance = AsyncVisaBackend(address=actual_address, timeout_ms=actual_timeout)
-                if debug_mode: print(f"Using AsyncVisaBackend for '{actual_address}' with timeout {actual_timeout}ms.")
-            elif chosen_backend_type == 'lamb':
-                lamb_server_url = getattr(config_model, 'lamb_url', 'http://lamb-server:8000')
-                if actual_address:
-                    backend_instance = AsyncLambBackend(address=actual_address, url=lamb_server_url, timeout_ms=actual_timeout)
-                elif hasattr(config_model, "model") and hasattr(config_model, "serial_number"):
-                    backend_instance = AsyncLambBackend(
-                        address=None,
-                        url=lamb_server_url,
-                        timeout_ms=actual_timeout,
-                        model_name=getattr(config_model, "model"),
-                        serial_number=getattr(config_model, "serial_number")
-                    )
+            else:
+                # For live hardware, determine the backend type (VISA or Lamb)
+                if backend_type_hint:
+                    # Explicit hint overrides any inference
+                    chosen_backend_type = backend_type_hint.lower()
+                    if debug_mode: print(f"Backend type hint provided: '{chosen_backend_type}'.")
+                elif actual_address and "LAMB::" in actual_address.upper():
+                    # Infer 'lamb' backend from the address format
+                    chosen_backend_type = 'lamb'
+                    if debug_mode: print(f"Inferred backend type: 'lamb' from address '{actual_address}'.")
+                elif actual_address:
+                    # Infer 'visa' for any other address type
+                    chosen_backend_type = 'visa'
+                    if debug_mode: print(f"Inferred backend type: 'visa' from address '{actual_address}'.")
+                else:
+                    # Default to 'lamb' if no address is provided (e.g., for remote discovery)
+                    chosen_backend_type = 'lamb'
+                    if debug_mode: print(f"Defaulting backend type to 'lamb' (no address present).")
+
+                if chosen_backend_type == 'visa':
+                    if actual_address is None:
+                        raise InstrumentConfigurationError(
+                            config_source, "Missing address/resource_name for VISA backend."
+                        )
+                    backend_instance = AsyncVisaBackend(address=actual_address, timeout_ms=actual_timeout)
+                    if debug_mode: print(f"Using AsyncVisaBackend for '{actual_address}' with timeout {actual_timeout}ms.")
+                elif chosen_backend_type == 'lamb':
+                    lamb_server_url = getattr(config_model, 'lamb_url', 'http://lamb-server:8000')
+                    if actual_address:
+                        backend_instance = AsyncLambBackend(address=actual_address, url=lamb_server_url, timeout_ms=actual_timeout)
+                    elif hasattr(config_model, "model") and hasattr(config_model, "serial_number"):
+                        backend_instance = AsyncLambBackend(
+                            address=None,
+                            url=lamb_server_url,
+                            timeout_ms=actual_timeout,
+                            model_name=getattr(config_model, "model"),
+                            serial_number=getattr(config_model, "serial_number")
+                        )
+                    else:
+                        raise InstrumentConfigurationError(
+                            config_source,
+                            "Lamb backend requires either an address or both model and serial_number in the config.",
+                        )
+                    if debug_mode:
+                        print(f"Using AsyncLambBackend for model='{getattr(config_model, 'model', None)}', serial='{getattr(config_model, 'serial_number', None)}' via '{lamb_server_url}' with timeout {actual_timeout}ms.")
                 else:
                     raise InstrumentConfigurationError(
-                        config_source,
-                        "Lamb backend requires either an address or both model and serial_number in the config.",
+                        config_source, f"Unsupported backend_type '{chosen_backend_type}'."
                     )
-                if debug_mode:
-                    print(f"Using AsyncLambBackend for model='{getattr(config_model, 'model', None)}', serial='{getattr(config_model, 'serial_number', None)}' via '{lamb_server_url}' with timeout {actual_timeout}ms.")
-            else:
-                raise InstrumentConfigurationError(
-                    config_source, f"Unsupported backend_type '{chosen_backend_type}'."
-                )
         
         # Step 5: Instantiate the final instrument driver class
         device_type_str: str = config_model.device_type
