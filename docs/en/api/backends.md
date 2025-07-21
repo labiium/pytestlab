@@ -30,11 +30,11 @@ Backend for instruments accessible via the [Lamb](https://github.com/e-a-olowe/l
 
 ---
 
-### `SimBackendV2`
+### `SimBackend`
 
-YAML-driven simulation backend. Provides deterministic, profile-based simulation for development, CI, and testing. Reads the `simulation` section of instrument profiles.
+The YAML-driven simulation backend for realistic instrument behavior.
 
-::: pytestlab.instruments.backends.sim_backend_v2.SimBackendV2
+::: pytestlab.instruments.backends.sim_backend.SimBackend
 
 ---
 

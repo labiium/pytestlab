@@ -1,7 +1,7 @@
 # tests/instruments/sim/DSOX1204G_sim.yaml
 #
 # Simulation profile for the Keysight DSOX1204G Oscilloscope.
-# This file drives the behavior of SimBackendV2 for comprehensive testing.
+# This file drives the behavior of SimBackend for comprehensive testing.
 #
 
 # The `identification` string is returned for the *IDN? query.

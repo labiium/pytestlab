@@ -18,8 +18,7 @@ from ..config.instrument_config import InstrumentConfig as PydanticInstrumentCon
 
 # Import new backend classes
 from .backends.async_visa_backend import AsyncVisaBackend
-from .backends.sim_backend import SimBackend  # Path has changed
-from .backends.sim_backend_v2 import SimBackendV2
+from .backends.sim_backend import SimBackend
 from .backends.lamb import AsyncLambBackend  # Class name changed from LambInstrument
 from .backends.replay_backend import ReplayBackend # Add this import
 
@@ -409,14 +408,14 @@ class AutoInstrument:
                         sim_profile_path = os.path.abspath(tf.name)
                     if debug_mode:
                         print(f"Wrote temp sim profile: {sim_profile_path}")
-                backend_instance = SimBackendV2(
+                backend_instance = SimBackend(
                     profile_path=sim_profile_path,
                     model=device_model_str,
                     timeout_ms=actual_timeout,
                 )
                 if debug_mode:
                     print(
-                        f"Using SimBackendV2 for {device_model_str} with timeout {actual_timeout}ms. Profile: {sim_profile_path}"
+                        f"Using SimBackend for {device_model_str} with timeout {actual_timeout}ms. Profile: {sim_profile_path}"
                     )
             else:
                 # For live hardware, determine the backend type (VISA or Lamb)

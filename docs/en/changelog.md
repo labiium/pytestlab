@@ -35,7 +35,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [0.1.5] - 2024-06-01
 
 ### Added
-- Support for YAML-driven simulation backend (SimBackendV2).
+- Support for YAML-driven simulation backend (SimBackend).
 - Bench safety limits and automation hooks.
 - CLI commands for profile and bench management.
 - Initial support for uncertainty propagation using `uncertainties` package.

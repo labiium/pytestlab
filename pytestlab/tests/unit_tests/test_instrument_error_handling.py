@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from pytestlab.instruments.instrument import Instrument
 from pytestlab.config.instrument_config import InstrumentConfig
-from pytestlab.sim.backend import SimBackend
+from pytestlab.instruments.backends.sim_backend import SimBackend
 from pytestlab.errors import InstrumentCommunicationError, InstrumentError
 
 # A specialized SimBackend for testing error handling

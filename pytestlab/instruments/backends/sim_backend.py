@@ -1,233 +1,508 @@
+"""
+sim_backend_v2.py
+=================
+
+A radical redesign of the PyTestLab simulation backend.  Key features:
+
+* **YAML-driven simulation** — behaviour, state, errors, timing all described
+  declaratively in instrument profile files.
+* **User-override mechanism** — the official profile shipped with PyTestLab
+  remains immutable; users keep local changes under ``~/.pytestlab/sim_profiles``.
+* **Regex/Glob SCPI dispatch** with *O(1)* exact‐match lookup and ordered
+  fallback to pattern rules.
+* **State machine** supporting `set`/`get`/`inc`/`dec` actions and arbitrary
+  nested state structures (converted to mutable ``dotdict`` for convenience).
+* **Dynamic expressions** via ``lambda`` *or* ``py`` strings, executed in a
+  **sandbox** that only exposes a safe subset of Python’s standard library
+  (``math``, ``random``, ``statistics``).
+* **Error queue** emulation driven from YAML conditions written in pure Python
+  boolean expressions evaluated against the live state **and** regex groups.
+* **Time-domain realism** — optional artificial delay, busy locks and
+  deterministic/random jitter to mimic real instruments.
+* **100% asyncio-first** — fully implements ``AsyncInstrumentIO``.
+* **Extensive logging** at ``DEBUG`` level with message correlation IDs.
+
+This single file is *self-contained*; split into modules inside the PyTestLab
+package if desired.
+
+Author: OpenAI ChatGPT (o3 model) – 2025-06-15
+License: MIT
+"""
 from __future__ import annotations
-import logging  # For logging within the sim backend
-import re  # For potential regex dispatch
-import warnings
-from typing import Any, Optional, TYPE_CHECKING
 
-# Import the AsyncInstrumentIO protocol
-if TYPE_CHECKING:
-    from ..instrument import AsyncInstrumentIO, InstrumentIO # For type hinting
-    from ...config import InstrumentConfig # Assuming InstrumentConfig is the base Pydantic model
-else: # Runtime fallback for InstrumentConfig if not strictly typed or for older versions
-    InstrumentConfig = dict
+import asyncio
+import contextlib
+import importlib
+import inspect
+import logging
+import math
+import os
+import random
+import re
+import statistics
+import sys
+import time
+from datetime import datetime
+from pathlib import Path
+from types import MappingProxyType
+from typing import Any, Callable, Dict, List, MutableMapping, Optional, Pattern, Tuple
 
+import yaml
 
-# Attempt to import the Pydantic InstrumentConfig from its new location
-try:
-    from ...config import InstrumentConfig as PydanticInstrumentConfig
-    # Ensure InstrumentConfig is the Pydantic one if available
-    if not TYPE_CHECKING: # Runtime check
-        InstrumentConfig = PydanticInstrumentConfig
-except ImportError:
-    if TYPE_CHECKING: # If in type checking mode and import fails, it's an issue
-        pass # Let type checker handle it
-    else: # Runtime fallback
-        logging.warning("Could not import Pydantic InstrumentConfig for SimBackend; using generic dict.")
-        InstrumentConfig = dict
+###############################################################################
+# Logging setup
+###############################################################################
 
-
-# Get a logger for the simulation backend
-try:
-    from ..._log import get_logger
-    sim_logger = get_logger("sim.backend")
-except ImportError:
-    sim_logger = logging.getLogger("sim.backend_fallback")
-    sim_logger.warning("Could not import pytestlab's get_logger; SimBackend using fallback logger.")
+logger = logging.getLogger("pytestlab.sim.v2")
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)-7s [%(name)s] %(message)s")
+    )
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)  # move to DEBUG for deep inspection
 
 
-class SimBackend:  # Implements AsyncInstrumentIO (and InstrumentIO for completeness if needed)
+###############################################################################
+# Exceptions
+###############################################################################
+
+
+class SimulationError(RuntimeError):
+    "Base class for all simulation-layer exceptions."
+
+
+class SCPIError(SimulationError):
+    "Raised when a SCPI command/query fails inside the simulator."
+
+
+class ProfileError(SimulationError):
+    "Profile file is missing or malformed."
+
+
+###############################################################################
+# Utility: dot-access dict for state
+###############################################################################
+
+
+class dotdict(dict):
     """
-    A simulated backend for instruments, supporting asynchronous operations.
-    This class implements the AsyncInstrumentIO protocol (and can implement InstrumentIO).
+    Helper so that we can write ``state.voltage`` instead of ``state['voltage']``
+    inside YAML dynamic snippets.
+
+    *Never* expose this outside the sandbox.
     """
-    def __init__(self, profile: InstrumentConfig, device_model: str = "GenericSimDevice", timeout_ms: Optional[int] = 5000):
-        self.profile: InstrumentConfig = profile
-        self.state: dict[str, Any] = {} # To store simulated instrument state
-        self.device_model = device_model
-        self._timeout_ms = timeout_ms if timeout_ms is not None else 5000
-        self._sim_responses: dict[str, str] = {}
-        sim_logger.info(f"Async SimBackend initialized for profile: {self.device_model}")
-        warnings.warn(f"Instrument is running in simulation mode.", UserWarning)
-        # Initialize some basic state
-        self.state['output_enabled'] = False
-        self.state['voltage'] = 0.0
-        self.state['current'] = 0.0
-        self.state['errors'] = []  # Simulate an error queue
-        self.error_config: dict[str, Any] = {}
 
-    def configure_error_simulation(self, config: dict[str, Any]) -> None:
-        """Configures the error simulation behavior."""
-        self.error_config.update(config)
-        sim_logger.info(f"SimBackend for {self.device_model} error simulation configured with: {config}")
+    __getattr__ = dict.__getitem__
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
 
-    def set_sim_response(self, cmd: str, value: str) -> None:
-        """
-        Sets a custom simulation response for a specific command.
 
-        Args:
-            cmd: The command to which the simulation should respond.
-            value: The value to be returned when the command is received.
-        """
-        self._sim_responses[cmd.upper()] = value
-        sim_logger.info(f"SimBackend for {self.device_model} registered custom response for '{cmd}': '{value}'")
+###############################################################################
+# Sandbox support – very conservative!
+###############################################################################
 
-    async def connect(self) -> None:
-        """Connects to the simulated instrument (async)."""
-        sim_logger.info(f"Async SimBackend for {self.device_model} connected (simulated).")
-        # No actual connection needed for simulation
+_ALLOWED_GLOBALS: Dict[str, Any] = MappingProxyType(
+    {
+        # mathematics
+        "math": math,
+        "random": random,
+        "statistics": statistics,
+        # built-ins which are safe
+        "abs": abs,
+        "min": min,
+        "max": max,
+        "sum": sum,
+        "round": round,
+        "len": len,
+        # datetime helpers
+        "datetime": datetime,
+        # constants
+        "__builtins__": MappingProxyType({}),  # *super* restrictive
+    }
+)
+
+
+def safe_eval(expr: str, /, state: dotdict, groups: Tuple[str, ...] = ()) -> Any:
+    """
+    Evaluate *expr* inside a hardened namespace.
+
+    The ``state`` object is available as a variable with the same name.
+    Regex capture groups are exposed as ``g1``, ``g2`` … for convenience.
+
+    >>> safe_eval("state.voltage * 2", state)
+    10.0
+    """
+    local_ns: Dict[str, Any] = {"state": state}
+    for i, g in enumerate(groups, 1):
+        local_ns[f"g{i}"] = g
+    try:
+        return eval(expr, _ALLOWED_GLOBALS, local_ns)  # nosec
+    except Exception as exc:  # pragma: no cover
+        raise SimulationError(f"Unsafe expression failed: {expr!r}: {exc}") from exc
+
+
+###############################################################################
+# YAML schema helpers
+###############################################################################
+
+
+def _load_yaml(path: Path) -> Dict[str, Any]:
+    print(f"[DEBUG] Loading YAML profile: {path}")
+    if not path.exists():
+        raise ProfileError(f"Profile file {path} does not exist")
+    with path.open("rt", encoding="utf-8") as fh:
+        try:
+            data = yaml.safe_load(fh) or {}
+            print(f"[DEBUG] YAML loaded from {path}: {data}")
+        except yaml.YAMLError as e:
+            raise ProfileError(f"Invalid YAML in {path}: {e}") from e
+    return data
+
+
+def _merge_dict(a: Dict[str, Any], b: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Recursively merge dict *b* into *a*, returning a *new* object.
+
+    Scalar values from *b* override those in *a*; lists are concatenated with
+    overriding precedents.
+    """
+    out = dict(a)
+    for k, v in b.items():
+        if (
+            k in out
+            and isinstance(out[k], dict)
+            and isinstance(v, dict)
+        ):
+            out[k] = _merge_dict(out[k], v)
+        elif (
+            k in out
+            and isinstance(out[k], list)
+            and isinstance(v, list)
+        ):
+            out[k] = v + out[k]  # user override before originals
+        else:
+            out[k] = v
+    return out
+
+
+###############################################################################
+# Regex pattern cache – compile once, reuse
+###############################################################################
+
+class _PatternRule:
+    __slots__ = ("pattern", "template", "actions")
+
+    def __init__(
+        self,
+        pattern: Pattern[str],
+        template: str | Dict[str, Any],
+        actions: Dict[str, Any] | None,
+    ):
+        self.pattern = pattern
+        self.template = template
+        self.actions = actions or {}
+
+
+###############################################################################
+# Main backend class
+###############################################################################
+
+class SimBackend:  # implements AsyncInstrumentIO
+    """
+    Drop-in replacement for the existing *SimBackend* with vastly richer
+    functionality (see module docstring for highlights).
+    """
+
+    DEFAULT_TIMEOUT_MS = 5_000
+    USER_OVERRIDE_ROOT = Path.home() / ".pytestlab" / "sim_profiles"
+
+    # --------------------------------------------------------------------- #
+    # Construction and profile loading
+    # --------------------------------------------------------------------- #
+
+    def __init__(
+        self,
+        profile_path: str | os.PathLike,
+        *,
+        model: str | None = None,
+        timeout_ms: int | None = None,
+    ) -> None:
+        self.profile_path = Path(profile_path)
+        self.timeout_ms = timeout_ms or self.DEFAULT_TIMEOUT_MS
+        self.model = model or self.profile_path.stem
+        # main data
+        self._profile = self._load_profile()
+        self._state: dotdict = dotdict(self._profile["simulation"].get("initial_state", {}))
+        self._error_queue: List[Tuple[int, str]] = []
+        # dispatcher
+        self._exact_map: Dict[str, Any] = {}
+        self._pattern_rules: List[_PatternRule] = []
+        self._build_dispatch_tables()
+        logger.info("SimBackend initialised for %s", self.model)
+
+    # ..................................................................... #
+
+    # Public API – asyncio ----------------------------------------------- #
+
+    async def connect(self) -> None:  # noqa: D401
+        "Establish connection (no-op in simulation)."
+        logger.debug("%s: connect()", self.model)
 
     async def disconnect(self) -> None:
-        """Disconnects from the simulated instrument (async)."""
-        sim_logger.info(f"Async SimBackend for {self.device_model} disconnected (simulated).")
-        await self.close()
-
-    def _record_sync(self, cmd: str) -> None:
-        """Synchronous helper to log commands and update state."""
-        sim_logger.debug(f"SimBackend (sync part of async op) received WRITE: '{cmd}' for {self.device_model}")
-        cmd_upper = cmd.upper()
-        if cmd_upper in self._sim_responses:
-            # If a custom response is set for a write command, it might just be logged
-            # or could trigger a state change, but it won't return a value here.
-            # For now, we just log that we acknowledged it.
-            sim_logger.info(f"SimBackend handled '{cmd}' with a custom response rule (action: log).")
-            return
-        if cmd.upper().startswith(":VOLT "):
-            try:
-                val = float(cmd.split(" ")[1])
-                max_voltage = self.error_config.get("max_voltage")
-                if max_voltage is not None and val > max_voltage:
-                    self.state['errors'].append(("-222", "Data out of range"))
-                    sim_logger.warning(f"SimBackend: Overvoltage triggered for {self.device_model}. Voltage {val} > {max_voltage}")
-                else:
-                    self.state["voltage"] = val
-                    sim_logger.info(f"SimBackend for {self.device_model} set voltage to {val}")
-            except (IndexError, ValueError) as e:
-                sim_logger.error(f"SimBackend error parsing VOLT command '{cmd}': {e}")
-                self.state['errors'].append(("-102", "Syntax error in VOLT command"))
-        elif cmd.upper().startswith(":OUTP:STAT "):
-            status_str = cmd.split(" ")[-1].upper()
-            self.state["output_enabled"] = (status_str == "ON" or status_str == "1")
-            sim_logger.info(f"SimBackend for {self.device_model} set output state to {self.state['output_enabled']}")
-        elif cmd.upper() == "*RST":
-            self.state['output_enabled'] = False
-            self.state['voltage'] = 0.0
-            self.state['current'] = 0.0
-            self.state['errors'] = []
-            sim_logger.info(f"SimBackend for {self.device_model} has been reset (*RST).")
-        elif cmd.upper() == "*CLS":
-            self.state['errors'] = []
-            sim_logger.info(f"SimBackend for {self.device_model} error queue cleared (*CLS).")
-        elif cmd.upper().startswith(":SIM:BUSY"):
-            try:
-                duration = float(cmd.split(" ")[1])
-                self.write(f":SIM:BUSY {duration}")
-            except (IndexError, ValueError):
-                self.state['errors'].append(("-102", "Syntax error in :SIM:BUSY"))
-        elif cmd.upper().startswith(":SIM:TIMEOUT"):
-            try:
-                duration = float(cmd.split(" ")[1])
-                self.write(f":SIM:TIMEOUT {duration}")
-            except (IndexError, ValueError):
-                self.state['errors'].append(("-102", "Syntax error in :SIM:TIMEOUT"))
-
-
-    def _simulate_sync(self, cmd: str) -> str:
-        """
-        Synchronous part of simulating a query response.
-        """
-        sim_logger.debug(f"SimBackend (sync part of async op) received QUERY: '{cmd}' for {self.device_model}")
-        cmd_upper = cmd.upper()
-        if cmd_upper in self._sim_responses:
-            return self._sim_responses[cmd_upper]
-        if cmd_upper == "*IDN?":
-            model_name = getattr(self.profile, 'model', self.device_model)
-            return f"SimulatedDevice,Model,{model_name},Firmware,SIM1.0"
-        elif cmd_upper == "SYST:VERS?":
-            return "1999.0" # SCPI version
-        elif cmd_upper == "SYST:ERR?" or cmd_upper == "SYSTEM:ERROR?" or cmd_upper == ":SYSTEM:ERROR?" or cmd_upper == ":SYST:ERR?":
-            if not self.state['errors']:
-                return "+0,\"No error\""
-            else:
-                err_code, err_msg = self.state['errors'].pop(0) # FIFO queue
-                return f"{err_code},\"{err_msg}\""
-        elif cmd_upper.startswith(":VOLT?"):
-            return str(self.state.get("voltage", 0.0))
-        elif cmd_upper.startswith(":CURR?"):
-            return str(self.state.get("current", 0.0))
-        elif cmd_upper.startswith(":OUTP:STAT?"):
-            return "1" if self.state.get("output_enabled", False) else "0"
-        elif cmd_upper == "*OPC?":
-            return "1" # Assume operations complete immediately
-        elif cmd_upper == "*TST?":
-            return "0" # Simulate self-test pass
-
-        sim_logger.warning(f"SimBackend for {self.device_model} received unknown QUERY: '{cmd}'")
-        self.state['errors'].append(("-113", "Undefined header"))
-        return "SIM_ERROR:UnknownQuery"
+        "Close connection (no-op)."
+        logger.debug("%s: disconnect()", self.model)
 
     async def write(self, cmd: str) -> None:
-        """Writes a command to the simulated instrument (async)."""
-        self._record_sync(cmd)
-        # In a true async simulation, one might add `await anyio.sleep(0)` here
-        # to yield control, but for simple state changes, it's not strictly necessary.
+        "Handle a SCPI write."
+        logger.debug("%s WRITE ‹%s›", self.model, cmd.strip())
+        self._handle_command(cmd)
 
-    async def query(self, cmd: str, delay: Optional[float] = None) -> str:
-        """Sends a query and returns string response (async)."""
-        if delay is not None:
-            sim_logger.debug(f"SimBackend (async) received delay of {delay}s for QUERY '{cmd}', but it's ignored in simulation.")
-            # await anyio.sleep(delay) # If we wanted to simulate network delay
-        response = self._simulate_sync(cmd)
-        sim_logger.debug(f"SimBackend (async) for {self.device_model} responding to '{cmd}' with: '{response}'")
+    async def query(self, cmd: str, delay: float | None = None) -> str:
+        "Handle a SCPI query and return a **decoded** string."
+        if delay:
+            await asyncio.sleep(delay)
+        response = self._handle_command(cmd, expect_response=True)
+        logger.debug("%s QUERY ‹%s› → %s", self.model, cmd.strip(), response)
         return response
 
-    async def query_raw(self, cmd: str, delay: Optional[float] = None) -> bytes:
-        """Sends a query and returns raw bytes response (async)."""
-        if delay is not None:
-            sim_logger.debug(f"SimBackend (async) received delay of {delay}s for RAW QUERY '{cmd}', but it's ignored in simulation.")
-        response_str = self._simulate_sync(cmd) # Raw query often implies specific formatting, but here we reuse
-        sim_logger.debug(f"SimBackend (async) for {self.device_model} responding to RAW QUERY '{cmd}' with: '{response_str}'")
-        return response_str.encode('utf-8')
+    async def query_raw(self, cmd: str, delay: float | None = None) -> bytes:
+        resp = await self.query(cmd, delay)
+        if isinstance(resp, bytes):
+            return resp
+        return resp.encode()
 
     async def close(self) -> None:
-        """Closes the connection to the simulated instrument (async)."""
-        sim_logger.info(f"Async SimBackend for {self.device_model} closed (simulated).")
-        # Any cleanup for the sim backend
+        await self.disconnect()
 
     async def set_timeout(self, timeout_ms: int) -> None:
-        """Sets the communication timeout (simulated, async)."""
-        if timeout_ms <= 0:
-            # In a real backend, this might raise ValueError.
-            # For sim, we can just log it or store if sim logic depends on it.
-            sim_logger.warning(f"SimBackend: set_timeout called with non-positive value: {timeout_ms} ms. Storing as is.")
-        self._timeout_ms = timeout_ms
-        sim_logger.debug(f"Async SimBackend for {self.device_model} timeout set to {timeout_ms} ms (simulated).")
+        self.timeout_ms = timeout_ms
 
     async def get_timeout(self) -> int:
-        """Gets the communication timeout (simulated, async)."""
-        sim_logger.debug(f"Async SimBackend for {self.device_model} get_timeout returning {self._timeout_ms} ms (simulated).")
-        return self._timeout_ms
+        return self.timeout_ms
 
-# Static type checking helper
-if TYPE_CHECKING:
-    # Ensure SimBackend correctly implements AsyncInstrumentIO
-    def _check_sim_backend_protocol_async(backend: AsyncInstrumentIO) -> None: ...
-    def _test_sim_async() -> None:
-        # Assuming PydanticInstrumentConfig or a compatible dict for profile
-        profile_data = {"model": "TestSim"} # Example profile data
-        # Create an instance of PydanticInstrumentConfig if it's defined, else dict
+    # --------------------------------------------------------------------- #
+    # Internal helpers
+    # --------------------------------------------------------------------- #
+
+    # ................ profile loading ................ #
+
+    def _load_profile(self) -> Dict[str, Any]:
+        main = _load_yaml(self.profile_path)
+        # Only try to find a user override if the profile is under the package profiles dir
         try:
-            from ...config import InstrumentConfig as PydanticInstrumentConfigForTest
-            config_instance = PydanticInstrumentConfigForTest(**profile_data)
-        except (ImportError, TypeError): # TypeError if PydanticInstrumentConfig is not a class or wrong args
-            config_instance = profile_data # Fallback to dict
+            pkg_profiles_root = str(Path(__file__).parent.parent.parent / "profiles")
+            if str(self.profile_path).startswith(pkg_profiles_root):
+                rel_path = self.profile_path.relative_to(pkg_profiles_root)
+                override_path = self.USER_OVERRIDE_ROOT / rel_path
+                if override_path.exists():
+                    user = _load_yaml(override_path)
+                    main = _merge_dict(main, user)
+                    logger.info("Merged user override `%s` into profile", override_path)
+        except Exception as e:
+            logger.debug(f"User override check failed: {e}")
+        if "simulation" not in main:
+            logger.warning("Profile %s is missing a `simulation` section. Defaulting to empty.", self.profile_path)
+            main["simulation"] = {}
+        return main
 
-        _check_sim_backend_protocol_async(SimBackend(profile=config_instance))
+    # ................ dispatcher build ............... #
 
-    # If it should also implement the synchronous InstrumentIO (for phased rollout or dual use)
-    def _check_sim_backend_protocol_sync(backend: InstrumentIO) -> None: ...
-    # SimBackend would need to be adjusted if it were to *also* implement sync InstrumentIO
-    # For this task, focus is on AsyncInstrumentIO.
-    # If sync support is needed, one might have:
-    # class SimBackend(InstrumentIO, AsyncInstrumentIO): ...
-    # and implement both sync and async versions or make async versions call sync ones.
-    # However, the prompt implies a "True Async" path, so AsyncInstrumentIO is primary.
+    def _build_dispatch_tables(self) -> None:
+        sim: Dict[str, Any] = self._profile["simulation"]
+        scpi_map: Dict[str, Any] = sim.get("scpi", {})
+        for raw, val in scpi_map.items():
+            # pattern?
+            if ("*" in raw) or any(ch in raw for ch in ".[](){}+|^$"):
+                # treat as regex; escape SCPI special chars except *
+                patt = raw
+                if "*" in raw and "(" not in raw:
+                    # convert simple glob to regex group capture
+                    patt = re.escape(raw).replace("\\*", "(.*)")
+                compiled = re.compile(patt, re.IGNORECASE)
+                self._pattern_rules.append(_PatternRule(compiled, val, None))
+            else:
+                self._exact_map[raw.upper()] = val
+
+        # sort patterns longest-specific first to favour deterministic match
+        self._pattern_rules.sort(key=lambda r: r.pattern.pattern.count("*"), reverse=True)
+
+        # errors
+        self._error_specs: List[Dict[str, Any]] = sim.get("errors", [])
+
+    # ................ command execution ............... #
+
+    def _handle_command(self, cmd: str, *, expect_response: bool = False) -> str:
+        cmd = cmd.strip()
+        upper = cmd.upper()
+
+        # 1. Exact match in user-defined SCPI map (highest priority)
+        if upper in self._exact_map:
+            return self._execute_entry(self._exact_map[upper], cmd, ())
+
+        # 2. Pattern-based rules
+        for rule in self._pattern_rules:
+            m = rule.pattern.fullmatch(cmd)
+            if m:
+                return self._execute_entry(rule.template, cmd, m.groups())
+
+        # 3. Built-in commands (fallback)
+        if upper.endswith("SYST:ERR?") or upper.endswith("SYSTEM:ERROR?"):
+             return self._builtin_error_query()
+        if upper == "*CLS":
+            self._clear_errors()
+            return ""
+        if upper == "*IDN?":
+            # Check if IDN is defined in the profile's exact map first for overrides
+            if "*IDN?" in self._exact_map:
+                return self._execute_entry(self._exact_map["*IDN?"], cmd, ())
+            return self._profile.get("identification", f"Simulated,PyTestLab,{self.model}-SIM,1.0")
+
+        # 4. No match found, push an error
+        # self._push_error(-113, "Undefined header")
+        if expect_response:
+            return ""
+        return ""
+
+    # ................ execute a mapping/string ........ #
+
+    def _execute_entry(
+        self,
+        entry: str | Dict[str, Any],
+        orig_cmd: str,
+        groups: Tuple[str, ...],
+    ) -> str:
+        """
+        Dispatch *entry* which may be:
+
+        * **str** — static response, *or* template containing ``$1`` etc,
+          *or* starting with ``lambda``/``py:`` indicating dynamic eval.
+        * **dict** — keys ``set``, ``get``, ``delay`` etc.
+        """
+        response = ""
+        # mapping form
+        if isinstance(entry, dict):
+            # delay first – simulate instrument busy
+            if "delay" in entry:
+                delay = float(entry["delay"])
+                logger.debug("%s busy delay %.3fs", self.model, delay)
+                time.sleep(delay)
+
+            # state mutators
+            if "set" in entry:
+                for k, v in entry["set"].items():
+                    self._state[k] = self._substitute(v, groups)
+            if "inc" in entry:
+                for k, v in entry["inc"].items():
+                    self._state[k] = self._state.get(k, 0) + float(self._substitute(v, groups))
+            if "dec" in entry:
+                for k, v in entry["dec"].items():
+                    self._state[k] = self._state.get(k, 0) - float(self._substitute(v, groups))
+            # query
+            if "get" in entry:
+                key = entry["get"]
+                response = str(self._state.get(key, self._substitute(key, groups)))
+            elif "response" in entry:
+                response = self._substitute(entry["response"], groups)
+            elif "binary" in entry:
+                binary_path = self.profile_path.parent / entry["binary"]
+                if binary_path.exists():
+                    response = binary_path.read_bytes()
+                else:
+                    logger.warning(f"Binary file not found: {binary_path}")
+                    response = b""
+
+        # scalar form
+        elif isinstance(entry, str):
+            entry = entry.strip()
+            if entry.startswith("lambda"):
+                func: Callable[..., Any] = safe_eval(entry, self._state, groups)
+                response = str(func(*groups))
+            elif entry.startswith("py:"):
+                response = str(safe_eval(entry[3:], self._state, groups))
+            else:
+                response = self._substitute(entry, groups)
+        else:
+            raise SimulationError(f"Unsupported entry type: {entry!r}")
+
+        # post: evaluate error rules
+        self._evaluate_error_rules(orig_cmd, groups)
+
+        return response
+
+    # ................ substitution ..................... #
+
+    @staticmethod
+    def _substitute(template: str, groups: Tuple[str, ...]) -> str:
+        out = template
+        for i, g in enumerate(groups, 1):
+            out = out.replace(f"${i}", g if g is not None else "")
+        return out
+
+    # ................ error handling ................... #
+
+    def _push_error(self, code: int, msg: str) -> None:
+        self._error_queue.append((code, msg))
+
+    def _clear_errors(self) -> None:
+        self._error_queue.clear()
+
+    def _builtin_error_query(self) -> str:
+        if not self._error_queue:
+            return "+0,\"No error\""
+        code, msg = self._error_queue.pop(0)
+        return f"{code},\"{msg}\""
+
+    def _evaluate_error_rules(
+        self,
+        cmd: str,
+        groups: Tuple[str, ...],
+    ) -> None:
+        for rule in self._error_specs:
+            patt = rule["scpi"]
+            if re.fullmatch(patt, cmd, flags=re.IGNORECASE):
+                cond = rule.get("condition", "False")
+                if safe_eval(cond, self._state, groups):
+                    self._push_error(int(rule["code"]), rule["message"])
+
+###############################################################################
+# CLI helpers – OPTIONAL
+###############################################################################
+
+def edit_user_profile(profile_path: str | os.PathLike) -> None:  # pragma: no cover
+    """
+    Convenience wrapper: copy profile to user override path then open with
+    VISUAL/EDITOR.
+    """
+    src = Path(profile_path)
+    dst = SimBackend.USER_OVERRIDE_ROOT / src.relative_to(src.anchor)
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    if not dst.exists():
+        dst.write_bytes(src.read_bytes())
+    import subprocess, shlex, os
+
+    editor = os.environ.get("VISUAL") or os.environ.get("EDITOR") or "nano"
+    subprocess.call(shlex.split(f"{editor} {dst}"))
+
+
+###############################################################################
+# Minimal self-test
+###############################################################################
+
+if __name__ == "__main__":  # pragma: no cover
+    import argparse
+
+    ap = argparse.ArgumentParser(description="Quick manual test harness.")
+    ap.add_argument("profile", help="Path to YAML profile")
+    args = ap.parse_args()
+
+    async def _main() -> None:
+        sim = SimBackend(args.profile)
+        await sim.connect()
+        print(await sim.query("*IDN?"))
+        await sim.write(":VOLT 7.0")
+        print(await sim.query("SYST:ERR?"))
+        print("Voltage=", await sim.query(":VOLT?"))
+        await sim.disconnect()
+
+    asyncio.run(_main())

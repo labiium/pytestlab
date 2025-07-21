@@ -1,6 +1,6 @@
 # Simulation Mode
 
-PyTestLab features a powerful, YAML-driven simulation backend (`SimBackendV2`) that provides realistic and deterministic behavior for your instruments.
+PyTestLab features a powerful, YAML-driven simulation backend (`SimBackend`) that provides realistic and deterministic behavior for your instruments.
 
 ## How Simulation Works
 

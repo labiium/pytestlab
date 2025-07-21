@@ -10,15 +10,15 @@ from pytestlab.config.multimeter_config import MultimeterConfig # Adjust as per 
 
 # Minimal Pydantic configs for simulation
 PSU_CFG_DATA = {"device_type": "power_supply", "model": "SimPSUCI", "address": "SIM_PSU", "channels": [{"channel_id": 1}]} # Added minimal channel for PSU
-DMM_CFG_DATA = {"device_type": "multimeter", "model": "SimDMMCI", "address": "SIM_DMM"}
 
 @pytest.mark.ci_example # Mark test for CI
-async def test_simulated_psu_dmm_sweep(): # Make test async
+async def test_simulated_psu_dmm_sweep(simulated_psu_profile, simulated_dmm_profile): # Make test async and accept fixtures
     psu_config = PowerSupplyConfig(**PSU_CFG_DATA)
-    dmm_config = MultimeterConfig(**DMM_CFG_DATA)
-
+    
+    # The DMM now loads its configuration from the temporary profile file
+    # created by the fixture.
     psu = await AutoInstrument.from_config(config_source=psu_config, simulate=True)
-    dmm = await AutoInstrument.from_config(config_source=dmm_config, simulate=True)
+    dmm = await AutoInstrument.from_config(config_source=simulated_dmm_profile, simulate=True)
 
     await psu.connect_backend() # Explicitly connect if needed by new async model
     await dmm.connect_backend()
@@ -30,15 +30,16 @@ async def test_simulated_psu_dmm_sweep(): # Make test async
     await psu.write(":OUTP1:STAT ON")
     await psu.write(":SOUR1:VOLT 5.0")
 
-    # SimDMM needs to provide a predictable response.
-    # This might require SimBackend enhancements or specific programming for the test.
-    # For now, assume SimDMM returns voltage set by SOUR:VOLT for :MEAS:VOLT:DC?
-    # This could be done by programming the SimBackend instance associated with dmm:
-    if hasattr(dmm._backend, 'set_sim_response'): # Check if SimBackend has this method
-         dmm._backend.set_sim_response(':MEAS:VOLT:DC?', "5.001")
-
+    # The simulated DMM will now automatically respond with "5.001" to the
+    # :MEAS:VOLT:DC? query, as defined in the YAML profile.
     measured_val_str = await dmm.query(":MEAS:VOLT:DC?")
     measured_val = float(measured_val_str)
+
+    assert np.isclose(measured_val, 5.0, atol=0.01), f"Expected ~5.0V, got {measured_val}V"
+
+    await psu.close()
+    await dmm.close()
+    print("CI Example: PSU-DMM sweep ran successfully.")
 
     assert np.isclose(measured_val, 5.0, atol=0.01), f"Expected ~5.0V, got {measured_val}V"
 
