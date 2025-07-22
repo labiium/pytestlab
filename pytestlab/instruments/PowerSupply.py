@@ -67,6 +67,11 @@ class PSUChannelFacade:
         await self._psu.output(self._channel, False)
         return self
 
+    async def on(self) -> Self:
+        """Enables the output of this channel."""
+        await self._psu.output(self._channel, True)
+        return self
+
     async def get_voltage(self) -> float:
         """Reads the measured voltage from this channel."""
         return await self._psu.read_voltage(self._channel)

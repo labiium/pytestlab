@@ -1,6 +1,6 @@
 from __future__ import annotations
-from typing import Optional, Dict, List, Any, Union
-from pydantic import BaseModel, Field, ConfigDict, model_validator, RootModel
+from typing import Optional, Dict, List, Any
+from pydantic import BaseModel, ConfigDict, model_validator, RootModel
 
 class ExperimentSection(BaseModel):
     title: str
@@ -21,6 +21,7 @@ class SafetyLimits(BaseModel):
 class InstrumentEntry(BaseModel):
     profile: str
     address: Optional[str] = None
+    serial_number: Optional[str] = None  # <-- Added for bench.yaml support
     safety_limits: Optional[SafetyLimits] = None
     backend: Optional[Dict[str, Any]] = None
     simulate: Optional[bool] = None

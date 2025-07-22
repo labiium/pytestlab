@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from pathlib import Path
-from typing import Union, Dict, Any, Optional, List, Sequence, Type
+from typing import Union, Dict, Any, Optional, List
 import subprocess
 import sys
 import warnings
@@ -38,7 +38,12 @@ class SafeInstrumentWrapper:
         _safety_limits: The safety limit configuration for this instrument.
         _instrument_type: Type of instrument being wrapped (e.g., 'power_supply', 'waveform_generator').
     """
-    def __init__(self, instrument: Instrument, safety_limits: Any, instrument_type: str = None):
+    def __init__(
+        self,
+        instrument: Instrument,
+        safety_limits: Any,
+        instrument_type: str = None
+    ):
         self._inst = instrument
         self._safety_limits = safety_limits
         self._instrument_type = instrument_type or self._detect_instrument_type()
@@ -56,26 +61,26 @@ class SafeInstrumentWrapper:
     def __getattr__(self, name):
         """Dynamically wraps methods to enforce safety checks."""
         orig = getattr(self._inst, name)
-        
+
         # Power Supply safety limits
         if self._instrument_type == "power_supply":
             if name == "set_voltage":
                 return self._safe_set_voltage_wrapper(orig)
             elif name == "set_current":
                 return self._safe_set_current_wrapper(orig)
-        
+
         # Waveform Generator safety limits
         elif self._instrument_type == "waveform_generator":
             if name == "set_amplitude":
                 return self._safe_set_amplitude_wrapper(orig)
             elif name == "set_frequency":
                 return self._safe_set_frequency_wrapper(orig)
-        
+
         # DC Active Load safety limits
         elif self._instrument_type == "dc_active_load":
             if name == "set_load":
                 return self._safe_set_load_wrapper(orig)
-        
+
         # For any other method, return it unwrapped
         return orig
 
@@ -196,12 +201,12 @@ class Bench:
         """
         logger.info(f"Loading bench configuration from {filepath}")
         config = load_bench_yaml(filepath)
-        
+
         # Run custom validations
         logger.debug("Running custom validations on bench configuration")
         context = build_validation_context(config)
         run_custom_validations(config, context)
-        
+
         bench = cls(config)
         await bench._initialize_instruments()
         await bench._run_automation_hook("pre_experiment")
@@ -210,15 +215,14 @@ class Bench:
         # Initialize the experiment and database
         bench.initialize_experiment()
         bench.initialize_database()
-        
+
         return bench
 
     async def _initialize_instruments(self):
         """Initializes and connects to all instruments defined in the config."""
         # Importing compliance ensures that the necessary patches are applied
         # before any instruments are created, which might generate results.
-        from . import compliance  # noqa: F401
-        
+
         logger.info("Initializing instruments")
         connection_errors = []
 
@@ -230,7 +234,7 @@ class Bench:
                 error_msg = f"Failed to initialize instrument '{alias}': {str(e)}"
                 logger.error(error_msg)
                 connection_errors.append(error_msg)
-                
+
                 # Continue with other instruments even if one fails
                 if getattr(self.config, 'continue_on_instrument_error', False):
                     warnings.warn(f"Failed to initialize instrument '{alias}'. Continuing with other instruments.", UserWarning)
@@ -255,8 +259,7 @@ class Bench:
             timeout_override_ms = entry.backend.get("timeout_ms")
 
         # Extract channel configuration if present
-        if hasattr(entry, 'channels') and entry.channels:
-            self._channel_config[alias] = entry.channels
+        # (No channel config in InstrumentEntry; skip extraction)
 
         # Create instrument instance
         logger.debug(f"Creating instrument '{alias}' from profile '{entry.profile}'")
@@ -265,9 +268,10 @@ class Bench:
             simulate=simulate_flag,
             backend_type_hint=backend_type_hint,
             address_override=entry.address,
+            serial_number=entry.serial_number,  # <-- Pass serial_number to factory
             timeout_override_ms=timeout_override_ms
         )
-        
+
         # Connect to the backend
         logger.debug(f"Connecting instrument '{alias}' to backend")
         await instrument.connect_backend()
@@ -316,12 +320,12 @@ class Bench:
         if not hooks:
             logger.debug(f"No automation hooks defined for '{hook}'")
             return
-            
+
         logger.info(f"Executing {len(hooks)} automation hooks for '{hook}'")
-        
+
         for i, cmd in enumerate(hooks, 1):
             logger.debug(f"Running automation hook {i}/{len(hooks)}: {cmd}")
-            
+
             try:
                 if cmd.strip().startswith("python "):
                     await self._run_python_script(cmd)
@@ -339,12 +343,12 @@ class Bench:
         """Run a Python script as part of an automation hook."""
         script = cmd.strip().split(" ", 1)[1]
         logger.info(f"[Automation] Running Python script: {script}")
-        
+
         try:
             result = subprocess.run(
-                [sys.executable, script], 
-                check=True, 
-                capture_output=True, 
+                [sys.executable, script],
+                check=True,
+                capture_output=True,
                 text=True
             )
             logger.debug(f"Script output: {result.stdout.strip()}")
@@ -361,13 +365,13 @@ class Bench:
     async def _run_shell_command(self, cmd: str):
         """Run a shell command as part of an automation hook."""
         logger.info(f"[Automation] Running shell command: {cmd}")
-        
+
         try:
             result = subprocess.run(
-                cmd, 
-                shell=True, 
-                check=True, 
-                capture_output=True, 
+                cmd,
+                shell=True,
+                check=True,
+                capture_output=True,
                 text=True
             )
             logger.debug(f"Command output: {result.stdout.strip()}")
@@ -386,16 +390,16 @@ class Bench:
         alias, instr_cmd = cmd.split(":", 1)
         alias = alias.strip()
         instr_cmd = instr_cmd.strip()
-        
+
         # Get the instrument instance (wrapper or raw)
         inst = self._instrument_wrappers.get(alias) or self._instrument_instances.get(alias)
         if inst is None:
             error_msg = f"Instrument '{alias}' not found for macro '{cmd}'"
             logger.error(error_msg)
             raise InstrumentMacroError(error_msg)
-            
+
         logger.info(f"[Automation] Running instrument macro: {alias}: {instr_cmd}")
-        
+
         # Handle common macros
         if instr_cmd.lower() == "output all off":
             await self._execute_output_all_off(inst, alias)
@@ -410,10 +414,10 @@ class Bench:
             error_msg = f"Instrument '{alias}' does not support 'output' method"
             logger.error(error_msg)
             raise InstrumentMacroError(error_msg)
-            
+
         # Get channels for this instrument from config or use default range
         channels = self._channel_config.get(alias, range(1, 4))
-        
+
         # Turn off all channels
         errors = []
         for ch in channels:
@@ -424,7 +428,7 @@ class Bench:
                 error_msg = f"Failed to turn off output for {alias} channel {ch}: {str(e)}"
                 logger.warning(error_msg)
                 errors.append(error_msg)
-                
+
         if errors:
             logger.warning(f"{len(errors)} errors occurred while turning off outputs")
             if not getattr(self.config, 'continue_on_automation_error', False):
@@ -436,7 +440,7 @@ class Bench:
             error_msg = f"Instrument '{alias}' does not support 'auto_scale' method"
             logger.error(error_msg)
             raise InstrumentMacroError(error_msg)
-            
+
         try:
             logger.debug(f"Executing auto scale for {alias}")
             await inst.auto_scale()
@@ -452,19 +456,19 @@ class Bench:
     async def close_all(self):
         """Runs post-experiment hooks and closes all instrument connections."""
         logger.info("Closing bench and running post-experiment hooks")
-        
+
         try:
             await self._run_automation_hook("post_experiment")
         except Exception as e:
             logger.error(f"Error in post-experiment hooks: {str(e)}")
-            
+
         # Close all instrument connections
         logger.debug("Closing instrument connections")
         close_tasks = [
-            inst.close() for inst in self._instrument_instances.values() 
+            inst.close() for inst in self._instrument_instances.values()
             if hasattr(inst, "close")
         ]
-        
+
         if close_tasks:
             results = await asyncio.gather(*close_tasks, return_exceptions=True)
             errors = [r for r in results if isinstance(r, Exception)]
@@ -472,16 +476,16 @@ class Bench:
                 logger.error(f"{len(errors)} errors occurred while closing instruments")
                 for err in errors:
                     logger.error(f"Instrument close error: {str(err)}")
-                    
+
     async def health_check(self) -> Dict[str, HealthReport]:
         """Run health checks on all instruments that support it.
-        
+
         Returns:
             A dictionary mapping instrument aliases to their health reports.
         """
         logger.info("Running health check on all instruments")
         health_reports = {}
-        
+
         for alias, inst in self._instrument_instances.items():
             if hasattr(inst, "health_check"):
                 try:
@@ -491,11 +495,11 @@ class Bench:
                     logger.error(f"Health check failed for {alias}: {str(e)}")
                     health_reports[alias] = HealthReport(
                         status=HealthStatus.ERROR,
-                        messages=[f"Health check failed: {str(e)}"]
+                        errors=[f"Health check failed: {str(e)}"]
                     )
             else:
                 logger.debug(f"Instrument {alias} does not support health checks")
-                
+
         return health_reports
 
     async def __aenter__(self):
@@ -516,7 +520,7 @@ class Bench:
 
     def __dir__(self):
         """Include instrument aliases in dir() output for autocomplete."""
-        return super().__dir__() + list(self._instrument_instances.keys())
+        return list(super().__dir__()) + list(self._instrument_instances.keys())
 
     @property
     def instruments(self) -> Dict[str, Instrument]:
@@ -544,7 +548,7 @@ class Bench:
             self._experiment = Experiment(
                 name=self.config.experiment.title,
                 description=self.config.experiment.description,
-                notes=self.config.experiment.notes
+                notes=self.config.experiment.notes or ""
             )
             logger.info(f"Initialized experiment '{self.config.experiment.title}'")
 
@@ -557,10 +561,10 @@ class Bench:
 
     async def save_experiment(self, notes: str = "") -> Optional[str]:
         """Save the current experiment to the database.
-        
+
         Args:
             notes: Optional notes to add to the experiment before saving.
-            
+
         Returns:
             The codename of the saved experiment, or None if not saved.
         """
