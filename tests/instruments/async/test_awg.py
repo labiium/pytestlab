@@ -125,13 +125,12 @@ async def test_awg_facade_chain_methods():
     )
     await awg.connect_backend()
     ch2 = awg.channel(2)
-    # Chain setup for a ramp waveform
-    ch2_facade = await ch2.setup_ramp(frequency=5000, amplitude=2.0, offset=0.0, symmetry=60.0)
-    await ch2_facade.enable()
-    # Now check output state
+    # Test method chaining for a ramp waveform
+    await ch2.setup_ramp(frequency=5000, amplitude=2.0, offset=0.0, symmetry=60.0).enable()
+
     state = await awg.get_output_state(2)
     assert state.value == "ON"
-    await ch2.disable()
+    await ch2.disable()  # Await a new chain
     await awg.close()
 
 @pytest.mark.asyncio

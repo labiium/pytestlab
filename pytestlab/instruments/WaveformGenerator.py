@@ -10,7 +10,7 @@ import re
 import time
 import warnings
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union, Type, Self
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union, Type, Self, Awaitable
 from pydantic import validate_call # Added validate_call
 
 import numpy as np
@@ -46,41 +46,51 @@ class WGChannelFacade:
     def __init__(self, wg: 'WaveformGenerator', channel_num: int):
         self._wg = wg
         self._channel = channel_num
+        self._coros: List[Awaitable] = []
+
+    def __await__(self):
+        async def _runner():
+            for coro in self._coros:
+                await coro
+            self._coros.clear()  # Clear coroutines after execution
+            return self
+
+        return _runner().__await__()
 
     @validate_call
-    async def setup_sine(self, frequency: float, amplitude: float, offset: float = 0.0, phase: Optional[float] = None) -> Self:
-        await self._wg.set_function(self._channel, WaveformType.SINE)
-        await self._wg.set_frequency(self._channel, frequency)
-        await self._wg.set_amplitude(self._channel, amplitude)
-        await self._wg.set_offset(self._channel, offset)
+    def setup_sine(self, frequency: float, amplitude: float, offset: float = 0.0, phase: Optional[float] = None) -> Self:
+        self._coros.append(self._wg.set_function(self._channel, WaveformType.SINE))
+        self._coros.append(self._wg.set_frequency(self._channel, frequency))
+        self._coros.append(self._wg.set_amplitude(self._channel, amplitude))
+        self._coros.append(self._wg.set_offset(self._channel, offset))
         if phase is not None:
-            await self._wg.set_phase(self._channel, phase)
+            self._coros.append(self._wg.set_phase(self._channel, phase))
         return self
 
     @validate_call
-    async def setup_square(self, frequency: float, amplitude: float, offset: float = 0.0, duty_cycle: float = 50.0, phase: Optional[float] = None) -> Self:
-        await self._wg.set_function(self._channel, WaveformType.SQUARE, duty_cycle=duty_cycle)
-        await self._wg.set_frequency(self._channel, frequency)
-        await self._wg.set_amplitude(self._channel, amplitude)
-        await self._wg.set_offset(self._channel, offset)
+    def setup_square(self, frequency: float, amplitude: float, offset: float = 0.0, duty_cycle: float = 50.0, phase: Optional[float] = None) -> Self:
+        self._coros.append(self._wg.set_function(self._channel, WaveformType.SQUARE, duty_cycle=duty_cycle))
+        self._coros.append(self._wg.set_frequency(self._channel, frequency))
+        self._coros.append(self._wg.set_amplitude(self._channel, amplitude))
+        self._coros.append(self._wg.set_offset(self._channel, offset))
         if phase is not None:
-            await self._wg.set_phase(self._channel, phase)
+            self._coros.append(self._wg.set_phase(self._channel, phase))
         return self
 
     @validate_call
-    async def setup_ramp(self, frequency: float, amplitude: float, offset: float = 0.0, symmetry: float = 50.0, phase: Optional[float] = None) -> Self:
-        await self._wg.set_function(self._channel, WaveformType.RAMP, symmetry=symmetry)
-        await self._wg.set_frequency(self._channel, frequency)
-        await self._wg.set_amplitude(self._channel, amplitude)
-        await self._wg.set_offset(self._channel, offset)
+    def setup_ramp(self, frequency: float, amplitude: float, offset: float = 0.0, symmetry: float = 50.0, phase: Optional[float] = None) -> Self:
+        self._coros.append(self._wg.set_function(self._channel, WaveformType.RAMP, symmetry=symmetry))
+        self._coros.append(self._wg.set_frequency(self._channel, frequency))
+        self._coros.append(self._wg.set_amplitude(self._channel, amplitude))
+        self._coros.append(self._wg.set_offset(self._channel, offset))
         if phase is not None:
-            await self._wg.set_phase(self._channel, phase)
+            self._coros.append(self._wg.set_phase(self._channel, phase))
         return self
 
     @validate_call
-    async def setup_pulse(self, frequency: float, amplitude: float, offset: float = 0.0, width: Optional[float] = None, duty_cycle: Optional[float] = None, transition_both: Optional[float] = None, phase: Optional[float] = None) -> Self:
+    def setup_pulse(self, frequency: float, amplitude: float, offset: float = 0.0, width: Optional[float] = None, duty_cycle: Optional[float] = None, transition_both: Optional[float] = None, phase: Optional[float] = None) -> Self:
         period = 1.0 / frequency if frequency > 0 else OutputLoadImpedance.MAXIMUM
-        
+
         pulse_params = {"period": period}
         if width is not None:
             pulse_params["width"] = width
@@ -88,52 +98,52 @@ class WGChannelFacade:
             pulse_params["duty_cycle"] = duty_cycle
         else:
             pulse_params["duty_cycle"] = 50.0
-            
+
         if transition_both is not None:
             pulse_params["transition_both"] = transition_both
-            
-        await self._wg.set_function(self._channel, WaveformType.PULSE, **pulse_params)
-        await self._wg.set_amplitude(self._channel, amplitude)
-        await self._wg.set_offset(self._channel, offset)
+
+        self._coros.append(self._wg.set_function(self._channel, WaveformType.PULSE, **pulse_params))
+        self._coros.append(self._wg.set_amplitude(self._channel, amplitude))
+        self._coros.append(self._wg.set_offset(self._channel, offset))
         if phase is not None:
-            await self._wg.set_phase(self._channel, phase)
+            self._coros.append(self._wg.set_phase(self._channel, phase))
         return self
 
     @validate_call
-    async def setup_arbitrary(self, arb_name: str, sample_rate: float, amplitude: float, offset: float = 0.0, phase: Optional[float] = None) -> Self:
-        await self._wg.set_function(self._channel, WaveformType.ARB)
-        await self._wg.select_arbitrary_waveform(self._channel, arb_name)
-        await self._wg.set_arbitrary_waveform_sample_rate(self._channel, sample_rate)
-        await self._wg.set_amplitude(self._channel, amplitude)
-        await self._wg.set_offset(self._channel, offset)
+    def setup_arbitrary(self, arb_name: str, sample_rate: float, amplitude: float, offset: float = 0.0, phase: Optional[float] = None) -> Self:
+        self._coros.append(self._wg.set_function(self._channel, WaveformType.ARB))
+        self._coros.append(self._wg.select_arbitrary_waveform(self._channel, arb_name))
+        self._coros.append(self._wg.set_arbitrary_waveform_sample_rate(self._channel, sample_rate))
+        self._coros.append(self._wg.set_amplitude(self._channel, amplitude))
+        self._coros.append(self._wg.set_offset(self._channel, offset))
         if phase is not None:
-            await self._wg.set_phase(self._channel, phase)
+            self._coros.append(self._wg.set_phase(self._channel, phase))
         return self
 
     @validate_call
-    async def setup_dc(self, offset: float) -> Self:
-        await self._wg.set_function(self._channel, WaveformType.DC)
-        await self._wg.set_offset(self._channel, offset)
+    def setup_dc(self, offset: float) -> Self:
+        self._coros.append(self._wg.set_function(self._channel, WaveformType.DC))
+        self._coros.append(self._wg.set_offset(self._channel, offset))
         return self
 
     @validate_call
-    async def enable(self) -> Self:
-        await self._wg.set_output_state(self._channel, SCPIOnOff.ON)
+    def enable(self) -> Self:
+        self._coros.append(self._wg.set_output_state(self._channel, SCPIOnOff.ON))
         return self
 
     @validate_call
-    async def disable(self) -> Self:
-        await self._wg.set_output_state(self._channel, SCPIOnOff.OFF)
+    def disable(self) -> Self:
+        self._coros.append(self._wg.set_output_state(self._channel, SCPIOnOff.OFF))
         return self
 
     @validate_call
-    async def set_load_impedance(self, impedance: Union[float, OutputLoadImpedance, str]) -> Self:
-        await self._wg.set_output_load_impedance(self._channel, impedance)
+    def set_load_impedance(self, impedance: Union[float, OutputLoadImpedance, str]) -> Self:
+        self._coros.append(self._wg.set_output_load_impedance(self._channel, impedance))
         return self
 
     @validate_call
-    async def set_voltage_unit(self, unit: VoltageUnit) -> Self:
-        await self._wg.set_voltage_unit(self._channel, unit)
+    def set_voltage_unit(self, unit: VoltageUnit) -> Self:
+        self._coros.append(self._wg.set_voltage_unit(self._channel, unit))
         return self
 
 
@@ -249,7 +259,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
         """
         super().__init__(config=config, debug_mode=debug_mode, **kwargs) # Pass kwargs to base
         # self.config is already set by base Instrument's __init__ due to Generic type
-        
+
         # Determine channel count from the length of the channels list in the config
         if hasattr(self.config, 'channels') and isinstance(self.config.channels, list):
             self._channel_count = len(self.config.channels)
@@ -268,7 +278,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
     def _log(self, message: str, level: str = "debug") -> None:
         """
         Helper method for logging messages at different levels.
-        
+
         Args:
             message: The message to log
             level: The logging level ('debug', 'info', 'warning', 'error')
@@ -362,7 +372,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
                 self.config.model,
                 "Configuration error: Missing 'waveforms.built_in' list in config.",
             )
-        
+
         # self.config.waveforms.built_in is List[str] of SCPI values (e.g., ["SIN", "SQU", "RAMP"])
         supported_scpi_values_from_config = [str(val).upper() for val in self.config.waveforms.built_in]
 
@@ -491,7 +501,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
                     func_enum_key = scpi_to_enum_map.get(scpi_func_short.upper())
                     if func_enum_key is None:
                         self._logger.warning(f"SCPI function '{scpi_func_short}' not mappable to WaveformType enum for parameter lookup.")
-            
+
             param_cmds_for_func = WAVEFORM_PARAM_COMMANDS.get(func_enum_key) if func_enum_key else None
 
             if not param_cmds_for_func:
@@ -510,7 +520,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
                             if not (0 <= float(value) <= 100):
                                 self._logger.warning(f"Parameter '{param_name}' value {value}% is outside the "
                                           f"typical 0-100 range. Instrument validation will apply.")
-                        
+
                         value_to_format = value
                         if isinstance(value, (ArbFilterType, ArbAdvanceMode)): # Pass enum value for formatting
                             value_to_format = value.value
@@ -696,7 +706,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
         state = SCPIOnOff.ON if response == "1" else SCPIOnOff.OFF
         self._logger.debug(f"Phase unlock error state is {state.value}")
         return state
-    
+
     @validate_call # Duplicated @validate_call removed
     async def set_output_state(self, channel: Union[int, str], state: SCPIOnOff) -> None:
         ch = self._validate_channel(channel)
@@ -1694,7 +1704,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
 
         Returns:
             WGChannelFacade: A facade object for the specified channel.
-        
+
         Raises:
             InstrumentParameterError: If channel number is invalid.
         """

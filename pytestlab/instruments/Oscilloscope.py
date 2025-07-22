@@ -4,7 +4,7 @@ import asyncio # Added import
 import time
 import numpy as np
 import polars as pl
-from typing import Any, Dict, List, Optional, Tuple, Type, Union, Self
+from typing import Any, Dict, List, Optional, Tuple, Type, Union, Self, Awaitable
 from dataclasses import dataclass
 from PIL import Image
 from io import BytesIO, StringIO
@@ -74,9 +74,18 @@ class ScopeChannelFacade:
     def __init__(self, scope: 'Oscilloscope', channel_num: int):
         self._scope = scope
         self._channel = channel_num
+        self._coros: List[Awaitable] = []
+
+    def __await__(self):
+        async def _runner():
+            for coro in self._coros:
+                await coro
+            self._coros.clear()  # Clear coroutines after execution
+            return self
+        return _runner().__await__()
 
     @validate_call
-    async def setup(self, scale: Optional[float] = None, position: Optional[float] = None, offset: Optional[float] = None, coupling: Optional[str] = None, probe_attenuation: Optional[int] = None, bandwidth_limit: Optional[Union[str, float]] = None) -> Self:
+    def setup(self, scale: Optional[float] = None, position: Optional[float] = None, offset: Optional[float] = None, coupling: Optional[str] = None, probe_attenuation: Optional[int] = None, bandwidth_limit: Optional[Union[str, float]] = None) -> Self:
         """Configures multiple settings for the channel in a single call.
 
         This method allows setting the vertical scale, position/offset, coupling,
@@ -95,34 +104,33 @@ class ScopeChannelFacade:
         Returns:
             The `ScopeChannelFacade` instance for method chaining.
         """
-        if scale is not None:
-            current_offset_val = (await self._scope.get_channel_axis(self._channel))[1] if offset is None and position is None else (offset or position or 0.0)
-            await self._scope.set_channel_axis(self._channel, scale, current_offset_val)
-        elif position is not None or offset is not None: # only position/offset is set
-            val_to_set = position if position is not None else offset
-            current_scale_val = (await self._scope.get_channel_axis(self._channel))[0]
-            await self._scope.set_channel_axis(self._channel, current_scale_val, val_to_set)
-
-        if coupling is not None:
-            await self._scope._send_command(f":CHANnel{self._channel}:COUPling {coupling.upper()}")
-            self._scope._logger.debug(f"Channel {self._channel} coupling set to {coupling.upper()}")
-
-        if probe_attenuation is not None:
-            await self._scope.set_probe_attenuation(self._channel, probe_attenuation)
-
-        if bandwidth_limit is not None:
-            await self._scope.set_bandwidth_limit(self._channel, bandwidth_limit)
+        async def _setup_task():
+            if scale is not None:
+                current_offset_val = (await self._scope.get_channel_axis(self._channel))[1] if offset is None and position is None else (offset or position or 0.0)
+                await self._scope.set_channel_axis(self._channel, scale, current_offset_val)
+            elif position is not None or offset is not None:
+                val_to_set = position if position is not None else offset
+                current_scale_val = (await self._scope.get_channel_axis(self._channel))[0]
+                await self._scope.set_channel_axis(self._channel, current_scale_val, val_to_set)
+            if coupling is not None:
+                await self._scope._send_command(f":CHANnel{self._channel}:COUPling {coupling.upper()}")
+                self._scope._logger.debug(f"Channel {self._channel} coupling set to {coupling.upper()}")
+            if probe_attenuation is not None:
+                await self._scope.set_probe_attenuation(self._channel, probe_attenuation)
+            if bandwidth_limit is not None:
+                await self._scope.set_bandwidth_limit(self._channel, bandwidth_limit)
+        self._coros.append(_setup_task())
 
         return self
 
-    async def enable(self) -> Self:
+    def enable(self) -> Self:
         """Enables the channel display."""
-        await self._scope.display_channel(self._channel, True)
+        self._coros.append(self._scope.display_channel(self._channel, True))
         return self
 
-    async def disable(self) -> Self:
+    def disable(self) -> Self:
         """Disables the channel display."""
-        await self._scope.display_channel(self._channel, False)
+        self._coros.append(self._scope.display_channel(self._channel, False))
         return self
 
     async def measure_peak_to_peak(self) -> MeasurementResult:
@@ -145,9 +153,18 @@ class ScopeTriggerFacade:
     """
     def __init__(self, scope: 'Oscilloscope'):
         self._scope = scope
+        self._coros: List[Awaitable] = []
+
+    def __await__(self):
+        async def _runner():
+            for coro in self._coros:
+                await coro
+            self._coros.clear()  # Clear coroutines after execution
+            return self
+        return _runner().__await__()
 
     @validate_call
-    async def setup_edge(self, source: str, level: float, slope: TriggerSlope = TriggerSlope.POSITIVE, coupling: Optional[str] = None, mode: str = "EDGE") -> Self:
+    def setup_edge(self, source: str, level: float, slope: TriggerSlope = TriggerSlope.POSITIVE, coupling: Optional[str] = None, mode: str = "EDGE") -> Self:
         """Configures a standard edge trigger.
 
         Args:
@@ -182,17 +199,19 @@ class ScopeTriggerFacade:
                 )
 
         # The main configure_trigger method handles source validation and mapping.
-        await self._scope.configure_trigger(
-            channel=trigger_channel_for_level, # This is for the :TRIGger:LEVel CHANnel<n> part
-            level=level,
-            source=source, # This is for :TRIGger:SOURce part
-            slope=slope,
-            mode=mode
+        self._coros.append(
+            self._scope.configure_trigger(
+                channel=trigger_channel_for_level,
+                level=level,
+                source=source,
+                slope=slope,
+                mode=mode,
+            )
         )
-        # Coupling for trigger is often separate, e.g., :TRIGger:COUPling
         if coupling is not None:
-            await self._scope._send_command(f":TRIGger:{mode.upper()}:COUPling {coupling.upper()}") # Assuming edge trigger coupling
-            self._scope._logger.debug(f"Trigger coupling set to {coupling.upper()}")
+            self._coros.append(
+                self._scope._send_command(f":TRIGger:{mode.upper()}:COUPling {coupling.upper()}")
+            )
         return self
 
     # Add other trigger setup methods like setup_pulse, setup_pattern etc.
@@ -210,31 +229,34 @@ class ScopeAcquisitionFacade:
     """
     def __init__(self, scope: 'Oscilloscope'):
         self._scope = scope
+        self._coros: List[Awaitable] = []
+
+    def __await__(self):
+        async def _runner():
+            for coro in self._coros:
+                await coro
+            self._coros.clear()  # Clear coroutines after execution
+            return self
+
+        return _runner().__await__()
 
     @validate_call
-    async def set_acquisition_type(self, acq_type: AcquisitionType) -> None:
+    def set_acquisition_type(self, acq_type: AcquisitionType) -> Self:
         """
         Select the oscilloscope acquisition algorithm.
         """
-        scpi_val = _ACQ_TYPE_MAP.get(acq_type)
-        if not scpi_val:
-            raise InstrumentParameterError(
-                parameter="acq_type",
-                value=acq_type,
-                message="Unsupported acquisition type enum member.",
-            )
-
-        current_mode_query: str = (await self._scope._query(":ACQuire:MODE?")).strip().upper()
-        if acq_type == AcquisitionType.AVERAGE and current_mode_query == _ACQ_MODE_MAP["SEGMENTED"].upper()[:4]:
-            raise InstrumentParameterError(
-                parameter="acq_type",
-                value="AVERAGE",
-                message="AVERAGE mode is unavailable in SEGMENTED acquisition.",
-            )
-
-        await self._scope._send_command(f":ACQuire:TYPE {scpi_val}")
-        await self._scope._wait()
-        self._scope._logger.debug(f"Acquisition TYPE set → {acq_type.name}")
+        async def _task():
+            scpi_val = _ACQ_TYPE_MAP.get(acq_type)
+            if not scpi_val:
+                raise InstrumentParameterError(parameter="acq_type", value=acq_type, message="Unsupported acquisition type enum member.")
+            current_mode_query: str = (await self._scope._query(":ACQuire:MODE?")).strip().upper()
+            if acq_type == AcquisitionType.AVERAGE and current_mode_query == _ACQ_MODE_MAP["SEGMENTED"].upper()[:4]:
+                raise InstrumentParameterError(parameter="acq_type", value="AVERAGE", message="AVERAGE mode is unavailable in SEGMENTED acquisition.")
+            await self._scope._send_command(f":ACQuire:TYPE {scpi_val}")
+            await self._scope._wait()
+            self._scope._logger.debug(f"Acquisition TYPE set → {acq_type.name}")
+        self._coros.append(_task())
+        return self
 
     @validate_call
     async def get_acquisition_type(self) -> str:
@@ -259,49 +281,6 @@ class ScopeAcquisitionFacade:
         return resp_str_raw # Fallback to raw response if no match
 
     @validate_call
-    async def set_acquisition_average_count(self, count: int) -> None:
-        """
-        Set the running-average length for AVERAGE mode.
-        2 <= count <= 65536 (Keysight limit).
-        """
-        await _validate_range(count, 2, 65_536, "Average count") # Sync
-
-        current_acq_type_str = await self.get_acquisition_type()
-        if current_acq_type_str != AcquisitionType.AVERAGE.name:
-            raise InstrumentParameterError(
-                parameter="count",
-                message=f"Average count can only be set when acquisition type is AVERAGE, not {current_acq_type_str}.",
-            )
-        await self._scope._send_command(f":ACQuire:COUNt {count}")
-        await self._scope._wait()
-        self._scope._logger.debug(f"AVERAGE count set → {count}")
-
-    @validate_call
-    async def get_acquisition_average_count(self) -> int:
-        """Integer average count (valid only when acquisition type == AVERAGE)."""
-        return int(await self._scope._query(":ACQuire:COUNt?"))
-
-    @validate_call
-    async def set_acquisition_mode(self, mode: str) -> None:
-        """
-        Select real-time or segmented memory acquisition.
-        (Case-insensitive for mode).
-        """
-        mode_upper: str = mode.upper()
-        scpi_mode_val = _ACQ_MODE_MAP.get(mode_upper)
-        if not scpi_mode_val:
-            raise InstrumentParameterError(
-                parameter="mode",
-                value=mode,
-                valid_range=list(_ACQ_MODE_MAP.keys()),
-                message="Unknown acquisition mode.",
-            )
-
-        await self._scope._send_command(f":ACQuire:MODE {scpi_mode_val}")
-        await self._scope._wait()
-        self._scope._logger.debug(f"Acquisition MODE set → {mode_upper}")
-
-    @validate_call
     async def get_acquisition_mode(self) -> str:
         """Return "REAL_TIME" or "SEGMENTED"."""
         resp_str_raw: str = (await self._scope._query(":ACQuire:MODE?")).strip()
@@ -312,20 +291,68 @@ class ScopeAcquisitionFacade:
         return resp_str_raw
 
     @validate_call
-    async def set_segmented_count(self, count: int) -> None:
+    def set_acquisition_average_count(self, count: int) -> Self:
+        """
+        Set the running-average length for AVERAGE mode.
+        2 <= count <= 65536 (Keysight limit).
+        """
+        async def _task():
+            await _validate_range(count, 2, 65_536, "Average count")
+            current_acq_type_str = await self.get_acquisition_type()
+            if current_acq_type_str != AcquisitionType.AVERAGE.name:
+                raise InstrumentParameterError(
+                    parameter="count",
+                    message=f"Average count can only be set when acquisition type is AVERAGE, not {current_acq_type_str}.",
+                )
+            await self._scope._send_command(f":ACQuire:COUNt {count}")
+            await self._scope._wait()
+            self._scope._logger.debug(f"AVERAGE count set → {count}")
+        self._coros.append(_task())
+        return self
+
+    @validate_call
+    async def get_acquisition_average_count(self) -> int:
+        """Integer average count (valid only when acquisition type == AVERAGE)."""
+        return int(await self._scope._query(":ACQuire:COUNt?"))
+
+    @validate_call
+    def set_acquisition_mode(self, mode: str) -> Self:
+        """
+        Select real-time or segmented memory acquisition.
+        (Case-insensitive for mode).
+        """
+        async def _task():
+            mode_upper: str = mode.upper()
+            scpi_mode_val = _ACQ_MODE_MAP.get(mode_upper)
+            if not scpi_mode_val:
+                raise InstrumentParameterError(parameter="mode", value=mode, valid_range=list(_ACQ_MODE_MAP.keys()), message="Unknown acquisition mode.")
+            await self._scope._send_command(f":ACQuire:MODE {scpi_mode_val}")
+            await self._scope._wait()
+            self._scope._logger.debug(f"Acquisition MODE set → {mode_upper}")
+        self._coros.append(_task())
+        return self
+
+
+
+
+    @validate_call
+    def set_segmented_count(self, count: int) -> Self:
         """
         Configure number of memory segments for SEGMENTED acquisitions.
         Default Keysight limit: 2 <= count <= 500 (check instrument specs)
         """
-        if await self.get_acquisition_mode() != "SEGMENTED":
-            raise InstrumentParameterError(
-                parameter="count",
-                message="Segmented count can only be set while in SEGMENTED acquisition mode.",
-            )
-        await _validate_range(count, 2, 500, "Segmented count") # Sync
-        await self._scope._send_command(f":ACQuire:SEGMented:COUNt {count}")
-        await self._scope._wait()
-        self._scope._logger.debug(f"Segmented COUNT set → {count}")
+        async def _task():
+            if await self.get_acquisition_mode() != "SEGMENTED":
+                raise InstrumentParameterError(
+                    parameter="count",
+                    message="Segmented count can only be set while in SEGMENTED acquisition mode.",
+                )
+            await _validate_range(count, 2, 500, "Segmented count")
+            await self._scope._send_command(f":ACQuire:SEGMented:COUNt {count}")
+            await self._scope._wait()
+            self._scope._logger.debug(f"Segmented COUNT set → {count}")
+        self._coros.append(_task())
+        return self
 
     @validate_call
     async def get_segmented_count(self) -> int:
@@ -333,15 +360,18 @@ class ScopeAcquisitionFacade:
         return int(await self._scope._query(":ACQuire:SEGMented:COUNt?"))
 
     @validate_call
-    async def set_segment_index(self, index: int) -> None:
+    def set_segment_index(self, index: int) -> Self:
         """
         Select which memory segment is active for readback.
         1 <= index <= get_segmented_count()
         """
-        total_segments: int = await self.get_segmented_count()
-        await _validate_range(index, 1, total_segments, "Segment index") # Sync
-        await self._scope._send_command(f":ACQuire:SEGMented:INDex {index}")
-        await self._scope._wait()
+        async def _task():
+            total_segments: int = await self.get_segmented_count()
+            await _validate_range(index, 1, total_segments, "Segment index")
+            await self._scope._send_command(f":ACQuire:SEGMented:INDex {index}")
+            await self._scope._wait()
+        self._coros.append(_task())
+        return self
 
     @validate_call
     async def get_segment_index(self) -> int:
@@ -349,17 +379,20 @@ class ScopeAcquisitionFacade:
         return int(await self._scope._query(":ACQuire:SEGMented:INDex?"))
 
     @validate_call
-    async def analyze_all_segments(self) -> None:
+    def analyze_all_segments(self) -> Self:
         """
         Execute the scope's *Analyze Segments* soft-key.
         Requires scope to be stopped and in SEGMENTED mode.
         """
-        if await self.get_acquisition_mode() != "SEGMENTED":
-            raise InstrumentParameterError(
-                message="Segment analysis requires SEGMENTED mode."
-            )
-        await self._scope._send_command(":ACQuire:SEGMented:ANALyze")
-        await self._scope._wait()
+        async def _task():
+            if await self.get_acquisition_mode() != "SEGMENTED":
+                raise InstrumentParameterError(
+                    message="Segment analysis requires SEGMENTED mode."
+                )
+            await self._scope._send_command(":ACQuire:SEGMented:ANALyze")
+            await self._scope._wait()
+        self._coros.append(_task())
+        return self
 
     @validate_call
     async def get_acquire_points(self) -> int:

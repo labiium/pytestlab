@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Union, Self
+from typing import Any, Dict, List, Optional, Union, Self, Awaitable
 from pydantic import validate_call # Added validate_call
 
 from .instrument import Instrument
@@ -25,9 +25,19 @@ class PSUChannelFacade:
     def __init__(self, psu: 'PowerSupply', channel_num: int):
         self._psu = psu
         self._channel = channel_num
+        self._coros: List[Awaitable] = []
+
+    def __await__(self):
+        async def _runner():
+            for coro in self._coros:
+                await coro
+            self._coros.clear()  # Clear coroutines after execution
+            return self
+
+        return _runner().__await__()
 
     @validate_call
-    async def set(self, voltage: Optional[float] = None, current_limit: Optional[float] = None) -> Self:
+    def set(self, voltage: Optional[float] = None, current_limit: Optional[float] = None) -> Self:
         """Sets the voltage and/or current limit for this channel.
 
         Args:
@@ -38,13 +48,13 @@ class PSUChannelFacade:
             The `PSUChannelFacade` instance for method chaining.
         """
         if voltage is not None:
-            await self._psu.set_voltage(self._channel, voltage)
+            self._coros.append(self._psu.set_voltage(self._channel, voltage))
         if current_limit is not None:
-            await self._psu.set_current(self._channel, current_limit)
+            self._coros.append(self._psu.set_current(self._channel, current_limit))
         return self
 
     @validate_call
-    async def slew(self, duration_s: Optional[float] = None, enabled: bool = True) -> Self:
+    def slew(self, duration_s: Optional[float] = None, enabled: bool = True) -> Self:
         """Configures the slew rate (ramp time) for this channel.
 
         Args:
@@ -56,20 +66,22 @@ class PSUChannelFacade:
             The `PSUChannelFacade` instance for method chaining.
         """
         if duration_s is not None:
-            await self._psu.set_slew_rate(self._channel, duration_s)
-        await self._psu.enable_slew_rate(self._channel, enabled)
+            self._coros.append(self._psu.set_slew_rate(self._channel, duration_s))
+        self._coros.append(self._psu.enable_slew_rate(self._channel, enabled))
         return self
 
 
 
-    async def off(self) -> Self:
-        """Disables the output of this channel."""
-        await self._psu.output(self._channel, False)
-        return self
-
-    async def on(self) -> Self:
+    @validate_call
+    def on(self) -> Self:
         """Enables the output of this channel."""
-        await self._psu.output(self._channel, True)
+        self._coros.append(self._psu.output(self._channel, True))
+        return self
+
+    @validate_call
+    def off(self) -> Self:
+        """Disables the output of this channel."""
+        self._coros.append(self._psu.output(self._channel, False))
         return self
 
     async def get_voltage(self) -> float:
