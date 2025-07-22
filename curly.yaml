@@ -36,6 +36,8 @@ prod:
     - examples/bench_sweep_exampl.py
     - examples/sweep_integration_example.py
     - pytestlab/common/enums.py
+    - examples/replay_mode/*
+    - examples/parallel/*
   ignore:
     - docs
     - pytestlab/tests
@@ -60,6 +62,7 @@ prod:
     - "*.json"
     - pytestlab.egg-info
     - tests/misc
+    - site
   # - measurement
   # - pytestlab/config
 
