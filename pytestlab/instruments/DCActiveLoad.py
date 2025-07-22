@@ -7,13 +7,15 @@ from the Keysight EL30000 Series bench DC electronic loads.
 """
 
 import numpy as np
-from typing import Optional, Union, Dict, Type, Any, Literal, List
+from typing import Optional, Union, Dict, Any, Literal, List
 from uncertainties import ufloat
 from uncertainties.core import UFloat
 
+
 from .instrument import Instrument, AsyncInstrumentIO
-from ..errors import InstrumentConfigurationError, InstrumentParameterError, InstrumentCommunicationError
+from ..errors import InstrumentParameterError, InstrumentCommunicationError
 from ..config.dc_active_load_config import DCActiveLoadConfig, ModeSpec, ReadbackAccuracySpec
+from ..config.instrument_config import InstrumentConfig
 from ..experiments import MeasurementResult
 from ..common.health import HealthReport, HealthStatus
 
@@ -43,77 +45,20 @@ class DCActiveLoad(Instrument):
 
     @classmethod
     def from_config(
-        cls: Type[DCActiveLoad],
-        config: Union[Dict[str, Any], DCActiveLoadConfig],
-        debug_mode: bool = False, simulate: bool = False
-    ) -> DCActiveLoad:
-        """Creates a DCActiveLoad instance from a configuration.
-
-        This factory method allows for the creation of a DCActiveLoad driver from
-        either a raw dictionary or a `DCActiveLoadConfig` object. It simplifies
-        the instantiation process by handling the configuration object creation
-        internally.
-
-        Args:
-            config: A dictionary or a `DCActiveLoadConfig` object containing the
-                    instrument's settings.
-            debug_mode: If True, enables detailed logging for debugging purposes.
-            simulate: If True, initializes the instrument in simulation mode.
-
-        Returns:
-            An initialized DCActiveLoad object.
-
-        Raises:
-            InstrumentConfigurationError: If the provided config is not a dict or
-                                          a `DCActiveLoadConfig` instance.
+        cls,
+        config: "InstrumentConfig",
+        backend: AsyncInstrumentIO,
+        **kwargs: Any
+    ) -> "DCActiveLoad":  # type: ignore[override]
         """
-        conf_obj: DCActiveLoadConfig
-        if isinstance(config, dict):
-            conf_obj = DCActiveLoadConfig(**config)
-        elif isinstance(config, DCActiveLoadConfig):
-            conf_obj = config
-        else:
-            raise InstrumentConfigurationError(
-                "DCActiveLoad", "Configuration must be a dict or DCActiveLoadConfig instance."
-            )
-        return cls(config=conf_obj, debug_mode=debug_mode, simulate=simulate)
-
-    @classmethod
-    def from_config(
-        cls: Type[DCActiveLoad],
-        config: Union[Dict[str, Any], DCActiveLoadConfig],
-        debug_mode: bool = False, simulate: bool = False
-    ) -> DCActiveLoad:
-        """Creates a DCActiveLoad instance from a configuration.
-
-        This factory method allows for the creation of a DCActiveLoad driver from
-        either a raw dictionary or a `DCActiveLoadConfig` object. It simplifies
-        the instantiation process by handling the configuration object creation
-        internally.
-
-        Args:
-            config: A dictionary or a `DCActiveLoadConfig` object containing the
-                    instrument's settings.
-            debug_mode: If True, enables detailed logging for debugging purposes.
-            simulate: If True, initializes the instrument in simulation mode.
-
-        Returns:
-            An initialized DCActiveLoad object.
-
-        Raises:
-            InstrumentConfigurationError: If the provided config is not a dict or
-                                          a `DCActiveLoadConfig` instance.
+        Factory method for DCActiveLoad that requires a backend argument.
+        Ensures config is a DCActiveLoadConfig.
         """
-        conf_obj: DCActiveLoadConfig
-        if isinstance(config, dict):
-            conf_obj = DCActiveLoadConfig(**config)
-        elif isinstance(config, DCActiveLoadConfig):
-            conf_obj = config
-        else:
-            raise InstrumentConfigurationError(
-                "DCActiveLoad", "Configuration must be a dict or DCActiveLoadConfig instance."
-            )
-        return cls(config=conf_obj, debug_mode=debug_mode, simulate=simulate)
+        if not isinstance(config, DCActiveLoadConfig):
+            config = DCActiveLoadConfig(**dict(config))
+        return cls(config=config, backend=backend, **kwargs)
+
+
 
     async def set_mode(self, mode: str) -> None:
         """Sets the operating mode of the electronic load.
@@ -302,6 +247,18 @@ class DCActiveLoad(Instrument):
                 self._logger.info(f"Warning: No matching accuracy spec found for {measurement_type}. Returning float.")
         else:
             self._logger.info("Warning: Mode not set, cannot determine measurement uncertainty.")
+
+        # Ensure value_to_return is a float or UFloat, not Variable
+        try:
+            from uncertainties import Variable
+            if isinstance(value_to_return, Variable):
+                # If not already a UFloat, cast to float
+                if not isinstance(value_to_return, UFloat):
+                    value_to_return = float(value_to_return.nominal_value)
+        except ImportError:
+            pass
+        if not isinstance(value_to_return, (float, UFloat)):
+            value_to_return = float(value_to_return)
 
         return MeasurementResult(
             values=value_to_return,

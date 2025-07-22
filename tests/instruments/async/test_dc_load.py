@@ -33,7 +33,7 @@ import pytest
 import numpy as np
 from uncertainties import UFloat
 
-from pytestlab.instruments import AutoInstrument
+from pytestlab.instruments import AutoInstrument, DCActiveLoad
 from pytestlab.errors import InstrumentParameterError
 
 # ------------------- CONFIGURE THIS FOR YOUR LAB -------------------
@@ -89,7 +89,7 @@ async def test_dc_load_full_real():
     # --- Measurements with Uncertainty ---
     await dcl.enable_input(True)
     await dcl.set_load(1.0)
-    
+
     current_meas = await dcl.measure_current()
     print(f"Measured Current: {current_meas.values}")
     assert isinstance(current_meas.values, UFloat)
@@ -104,7 +104,7 @@ async def test_dc_load_full_real():
     print(f"Measured Power: {power_meas.values}")
     assert isinstance(power_meas.values, UFloat)
     assert power_meas.units == "W"
-    
+
     await dcl.enable_input(False)
     print("Uncertainty-aware measurements tested.")
 
@@ -154,6 +154,73 @@ async def test_dc_load_full_real():
     # --- Close ---
     await dcl.close()
     print("DC Load closed.")
+
+@pytest.mark.requires_real_hw
+@pytest.mark.asyncio
+async def test_dc_load_advanced_features_real():
+   """
+   Tests the advanced features of the DC Electronic Load driver.
+   """
+   dcl: DCActiveLoad = await AutoInstrument.from_config(DC_LOAD_CONFIG_KEY)
+   await dcl.connect_backend()
+
+   # --- Advanced Transient Control ---
+   print("\n--- Testing Advanced Transient Control ---")
+   await dcl.set_mode("CC")
+   await dcl.configure_transient_mode('CONTinuous')
+   await dcl.set_transient_frequency(1000) # 1 kHz
+   await dcl.set_transient_duty_cycle(75.0) # 75%
+   # Verification would require an oscilloscope, but we check that commands run
+   print("Advanced transient control commands executed.")
+
+   # --- LIST Subsystem ---
+   print("\n--- Testing LIST Subsystem ---")
+   await dcl.set_mode("CC")
+   # Create a 3-step current ramp
+   await (dcl.list(1)
+          .set_levels("current", [0.1, 0.2, 0.3])
+          .set_dwells([0.1, 0.1, 0.1])
+          .configure(count=2))
+   print("LIST subsystem configured.")
+   # To run the list:
+   await dcl.configure_transient_mode('LIST')
+   # await dcl.start_transient() # This would start the actual list execution
+   # await asyncio.sleep(1)
+   # await dcl.stop_transient()
+
+   # --- Datalogger and Scope Configuration ---
+   print("\n--- Testing Data Acquisition Configuration ---")
+   # Configure datalogger
+   await dcl.configure_datalogger(duration_s=10, period_s=0.1, log_voltage=True, log_current=True)
+   print("Datalogger configured.")
+   # await dcl.start_datalogger()
+   # await asyncio.sleep(2)
+   # await dcl.stop_datalogger()
+
+   # Configure scope
+   await dcl.configure_scope(points=512, interval_s=1e-4)
+   print("Scope configured.")
+
+   # --- Triggering System ---
+   print("\n--- Testing Triggering System ---")
+   # Configure acquisition to trigger when voltage crosses 1V (rising)
+   await dcl.configure_acquisition_trigger(source=DCActiveLoad.TriggerSource.VOLTAGE, level=1.0, slope_positive=True)
+   print("Acquisition trigger configured.")
+
+   # Configure transient to trigger on an external signal
+   await dcl.configure_transient_trigger(source=DCActiveLoad.TriggerSource.EXTERNAL)
+   print("Transient trigger configured.")
+
+   # --- Digital I/O ---
+   print("\n--- Testing Digital I/O ---")
+   # Configure Pin 1 as a Trigger Output with positive polarity
+   await dcl.configure_digital_pin(1, DCActiveLoad.DigitalPinFunction.TRIGGER_OUTPUT, DCActiveLoad.DigitalPinPolarity.POSITIVE)
+   print("Digital Pin 1 configured as trigger output.")
+
+   # --- Final Cleanup ---
+   await dcl.reset()
+   await dcl.close()
+   print("Advanced features test completed.")
 
 
 @pytest.mark.requires_real_hw
