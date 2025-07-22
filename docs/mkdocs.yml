@@ -83,6 +83,7 @@ nav:
       - "Getting Started": user_guide/getting_started.md
       - "Async vs. Sync": user_guide/async_vs_sync.md
       - "Connecting to Instruments": user_guide/connecting.md
+      - "Measurement Sessions": user_guide/measurement_session.md
       - "Simulation Mode": user_guide/simulation.md
       - "Record & Replay Mode": user_guide/replay_mode.md
       - "Bench Descriptors": user_guide/bench_descriptors.md
