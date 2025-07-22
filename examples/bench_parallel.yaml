@@ -1,0 +1,14 @@
+bench_name: "Parallel Sweep Example Bench"
+description: "A bench with a PSU, DC Load, and Oscilloscope for parallel testing."
+simulate: true  # Use simulation for this example
+
+instruments:
+  psu:
+    profile: "keysight/EDU36311A"
+    address: "SIM_PSU"
+  load:
+    profile: "keysight/EL33133A"
+    address: "SIM_LOAD"
+  scope:
+    profile: "keysight/DSOX1204G"
+    address: "SIM_SCOPE"

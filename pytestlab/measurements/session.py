@@ -14,10 +14,9 @@ import contextlib
 import inspect
 import itertools
 import time
-import asyncio
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union, Awaitable
 
 import numpy as np
 import polars as pl
@@ -31,7 +30,8 @@ __all__ = ["MeasurementSession", "Measurement"]
 
 T_Value = Union[float, int, str, np.ndarray, Sequence[Any]]
 T_ParamIterable = Union[Iterable[T_Value], Callable[[], Iterable[T_Value]]]
-T_MeasFunc = Callable[..., Mapping[str, Any]]
+T_MeasFunc = Callable[..., Awaitable[Mapping[str, Any]]]
+T_TaskFunc = Callable[..., Awaitable[None]]
 
 
 @dataclass
@@ -73,18 +73,19 @@ class MeasurementSession(contextlib.AbstractAsyncContextManager, contextlib.Abst
         self._parameters: Dict[str, _Parameter] = {}
         self._instruments: Dict[str, _InstrumentRecord] = {}
         self._meas_funcs: List[Tuple[str, T_MeasFunc]] = []
-        self._data_rows: List[Dict[str, Any]] = []
+        self._tasks: List[Tuple[str, T_TaskFunc]] = []
+        self._data_rows: List[Any] = []
         self._experiment: Optional[Experiment] = None
         self._has_run = False
         self._bench = bench
-        
+
         # Inherit experiment data from bench if available
         if bench is not None and bench.experiment is not None:
             # Assign bench experiment properties
             self._experiment = bench.experiment
             self.name = bench.experiment.name
             self.description = bench.experiment.description
-        
+
         # Set up instruments
         if self._bench:
             # Print debug info
@@ -104,11 +105,11 @@ class MeasurementSession(contextlib.AbstractAsyncContextManager, contextlib.Abst
     async def __aexit__(self, exc_type, exc, tb) -> bool:  # noqa: D401
         await self._disconnect_all_instruments()
         return False
-        
+
     def __enter__(self) -> "MeasurementSession":  # noqa: D401
         """Synchronous context manager entry."""
         return self
-        
+
     def __exit__(self, exc_type, exc, tb) -> bool:  # noqa: D401
         """Synchronous context manager exit."""
         # Use asyncio to run the async disconnect method synchronously
@@ -162,8 +163,41 @@ class MeasurementSession(contextlib.AbstractAsyncContextManager, contextlib.Abst
         self._meas_funcs.append((reg_name, func))
         return func
 
+    def task(self, func: T_TaskFunc | None = None, /, *, name: str | None = None):
+        """Decorator to register a coroutine as a background task for parallel execution."""
+        if func is None:  # decorator usage
+            return lambda f: self.task(f, name=name)
+
+        if not asyncio.iscoroutinefunction(func):
+            raise TypeError("Only async functions can be registered as tasks.")
+        reg_name = name or func.__name__
+        self._tasks.append((reg_name, func))
+        return func
+
     # ─── Execution ────────────────────────────────────────────────────
-    async def run(self, show_progress: bool = True) -> Experiment:
+    async def run(
+        self,
+        duration: Optional[float] = None,
+        interval: float = 0.1,
+        show_progress: bool = True,
+    ) -> Experiment:
+        """Execute the measurement session.
+
+        If background tasks have been registered with @session.task, this will run in
+        parallel mode. Otherwise, it will perform a sequential sweep over the defined
+        parameters.
+
+        Args:
+            duration: Total time in seconds to run (only for parallel mode).
+            interval: Time in seconds between acquisitions (only for parallel mode).
+            show_progress: Whether to display a progress bar.
+        """
+        if self._tasks:
+            return await self._run_parallel(duration, interval, show_progress)
+        else:
+            return await self._run_sweep(show_progress)
+
+    async def _run_sweep(self, show_progress: bool) -> Experiment:
         if not self._parameters:
             raise RuntimeError("No parameters defined.")
         if not self._meas_funcs:
@@ -173,7 +207,7 @@ class MeasurementSession(contextlib.AbstractAsyncContextManager, contextlib.Abst
         value_lists = [p.values for p in self._parameters.values()]
         combinations = list(itertools.product(*value_lists))
 
-        self._data_rows = [{}] * len(combinations)  # pre-allocate
+        self._data_rows = [None] * len(combinations)  # pre-allocate with None for type safety
         iterator = tqdm(enumerate(combinations), total=len(combinations), desc="Measurement sweep", disable=not show_progress)
 
         for idx, combo in iterator:
@@ -195,15 +229,80 @@ class MeasurementSession(contextlib.AbstractAsyncContextManager, contextlib.Abst
                     col = key if key not in row else f"{meas_name}.{key}"
                     row[col] = val
 
-            self._data_rows[idx] = row
-            # Yield control to the event loop periodically in long sweeps
-            await asyncio.sleep(0)
-
+            self._data_rows[idx] = row  # assign Dict[str, Any] to slot
+            await asyncio.sleep(0)  # yield to event loop in long sweeps
 
         self._has_run = True
         self._build_experiment()
         if self._bench and self._bench.db:
             await self._bench.save_experiment()
+        if self._experiment is None:
+            raise RuntimeError("Experiment was not created.")
+        return self._experiment
+
+    async def _run_parallel(
+        self, duration: Optional[float], interval: float, show_progress: bool
+    ) -> Experiment:
+        """Executes registered background tasks and acquisition loops concurrently."""
+        if not self._meas_funcs:
+            raise RuntimeError(
+                "Parallel execution mode requires at least one @acquire function."
+            )
+        if duration is None or duration <= 0:
+            raise ValueError(
+                "Parallel execution mode requires a positive 'duration' in seconds."
+            )
+
+        self._data_rows = []
+        running_tasks = []
+
+        # 1. Prepare and start background stimulus tasks
+        for task_name, task_func in self._tasks:
+            sig = inspect.signature(task_func)
+            kwargs = {
+                alias: rec.instance
+                for alias, rec in self._instruments.items()
+                if alias in sig.parameters
+            }
+            coro = task_func(**kwargs)
+            # mypy: ignore error about Awaitable vs Coroutine
+            running_tasks.append(asyncio.create_task(coro, name=task_name))  # type: ignore
+
+        # 2. Run the acquisition loop for the specified duration
+        start_time = time.monotonic()
+        pbar = tqdm(
+            total=int(duration / interval),
+            desc="Acquiring data",
+            disable=not show_progress,
+        )
+
+        while time.monotonic() - start_time < duration:
+            row: Dict[str, Any] = {"timestamp": time.time()}
+            for meas_name, func in self._meas_funcs:
+                sig = inspect.signature(func)
+                kwargs = {alias: rec.instance for alias, rec in self._instruments.items() if alias in sig.parameters}
+                if "ctx" in sig.parameters: kwargs["ctx"] = row
+                res = await func(**kwargs)
+                if not isinstance(res, Mapping):
+                    raise TypeError(f"Measurement '{meas_name}' returned {type(res)}, expected Mapping.")
+                for key, val in res.items():
+                    row[key] = val
+            self._data_rows.append(row)
+            pbar.update(1)
+            await asyncio.sleep(interval)
+        pbar.close()
+
+        # 3. Cleanup: Cancel background stimulus tasks
+        for task in running_tasks:
+            task.cancel()
+        await asyncio.gather(*running_tasks, return_exceptions=True)
+
+        self._has_run = True
+        self._build_experiment()
+        if self._bench and self._bench.db:
+            await self._bench.save_experiment()
+        if self._experiment is None:
+            raise RuntimeError("Experiment was not created.")
         return self._experiment
 
     # ─── Helpers / properties ─────────────────────────────────────────
