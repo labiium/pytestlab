@@ -17,7 +17,6 @@ This entire process is managed declaratively using the MeasurementSession builde
 """
 import asyncio
 import numpy as np
-import polars as pl
 from pathlib import Path
 
 from pytestlab import Bench, Measurement
