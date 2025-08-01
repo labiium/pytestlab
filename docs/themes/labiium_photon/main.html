@@ -1,5 +1,7 @@
+{% set lang = config.theme.language or 'en' %}
 <!DOCTYPE html>
-<html lang="{% if config.theme.language %}{{ config.theme.language }}{% else %}en{% endif %}">
+<html lang="{{ lang }}">
+</html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,7 +12,7 @@
     <!-- Favicon -->
     <link rel="icon" href="{{ 'img/favicon.ico'|url }}" type="image/x-icon">
 
-    <title>{% if page.title %}{{ page.title }} - {% endif %}{{ config.site_name }}{% if page.is_404 %} - {{ config.extra.t[lang].e404_title }}{% endif %}</title>
+    <title>{% if page.title %}{{ page.title }} - {% endif %}{{ config.site_name }}{% if page.is_404 %} - {{ config.extra.t[lang]['404_title'] or 'Page Not Found' }}{% endif %}</title>
 
     <!-- CSS -->
     <link rel="stylesheet" href="{{ 'css/theme.css'|url }}">
@@ -260,7 +262,7 @@
                         <div class="search-modal" id="searchModal">
                             <div class="search-modal-content">
                                 <form class="search-form">
-                                    <input type="text" class="search-input" id="searchInput" placeholder="{{ config.extra.t[lang].search_placeholder }}" autofocus>
+                                    <input type="text" class="search-input" id="searchInput" placeholder="{{ config.extra.t[lang].search_placeholder or 'Search documentation...' }}" autofocus>
                                     <button type="button" class="search-close" id="searchClose">
                                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -269,7 +271,7 @@
                                     </button>
                                 </form>
                                 <div class="search-results">
-                                    <div class="search-results-meta" id="searchResultsMeta">{{ config.extra.t[lang].search_meta }}</div>
+                                    <div class="search-results-meta" id="searchResultsMeta">{{ config.extra.t[lang].search_meta or 'Type to start searching' }}</div>
                                     <div id="searchResults"></div>
                                 </div>
                             </div>
@@ -277,7 +279,7 @@
 
                         {% if config.repo_url %}
                         <a href="{{ config.repo_url }}" target="_blank" class="beam-button beam-button-sm">
-                            <span class="beam-button-text">{{ config.extra.t[lang].footer_github }}</span>
+                            <span class="beam-button-text">{{ config.extra.t[lang].footer_github or 'GitHub' }}</span>
                         </a>
                         {% endif %}
                     </div>
@@ -361,8 +363,8 @@
             <div class="container">
                 <div class="footer-content">
                     <div class="footer-copyright">
-                        <p>&copy; {{ build_date_utc.strftime('%Y') }} {{ config.site_author }}. {{ config.extra.t[lang].footer_copyright }}</p>
-                        <p>{{ config.extra.t[lang].footer_brand_desc }}</p>
+                        <p>&copy; {{ build_date_utc.strftime('%Y') }} {{ config.site_author }}. {{ config.extra.t[lang].footer_copyright or 'All rights reserved.' }}</p>
+                        <p>{{ config.extra.t[lang].footer_brand_desc or 'A modern, async-first Python toolbox for laboratory test-and-measurement automation, data management, and analysis.' }}</p>
                     </div>
 
                     <div class="footer-links">
@@ -372,7 +374,7 @@
                         {% if config.site_url %}
                             <a href="{{ config.site_url }}">{{ config.extra.t[lang].footer_about }}</a>
                         {% endif %}
-                        <a href="{{ 'changelog/'|url }}">{{ config.extra.t[lang].footer_changelog }}</a>
+                        <a href="{{ 'changelog/'|url }}">{{ config.extra.t[lang].footer_changelog or 'Changelog' }}</a>
                     </div>
                 </div>
             </div>
@@ -461,7 +463,7 @@
                             searchResults.innerHTML = '<div class="search-result-item"><p style="color: var(--lab-aqua); padding: 1rem;">Search index is loading. If this persists, make sure the site has been built with <code>mkdocs build</code>.</p></div>';
                         }
                     } else {
-                        searchResultsMeta.textContent = '{{ config.extra.t[lang].search_start }}';
+                        searchResultsMeta.textContent = '{{ config.extra.t[lang].search_start or 'Type to start searching' }}';
                         searchResults.innerHTML = '';
                     }
                 });
@@ -512,7 +514,7 @@
 
             function displaySearchResults(results, metaElement, resultsElement) {
                 if (results.length > 0) {
-                    metaElement.textContent = '{{ config.extra.t[lang].search_results_found }}'.replace('{count}', results.length);
+                    metaElement.textContent = '{{ config.extra.t[lang].search_results_found or '{count} result(s) found' }}'.replace('{count}', results.length);
 
                     resultsElement.innerHTML = results.map(result => {
                         // Ensure the search result text is properly escaped
@@ -539,7 +541,7 @@
                         });
                     }, 100);
                 } else {
-                    metaElement.textContent = '{{ config.extra.t[lang].search_no_results }}';
+                    metaElement.textContent = '{{ config.extra.t[lang].search_no_results or 'No results found' }}';
                     resultsElement.innerHTML = '<div class="search-result-item"><div style="padding: 1rem; color: rgba(255, 255, 255, 0.6); text-align: center;">Try different keywords or check your spelling.</div></div>';
                 }
             }
