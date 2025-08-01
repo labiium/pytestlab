@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Union, Self, Awaitable
+from typing import List, Optional, Union, Self
 from pydantic import validate_call # Added validate_call
 
 from .instrument import Instrument
@@ -16,7 +16,7 @@ class PSUChannelFacade:
 
     This facade abstracts the underlying SCPI commands for common channel
     operations, allowing for more readable and fluent test scripts. For example:
-    `await psu.channel(1).set(voltage=5.0, current_limit=0.1).on()`
+    `psu.channel(1).set(voltage=5.0, current_limit=0.1).on()`
 
     Attributes:
         _psu: The parent `PowerSupply` instance.
@@ -25,16 +25,7 @@ class PSUChannelFacade:
     def __init__(self, psu: 'PowerSupply', channel_num: int):
         self._psu = psu
         self._channel = channel_num
-        self._coros: List[Awaitable] = []
-
-    def __await__(self):
-        async def _runner():
-            for coro in self._coros:
-                await coro
-            self._coros.clear()  # Clear coroutines after execution
-            return self
-
-        return _runner().__await__()
+        pass
 
     @validate_call
     def set(self, voltage: Optional[float] = None, current_limit: Optional[float] = None) -> Self:
@@ -48,9 +39,9 @@ class PSUChannelFacade:
             The `PSUChannelFacade` instance for method chaining.
         """
         if voltage is not None:
-            self._coros.append(self._psu.set_voltage(self._channel, voltage))
+            self._psu.set_voltage(self._channel, voltage)
         if current_limit is not None:
-            self._coros.append(self._psu.set_current(self._channel, current_limit))
+            self._psu.set_current(self._channel, current_limit)
         return self
 
     @validate_call
@@ -66,8 +57,8 @@ class PSUChannelFacade:
             The `PSUChannelFacade` instance for method chaining.
         """
         if duration_s is not None:
-            self._coros.append(self._psu.set_slew_rate(self._channel, duration_s))
-        self._coros.append(self._psu.enable_slew_rate(self._channel, enabled))
+            self._psu.set_slew_rate(self._channel, duration_s)
+        self._psu.enable_slew_rate(self._channel, enabled)
         return self
 
 
@@ -75,24 +66,24 @@ class PSUChannelFacade:
     @validate_call
     def on(self) -> Self:
         """Enables the output of this channel."""
-        self._coros.append(self._psu.output(self._channel, True))
+        self._psu.output(self._channel, True)
         return self
 
     @validate_call
     def off(self) -> Self:
         """Disables the output of this channel."""
-        self._coros.append(self._psu.output(self._channel, False))
+        self._psu.output(self._channel, False)
         return self
 
-    async def get_voltage(self) -> float:
+    def get_voltage(self) -> float:
         """Reads the measured voltage from this channel."""
-        return await self._psu.read_voltage(self._channel)
+        return self._psu.read_voltage(self._channel)
 
-    async def get_current(self) -> float:
+    def get_current(self) -> float:
         """Reads the measured current from this channel."""
-        return await self._psu.read_current(self._channel)
+        return self._psu.read_current(self._channel)
 
-    async def get_output_state(self) -> bool:
+    def get_output_state(self) -> bool:
         """Checks if the channel output is enabled (ON).
 
         Returns:
@@ -102,7 +93,7 @@ class PSUChannelFacade:
             InstrumentParameterError: If the instrument returns an unexpected state.
         """
         commands = self._psu.scpi_engine.build("get_output_state", channel=self._channel)
-        state_str = self._psu.scpi_engine.parse("get_output_state", await self._psu._query(commands[0]))
+        state_str = self._psu.scpi_engine.parse("get_output_state", self._psu._query(commands[0]))
         if state_str in ("1", "ON"):
             return True
         elif state_str in ("0", "OFF"):
@@ -181,7 +172,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
     # PowerSupply uses the base Instrument.__init__ method
 
     @validate_call
-    async def set_voltage(self, channel: int, voltage: float) -> None:
+    def set_voltage(self, channel: int, voltage: float) -> None:
         """Sets the output voltage for a specific channel.
 
         Args:
@@ -204,10 +195,10 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
 
         # Build and send the SCPI command
         commands = self.scpi_engine.build("set_voltage", channel=channel, voltage=voltage)
-        await self._send_command(commands[0])
+        self._send_command(commands[0])
 
     @validate_call
-    async def set_current(self, channel: int, current: float) -> None:
+    def set_current(self, channel: int, current: float) -> None:
         """Sets the current limit for a specific channel.
 
         Args:
@@ -226,10 +217,10 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         channel_config = self.config.channels[channel - 1] # channel is 1-based
         channel_config.current_limit_range.assert_in_range(current, name=f"Current for channel {channel}") # Assuming current_limit_range from example
         commands = self.scpi_engine.build("set_current", channel=channel, current=current)
-        await self._send_command(commands[0])
+        self._send_command(commands[0])
 
     @validate_call
-    async def set_slew_rate(self, channel: int, duration_s: float) -> None:
+    def set_slew_rate(self, channel: int, duration_s: float) -> None:
         """Sets the slew rate (ramp duration) for a specific channel.
 
         Args:
@@ -242,10 +233,10 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
 
         duration_ms = int(duration_s * 1000)
         commands = self.scpi_engine.build("set_slew_rate", channel=channel, duration_ms=duration_ms)
-        await self._send_command(commands[0])
+        self._send_command(commands[0])
 
     @validate_call
-    async def enable_slew_rate(self, channel: int, state: bool) -> None:
+    def enable_slew_rate(self, channel: int, state: bool) -> None:
         """Enables or disables the slew rate feature for a specific channel.
 
         Args:
@@ -258,10 +249,10 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
 
         command_name = "enable_slew_rate" if state else "disable_slew_rate"
         commands = self.scpi_engine.build(command_name, channel=channel)
-        await self._send_command(commands[0])
+        self._send_command(commands[0])
 
     @validate_call
-    async def output(self, channel: Union[int, List[int]], state: bool = True) -> None:
+    def output(self, channel: Union[int, List[int]], state: bool = True) -> None:
         """Enables or disables the output for one or more channels.
 
         Args:
@@ -293,20 +284,20 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         # Send command for each channel individually
         for ch_num in channels_to_process:
             commands = self.scpi_engine.build("set_output", channel=ch_num, state=state)
-            await self._send_command(commands[0])
+            self._send_command(commands[0])
 
     @validate_call
-    async def display(self, state: bool) -> None:
+    def display(self, state: bool) -> None:
         """Enables or disables the instrument's front panel display.
 
         Args:
             state: True to turn the display on, False to turn it off.
         """
         commands = self.scpi_engine.build("set_display", state=state)
-        await self._send_command(commands[0])
+        self._send_command(commands[0])
 
     @validate_call
-    async def read_voltage(self, channel: int) -> Any:
+    def read_voltage(self, channel: int) -> Any:
         """Reads the measured output voltage from a specific channel.
 
         Args:
@@ -322,7 +313,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
             num_ch = len(self.config.channels) if self.config.channels else 0
             raise InstrumentParameterError(f"Channel number {channel} is out of range (1-{num_ch}).")
         commands = self.scpi_engine.build("measure_voltage", channel=channel)
-        reading: float = self.scpi_engine.parse("measure_voltage", await self._query(commands[0]))
+        reading: float = self.scpi_engine.parse("measure_voltage", self._query(commands[0]))
 
         value_to_return: Any = reading
 
@@ -349,7 +340,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         return value_to_return
 
     @validate_call
-    async def read_current(self, channel: int) -> Any:
+    def read_current(self, channel: int) -> Any:
         """Reads the measured output current from a specific channel.
 
         Args:
@@ -365,7 +356,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
             num_ch = len(self.config.channels) if self.config.channels else 0
             raise InstrumentParameterError(f"Channel number {channel} is out of range (1-{num_ch}).")
         commands = self.scpi_engine.build("measure_current", channel=channel)
-        reading: float = self.scpi_engine.parse("measure_current", await self._query(commands[0]))
+        reading: float = self.scpi_engine.parse("measure_current", self._query(commands[0]))
 
         value_to_return: Any = reading
 
@@ -392,7 +383,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         return value_to_return
 
     @validate_call
-    async def get_configuration(self) -> Dict[int, PSUChannelConfig]:
+    def get_configuration(self) -> Dict[int, PSUChannelConfig]:
         """Reads the live state of all configured PSU channels.
 
         This method iterates through all channels defined in the configuration,
@@ -411,11 +402,11 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         num_channels = len(self.config.channels)
 
         for channel_num in range(1, num_channels + 1): # Iterate 1-indexed channel numbers
-            voltage_val: float = await self.read_voltage(channel_num) # Already uses @validate_call
-            current_val: float = await self.read_current(channel_num) # Already uses @validate_call
+            voltage_val: float = self.read_voltage(channel_num) # Already uses @validate_call
+            current_val: float = self.read_current(channel_num) # Already uses @validate_call
             # Query output state using SCPI engine
             commands = self.scpi_engine.build("get_output_state", channel=channel_num)
-            state_str: str = self.scpi_engine.parse("get_output_state", await self._query(commands[0]))
+            state_str: str = self.scpi_engine.parse("get_output_state", self._query(commands[0]))
 
             results[channel_num] = PSUChannelConfig(
                 voltage=voltage_val,
@@ -443,7 +434,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
             raise InstrumentParameterError(f"Channel number {ch_num} is out of range (1-{num_ch}).")
         return PSUChannelFacade(self, ch_num)
 
-    async def id(self) -> str:
+    def id(self) -> str:
         """
         Queries the instrument identification string.
 
@@ -451,11 +442,11 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
             str: The instrument identification string.
         """
         commands = self.scpi_engine.build("identify")
-        return self.scpi_engine.parse("identify", await self._query(commands[0]))
+        return self.scpi_engine.parse("identify", self._query(commands[0]))
 
-    async def reset(self) -> None:
+    def reset(self) -> None:
         """
         Resets the instrument to its factory default settings.
         """
         commands = self.scpi_engine.build("reset")
-        await self._send_command(commands[0])
+        self._send_command(commands[0])

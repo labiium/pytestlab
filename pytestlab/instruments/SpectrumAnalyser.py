@@ -22,27 +22,27 @@ class PlaceholderMeasurementResult:
 class SpectrumAnalyser(Instrument[SpectrumAnalyzerConfig]):
     # SCPI_MAP = GenericSASCPIMap() # Assign if defined
 
-    async def configure_measurement(
+    def configure_measurement(
         self, 
         center_freq: Optional[float] = None, 
         span: Optional[float] = None, 
         rbw: Optional[float] = None
     ) -> None:
         if center_freq is not None:
-            await self._send_command(f"FREQ:CENT {center_freq}") # Use SCPI_MAP later
+            self._send_command(f"FREQ:CENT {center_freq}") # Use SCPI_MAP later
             self.config.frequency_center = center_freq # Update config
         if span is not None:
-            await self._send_command(f"FREQ:SPAN {span}")
+            self._send_command(f"FREQ:SPAN {span}")
             self.config.frequency_span = span # Update config
         if rbw is not None:
-            await self._send_command(f"BAND {rbw}") # RBW command
+            self._send_command(f"BAND {rbw}") # RBW command
             self.config.resolution_bandwidth = rbw # Update config
         # Update self.config if these settings are part of it and should reflect runtime changes
         # Or rely on Pydantic models for initial config and these are runtime overrides
 
-    async def get_trace(self, channel: int = 1) -> PlaceholderMeasurementResult: # Use actual MeasurementResult later
+    def get_trace(self, channel: int = 1) -> PlaceholderMeasurementResult: # Use actual MeasurementResult later
         # Example: Query trace data, parse it (often CSV or binary)
-        # raw_data_str = await self._query(f"TRAC:DATA? TRACE{channel}") # Use SCPI_MAP
+        # raw_data_str = self._query(f"TRAC:DATA? TRACE{channel}") # Use SCPI_MAP
         # For simulation, SimBackend needs to be taught to respond to this
         # For now, return dummy data
         # freqs = [1e9, 2e9, 3e9] # Dummy frequencies

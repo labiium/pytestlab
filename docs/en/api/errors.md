@@ -31,6 +31,12 @@ This page documents the custom exception types used throughout PyTestLab. Unders
     options:
       show_if_no_docstring: true
 
+### ReplayMismatchError {#replaymismatcherror}
+
+::: pytestlab.errors.ReplayMismatchError
+    options:
+      show_if_no_docstring: true
+
 ---
 
 ## Usage Example
@@ -42,11 +48,7 @@ from pytestlab.errors import (
     DatabaseError,
 )
 
-try:
-    # ... instrument operations ...
-    await bench.psu.set_voltage(1, 6.0)  # May raise InstrumentParameterError or other errors
-except InstrumentConnectionError as e:
-    print(f"Failed to connect: {e}")
+q
 except InstrumentParameterError as e:
     print(f"Invalid parameter: {e}")
 except DatabaseError as e:

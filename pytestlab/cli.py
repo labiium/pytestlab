@@ -25,7 +25,7 @@ from pytestlab.instruments.backends.replay_backend import ReplayBackend
 # For bench commands (anticipating section 6.2)
 from pytestlab.config.bench_config import BenchConfigExtended
 from pytestlab.bench import Bench
-import asyncio # For running async CLI commands
+import time # For sleep functionality
 
 app = typer.Typer(help="PyTestLab: Scientific test & measurement toolbox CLI.")
 profile_app = typer.Typer(name="profile", help="Manage instrument profiles.")
@@ -136,7 +136,7 @@ def sim_profile_diff(profile_key: Annotated[str, typer.Argument(help="Profile ke
 
 
 @sim_profile_app.command("record")
-async def sim_profile_record(
+def sim_profile_record(
     profile_key: Annotated[str, typer.Argument(help="Profile key of the instrument to record.")],
     address: Annotated[Optional[str], typer.Option(help="VISA address of the instrument.")] = None,
     output_path: Annotated[Optional[Path], typer.Option(help="Output path for the recorded YAML profile. If not provided, it will be saved to the user's cache.")] = None,
@@ -160,20 +160,20 @@ async def sim_profile_record(
             rich.print(f"Connecting to simulated instrument '{profile_key}'...")
         else:
             rich.print(f"Connecting to instrument '{profile_key}' at address '{address}'...")
-        
-        instrument = await AutoInstrument.from_config(
+
+        instrument = AutoInstrument.from_config(
             config_source=profile_key,
             simulate=simulate,
             address_override=address
         )
-        await instrument.connect_backend()
+        instrument.connect_backend()
 
         # Wrap the real backend with the recording backend
         base_profile_model = load_profile(profile_key)
         base_profile = base_profile_model.model_dump()
         recording_backend = RecordingBackend(instrument._backend, str(final_output_path), base_profile=base_profile)
         instrument._backend = recording_backend
-        
+
         rich.print("[bold green]Connection successful. Recording started.[/bold green]")
 
         if script:
@@ -182,10 +182,10 @@ async def sim_profile_record(
             if spec and spec.loader:
                 script_module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(script_module)
-                if hasattr(script_module, "main") and asyncio.iscoroutinefunction(script_module.main):
-                    await script_module.main(instrument)
+                if hasattr(script_module, "main"):
+                    script_module.main(instrument)
                 else:
-                    rich.print("[bold yellow]Warning: No async 'main(instrument)' function found in script.[/bold yellow]")
+                    rich.print("[bold yellow]Warning: No 'main(instrument)' function found in script.[/bold yellow]")
             else:
                 rich.print(f"[bold red]Error: Could not load script '{script}'.[/bold red]")
         else:
@@ -193,7 +193,7 @@ async def sim_profile_record(
             # Basic async-unsafe REPL for demonstration
             code.interact(
                 banner="PyTestLab Interactive Recording Session",
-                local=dict(globals(), **{'instrument': instrument, 'asyncio': asyncio}),
+                local=dict(globals(), **{'instrument': instrument}),
                 exitmsg="REPL finished."
             )
 
@@ -205,7 +205,7 @@ async def sim_profile_record(
     finally:
         if instrument:
             rich.print("\nClosing connection and saving profile...")
-            await instrument.close()
+            instrument.close()
             rich.print(f"[bold green]Profile saved to {final_output_path}.[/bold green]")
 
 # --- Profile Commands ---
@@ -301,7 +301,7 @@ def validate_profiles(
         raise typer.Exit()
 
     rich.print(f"[bold]Validating {len(profile_files)} profile(s) in '{profiles_path}'...[/bold]")
-    
+
     success_count = 0
     error_count = 0
 
@@ -314,7 +314,7 @@ def validate_profiles(
             rich.print(f"  [bold red]✖[/bold red] [cyan]{profile_file.name}[/cyan] - [red]Invalid[/red]")
             rich.print(f"    [dim]Reason: {e}[/dim]")
             error_count += 1
-            
+
     if error_count > 0:
         rich.print(f"\n[bold]Validation complete:[/bold] [green]{success_count} valid[/green], [red]{error_count} invalid[/red].")
         raise typer.Exit(code=1)
@@ -324,7 +324,7 @@ def validate_profiles(
 
 # --- Instrument Commands ---
 @instrument_app.command("idn")
-async def instrument_idn(
+def instrument_idn(
     profile_key_or_path: Annotated[str, typer.Option(help="Profile key or path.")],
     address: Annotated[Optional[str], typer.Option(help="VISA address. Overrides profile if provided.")] = None,
     simulate: Annotated[bool, typer.Option(help="Run in simulation mode.")] = False
@@ -334,13 +334,13 @@ async def instrument_idn(
     try:
         inst_config_model = load_profile(profile_key_or_path)
 
-        instrument = await AutoInstrument.from_config(
+        instrument = AutoInstrument.from_config(
             config_source=inst_config_model,
             simulate=simulate,
             address_override=address
         )
-        await instrument.connect_backend()
-        idn_response = await instrument.id()
+        instrument.connect_backend()
+        idn_response = instrument.id()
         rich.print(f"[bold green]IDN Response:[/bold] {idn_response}")
 
     except FileNotFoundError:
@@ -355,19 +355,18 @@ async def instrument_idn(
         raise typer.Exit(code=1)
     finally:
         if instrument:
-            await instrument.close()
+            instrument.close()
 
 # Implement other commands: instrument selftest, instrument config dump, repl
 # For REPL:
 # @instrument_app.command("repl")
-# async def instrument_repl(...):
+# def instrument_repl(...):
 #     # ... setup instrument ...
 #     # import code
-#     # local_vars = {"instrument": instrument, "asyncio": asyncio, "np": np}
+#     # local_vars = {"instrument": instrument, "np": np}
 #     # code.interact(local=local_vars, banner="PyTestLab REPL...")
-#     # For async REPL, might need something like aioconsole or handle awaitables carefully
 #     typer.echo("Async REPL not yet fully implemented. Instrument is set up.")
-#     # await instrument.close()
+#     # instrument.close()
 
 
 # --- Bench Commands (Implement if Bench system from 6.2 is ready) ---
@@ -410,7 +409,7 @@ def bench_validate_cli(bench_yaml_path: Annotated[Path, typer.Argument(help="Pat
             data = yaml.safe_load(f)
         config = BenchConfig.model_validate(data) # This will raise ValidationError on issues
         rich.print(f"[bold green]Bench configuration '{bench_yaml_path}' is valid.[/bold green]")
-        
+
         rich.print("Validating individual instrument profiles...")
         all_profiles_valid = True
         for alias, entry in config.instruments.items():
@@ -425,7 +424,7 @@ def bench_validate_cli(bench_yaml_path: Annotated[Path, typer.Argument(help="Pat
             except Exception as e_profile:
                 all_profiles_valid = False
                 rich.print(f"  [bold red]✖ Error:[/bold red] Failed to load profile '[magenta]{entry.profile}[/magenta]' for alias '[cyan]{alias}[/cyan]': {e_profile}")
-        
+
         if not all_profiles_valid:
             raise typer.Exit(code=1)
 
@@ -440,13 +439,13 @@ def bench_validate_cli(bench_yaml_path: Annotated[Path, typer.Argument(help="Pat
         raise typer.Exit(code=1)
 
 @bench_app.command("id")
-async def bench_id_cli(bench_yaml_path: Annotated[Path, typer.Argument(help="Path to the bench.yaml file.")]):
+def bench_id_cli(bench_yaml_path: Annotated[Path, typer.Argument(help="Path to the bench.yaml file.")]):
     """Connects to real instruments in a bench and prints their *IDN? responses."""
     bench = None
     try:
-        bench = await Bench.open(bench_yaml_path)
+        bench = Bench.open(bench_yaml_path)
         rich.print(f"Querying *IDN? for instruments in bench: [bold]{bench.config.bench_name}[/bold]")
-        
+
         table = rich.table.Table(title="Instrument IDN Responses")
         table.add_column("Alias", style="cyan")
         table.add_column("Profile", style="magenta")
@@ -457,16 +456,16 @@ async def bench_id_cli(bench_yaml_path: Annotated[Path, typer.Argument(help="Pat
             is_simulated = bench.config.simulate
             if entry.simulate is not None:
                 is_simulated = entry.simulate
-            
+
             if not is_simulated:
                 try:
-                    idn_str = await instrument.id()
+                    idn_str = instrument.id()
                     table.add_row(alias, entry.profile, idn_str)
                 except Exception as e_idn:
                     table.add_row(alias, entry.profile, f"[bold red]Error querying IDN - {e_idn}[/bold red]")
             else:
                 table.add_row(alias, entry.profile, "[blue]Simulated[/blue]")
-        
+
         rich.print(table)
     except FileNotFoundError:
         rich.print(f"[bold red]Error: Bench configuration file not found at '{bench_yaml_path}'.[/bold red]")
@@ -476,7 +475,7 @@ async def bench_id_cli(bench_yaml_path: Annotated[Path, typer.Argument(help="Pat
         raise typer.Exit(code=1)
     finally:
         if bench:
-            await bench.close_all()
+            bench.close_all()
 
 @bench_app.command("sim")
 def bench_sim_cli(bench_yaml_path: Annotated[Path, typer.Argument(help="Path to the bench.yaml file.")],
@@ -486,7 +485,7 @@ def bench_sim_cli(bench_yaml_path: Annotated[Path, typer.Argument(help="Path to 
         with open(bench_yaml_path, 'r') as f:
             data = yaml.safe_load(f)
         config = BenchConfig.model_validate(data)
-        
+
         sim_config_data = config.model_dump(mode='python') # Get dict representation
         sim_config_data['simulate'] = True # Global simulate
         for alias_key in sim_config_data['instruments']:
@@ -499,7 +498,7 @@ def bench_sim_cli(bench_yaml_path: Annotated[Path, typer.Argument(help="Path to 
                sim_config_data['instruments'][alias_key]['backend'] = {'type': 'sim', 'timeout_ms': 5000} # Default timeout
 
         sim_yaml = yaml.dump(sim_config_data, sort_keys=False)
-        
+
         if output_path:
             with open(output_path, 'w') as f_out:
                 f_out.write(sim_yaml)
@@ -507,7 +506,7 @@ def bench_sim_cli(bench_yaml_path: Annotated[Path, typer.Argument(help="Path to 
         else:
             syntax = Syntax(sim_yaml, "yaml", theme="monokai", line_numbers=True)
             rich.print(syntax)
-            
+
     except FileNotFoundError:
         rich.print(f"[bold red]Error: Bench configuration file not found at '{bench_yaml_path}'.[/bold red]")
         raise typer.Exit(code=1)
@@ -520,7 +519,7 @@ def bench_sim_cli(bench_yaml_path: Annotated[Path, typer.Argument(help="Path to 
 
 # --- Replay Commands ---
 @replay_app.command("record")
-async def replay_record(
+def replay_record(
     script: Annotated[Path, typer.Argument(help="Path to the Python script to execute.")],
     bench_config: Annotated[Path, typer.Option("--bench", help="Path to the bench.yaml configuration file.")],
     output: Annotated[Path, typer.Option("--output", help="Path to save the recorded session YAML file.")],
@@ -533,7 +532,7 @@ async def replay_record(
 
     bench = None
     try:
-        bench = await Bench.open(bench_config)
+        bench = Bench.open(bench_config)
         recorded_data = {}
 
         rich.print("\n[bold]Wrapping instrument backends for recording:[/bold]")
@@ -551,8 +550,8 @@ async def replay_record(
         script_module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(script_module)
 
-        if hasattr(script_module, "main") and asyncio.iscoroutinefunction(script_module.main):
-            await script_module.main(bench)
+        if hasattr(script_module, "main"):
+            script_module.main(bench)
         else:
             raise TypeError("Script must contain an async function `main(bench)`.")
 
@@ -565,7 +564,7 @@ async def replay_record(
         raise typer.Exit(code=1)
     finally:
         if bench:
-            await bench.close_all()
+            bench.close_all()
 
     rich.print(f"\n[bold]Saving recorded session to {output}...[/bold]")
     with open(output, "w") as f:
@@ -574,7 +573,7 @@ async def replay_record(
 
 
 @replay_app.command("run")
-async def replay_run(
+def replay_run(
     script: Annotated[Path, typer.Argument(help="Path to the Python script to execute.")],
     session: Annotated[Path, typer.Option("--session", help="Path to the recorded session YAML file.")],
 ):
@@ -600,15 +599,15 @@ async def replay_run(
             data = session_data[alias]
             profile_key = data["profile"]
             session_log = data["log"]
-            
+
             replay_backend = ReplayBackend(session_log, model_name=alias)
-            
-            instrument = await AutoInstrument.from_config(
+
+            instrument = AutoInstrument.from_config(
                 config_source=profile_key,
                 backend_override=replay_backend
             )
-            await instrument.connect_backend() # Connects the replay backend
-            
+            instrument.connect_backend() # Connects the replay backend
+
             setattr(replay_bench, alias, instrument)
             instrument_instances[alias] = instrument
             rich.print(f"  - Created instrument '{alias}' for replay.")
@@ -622,8 +621,8 @@ async def replay_run(
         script_module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(script_module)
 
-        if hasattr(script_module, "main") and asyncio.iscoroutinefunction(script_module.main):
-            await script_module.main(replay_bench)
+        if hasattr(script_module, "main"):
+            script_module.main(replay_bench)
         else:
             raise TypeError("Script must contain an async function `main(bench)`.")
 
@@ -636,8 +635,8 @@ async def replay_run(
         raise typer.Exit(code=1)
     finally:
         for inst in instrument_instances.values():
-            await inst.close()
-            
+            inst.close()
+
     rich.print("[bold green]Replay complete.[/bold green]")
 
 def run_app():
@@ -646,7 +645,7 @@ def run_app():
 
 def main():
     if "sim-profile" in sys.argv and "record" in sys.argv:
-        # This is a workaround for a persistent asyncio issue with Typer.
+        # Direct call to sim_profile_record
         from pytestlab.cli import sim_profile_record
         # This is a simplified parser. A more robust solution would use
         # a proper argument parsing library.
@@ -657,12 +656,12 @@ def main():
                     kwargs[arg[2:].replace("-", "_")] = sys.argv[i + 1]
                 else:
                     kwargs[arg[2:].replace("-", "_")] = True
-        
-        # Manually call the async function with asyncio.run()
-        asyncio.run(sim_profile_record(
+
+        # Direct function call
+        sim_profile_record(
             profile_key=sys.argv[3],
             **kwargs
-        ))
+        )
     elif "replay" in sys.argv and ("record" in sys.argv or "run" in sys.argv):
         # Handle async replay commands
         if "record" in sys.argv:
@@ -671,31 +670,31 @@ def main():
             script_path = Path(sys.argv[3]) if len(sys.argv) > 3 else None
             bench_config = None
             output = None
-            
+
             for i, arg in enumerate(sys.argv):
                 if arg == "--bench" and i + 1 < len(sys.argv):
                     bench_config = Path(sys.argv[i + 1])
                 elif arg == "--output" and i + 1 < len(sys.argv):
                     output = Path(sys.argv[i + 1])
-            
+
             if script_path and bench_config and output:
-                asyncio.run(replay_record(script_path, bench_config, output))
+                replay_record(script_path, bench_config, output)
             else:
                 rich.print("[bold red]Error: Missing required arguments for replay record[/bold red]")
                 sys.exit(1)
-                
+
         elif "run" in sys.argv:
             from pytestlab.cli import replay_run
             # Parse arguments for replay run
             script_path = Path(sys.argv[3]) if len(sys.argv) > 3 else None
             session = None
-            
+
             for i, arg in enumerate(sys.argv):
                 if arg == "--session" and i + 1 < len(sys.argv):
                     session = Path(sys.argv[i + 1])
-            
+
             if script_path and session:
-                asyncio.run(replay_run(script_path, session))
+                replay_run(script_path, session)
             else:
                 rich.print("[bold red]Error: Missing required arguments for replay run[/bold red]")
                 sys.exit(1)

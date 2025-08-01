@@ -51,7 +51,8 @@ There are several ways to enable simulation mode:
 3. **In `AutoInstrument`**: Pass `simulate=True` when creating an instrument instance.
     ```python
     import pytestlab
-    scope = await pytestlab.AutoInstrument.from_config("keysight/DSOX1204G", simulate=True)
+    scope = pytestlab.AutoInstrument.from_config("keysight/DSOX1204G", simulate=True)
+    scope.connect_backend()
     ```
 
 ## Recording a Simulation Profile

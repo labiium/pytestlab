@@ -30,7 +30,6 @@ License: MIT
 """
 from __future__ import annotations
 
-import asyncio
 import contextlib
 import importlib
 import inspect
@@ -245,40 +244,40 @@ class SimBackend:  # implements AsyncInstrumentIO
 
     # Public API – asyncio ----------------------------------------------- #
 
-    async def connect(self) -> None:  # noqa: D401
+    def connect(self) -> None:  # noqa: D401
         "Establish connection (no-op in simulation)."
         logger.debug("%s: connect()", self.model)
 
-    async def disconnect(self) -> None:
+    def disconnect(self) -> None:
         "Close connection (no-op)."
         logger.debug("%s: disconnect()", self.model)
 
-    async def write(self, cmd: str) -> None:
+    def write(self, cmd: str) -> None:
         "Handle a SCPI write."
         logger.debug("%s WRITE ‹%s›", self.model, cmd.strip())
         self._handle_command(cmd)
 
-    async def query(self, cmd: str, delay: float | None = None) -> str:
+    def query(self, cmd: str, delay: float | None = None) -> str:
         "Handle a SCPI query and return a **decoded** string."
         if delay:
-            await asyncio.sleep(delay)
+            time.sleep(delay)
         response = self._handle_command(cmd, expect_response=True)
         logger.debug("%s QUERY ‹%s› → %s", self.model, cmd.strip(), response)
         return response
 
-    async def query_raw(self, cmd: str, delay: float | None = None) -> bytes:
-        resp = await self.query(cmd, delay)
+    def query_raw(self, cmd: str, delay: float | None = None) -> bytes:
+        resp = self.query(cmd, delay)
         if isinstance(resp, bytes):
             return resp
         return resp.encode()
 
-    async def close(self) -> None:
-        await self.disconnect()
+    def close(self) -> None:
+        self.disconnect()
 
-    async def set_timeout(self, timeout_ms: int) -> None:
+    def set_timeout(self, timeout_ms: int) -> None:
         self.timeout_ms = timeout_ms
 
-    async def get_timeout(self) -> int:
+    def get_timeout(self) -> int:
         return self.timeout_ms
 
     # --------------------------------------------------------------------- #
@@ -496,13 +495,13 @@ if __name__ == "__main__":  # pragma: no cover
     ap.add_argument("profile", help="Path to YAML profile")
     args = ap.parse_args()
 
-    async def _main() -> None:
+    def _main() -> None:
         sim = SimBackend(args.profile)
-        await sim.connect()
-        print(await sim.query("*IDN?"))
-        await sim.write(":VOLT 7.0")
-        print(await sim.query("SYST:ERR?"))
-        print("Voltage=", await sim.query(":VOLT?"))
-        await sim.disconnect()
+        sim.connect()
+        print(sim.query("*IDN?"))
+        sim.write(":VOLT 7.0")
+        print(sim.query("SYST:ERR?"))
+        print("Voltage=", sim.query(":VOLT?"))
+        sim.disconnect()
 
-    asyncio.run(_main())
+    _main()

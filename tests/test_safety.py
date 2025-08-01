@@ -2,7 +2,7 @@
 
 import pytest
 from pytestlab.instruments import PowerSupply
-from pytestlab.errors import SafetyLimitError
+from pytestlab.bench import SafetyLimitError
 
 
 @pytest.fixture

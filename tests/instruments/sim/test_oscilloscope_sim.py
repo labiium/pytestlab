@@ -4,65 +4,64 @@ import polars as pl
 from pytestlab.instruments import Oscilloscope
 from pytestlab.common.enums import TriggerSlope
 
-# Mark all tests in this file as async
-pytestmark = pytest.mark.asyncio
+# Test file for oscilloscope simulation
 
-async def test_idn_and_reset(sim_scope: Oscilloscope):
+def test_idn_and_reset(sim_scope: Oscilloscope):
     """Verify *IDN? and *RST commands."""
     # 1. Test IDN
-    idn = await sim_scope.id()
+    idn = sim_scope.id()
     assert idn == "Simulated,Keysight,DSOX1204G,SIM1.0"
 
     # 2. Change a value from its default
-    await sim_scope.set_time_axis(scale=5.0, position=1.0)
-    current_scale = await sim_scope.get_time_axis()
+    sim_scope.set_time_axis(scale=5.0, position=1.0)
+    current_scale = sim_scope.get_time_axis()
     assert current_scale[0] == 5.0
 
     # 3. Test Reset
-    await sim_scope.reset()
-    
+    sim_scope.reset()
+
     # 4. Verify the value has returned to its initial state from the YAML
-    reset_scale = await sim_scope.get_time_axis()
+    reset_scale = sim_scope.get_time_axis()
     assert reset_scale[0] == 1.0e-3 # Default from initial_state in YAML
 
-async def test_timebase_control(sim_scope: Oscilloscope):
+def test_timebase_control(sim_scope: Oscilloscope):
     """Verify setting and getting timebase scale and position."""
-    await sim_scope.set_time_axis(scale=2.5e-3, position=-1e-3)
-    
-    scale, position = await sim_scope.get_time_axis()
-    
+    sim_scope.set_time_axis(scale=2.5e-3, position=-1e-3)
+
+    scale, position = sim_scope.get_time_axis()
+
     assert scale == 2.5e-3
     assert position == -1e-3
 
-async def test_channel_facade(sim_scope: Oscilloscope):
+def test_channel_facade(sim_scope: Oscilloscope):
     """Verify the chained channel facade methods."""
     # Use the facade to configure channel 2
-    await sim_scope.channel(2).setup(scale=0.5, offset=-0.1).enable()
+    sim_scope.channel(2).setup(scale=0.5, offset=-0.1).enable()
 
     # Verify each setting was applied correctly
-    ch2_scale, ch2_offset = await sim_scope.get_channel_axis(2)
+    ch2_scale, ch2_offset = sim_scope.get_channel_axis(2)
     assert ch2_scale == 0.5
     assert ch2_offset == -0.1
 
-    ch2_display_state = await sim_scope._query(":CHANnel2:DISPlay?")
+    ch2_display_state = sim_scope._query(":CHANnel2:DISPlay?")
     assert ch2_display_state == "1"
 
-async def test_trigger_facade(sim_scope: Oscilloscope):
+def test_trigger_facade(sim_scope: Oscilloscope):
     """Verify the trigger facade methods."""
-    await sim_scope.trigger.setup_edge(source="CH4", level=1.23, slope=TriggerSlope.NEGATIVE)
+    sim_scope.trigger.setup_edge(source="CH4", level=1.23, slope=TriggerSlope.NEGATIVE)
 
     # Verify the state change by querying the simulator
-    source = await sim_scope._query(":TRIGger:SOURce?")
-    level = await sim_scope._query(":TRIGger:LEVel?")
-    slope = await sim_scope._query(":TRIGger:SLOPe?")
+    source = sim_scope._query(":TRIGger:SOURce?")
+    level = sim_scope._query(":TRIGger:LEVel?")
+    slope = sim_scope._query(":TRIGger:SLOPe?")
 
     assert source == "CH4"
     assert float(level) == 1.23
     assert slope == "NEG"
 
-async def test_waveform_acquisition(sim_scope: Oscilloscope):
+def test_waveform_acquisition(sim_scope: Oscilloscope):
     """Verify that read_channels returns a correctly structured result."""
-    result = await sim_scope.read_channels(1, 3) # Read channels 1 and 3
+    result = sim_scope.read_channels(1, 3) # Read channels 1 and 3
 
     assert isinstance(result.values, pl.DataFrame)
     assert result.values.shape[0] == 1024 # Points from YAML
@@ -74,15 +73,15 @@ async def test_waveform_acquisition(sim_scope: Oscilloscope):
     assert result.values["Channel 1 (V)"].dtype == pl.Float64
     assert result.values["Channel 3 (V)"].dtype == pl.Float64
 
-async def test_error_generation(sim_scope: Oscilloscope):
+def test_error_generation(sim_scope: Oscilloscope):
     """Verify that the simulator generates an error based on the YAML rule."""
-    await sim_scope.clear_status() # Ensure error queue is empty
+    sim_scope.clear_status() # Ensure error queue is empty
 
     # This action should trigger the error rule in the YAML profile
-    await sim_scope.channel(1).setup(scale=0.0005)
+    sim_scope.channel(1).setup(scale=0.0005)
 
     # Check the error queue
-    errors = await sim_scope.get_all_errors()
+    errors = sim_scope.get_all_errors()
     assert len(errors) == 1
     code, msg = errors[0]
     assert code == -222

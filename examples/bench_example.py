@@ -10,11 +10,10 @@ This script demonstrates:
 - Using automation hooks
 """
 
-import asyncio
 from pathlib import Path
 from pytestlab.bench import Bench, SafetyLimitError
 
-async def main():
+def main():
     """Main example function."""
     bench_file = Path(__file__).parent / "bench.yaml"
     
@@ -25,7 +24,7 @@ async def main():
         # 2. Run custom validations
         # 3. Initialize all instruments
         # 4. Run pre-experiment automation hooks
-        async with await Bench.open(bench_file) as bench:
+        with Bench.open(bench_file) as bench:
             print(f"✅ Bench '{bench.config.bench_name}' loaded successfully")
             print(f"📋 Experiment: {bench.config.experiment.title}")
             print(f"👤 Operator: {bench.config.experiment.operator}")
@@ -57,13 +56,13 @@ async def main():
             # Access instruments by their aliases
             print("  Getting instrument IDs...")
             try:
-                vna_id = await bench.vna.id()
+                vna_id = bench.vna.id()
                 print(f"  VNA ID: {vna_id}")
             except Exception as e:
                 print(f"  VNA (simulated): {e}")
             
             try:
-                dmm_id = await bench.dmm.id()
+                dmm_id = bench.dmm.id()
                 print(f"  DMM ID: {dmm_id}")
             except Exception as e:
                 print(f"  DMM (simulated): {e}")
@@ -72,7 +71,7 @@ async def main():
             print("\n⚠️  Safety Limit Testing:")
             try:
                 # This should work (within safety limits)
-                await bench.psu1.set_voltage(1, 5.0)
+                bench.psu1.set_voltage(1, 5.0)
                 print("  ✅ Set PSU channel 1 to 5.0V (within safety limit)")
             except SafetyLimitError as e:
                 print(f"  ❌ Safety limit violation: {e}")
@@ -81,7 +80,7 @@ async def main():
             
             try:
                 # This should fail (exceeds safety limits)
-                await bench.psu1.set_voltage(1, 6.0)
+                bench.psu1.set_voltage(1, 6.0)
                 print("  ❌ This should not have worked!")
             except SafetyLimitError as e:
                 print(f"  ✅ Safety limit enforced: {e}")
@@ -110,4 +109,4 @@ async def main():
 if __name__ == "__main__":
     print("🧪 PyTestLab Bench System Example")
     print("=" * 40)
-    asyncio.run(main())
+    main()

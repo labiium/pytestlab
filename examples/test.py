@@ -1,8 +1,7 @@
 from pytestlab.instruments import AutoInstrument
-import asyncio
 
-async def main():
-    osc = await AutoInstrument.from_config("keysight/DSOX1204G")
-    print(await osc.id())
+def main():
+    osc = AutoInstrument.from_config("keysight/DSOX1204G")
+    print(osc.id())
 
-asyncio.run(main())
+main()

@@ -1,5 +1,4 @@
 # pytestlab/instruments/backends/replay_backend.py
-import asyncio
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -26,16 +25,15 @@ class ReplayBackend(AsyncInstrumentIO):
         self._log = session_log
         self._model_name = model_name
         self._step = 0
-        self._lock = asyncio.Lock()
 
-    async def connect(self) -> None:
+    def connect(self) -> None:
         LOGGER.debug(f"ReplayBackend for '{self._model_name}': Connected.")
 
-    async def disconnect(self) -> None:
+    def disconnect(self) -> None:
         LOGGER.debug(f"ReplayBackend for '{self._model_name}': Disconnected.")
 
-    async def _get_next_log_entry(self, expected_type: str, command: str) -> Dict[str, Any]:
-        async with self._lock:
+    def _get_next_log_entry(self, expected_type: str, command: str) -> Dict[str, Any]:
+        with self._lock:
             if self._step >= len(self._log):
                 raise ReplayMismatchError(
                     f"Replay for '{self._model_name}' ended, but received unexpected command: '{command}'"
@@ -55,26 +53,26 @@ class ReplayBackend(AsyncInstrumentIO):
             self._step += 1
             return entry
 
-    async def write(self, command: str) -> None:
-        await self._get_next_log_entry("write", command)
+    def write(self, command: str) -> None:
+        self._get_next_log_entry("write", command)
 
-    async def query(self, command: str, delay: Optional[float] = None) -> str:
-        entry = await self._get_next_log_entry("query", command)
+    def query(self, command: str, delay: Optional[float] = None) -> str:
+        entry = self._get_next_log_entry("query", command)
         return entry.get("response", "")
 
-    async def query_raw(self, command: str, delay: Optional[float] = None) -> bytes:
-        entry = await self._get_next_log_entry("query_raw", command)
+    def query_raw(self, command: str, delay: Optional[float] = None) -> bytes:
+        entry = self._get_next_log_entry("query_raw", command)
         # Assuming the response is stored as a base64 string or similar if not directly in YAML
         # For this implementation, we'll assume it's a simple string that needs encoding.
         # A more robust solution might use base64 encoding in the YAML.
         return str(entry.get("response", "")).encode('utf-8')
 
-    async def close(self) -> None:
-        await self.disconnect()
+    def close(self) -> None:
+        self.disconnect()
 
     # The following methods are part of the protocol but are no-ops for replay
-    async def set_timeout(self, timeout_ms: int) -> None:
+    def set_timeout(self, timeout_ms: int) -> None:
         pass
 
-    async def get_timeout(self) -> int:
+    def get_timeout(self) -> int:
         return 5000  # Default value

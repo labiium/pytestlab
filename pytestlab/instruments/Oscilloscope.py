@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import asyncio # Added import
 import time
 import numpy as np
 import polars as pl
-from typing import Any, Dict, List, Optional, Tuple, Type, Union, Self, Awaitable
+from typing import Any, Dict, List, Optional, Tuple, Type, Union, Self
 from dataclasses import dataclass
 from PIL import Image
 from io import BytesIO, StringIO
@@ -22,7 +21,7 @@ from ..common.health import HealthReport, HealthStatus
 from ..errors import InstrumentConfigurationError, InstrumentParameterError, InstrumentDataError
 from pydantic import validate_call
 
-async def _validate_range(val, minval, maxval, name):
+def _validate_range(val, minval, maxval, name):
     if not (minval <= val <= maxval):
         raise InstrumentParameterError(
             parameter=name,
@@ -65,7 +64,7 @@ class ScopeChannelFacade:
 
     This facade abstracts the underlying SCPI commands for common channel
     operations, allowing for more readable and fluent test scripts. For example:
-    `await scope.channel(1).setup(scale=0.5, offset=0).enable()`
+    `scope.channel(1).setup(scale=0.5, offset=0).enable()`
 
     Attributes:
         _scope: The parent `Oscilloscope` instance.
@@ -74,15 +73,6 @@ class ScopeChannelFacade:
     def __init__(self, scope: 'Oscilloscope', channel_num: int):
         self._scope = scope
         self._channel = channel_num
-        self._coros: List[Awaitable] = []
-
-    def __await__(self):
-        async def _runner():
-            for coro in self._coros:
-                await coro
-            self._coros.clear()  # Clear coroutines after execution
-            return self
-        return _runner().__await__()
 
     @validate_call
     def setup(self, scale: Optional[float] = None, position: Optional[float] = None, offset: Optional[float] = None, coupling: Optional[str] = None, probe_attenuation: Optional[int] = None, bandwidth_limit: Optional[Union[str, float]] = None) -> Self:
@@ -104,23 +94,21 @@ class ScopeChannelFacade:
         Returns:
             The `ScopeChannelFacade` instance for method chaining.
         """
-        async def _setup_task():
-            if scale is not None:
-                current_offset_val = (await self._scope.get_channel_axis(self._channel))[1] if offset is None and position is None else (offset or position or 0.0)
-                await self._scope.set_channel_axis(self._channel, scale, current_offset_val)
-            elif position is not None or offset is not None:
-                val_to_set = position if position is not None else offset
-                current_scale_val = (await self._scope.get_channel_axis(self._channel))[0]
-                await self._scope.set_channel_axis(self._channel, current_scale_val, val_to_set)
-            if coupling is not None:
-                await self._scope._send_command(f":CHANnel{self._channel}:COUPling {coupling.upper()}")
-                self._scope._logger.debug(f"Channel {self._channel} coupling set to {coupling.upper()}")
-            if probe_attenuation is not None:
-                await self._scope.set_probe_attenuation(self._channel, probe_attenuation)
-            if bandwidth_limit is not None:
-                await self._scope.set_bandwidth_limit(self._channel, bandwidth_limit)
-        self._coros.append(_setup_task())
-
+        # Since scale and offset are set together, we need to handle the order correctly
+        if scale is not None:
+            current_offset_val = self._scope.get_channel_axis(self._channel)[1] if offset is None and position is None else (offset or position or 0.0)
+            self._scope.set_channel_axis(self._channel, scale, current_offset_val)
+        if offset is not None or position is not None:
+            val_to_set = position if position is not None else offset
+            current_scale_val = self._scope.get_channel_axis(self._channel)[0]
+            self._scope.set_channel_axis(self._channel, current_scale_val, val_to_set)
+        if coupling is not None:
+            self._scope._send_command(f":CHANnel{self._channel}:COUPling {coupling.upper()}")
+            self._scope._logger.debug(f"Channel {self._channel} coupling set to {coupling.upper()}")
+        if probe_attenuation is not None:
+            self._scope.set_probe_attenuation(self._channel, probe_attenuation)
+        if bandwidth_limit is not None:
+            self._scope.set_bandwidth_limit(self._channel, bandwidth_limit)
         return self
 
     def enable(self) -> Self:
@@ -133,13 +121,13 @@ class ScopeChannelFacade:
         self._coros.append(self._scope.display_channel(self._channel, False))
         return self
 
-    async def measure_peak_to_peak(self) -> MeasurementResult:
+    def measure_peak_to_peak(self) -> MeasurementResult:
         """Performs a peak-to-peak voltage measurement on this channel."""
-        return await self._scope.measure_voltage_peak_to_peak(self._channel)
+        return self._scope.measure_voltage_peak_to_peak(self._channel)
 
-    async def measure_rms(self) -> MeasurementResult:
+    def measure_rms(self) -> MeasurementResult:
         """Performs an RMS voltage measurement on this channel."""
-        return await self._scope.measure_rms_voltage(self._channel)
+        return self._scope.measure_rms_voltage(self._channel)
 
 
 class ScopeTriggerFacade:
@@ -153,15 +141,6 @@ class ScopeTriggerFacade:
     """
     def __init__(self, scope: 'Oscilloscope'):
         self._scope = scope
-        self._coros: List[Awaitable] = []
-
-    def __await__(self):
-        async def _runner():
-            for coro in self._coros:
-                await coro
-            self._coros.clear()  # Clear coroutines after execution
-            return self
-        return _runner().__await__()
 
     @validate_call
     def setup_edge(self, source: str, level: float, slope: TriggerSlope = TriggerSlope.POSITIVE, coupling: Optional[str] = None, mode: str = "EDGE") -> Self:
@@ -229,37 +208,25 @@ class ScopeAcquisitionFacade:
     """
     def __init__(self, scope: 'Oscilloscope'):
         self._scope = scope
-        self._coros: List[Awaitable] = []
-
-    def __await__(self):
-        async def _runner():
-            for coro in self._coros:
-                await coro
-            self._coros.clear()  # Clear coroutines after execution
-            return self
-
-        return _runner().__await__()
 
     @validate_call
     def set_acquisition_type(self, acq_type: AcquisitionType) -> Self:
         """
         Select the oscilloscope acquisition algorithm.
         """
-        async def _task():
-            scpi_val = _ACQ_TYPE_MAP.get(acq_type)
-            if not scpi_val:
-                raise InstrumentParameterError(parameter="acq_type", value=acq_type, message="Unsupported acquisition type enum member.")
-            current_mode_query: str = (await self._scope._query(":ACQuire:MODE?")).strip().upper()
-            if acq_type == AcquisitionType.AVERAGE and current_mode_query == _ACQ_MODE_MAP["SEGMENTED"].upper()[:4]:
-                raise InstrumentParameterError(parameter="acq_type", value="AVERAGE", message="AVERAGE mode is unavailable in SEGMENTED acquisition.")
-            await self._scope._send_command(f":ACQuire:TYPE {scpi_val}")
-            await self._scope._wait()
-            self._scope._logger.debug(f"Acquisition TYPE set → {acq_type.name}")
-        self._coros.append(_task())
+        scpi_val = _ACQ_TYPE_MAP.get(acq_type)
+        if not scpi_val:
+            raise InstrumentParameterError(parameter="acq_type", value=acq_type, message="Unsupported acquisition type enum member.")
+        current_mode_query: str = self._scope._query(":ACQuire:MODE?").strip().upper()
+        if acq_type == AcquisitionType.AVERAGE and current_mode_query == _ACQ_MODE_MAP["SEGMENTED"].upper()[:4]:
+            raise InstrumentParameterError(parameter="acq_type", value="AVERAGE", message="AVERAGE mode is unavailable in SEGMENTED acquisition.")
+        self._scope._send_command(f":ACQuire:TYPE {scpi_val}")
+        self._scope._wait()
+        self._scope._logger.debug(f"Acquisition TYPE set → {acq_type.name}")
         return self
 
     @validate_call
-    async def get_acquisition_type(self) -> str:
+    def get_acquisition_type(self) -> str:
         """
         Returns current acquisition type (e.g., "NORMAL", "AVERAGE").
         """
@@ -268,7 +235,7 @@ class ScopeAcquisitionFacade:
         # We need to match based on how the instrument actually responds.
         # A common way is that instrument responds with the short form.
         # Let's assume the instrument responds with a value that can be mapped back.
-        resp_str_raw: str = (await self._scope._query(":ACQuire:TYPE?")).strip()
+        resp_str_raw: str = self._scope._query(":ACQuire:TYPE?").strip()
 
         for enum_member, scpi_command_str in _ACQ_TYPE_MAP.items():
             # Check if the response starts with the typical short SCPI command part
@@ -281,9 +248,9 @@ class ScopeAcquisitionFacade:
         return resp_str_raw # Fallback to raw response if no match
 
     @validate_call
-    async def get_acquisition_mode(self) -> str:
+    def get_acquisition_mode(self) -> str:
         """Return "REAL_TIME" or "SEGMENTED"."""
-        resp_str_raw: str = (await self._scope._query(":ACQuire:MODE?")).strip()
+        resp_str_raw: str = self._scope._query(":ACQuire:MODE?").strip()
         for friendly_name, scpi_command_str in _ACQ_MODE_MAP.items():
             if resp_str_raw.upper().startswith(scpi_command_str.upper()[:4]):
                 return friendly_name
@@ -296,24 +263,22 @@ class ScopeAcquisitionFacade:
         Set the running-average length for AVERAGE mode.
         2 <= count <= 65536 (Keysight limit).
         """
-        async def _task():
-            await _validate_range(count, 2, 65_536, "Average count")
-            current_acq_type_str = await self.get_acquisition_type()
-            if current_acq_type_str != AcquisitionType.AVERAGE.name:
-                raise InstrumentParameterError(
-                    parameter="count",
-                    message=f"Average count can only be set when acquisition type is AVERAGE, not {current_acq_type_str}.",
-                )
-            await self._scope._send_command(f":ACQuire:COUNt {count}")
-            await self._scope._wait()
-            self._scope._logger.debug(f"AVERAGE count set → {count}")
-        self._coros.append(_task())
+        _validate_range(count, 2, 65_536, "Average count")
+        current_acq_type_str = self.get_acquisition_type()
+        if current_acq_type_str != AcquisitionType.AVERAGE.name:
+            raise InstrumentParameterError(
+                parameter="count",
+                message=f"Average count can only be set when acquisition type is AVERAGE, not {current_acq_type_str}.",
+            )
+        self._scope._send_command(f":ACQuire:COUNt {count}")
+        self._scope._wait()
+        self._scope._logger.debug(f"AVERAGE count set → {count}")
         return self
 
     @validate_call
-    async def get_acquisition_average_count(self) -> int:
+    def get_acquisition_average_count(self) -> int:
         """Integer average count (valid only when acquisition type == AVERAGE)."""
-        return int(await self._scope._query(":ACQuire:COUNt?"))
+        return int(self._scope._query(":ACQuire:COUNt?"))
 
     @validate_call
     def set_acquisition_mode(self, mode: str) -> Self:
@@ -321,15 +286,13 @@ class ScopeAcquisitionFacade:
         Select real-time or segmented memory acquisition.
         (Case-insensitive for mode).
         """
-        async def _task():
-            mode_upper: str = mode.upper()
-            scpi_mode_val = _ACQ_MODE_MAP.get(mode_upper)
-            if not scpi_mode_val:
-                raise InstrumentParameterError(parameter="mode", value=mode, valid_range=list(_ACQ_MODE_MAP.keys()), message="Unknown acquisition mode.")
-            await self._scope._send_command(f":ACQuire:MODE {scpi_mode_val}")
-            await self._scope._wait()
-            self._scope._logger.debug(f"Acquisition MODE set → {mode_upper}")
-        self._coros.append(_task())
+        mode_upper: str = mode.upper()
+        scpi_mode_val = _ACQ_MODE_MAP.get(mode_upper)
+        if not scpi_mode_val:
+            raise InstrumentParameterError(parameter="mode", value=mode, valid_range=list(_ACQ_MODE_MAP.keys()), message="Unknown acquisition mode.")
+        self._scope._send_command(f":ACQuire:MODE {scpi_mode_val}")
+        self._scope._wait()
+        self._scope._logger.debug(f"Acquisition MODE set → {mode_upper}")
         return self
 
 
@@ -341,23 +304,21 @@ class ScopeAcquisitionFacade:
         Configure number of memory segments for SEGMENTED acquisitions.
         Default Keysight limit: 2 <= count <= 500 (check instrument specs)
         """
-        async def _task():
-            if await self.get_acquisition_mode() != "SEGMENTED":
-                raise InstrumentParameterError(
-                    parameter="count",
-                    message="Segmented count can only be set while in SEGMENTED acquisition mode.",
-                )
-            await _validate_range(count, 2, 500, "Segmented count")
-            await self._scope._send_command(f":ACQuire:SEGMented:COUNt {count}")
-            await self._scope._wait()
-            self._scope._logger.debug(f"Segmented COUNT set → {count}")
-        self._coros.append(_task())
+        if self.get_acquisition_mode() != "SEGMENTED":
+            raise InstrumentParameterError(
+                parameter="count",
+                message="Segmented count can only be set while in SEGMENTED acquisition mode.",
+            )
+        _validate_range(count, 2, 500, "Segmented count")
+        self._scope._send_command(f":ACQuire:SEGMented:COUNt {count}")
+        self._scope._wait()
+        self._scope._logger.debug(f"Segmented COUNT set → {count}")
         return self
 
     @validate_call
-    async def get_segmented_count(self) -> int:
+    def get_segmented_count(self) -> int:
         """Number of segments currently configured (SEGMENTED mode only)."""
-        return int(await self._scope._query(":ACQuire:SEGMented:COUNt?"))
+        return int(self._scope._query(":ACQuire:SEGMented:COUNt?"))
 
     @validate_call
     def set_segment_index(self, index: int) -> Self:
@@ -365,18 +326,17 @@ class ScopeAcquisitionFacade:
         Select which memory segment is active for readback.
         1 <= index <= get_segmented_count()
         """
-        async def _task():
-            total_segments: int = await self.get_segmented_count()
-            await _validate_range(index, 1, total_segments, "Segment index")
-            await self._scope._send_command(f":ACQuire:SEGMented:INDex {index}")
-            await self._scope._wait()
-        self._coros.append(_task())
+        total_segments: int = self.get_segmented_count()
+        _validate_range(index, 1, total_segments, "Segment index")
+        self._scope._send_command(f":ACQuire:SEGMented:INDex {index}")
+        self._scope._wait()
+        self._scope._logger.debug(f"Segment INDEX set → {index}")
         return self
 
     @validate_call
-    async def get_segment_index(self) -> int:
+    def get_segment_index(self) -> int:
         """Index (1-based) of the currently selected memory segment."""
-        return int(await self._scope._query(":ACQuire:SEGMented:INDex?"))
+        return int(self._scope._query(":ACQuire:SEGMented:INDex?"))
 
     @validate_call
     def analyze_all_segments(self) -> Self:
@@ -384,36 +344,35 @@ class ScopeAcquisitionFacade:
         Execute the scope's *Analyze Segments* soft-key.
         Requires scope to be stopped and in SEGMENTED mode.
         """
-        async def _task():
-            if await self.get_acquisition_mode() != "SEGMENTED":
-                raise InstrumentParameterError(
-                    message="Segment analysis requires SEGMENTED mode."
-                )
-            await self._scope._send_command(":ACQuire:SEGMented:ANALyze")
-            await self._scope._wait()
-        self._coros.append(_task())
+        if self.get_acquisition_mode() != "SEGMENTED":
+            raise InstrumentParameterError(
+                parameter="count",
+                message="Segment analysis requires SEGMENTED mode."
+            )
+        self._scope._send_command(":ACQuire:SEGMented:ANALyze")
+        self._scope._wait()
         return self
 
     @validate_call
-    async def get_acquire_points(self) -> int:
+    def get_acquire_points(self) -> int:
         """
         Hardware points actually *acquired* for the next waveform transfer.
         """
-        return int(await self._scope._query(":ACQuire:POINts?"))
+        return int(self._scope._query(":ACQuire:POINts?"))
 
     @validate_call
-    async def get_acquisition_sample_rate(self) -> float:
+    def get_acquisition_sample_rate(self) -> float:
         """
         Current sample rate of acquisition. Equivalent to get_sampling_rate().
         """
-        return float(await self._scope._query(":ACQuire:SRATe?"))
+        return float(self._scope._query(":ACQuire:SRATe?"))
 
     @validate_call
-    async def get_acquire_setup(self) -> Dict[str, str]:
+    def get_acquire_setup(self) -> Dict[str, str]:
         """
         Return a parsed dictionary of the scope's :ACQuire? status string.
         """
-        raw_str: str = (await self._scope._query(":ACQuire?")).strip()
+        raw_str: str = self._scope._query(":ACQuire?").strip()
         parts: List[str] = [p.strip() for p in raw_str.split(';')]
         setup_dict: Dict[str, str] = {}
         for part in parts:
@@ -522,7 +481,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         # This method aligns with the new __init__ signature.
         return cls(config=config, debug_mode=debug_mode, **kwargs)
 
-    async def health_check(self) -> HealthReport:
+    def health_check(self) -> HealthReport:
         """
         Performs a basic health check of the oscilloscope instrument.
 
@@ -534,10 +493,10 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
 
         try:
             # Get instrument identification
-            report.instrument_idn = await self.id()
+            report.instrument_idn = self.id()
 
             # Check for stored errors
-            instrument_errors = await self.get_all_errors()
+            instrument_errors = self.get_all_errors()
             if instrument_errors:
                 report.warnings.extend([f"Stored Error: {code} - {msg}" for code, msg in instrument_errors])
 
@@ -555,7 +514,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
 
         try:
             # Test basic oscilloscope functionality
-            _ = await self.get_time_axis()
+            _ = self.get_time_axis()
 
             # Check supported features based on configuration
             if hasattr(self.config, 'fft') and self.config.fft:
@@ -602,7 +561,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
 
         return report
 
-    async def _read_preamble(self) -> Preamble:
+    def _read_preamble(self) -> Preamble:
         """Reads and parses the waveform preamble from the oscilloscope.
 
         The preamble contains essential metadata for interpreting the waveform data,
@@ -612,7 +571,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             A `Preamble` dataclass instance.
         """
 
-        peram_str: str = await self._query(':WAVeform:PREamble?')
+        peram_str: str = self._query(':WAVeform:PREamble?')
         peram_list: list[str] = peram_str.split(',')
         self._logger.debug(peram_list)
 
@@ -632,7 +591,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         )
         return pre
 
-    async def _read_wave_data(self, source: str) -> np.ndarray:
+    def _read_wave_data(self, source: str) -> np.ndarray:
         """Reads the raw waveform data block for a given source.
 
         This internal method configures the waveform transfer format and reads
@@ -645,29 +604,29 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             A NumPy array of the raw, unprocessed ADC values.
         """
         # Ensure previous operations are complete
-        await self._wait()
-        await self._send_command(f':WAVeform:SOURce {source}')
-        await self._wait()
+        self._wait()
+        self._send_command(f':WAVeform:SOURce {source}')
+        self._wait()
         self._logger.debug(f"Reading data from {source}")
 
         # Set the data transfer format to 8-bit bytes
-        await self._send_command(':WAVeform:FORMat BYTE')
+        self._send_command(':WAVeform:FORMat BYTE')
 
         # For time-domain channels, ensure we get all raw data points
         if source != "FFT":
-            await self._send_command(':WAVeform:POINts:MODE RAW')
+            self._send_command(':WAVeform:POINts:MODE RAW')
 
         self._logger.debug('Reading points')
-        await self._wait()
+        self._wait()
         self._logger.debug('Reading data')
 
         # Query for the waveform data, which returns a binary block
-        raw_data: bytes = await self._query_raw(':WAVeform:DATA?')
-        data: np.ndarray = await self._read_to_np(raw_data)
+        raw_data: bytes = self._query_raw(':WAVeform:DATA?')
+        data: np.ndarray = self._read_to_np(raw_data)
         return data
 
     @validate_call
-    async def lock_panel(self, lock: bool = True) -> None:
+    def lock_panel(self, lock: bool = True) -> None:
         """
         Locks the panel of the instrument
 
@@ -675,10 +634,10 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             lock (bool): True to lock the panel, False to unlock it
         """
         scpi_state = SCPIOnOff.ON.value if lock else SCPIOnOff.OFF.value
-        await self._send_command(f":SYSTem:LOCK {scpi_state}")
+        self._send_command(f":SYSTem:LOCK {scpi_state}")
 
     @validate_call
-    async def auto_scale(self) -> None:
+    def auto_scale(self) -> None:
         """
         Auto scale the oscilloscope display.
 
@@ -687,10 +646,10 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         Example:
         >>> auto_scale()
         """
-        await self._send_command(":AUToscale")
+        self._send_command(":AUToscale")
 
     @validate_call
-    async def set_time_axis(self, scale: float, position: float) -> None:
+    def set_time_axis(self, scale: float, position: float) -> None:
         """
         Sets the time axis of the Oscilloscope. (x-axis)
 
@@ -698,23 +657,23 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         :param position: The position of the time axis from the trigger in seconds
         """
 
-        await self._send_command(f':TIMebase:SCALe {scale}')
-        await self._send_command(f':TIMebase:POSition {position}')
-        await self._wait()
+        self._send_command(f':TIMebase:SCALe {scale}')
+        self._send_command(f':TIMebase:POSition {position}')
+        self._wait()
 
     @validate_call
-    async def get_time_axis(self) -> List[float]:
+    def get_time_axis(self) -> List[float]:
         """
         Gets the time axis of the oscilloscope. (x-axis)
 
         :return: A list containing the time axis scale and position
         """
-        scale_str: str = await self._query(":TIMebase:SCALe?")
-        position_str: str = await self._query(":TIMebase:POSition?")
+        scale_str: str = self._query(":TIMebase:SCALe?")
+        position_str: str = self._query(":TIMebase:POSition?")
         return [np.float64(scale_str), np.float64(position_str)]
 
     @validate_call
-    async def set_channel_axis(self, channel: int, scale: float, offset: float) -> None:
+    def set_channel_axis(self, channel: int, scale: float, offset: float) -> None:
         """
         Sets the channel axis of the oscilloscope. (y-axis)
 
@@ -730,12 +689,12 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                 message="Channel number is out of range.",
             )
 
-        await self._send_command(f':CHANnel{channel}:SCALe {scale}')
-        await self._send_command(f':CHANnel{channel}:OFFSet {offset}')
-        await self._wait()
+        self._send_command(f':CHANnel{channel}:SCALe {scale}')
+        self._send_command(f':CHANnel{channel}:OFFSet {offset}')
+        self._wait()
 
     @validate_call
-    async def get_channel_axis(self, channel: int) -> List[float]:
+    def get_channel_axis(self, channel: int) -> List[float]:
         """
         Gets the channel axis of the oscilloscope. (y-axis)
 
@@ -750,12 +709,12 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                 message="Channel number is out of range.",
             )
 
-        scale_str: str = await self._query(f":CHANnel{channel}:SCALe?")
-        offset_str: str = await self._query(f":CHANnel{channel}:OFFSet?")
+        scale_str: str = self._query(f":CHANnel{channel}:SCALe?")
+        offset_str: str = self._query(f":CHANnel{channel}:OFFSet?")
         return [np.float64(scale_str), np.float64(offset_str)]
 
     @validate_call
-    async def configure_trigger(self, channel: int, level: float, source: Optional[str] = None, trigger_type: str = "HIGH", slope: TriggerSlope = TriggerSlope.POSITIVE, mode: str = "EDGE") -> None:
+    def configure_trigger(self, channel: int, level: float, source: Optional[str] = None, trigger_type: str = "HIGH", slope: TriggerSlope = TriggerSlope.POSITIVE, mode: str = "EDGE") -> None:
         """
         Sets the trigger for the oscilloscope.
 
@@ -810,8 +769,8 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                     message="Invalid source.",
                 )
 
-        await self._send_command(f':TRIG:SOUR {actual_source}')
-        await self._send_command(f':TRIGger:LEVel {level}, CHANnel{channel}')
+        self._send_command(f':TRIG:SOUR {actual_source}')
+        self._send_command(f':TRIGger:LEVel {level}, CHANnel{channel}')
 
         if slope.value not in self.config.trigger.slopes:
             raise InstrumentParameterError(
@@ -826,9 +785,9 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
              self._logger.warning(f"Trigger mode '{mode}' not in configured supported modes: {self.config.trigger.modes}. Passing directly to instrument.")
         scpi_mode = mode
 
-        await self._send_command(f':TRIGger:SLOPe {scpi_slope}')
-        await self._send_command(f':TRIGger:MODE {scpi_mode}')
-        await self._wait()
+        self._send_command(f':TRIGger:SLOPe {scpi_slope}')
+        self._send_command(f':TRIGger:MODE {scpi_mode}')
+        self._wait()
 
         self._logger.debug(f"""Trigger set with the following parameters:
                   Trigger Source: {actual_source}
@@ -837,7 +796,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                   Trigger Mode: {scpi_mode}""")
 
     @validate_call
-    async def measure_voltage_peak_to_peak(self, channel: int) -> MeasurementResult:
+    def measure_voltage_peak_to_peak(self, channel: int) -> MeasurementResult:
         """
         Measure the peak-to-peak voltage for a specified channel.
 
@@ -855,7 +814,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                 message="Channel number is out of range.",
             )
 
-        response_str: str = await self._query(f"MEAS:VPP? CHAN{channel}")
+        response_str: str = self._query(f"MEAS:VPP? CHAN{channel}")
         reading: float = float(response_str)
 
         value_to_return: float | UFloat = reading
@@ -888,7 +847,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         return measurement_result
 
     @validate_call
-    async def measure_rms_voltage(self, channel: int) -> MeasurementResult:
+    def measure_rms_voltage(self, channel: int) -> MeasurementResult:
         """
         Measure the root-mean-square (RMS) voltage for a specified channel.
 
@@ -906,7 +865,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                 message="Channel number is out of range.",
             )
 
-        response_str: str = await self._query(f"MEAS:VRMS? CHAN{channel}")
+        response_str: str = self._query(f"MEAS:VRMS? CHAN{channel}")
         reading: float = float(response_str)
 
         value_to_return: float | UFloat = reading
@@ -939,7 +898,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
 
     @validate_call
     @validate_call
-    async def read_channels(
+    def read_channels(
         self,
         *channels: Union[int, List[int], Tuple[int, ...]],
         points: Optional[int] = None,
@@ -982,28 +941,28 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
 
         # -------------------- optional time-base tweak (unchanged) ---------------------
         if timebase is not None:
-            cur_scale, cur_pos = await self.get_time_axis()
-            await self.set_time_axis(scale=timebase, position=cur_pos)
+            cur_scale, cur_pos = self.get_time_axis()
+            self.set_time_axis(scale=timebase, position=cur_pos)
 
         # ----------------------------- acquire waveform --------------------------------
         chan_list_str = ", ".join(f"CHANnel{ch}" for ch in processed_channels)
-        await self._send_command(f"DIGitize {chan_list_str}")
+        self._send_command(f"DIGitize {chan_list_str}")
 
-        sampling_rate = float(await self.get_sampling_rate())
+        sampling_rate = float(self.get_sampling_rate())
 
         time_array: Optional[np.ndarray] = None
         columns: dict[str, np.ndarray] = {}
 
         for idx, ch in enumerate(processed_channels, start=1):
             # Select channel as waveform source and fetch its preamble
-            await self._send_command(f":WAVeform:SOURce CHANnel{ch}")
-            pre = await self._read_preamble()
+            self._send_command(f":WAVeform:SOURce CHANnel{ch}")
+            pre = self._read_preamble()
 
             # Always keep the instrument in BYTE, RAW mode for consistency
-            await self._send_command(":WAVeform:FORMat BYTE")
-            await self._send_command(":WAVeform:POINts:MODE RAW")
+            self._send_command(":WAVeform:FORMat BYTE")
+            self._send_command(":WAVeform:POINts:MODE RAW")
 
-            raw = await self._read_wave_data(f"CHANnel{ch}")
+            raw = self._read_wave_data(f"CHANnel{ch}")
 
             # Convert Y-axis using **this channel’s** preamble
             volts = (raw - pre.yref) * pre.yinc + pre.yorg
@@ -1026,18 +985,18 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         )
 
     @validate_call
-    async def get_sampling_rate(self) -> float:
+    def get_sampling_rate(self) -> float:
         """
         Get the current sampling rate of the oscilloscope.
         Returns:
             float: The sampling rate in Hz.
         """
-        response_str: str = await self._query(":ACQuire:SRATe?")
+        response_str: str = self._query(":ACQuire:SRATe?")
         sampling_rate_float: float = np.float64(response_str)
         return sampling_rate_float
 
     @validate_call
-    async def get_probe_attenuation(self, channel: int) -> str: # Returns string like "10:1"
+    def get_probe_attenuation(self, channel: int) -> str: # Returns string like "10:1"
         """
         Gets the probe attenuation for a given channel.
 
@@ -1054,7 +1013,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                 valid_range=(1, len(self.config.channels)),
                 message="Channel number is out of range.",
             )
-        response_str: str = (await self._query(f"CHANnel{channel}:PROBe?")).strip()
+        response_str: str = (self._query(f"CHANnel{channel}:PROBe?")).strip()
         # Assuming response is the numeric factor (e.g., "10", "1")
         try:
             # Ensure it's a number before formatting
@@ -1067,7 +1026,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             return response_str # Or raise error
 
     @validate_call
-    async def set_probe_attenuation(self, channel: int, scale: int) -> None:
+    def set_probe_attenuation(self, channel: int, scale: int) -> None:
         """
         Sets the probe scale for a given channel.
 
@@ -1093,21 +1052,21 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             )
 
         # SCPI command usually takes the numeric factor directly
-        await self._send_command(f":CHANnel{channel}:PROBe {scale}")
+        self._send_command(f":CHANnel{channel}:PROBe {scale}")
         self._logger.debug(f"Set probe scale to {scale}:1 for channel {channel}.")
 
     @validate_call
-    async def set_acquisition_time(self, time: float) -> None:
+    def set_acquisition_time(self, time: float) -> None:
         """
         Set the total acquisition time for the oscilloscope.
 
         Args:
             time (float): The total acquisition time in seconds.
         """
-        await self._send_command(f":TIMebase:MAIN:RANGe {time}")
+        self._send_command(f":TIMebase:MAIN:RANGe {time}")
 
     @validate_call
-    async def set_sample_rate(self, rate: str) -> None:
+    def set_sample_rate(self, rate: str) -> None:
         """
         Sets the sample rate for the oscilloscope.
 
@@ -1123,10 +1082,10 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                 valid_range=valid_values,
                 message="Invalid rate.",
             )
-        await self._send_command(f"ACQuire:SRATe {rate_upper}")
+        self._send_command(f"ACQuire:SRATe {rate_upper}")
 
     @validate_call
-    async def set_bandwidth_limit(self, channel: int, bandwidth: Union[str, float]) -> None:
+    def set_bandwidth_limit(self, channel: int, bandwidth: Union[str, float]) -> None:
         """
         Sets the bandwidth limit for a specified channel.
         Args:
@@ -1140,11 +1099,11 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                 valid_range=(1, len(self.config.channels)),
                 message="Channel number is out of range.",
             )
-        await self._send_command(f"CHANnel{channel}:BANDwidth {bandwidth}")
+        self._send_command(f"CHANnel{channel}:BANDwidth {bandwidth}")
 
     @validate_call
     #@ConfigRequires("function_generator")
-    async def wave_gen(self, state: bool) -> None:
+    def wave_gen(self, state: bool) -> None:
         """
         Enable or disable the waveform generator of the oscilloscope.
 
@@ -1152,11 +1111,11 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         state (bool): True to enable ('ON'), False to disable ('OFF').
         """
         scpi_state = SCPIOnOff.ON.value if state else SCPIOnOff.OFF.value
-        await self._send_command(f"WGEN:OUTP {scpi_state}")
+        self._send_command(f"WGEN:OUTP {scpi_state}")
 
     @validate_call
     #@ConfigRequires("function_generator")
-    async def set_wave_gen_func(self, func_type: WaveformType) -> None:
+    def set_wave_gen_func(self, func_type: WaveformType) -> None:
         """
         Set the waveform function for the oscilloscope's waveform generator.
 
@@ -1177,11 +1136,11 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                 message="Unsupported waveform type.",
             )
 
-        await self._send_command(f"WGEN:FUNC {func_type.value}")
+        self._send_command(f"WGEN:FUNC {func_type.value}")
 
     @validate_call
     ##@ConfigRequires("function_generator")
-    async def set_wave_gen_freq(self, freq: float) -> None:
+    def set_wave_gen_freq(self, freq: float) -> None:
         """
         Set the frequency for the waveform generator.
 
@@ -1194,11 +1153,11 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             )
         # Assuming RangeMixin's assert_in_range is preferred for validation
         self.config.function_generator.frequency.assert_in_range(freq, name="Waveform generator frequency")
-        await self._send_command(f"WGEN:FREQ {freq}")
+        self._send_command(f"WGEN:FREQ {freq}")
 
     @validate_call
     #@ConfigRequires("function_generator")
-    async def set_wave_gen_amp(self, amp: float) -> None:
+    def set_wave_gen_amp(self, amp: float) -> None:
         """
         Set the amplitude for the waveform generator.
 
@@ -1210,11 +1169,11 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                 self.config.model, "Function generator not configured."
             )
         self.config.function_generator.amplitude.assert_in_range(amp, name="Waveform generator amplitude")
-        await self._send_command(f"WGEN:VOLT {amp}")
+        self._send_command(f"WGEN:VOLT {amp}")
 
     @validate_call
     #@ConfigRequires("function_generator")
-    async def set_wave_gen_offset(self, offset: float) -> None:
+    def set_wave_gen_offset(self, offset: float) -> None:
         """
         Set the voltage offset for the waveform generator.
 
@@ -1226,11 +1185,11 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                 self.config.model, "Function generator not configured."
             )
         self.config.function_generator.offset.assert_in_range(offset, name="Waveform generator offset")
-        await self._send_command(f"WGEN:VOLT:OFFSet {offset}")
+        self._send_command(f"WGEN:VOLT:OFFSet {offset}")
 
     @validate_call
     #@ConfigRequires("function_generator")
-    async def set_wgen_sin(self, amp: float, offset: float, freq: float) -> None:
+    def set_wgen_sin(self, amp: float, offset: float, freq: float) -> None:
         """Sets the waveform generator to a sine wave.
 
         :param amp: The amplitude of the sine wave in volts
@@ -1241,15 +1200,15 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             raise InstrumentConfigurationError(
                 self.config.model, "Function generator not configured."
             )
-        await self.set_wave_gen_func(WaveformType.SINE)
-        await self.set_wave_gen_amp(amp)
-        await self.set_wave_gen_offset(offset)
-        await self.set_wave_gen_freq(freq)
+        self.set_wave_gen_func(WaveformType.SINE)
+        self.set_wave_gen_amp(amp)
+        self.set_wave_gen_offset(offset)
+        self.set_wave_gen_freq(freq)
 
 
     @validate_call
     #@ConfigRequires("function_generator")
-    async def set_wgen_square(self, v0: float, v1: float, freq: float, duty_cycle: Optional[int] = None, **kwargs) -> None:
+    def set_wgen_square(self, v0: float, v1: float, freq: float, duty_cycle: Optional[int] = None, **kwargs) -> None:
         """Sets the waveform generator to a square wave.
 
         :param v0: The voltage of the low state in volts
@@ -1273,20 +1232,20 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                 self.config.model, "Function generator not configured."
             )
 
-        await self.set_wave_gen_func(WaveformType.SQUARE)
+        self.set_wave_gen_func(WaveformType.SQUARE)
 
         def clamp_duty(number: int) -> int:
             return max(1, min(number, 99))
 
-        await self._send_command(f':WGEN:VOLTage:LOW {v0}')
-        await self._send_command(f':WGEN:VOLTage:HIGH {v1}')
-        await self._send_command(f':WGEN:FREQuency {freq}')
-        await self._send_command(f':WGEN:FUNCtion:SQUare:DCYCle {clamp_duty(duty_cycle)}')
+        self._send_command(f':WGEN:VOLTage:LOW {v0}')
+        self._send_command(f':WGEN:VOLTage:HIGH {v1}')
+        self._send_command(f':WGEN:FREQuency {freq}')
+        self._send_command(f':WGEN:FUNCtion:SQUare:DCYCle {clamp_duty(duty_cycle)}')
 
 
     @validate_call
     #@ConfigRequires("function_generator")
-    async def set_wgen_ramp(self, v0: float, v1: float, freq: float, symmetry: int) -> None:
+    def set_wgen_ramp(self, v0: float, v1: float, freq: float, symmetry: int) -> None:
         """Sets the waveform generator to a ramp wave.
 
         :param v0: The voltage of the low state in volts
@@ -1298,19 +1257,19 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             raise InstrumentConfigurationError(
                 self.config.model, "Function generator not configured."
             )
-        await self.set_wave_gen_func(WaveformType.RAMP)
+        self.set_wave_gen_func(WaveformType.RAMP)
         def clamp_symmetry(number: int) -> int:
             return max(0, min(number, 100))
 
-        await self._send_command(f':WGEN:VOLTage:LOW {v0}')
-        await self._send_command(f':WGEN:VOLTage:HIGH {v1}')
-        await self._send_command(f':WGEN:FREQuency {freq}')
-        await self._send_command(f':WGEN:FUNCtion:RAMP:SYMMetry {clamp_symmetry(symmetry)}')
+        self._send_command(f':WGEN:VOLTage:LOW {v0}')
+        self._send_command(f':WGEN:VOLTage:HIGH {v1}')
+        self._send_command(f':WGEN:FREQuency {freq}')
+        self._send_command(f':WGEN:FUNCtion:RAMP:SYMMetry {clamp_symmetry(symmetry)}')
 
 
     @validate_call
     #@ConfigRequires("function_generator")
-    async def set_wgen_pulse(self, v0: float, v1: float, period: float, pulse_width: Optional[float] = None, **kwargs) -> None:
+    def set_wgen_pulse(self, v0: float, v1: float, period: float, pulse_width: Optional[float] = None, **kwargs) -> None:
         """Sets the waveform generator to a pulse wave.
 
         :param v0: The voltage of the low state in volts
@@ -1333,17 +1292,17 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             raise InstrumentConfigurationError(
                 self.config.model, "Function generator not configured."
             )
-        await self.set_wave_gen_func(WaveformType.PULSE)
+        self.set_wave_gen_func(WaveformType.PULSE)
 
-        await self._send_command(f':WGEN:VOLTage:LOW {v0}')
-        await self._send_command(f':WGEN:VOLTage:HIGH {v1}')
-        await self._send_command(f':WGEN:PERiod {period}')
-        await self._send_command(f':WGEN:FUNCtion:PULSe:WIDTh {pulse_width}')
+        self._send_command(f':WGEN:VOLTage:LOW {v0}')
+        self._send_command(f':WGEN:VOLTage:HIGH {v1}')
+        self._send_command(f':WGEN:PERiod {period}')
+        self._send_command(f':WGEN:FUNCtion:PULSe:WIDTh {pulse_width}')
 
 
     @validate_call
     #@ConfigRequires("function_generator")
-    async def set_wgen_dc(self, offset: float) -> None:
+    def set_wgen_dc(self, offset: float) -> None:
         """Sets the waveform generator to a DC wave.
 
         :param offset: The offset of the DC wave in volts
@@ -1352,13 +1311,13 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             raise InstrumentConfigurationError(
                 self.config.model, "Function generator not configured."
             )
-        await self.set_wave_gen_func(WaveformType.DC)
-        await self.set_wave_gen_offset(offset)
+        self.set_wave_gen_func(WaveformType.DC)
+        self.set_wave_gen_offset(offset)
 
 
     @validate_call
     #@ConfigRequires("function_generator")
-    async def set_wgen_noise(self, v0: float, v1: float, offset: float) -> None:
+    def set_wgen_noise(self, v0: float, v1: float, offset: float) -> None:
         """Sets the waveform generator to a noise wave.
 
         :param v0: The 'low' amplitude component or similar parameter for noise.
@@ -1369,13 +1328,13 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             raise InstrumentConfigurationError(
                 self.config.model, "Function generator not configured."
             )
-        await self.set_wave_gen_func(WaveformType.NOISE)
-        await self._send_command(f':WGEN:VOLTage:LOW {v0}')
-        await self._send_command(f':WGEN:VOLTage:HIGH {v1}')
-        await self.set_wave_gen_offset(offset)
+        self.set_wave_gen_func(WaveformType.NOISE)
+        self._send_command(f':WGEN:VOLTage:LOW {v0}')
+        self._send_command(f':WGEN:VOLTage:HIGH {v1}')
+        self.set_wave_gen_offset(offset)
 
     @validate_call
-    async def display_channel(self, channels: Union[int, List[int]], state: bool = True) -> None:
+    def display_channel(self, channels: Union[int, List[int]], state: bool = True) -> None:
         """
         Display or hide the specified channel(s) on the oscilloscope.
 
@@ -1403,35 +1362,35 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                     valid_range=(1, len(self.config.channels)),
                     message="Channel number is out of range.",
                 )
-            await self._send_command(f"CHANnel{ch_num}:DISPlay {scpi_state}")
+            self._send_command(f"CHANnel{ch_num}:DISPlay {scpi_state}")
 
     @validate_call
     #@ConfigRequires("fft")
-    async def fft_display(self, state: bool = True) -> None:
+    def fft_display(self, state: bool = True) -> None:
         """
         Switches on or off the FFT display.
 
         :param state: True to enable FFT display, False to disable.
         """
         scpi_state = SCPIOnOff.ON.value if state else SCPIOnOff.OFF.value
-        await self._send_command(f":FFT:DISPlay {scpi_state}")
+        self._send_command(f":FFT:DISPlay {scpi_state}")
         self._logger.debug(f"FFT display {'enabled' if state else 'disabled'}.")
 
     @validate_call
     #@ConfigRequires("function_generator")
-    async def function_display(self, state: bool = True) -> None:
+    def function_display(self, state: bool = True) -> None:
         """
         Switches on or off the function display (e.g. Math or WGEN waveform).
 
         :param state: True to enable display, False to disable.
         """
         scpi_state = SCPIOnOff.ON.value if state else SCPIOnOff.OFF.value
-        await self._send_command(f":FUNCtion:DISPlay {scpi_state}")
+        self._send_command(f":FUNCtion:DISPlay {scpi_state}")
         self._logger.debug(f"Function display {'enabled' if state else 'disabled'}.")
 
     @validate_call
     #@ConfigRequires("fft")
-    async def configure_fft(self, source_channel: int, scale: Optional[float] = None, offset: Optional[float] = None, span: Optional[float] = None,  window_type: str = 'HANNing', units: str = 'DECibel', display: bool = True) -> None:
+    def configure_fft(self, source_channel: int, scale: Optional[float] = None, offset: Optional[float] = None, span: Optional[float] = None,  window_type: str = 'HANNing', units: str = 'DECibel', display: bool = True) -> None:
         """
         Configure the oscilloscope to perform an FFT on the specified channel.
 
@@ -1476,26 +1435,26 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             )
         scpi_units = units
 
-        await self._send_command(f':FFT:SOURce1 CHANnel{source_channel}')
-        await self._send_command(f':FFT:WINDow {scpi_window}')
+        self._send_command(f':FFT:SOURce1 CHANnel{source_channel}')
+        self._send_command(f':FFT:WINDow {scpi_window}')
 
         if span is not None:
-            await self._send_command(f':FFT:SPAn {span}')
+            self._send_command(f':FFT:SPAn {span}')
 
-        await self._send_command(f':FFT:VTYPe {scpi_units}')
+        self._send_command(f':FFT:VTYPe {scpi_units}')
 
         if scale is not None:
-            await self._send_command(f':FFT:SCALe {scale}')
+            self._send_command(f':FFT:SCALe {scale}')
 
         if offset is not None:
-            await self._send_command(f':FFT:OFFSet {offset}')
+            self._send_command(f':FFT:OFFSet {offset}')
 
         scpi_display_state = SCPIOnOff.ON.value if display else SCPIOnOff.OFF.value
-        await self._send_command(f':FFT:DISPlay {scpi_display_state}')
+        self._send_command(f':FFT:DISPlay {scpi_display_state}')
 
         self._logger.debug(f"FFT configured for channel {source_channel}.")
 
-    async def _convert_binary_block_to_data(self, binary_block: bytes) -> np.ndarray: # No internal await calls, can remain sync if preferred, but making async for consistency if it's part of an async chain
+    def _convert_binary_block_to_data(self, binary_block: bytes) -> np.ndarray: # Synchronous method for converting binary data
         """
         Converts a SCPI binary block to a NumPy array.
         Assumes format like #<N><LengthBytes><DataBytes>
@@ -1523,7 +1482,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         return data_array
 
     @validate_call
-    async def read_fft_data(self, channel: int, window: Optional[str] = 'hann') -> FFTResult:
+    def read_fft_data(self, channel: int, window: Optional[str] = 'hann') -> FFTResult:
         """
         Acquires time-domain data for the specified channel and computes the FFT using
         the analysis submodule.
@@ -1547,7 +1506,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             )
 
         # 1. Acquire raw time-domain waveform data
-        waveform_data: ChannelReadingResult = await self.read_channels(channel)
+        waveform_data: ChannelReadingResult = self.read_channels(channel)
 
         if waveform_data.values is None or waveform_data.values.is_empty():
             self._logger.warning(f"No waveform data acquired for channel {channel}. Cannot compute FFT.")
@@ -1590,13 +1549,13 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         )
 
     @validate_call
-    async def screenshot(self) -> Image.Image:
+    def screenshot(self) -> Image.Image:
         """
         Capture a screenshot of the oscilloscope display.
 
         :return Image: A PIL Image object containing the screenshot.
         """
-        binary_data_response: bytes = await self._query_raw(":DISPlay:DATA? PNG, COLor")
+        binary_data_response: bytes = self._query_raw(":DISPlay:DATA? PNG, COLor")
 
         if not binary_data_response.startswith(b'#'):
             raise InstrumentDataError(
@@ -1614,7 +1573,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
     @validate_call
     #@ConfigRequires("franalysis")
     #@ConfigRequires("function_generator")
-    async def franalysis_sweep(self, input_channel: int, output_channel: int, start_freq: float, stop_freq: float, amplitude: float, points: int = 10, trace: str = "none", load: str = "onemeg", disable_on_complete: bool = True) -> FRanalysisResult:
+    def franalysis_sweep(self, input_channel: int, output_channel: int, start_freq: float, stop_freq: float, amplitude: float, points: int = 10, trace: str = "none", load: str = "onemeg", disable_on_complete: bool = True) -> FRanalysisResult:
         """
         Perform a frequency response analysis sweep.
 
@@ -1651,22 +1610,22 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             )
 
         # SCPI commands for frequency response analysis sweep
-        await self._send_command(f":FUNCtion:FRANalysis")
-        await self._send_command(f":FREQuency:START {start_freq}")
-        await self._send_command(f":FREQuency:STOP {stop_freq}")
-        await self._send_command(f":AMPLitude {amplitude}")
-        await self._send_command(f":POINTS {points}")
-        await self._send_command(f":TRACe:FEED {trace}")
-        await self._send_command(f":LOAD {load}")
+        self._send_command(f":FUNCtion:FRANalysis")
+        self._send_command(f":FREQuency:START {start_freq}")
+        self._send_command(f":FREQuency:STOP {stop_freq}")
+        self._send_command(f":AMPLitude {amplitude}")
+        self._send_command(f":POINTS {points}")
+        self._send_command(f":TRACe:FEED {trace}")
+        self._send_command(f":LOAD {load}")
 
         if disable_on_complete:
-            await self._send_command(":DISABLE")
+            self._send_command(":DISABLE")
 
         # Optionally wait for completion or check status
-        await self._wait()  # Ensure to wait for the command to complete
+        self._wait()  # Ensure to wait for the command to complete
 
         # Assuming the result can be fetched with a common query, adjust as necessary
-        result_data = await self._query(":FETCH:FRANalysis?")
+        result_data = self._query(":FETCH:FRANalysis?")
 
         # Parse the result data into a structured format if needed
         # For now, let's assume it's a simple comma-separated value string

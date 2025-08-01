@@ -92,36 +92,35 @@ traceability:
 
 ## Using a Bench in Python
 
-The `pytestlab.Bench` class is the primary way to work with bench configurations. The recommended way to load a bench is with the `async with` statement, which handles instrument connection and cleanup automatically.
+The `pytestlab.Bench` class is the primary way to work with bench configurations. The recommended way to load a bench is with the `with` statement, which handles instrument connection and cleanup automatically.
 
 ```python
-import asyncio
 import pytestlab
 
-async def main():
+def main():
     # Bench.open() loads the YAML, validates it, and connects to all instruments.
-    # The async with statement ensures instruments are closed properly.
+    # The with statement ensures instruments are closed properly.
     try:
-        async with await pytestlab.Bench.open("path/to/your/bench.yaml") as bench:
+        with pytestlab.Bench.open("path/to/your/bench.yaml") as bench:
             print(f"✅ Bench '{bench.config.bench_name}' loaded successfully.")
             print(f"🔬 Testing DUT: {bench.config.traceability.dut.description}")
 
             # Access instruments by their alias.
             # The API is the same as using a standalone instrument.
-            await bench.psu.channel(1).set(voltage=3.3, current_limit=0.5).on()
+            bench.psu.channel(1).set(voltage=3.3, current_limit=0.5).on()
 
             # Perform a measurement with the DMM.
-            dc_voltage = await bench.dmm.measure_voltage_dc()
+            dc_voltage = bench.dmm.measure_voltage_dc()
             print(f"Measured Voltage: {dc_voltage.values:.4f} V")
 
-        # Post-experiment hooks are run automatically upon exiting the 'async with' block.
+        # Post-experiment hooks are run automatically upon exiting the 'with' block.
         print("✅ Bench closed successfully.")
 
     except Exception as e:
         print(f"❌ An error occurred: {e}")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
 ```
 
 ### Safety Limits
@@ -131,7 +130,7 @@ When `safety_limits` are defined in `bench.yaml`, PyTestLab wraps the instrument
 ```python
 try:
     # This will fail because the safety limit in our YAML is 5.5V
-    await bench.psu.set_voltage(1, 6.0)
+    bench.psu.set_voltage(1, 6.0)
 except SafetyLimitError as e:
     print(f"Caught expected safety error: {e}")
 ```

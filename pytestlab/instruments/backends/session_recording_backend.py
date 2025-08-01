@@ -1,5 +1,4 @@
 # pytestlab/instruments/backends/session_recording_backend.py
-import asyncio
 import logging
 import time
 from typing import List, Dict, Any
@@ -20,23 +19,23 @@ class SessionRecordingBackend(AsyncInstrumentIO):
         self.session_log = session_log
         self.start_time = time.monotonic()
 
-    async def connect(self) -> None:
-        await self.original_backend.connect()
+    def connect(self) -> None:
+        self.original_backend.connect()
 
-    async def disconnect(self) -> None:
-        await self.original_backend.disconnect()
+    def disconnect(self) -> None:
+        self.original_backend.disconnect()
 
     def _log_event(self, event_data: Dict[str, Any]):
         """Appends a timestamped event to the session log."""
         event_data["timestamp"] = time.monotonic() - self.start_time
         self.session_log.append(event_data)
 
-    async def write(self, command: str) -> None:
+    def write(self, command: str) -> None:
         self._log_event({"type": "write", "command": command.strip()})
-        await self.original_backend.write(command)
+        self.original_backend.write(command)
 
-    async def query(self, command: str, delay: float | None = None) -> str:
-        response = await self.original_backend.query(command, delay=delay)
+    def query(self, command: str, delay: float | None = None) -> str:
+        response = self.original_backend.query(command, delay=delay)
         self._log_event({
             "type": "query",
             "command": command.strip(),
@@ -44,8 +43,8 @@ class SessionRecordingBackend(AsyncInstrumentIO):
         })
         return response
 
-    async def query_raw(self, command: str, delay: float | None = None) -> bytes:
-        response = await self.original_backend.query_raw(command, delay=delay)
+    def query_raw(self, command: str, delay: float | None = None) -> bytes:
+        response = self.original_backend.query_raw(command, delay=delay)
         # Note: Storing raw bytes in YAML is tricky. Consider base64 encoding for robustness.
         # For simplicity here, we'll decode assuming it's representable as a string.
         try:
@@ -60,12 +59,12 @@ class SessionRecordingBackend(AsyncInstrumentIO):
         })
         return response
 
-    async def close(self):
+    def close(self):
         # The file writing is now handled by the CLI command. This just closes the wrapped backend.
-        await self.original_backend.close()
+        self.original_backend.close()
 
-    async def set_timeout(self, timeout_ms: int) -> None:
-        await self.original_backend.set_timeout(timeout_ms)
+    def set_timeout(self, timeout_ms: int) -> None:
+        self.original_backend.set_timeout(timeout_ms)
 
-    async def get_timeout(self) -> int:
-        return await self.original_backend.get_timeout()
+    def get_timeout(self) -> int:
+        return self.original_backend.get_timeout()

@@ -50,7 +50,7 @@ class AsyncLambBackend:  # Implements AsyncInstrumentIO
             f"AsyncLambBackend initialized for address='{address}', model='{model_name}', serial='{serial_number}' at URL '{url}'"
         )
 
-    async def _ensure_connected(self) -> None:
+    def _ensure_connected(self) -> None:
         """
         Ensures that self.instrument_address is set.
         If not, and model_name/serial_number are provided, performs auto-connect.
@@ -68,8 +68,8 @@ class AsyncLambBackend:  # Implements AsyncInstrumentIO
             payload = {"model_name": self.model_name}
             if self.serial_number:
                 payload["serial_number"] = self.serial_number
-            async with httpx.AsyncClient(timeout=self._timeout_sec) as client:
-                response = await client.post(
+            with httpx.AsyncClient(timeout=self._timeout_sec) as client:
+                response = client.post(
                     f"{self.base_url}/add",
                     json=payload,
                     headers={"Accept": "application/json", 'Accept-Charset': 'utf-8'}
@@ -94,24 +94,24 @@ class AsyncLambBackend:  # Implements AsyncInstrumentIO
                 f"Network error during Lamb auto-connect: {e}"
             ) from e
 
-    async def connect(self) -> None:
+    def connect(self) -> None:
         """
         Ensures the instrument is registered with Lamb and ready.
         """
-        await self._ensure_connected()
+        self._ensure_connected()
         # Optionally, ping instrument status endpoint here
         lamb_logger.info(f"Connected to Lamb instrument '{self.instrument_address}'.")
 
-    async def disconnect(self) -> None:
+    def disconnect(self) -> None:
         lamb_logger.info(f"AsyncLambBackend for '{self.instrument_address}' disconnected (simulated, as client is per-request or context-managed).")
         pass
 
-    async def write(self, cmd: str) -> None:
-        await self._ensure_connected()
+    def write(self, cmd: str) -> None:
+        self._ensure_connected()
         lamb_logger.debug(f"WRITE to '{self.instrument_address}': {cmd}")
         try:
-            async with httpx.AsyncClient(timeout=self._timeout_sec) as client:
-                response = await client.post(
+            with httpx.AsyncClient(timeout=self._timeout_sec) as client:
+                response = client.post(
                     f"{self.base_url}/instrument/write",
                     json={"visa_string": self.instrument_address, "command": cmd},
                     headers={"Accept": "application/json", 'Accept-Charset': 'utf-8'}
@@ -126,12 +126,12 @@ class AsyncLambBackend:  # Implements AsyncInstrumentIO
                 f"Network error during Lamb write: {e}"
             ) from e
 
-    async def query(self, cmd: str, delay: Optional[float] = None) -> str:
-        await self._ensure_connected()
+    def query(self, cmd: str, delay: Optional[float] = None) -> str:
+        self._ensure_connected()
         lamb_logger.debug(f"QUERY to '{self.instrument_address}': {cmd}")
         try:
-            async with httpx.AsyncClient(timeout=self._timeout_sec) as client:
-                response = await client.post(
+            with httpx.AsyncClient(timeout=self._timeout_sec) as client:
+                response = client.post(
                     f"{self.base_url}/instrument/query",
                     json={"visa_string": self.instrument_address, "command": cmd},
                     headers={"Accept": "application/json", 'Accept-Charset': 'utf-8'}
@@ -148,12 +148,12 @@ class AsyncLambBackend:  # Implements AsyncInstrumentIO
                 f"Network error during Lamb query: {e}"
             ) from e
 
-    async def query_raw(self, cmd: str, delay: Optional[float] = None) -> bytes:
-        await self._ensure_connected()
+    def query_raw(self, cmd: str, delay: Optional[float] = None) -> bytes:
+        self._ensure_connected()
         lamb_logger.debug(f"QUERY_RAW to '{self.instrument_address}': {cmd}")
         try:
-            async with httpx.AsyncClient(timeout=self._timeout_sec) as client:
-                response = await client.post(
+            with httpx.AsyncClient(timeout=self._timeout_sec) as client:
+                response = client.post(
                     f"{self.base_url}/instrument/query_raw",
                     json={"visa_string": self.instrument_address, "command": cmd},
                     headers={"Accept": "application/octet-stream"}
@@ -169,17 +169,17 @@ class AsyncLambBackend:  # Implements AsyncInstrumentIO
                 f"Network error during Lamb query_raw: {e}"
             ) from e
 
-    async def close(self) -> None:
-        await self.disconnect()
+    def close(self) -> None:
+        self.disconnect()
 
-    async def set_timeout(self, timeout_ms: int) -> None:
+    def set_timeout(self, timeout_ms: int) -> None:
         if timeout_ms <= 0:
             self._timeout_sec = 0.001
         else:
             self._timeout_sec = timeout_ms / 1000.0
         lamb_logger.debug(f"AsyncLambBackend timeout set to {self._timeout_sec} seconds.")
 
-    async def get_timeout(self) -> int:
+    def get_timeout(self) -> int:
         return int(self._timeout_sec * 1000)
 
 # Static type checking helper

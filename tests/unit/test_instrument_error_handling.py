@@ -4,7 +4,7 @@ from typing import List, Optional
 from pytestlab.instruments.instrument import Instrument
 from pytestlab.config.instrument_config import InstrumentConfig
 from pytestlab.instruments.backends.sim_backend import SimBackend
-from pytestlab.errors import InstrumentCommunicationError, InstrumentError
+from pytestlab.errors import InstrumentCommunicationError, InstrumentDataError
 
 # A specialized SimBackend for testing error handling
 class ProgrammableErrorSimBackend(SimBackend):
@@ -58,7 +58,7 @@ def test_error_check_no_error(error_handling_instrument):
     """Test _error_check() when SimBackend returns '+0,No error'."""
     instrument, backend = error_handling_instrument
     backend.set_error_responses(["+0,\"No error\""])
-    
+
     instrument._error_check() # Should not raise an error
     assert backend.get_syst_err_query_count() == 1
 
@@ -78,7 +78,7 @@ def test_get_error_no_error(error_handling_instrument):
     """Test get_error() when no error is present."""
     instrument, backend = error_handling_instrument
     backend.set_error_responses(["+0,\"No error\""])
-    
+
     code, message = instrument.get_error()
     assert code == 0
     assert message == "No error"
@@ -100,10 +100,10 @@ def test_get_error_malformed_response(error_handling_instrument):
     instrument, backend = error_handling_instrument
     # Example of a response that doesn't fit the "code,message" pattern
     backend.set_error_responses(["MALFORMED_ERROR_STRING"])
-    
+
     # Depending on implementation, this might raise an error or return default/parsed values
     # Assuming it might raise an InstrumentError or return (0, "Malformed error response")
-    with pytest.raises(InstrumentError): # Or check for specific parsing error handling
+    with pytest.raises(InstrumentDataError): # Or check for specific parsing error handling
          instrument.get_error()
     # Or if it tries to parse and fails:
     # code, message = instrument.get_error()
@@ -155,13 +155,13 @@ def test_get_all_errors_stops_after_max_attempts(error_handling_instrument):
     # This requires knowing or setting Instrument.MAX_ERRORS_TO_READ
     # Monkeypatch or use a known value. Let's assume it's accessible or a constant.
     # For this test, we'll assume a default like 10.
-    
+
     # If Instrument.MAX_ERRORS_TO_READ is not easily accessible/mockable,
     # this test might be harder to make precise.
     # Let's assume we can access/set it for the test.
     original_max_errors = Instrument.MAX_ERRORS_TO_READ
     Instrument.MAX_ERRORS_TO_READ = 5 # Temporarily change for test
-    
+
     persistent_error = "-420,\"Query UNTERMINATED\""
     responses = [persistent_error] * (Instrument.MAX_ERRORS_TO_READ + 5) # More errors than max_attempts
     backend.set_error_responses(responses)
@@ -172,7 +172,7 @@ def test_get_all_errors_stops_after_max_attempts(error_handling_instrument):
         assert code == -420
         assert msg == "Query UNTERMINATED"
     assert backend.get_syst_err_query_count() == Instrument.MAX_ERRORS_TO_READ
-    
+
     Instrument.MAX_ERRORS_TO_READ = original_max_errors # Restore original value
 
 # Note: Some tests might depend on the exact implementation details of

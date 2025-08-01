@@ -46,6 +46,22 @@ A backend that wraps another backend and records all SCPI commands and responses
 
 ---
 
+### `ReplayBackend` {#replaybackend}
+
+Backend for replaying recorded instrument sessions with strict sequence validation. Used for reproducible measurements and regression testing.
+
+::: pytestlab.instruments.backends.replay_backend.ReplayBackend
+
+---
+
+### `SessionRecordingBackend` {#sessionrecordingbackend}
+
+Backend that wraps real instrument backends to record all interactions for later replay. Used in conjunction with ReplayBackend for record-and-replay workflows.
+
+::: pytestlab.instruments.backends.session_recording_backend.SessionRecordingBackend
+
+---
+
 ## Backend Selection Logic
 
 PyTestLab chooses the backend automatically based on:

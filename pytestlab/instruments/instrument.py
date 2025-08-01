@@ -4,7 +4,6 @@ from .._log import get_logger
 from typing import Optional, Tuple, Any, Callable, Type, List as TypingList, Dict, Union, Protocol, TypeVar, Generic
 from abc import abstractmethod
 import numpy as np
-import asyncio
 # polars.List is a DataType, not for type hinting Python lists.
 # from polars import List
 from ..errors import InstrumentConnectionBusy, InstrumentConfigurationError, InstrumentNotFoundError, InstrumentCommunicationError, InstrumentConnectionError, InstrumentParameterError
@@ -58,29 +57,29 @@ class AsyncInstrumentIO(Protocol):
     backend (e.g., using async VISA, HTTP, or a simulation) must implement.
     This is the primary interface used by the `Instrument` class.
     """
-    async def connect(self) -> None:
+    def connect(self) -> None:
         """Establishes the connection to the instrument asynchronously."""
         ...
-    async def disconnect(self) -> None:
+    def disconnect(self) -> None:
         """Terminates the connection to the instrument asynchronously."""
         ...
-    async def write(self, cmd: str) -> None:
+    def write(self, cmd: str) -> None:
         """Sends a command to the instrument asynchronously."""
         ...
-    async def query(self, cmd: str, delay: Optional[float] = None) -> str:
+    def query(self, cmd: str, delay: Optional[float] = None) -> str:
         """Sends a command and reads a string response asynchronously."""
         ...
-    async def query_raw(self, cmd: str, delay: Optional[float] = None) -> bytes:
+    def query_raw(self, cmd: str, delay: Optional[float] = None) -> bytes:
         """Sends a command and reads a raw byte response asynchronously."""
         ...
-    async def close(self) -> None:
+    def close(self) -> None:
         """Closes the instrument session asynchronously."""
         ...
 
-    async def set_timeout(self, timeout_ms: int) -> None:
+    def set_timeout(self, timeout_ms: int) -> None:
         """Sets the communication timeout in milliseconds asynchronously."""
         ...
-    async def get_timeout(self) -> int:
+    def get_timeout(self) -> int:
         """Gets the communication timeout in milliseconds asynchronously."""
         ...
 
@@ -153,7 +152,7 @@ class Instrument(Generic[ConfigType]):
         )
 
 
-    async def connect_backend(self) -> None:
+    def connect_backend(self) -> None:
         """Establishes the connection to the instrument via the backend.
 
         This method must be called after the instrument is instantiated to open
@@ -165,20 +164,20 @@ class Instrument(Generic[ConfigType]):
         """
         logger_name = self.config.model if hasattr(self.config, 'model') else self.__class__.__name__
         try:
-            await self._backend.connect()
+            self._backend.connect()
             self._logger.info(f"Instrument '{logger_name}': Backend connected.")
         except Exception as e:
             self._logger.error(f"Instrument '{logger_name}': Failed to connect backend: {e}")
             if hasattr(self._backend, 'disconnect'): # Check if disconnect is available (it should be for AsyncInstrumentIO)
                 try:
-                    await self._backend.disconnect()
+                    self._backend.disconnect()
                 except Exception as disc_e:
                     self._logger.error(f"Instrument '{logger_name}': Error disconnecting backend during failed connect: {disc_e}")
             raise InstrumentConnectionError(
                 instrument=logger_name, message=f"Failed to connect backend: {e}"
             ) from e
 
-    async def _read_to_np(self, data: bytes) -> np.ndarray:
+    def _read_to_np(self, data: bytes) -> np.ndarray:
         """Parses SCPI binary block data into a NumPy array.
 
         This utility method decodes the standard SCPI binary block format, which
@@ -241,7 +240,7 @@ class Instrument(Generic[ConfigType]):
                 self.config.model, "Failed to parse binary data from instrument."
             ) from e
 
-    async def _send_command(self, command: str, skip_check: bool = False) -> None:
+    def _send_command(self, command: str, skip_check: bool = False) -> None:
         """Sends a command to the instrument and logs the interaction.
 
         This is a low-level method for sending a command that does not expect a
@@ -257,9 +256,9 @@ class Instrument(Generic[ConfigType]):
             InstrumentCommunicationError: If writing the command to the backend fails.
         """
         try:
-            await self._backend.write(command)
+            self._backend.write(scpi_command)
             if not skip_check:
-                await self._error_check()
+                self._error_check()
             self._command_log.append({"command": command, "success": True, "type": "write", "timestamp": time.time()})
         except Exception as e:
             self._command_log.append({"command": command, "success": False, "type": "write", "timestamp": time.time()})
@@ -269,7 +268,7 @@ class Instrument(Generic[ConfigType]):
                 message=f"Failed to send command: {e}",
             ) from e
 
-    async def _query(self, query: str, delay: Optional[float] = None) -> str:
+    def _query(self, query: str, delay: Optional[float] = None) -> str:
         """Sends a query to the instrument and returns a string response.
 
         This is a low-level method for interacting with the instrument when a
@@ -288,9 +287,9 @@ class Instrument(Generic[ConfigType]):
         """
         try:
             # self._logger.debug(f"QUERY: {query}" + (f" with delay: {delay}" if delay is not None else ""))
-            response: str = await self._backend.query(query, delay=delay)
+            response: str = self._backend.query(query, delay=delay)
             # self._logger.debug(f"RESPONSE: {response}")
-            await self._error_check() # Keep error check as it's a SYST:ERR? query
+            self._error_check() # Keep error check as it's a SYST:ERR? query
             self._command_log.append({"command": query, "success": True, "type": "query", "timestamp": time.time(), "response": response, "delay": delay})
             return response.strip()
         except Exception as e:
@@ -301,7 +300,7 @@ class Instrument(Generic[ConfigType]):
                 message=f"Failed to query instrument: {e}",
             ) from e
 
-    async def _query_raw(self, query: str, delay: Optional[float] = None) -> bytes:
+    def _query_raw(self, query: str, delay: Optional[float] = None) -> bytes:
         """Sends a query and returns a raw binary response.
 
         This method is used for queries that return binary data, such as waveform
@@ -320,7 +319,7 @@ class Instrument(Generic[ConfigType]):
         """
         try:
             # self._logger.debug(f"QUERY_RAW: {query}" + (f" with delay: {delay}" if delay is not None else ""))
-            response: bytes = await self._backend.query_raw(query, delay=delay)
+            response: bytes = self._backend.query_raw(query, delay=delay)
             # self._logger.debug(f"RESPONSE (bytes): {len(response)} bytes")
             # Raw queries typically don't run _error_check() as the response might not be string-parsable for errors.
             self._command_log.append({"command": query, "success": True, "type": "query_raw", "timestamp": time.time(), "response_len": len(response), "delay": delay})
@@ -333,22 +332,22 @@ class Instrument(Generic[ConfigType]):
                 message=f"Failed to raw query instrument: {e}",
             ) from e
 
-    async def lock_panel(self, lock: bool = True) -> None:
+    def lock_panel(self, lock: bool = True) -> None:
         """
         Locks or unlocks the front panel of the instrument.
         """
         if lock:
-            await self._send_command(":SYSTem:LOCK")
+            self._send_command(":SYSTem:LOCK")
         else:
-            await self._send_command(":SYSTem:LOCal")
+            self._send_command(":SYSTem:LOCal")
         self._logger.debug(f"Panel {'locked' if lock else 'unlocked (local control enabled)'}.")
 
-    async def _wait(self) -> None:
+    def _wait(self) -> None:
         """
         Blocks until all previous commands have been processed by the instrument using *OPC?.
         """
         try:
-            await self._backend.query("*OPC?") # delay=None by default for _backend.query
+            self._backend.query("*OPC?") # delay=None by default for _backend.query
             self._logger.debug("Waiting for instrument to finish processing commands (*OPC? successful).")
             self._command_log.append({"command": "*OPC?", "success": True, "type": "wait", "timestamp": time.time()})
         except Exception as e:
@@ -359,7 +358,7 @@ class Instrument(Generic[ConfigType]):
                 message="Failed to wait for operation complete.",
             ) from e
 
-    async def _wait_event(self) -> None:
+    def _wait_event(self) -> None:
         """
         Blocks by polling the Standard Event Status Register (*ESR?) until a non-zero value.
         This is a basic implementation; specific event setup (*ESE) might be needed.
@@ -369,7 +368,7 @@ class Instrument(Generic[ConfigType]):
         attempts = 0
         while result == 0 and attempts < max_attempts:
             try:
-                esr_response = await self._backend.query("*ESR?") # Use self._backend
+                esr_response = self._backend.query("*ESR?") # Use self._backend
                 result = int(esr_response.strip())
             except Exception as e:
                 self._logger.debug(f"Error querying *ESR? during _wait_event: {e}")
@@ -378,7 +377,7 @@ class Instrument(Generic[ConfigType]):
                     command="*ESR?",
                     message="Failed to query *ESR? during wait.",
                 ) from e
-            await asyncio.sleep(0.1)
+            time.sleep(0.1)
             attempts += 1
 
         if attempts >= max_attempts and result == 0 :
@@ -401,13 +400,13 @@ class Instrument(Generic[ConfigType]):
                 print(f"   Response: {entry['response']}")
         print("--- End of History ---")
 
-    async def _error_check(self) -> None:
+    def _error_check(self) -> None:
         """
         Checks for errors on the instrument by querying SYSTem:ERRor?.
         Raises InstrumentCommunicationError if an error is found.
         """
         try:
-            error_response = await self._backend.query(":SYSTem:ERRor?") # delay=None by default
+            error_response = self._backend.query(":SYSTem:ERRor?") # delay=None by default
             # More robust check for "No error"
             if not (error_response.strip().startswith("+0,\"No error\"") or error_response.strip().startswith("0,\"No error\"")):
                 raise InstrumentCommunicationError(
@@ -421,32 +420,32 @@ class Instrument(Generic[ConfigType]):
                 message=f"Failed to query instrument for errors: {e}",
             ) from e
 
-    async def id(self) -> str:
+    def id(self) -> str:
         """
         Query the instrument for its identification string (*IDN?).
         """
-        name = await self._query("*IDN?")
+        name = self._query("*IDN?")
         self._logger.debug(f"Connected to {name}")
         return name
 
-    async def close(self) -> None:
+    def close(self) -> None:
         """Close the connection to the instrument via the backend."""
         try:
             model_name_for_logger = self.config.model if hasattr(self.config, 'model') else self.__class__.__name__
             self._logger.info(f"Instrument '{model_name_for_logger}': Closing connection.")
-            await self._backend.close() # Changed to use close as per AsyncInstrumentIO
+            self._backend.close() # Changed to use close as per AsyncInstrumentIO
             self._logger.info(f"Instrument '{model_name_for_logger}': Connection closed.")
         except Exception as e:
             self._logger.error(f"Instrument '{model_name_for_logger}': Error during backend close: {e}")
             # Optionally re-raise if failed close is critical:
             # raise InstrumentConnectionError(f"Failed to close backend connection: {e}") from e
 
-    async def reset(self) -> None:
+    def reset(self) -> None:
         """Reset the instrument to its default settings (*RST)."""
-        await self._send_command("*RST")
+        self._send_command("*RST")
         self._logger.debug("Instrument reset to default settings (*RST).")
 
-    async def run_self_test(self, full_test: bool = True) -> str:
+    def run_self_test(self, full_test: bool = True) -> str:
         """
         Executes the instrument's internal self-test routine (*TST?) and reports result.
         """
@@ -455,7 +454,7 @@ class Instrument(Generic[ConfigType]):
 
         self._logger.debug("Running self-test (*TST?)...")
         try:
-             result_str = await self._query("*TST?")
+             result_str = self._query("*TST?")
              code = int(result_str.strip())
         except ValueError:
             raise InstrumentCommunicationError(
@@ -472,7 +471,7 @@ class Instrument(Generic[ConfigType]):
 
         if code == 0:
             self._logger.debug("Self-test query (*TST?) returned 0 (Passed).")
-            errors_after_test = await self.get_all_errors()
+            errors_after_test = self.get_all_errors()
             if errors_after_test:
                  details = "; ".join([f"{c}: {m}" for c, m in errors_after_test])
                  warn_msg = f"Self-test query passed, but errors found in queue afterwards: {details}"
@@ -480,7 +479,7 @@ class Instrument(Generic[ConfigType]):
             return "Passed"
         else:
             self._logger.debug(f"Self-test query (*TST?) returned non-zero code: {code} (Failed). Reading error queue...")
-            errors = await self.get_all_errors()
+            errors = self.get_all_errors()
             details = "; ".join([f"{c}: {m}" for c, m in errors]) if errors else 'No specific errors reported in queue'
             fail_msg = f"Failed: Code {code}. Errors: {details}"
             self._logger.debug(fail_msg)
@@ -509,14 +508,14 @@ class Instrument(Generic[ConfigType]):
             return wrapped_func
         return decorator
 
-    async def clear_status(self) -> None:
+    def clear_status(self) -> None:
         """
         Clears the instrument's status registers and error queue (*CLS).
         """
-        await self._send_command("*CLS", skip_check=True)
+        self._send_command("*CLS", skip_check=True)
         self._logger.debug("Status registers and error queue cleared (*CLS).")
 
-    async def get_all_errors(self) -> TypingList[Tuple[int, str]]:
+    def get_all_errors(self) -> TypingList[Tuple[int, str]]:
         """
         Reads and clears all errors currently present in the instrument's error queue.
         """
@@ -524,7 +523,7 @@ class Instrument(Generic[ConfigType]):
         max_errors_to_read = 50
         for i in range(max_errors_to_read):
             try:
-                code, message = await self.get_error()
+                code, message = self.get_error()
             except InstrumentCommunicationError as e:
                 self._logger.debug(f"Communication error while reading error queue (iteration {i+1}): {e}")
                 if errors:
@@ -547,11 +546,11 @@ class Instrument(Generic[ConfigType]):
              self._logger.debug(f"Retrieved {len(errors)} error(s) from queue: {errors}")
         return errors
 
-    async def get_error(self) -> Tuple[int, str]:
+    def get_error(self) -> Tuple[int, str]:
         """
         Reads and clears the oldest error from the instrument's error queue.
         """
-        response = (await self._query("SYSTem:ERRor?")).strip()
+        response = (self._query("SYSTem:ERRor?")).strip()
         try:
             code_str, msg_part = response.split(',', 1)
             code = int(code_str)
@@ -568,7 +567,7 @@ class Instrument(Generic[ConfigType]):
              self._logger.debug(f"Instrument Error Query: Code={code}, Message='{message}'")
         return code, message
 
-    async def wait_for_operation_complete(self, query_instrument: bool = True, timeout: float = 10.0) -> Optional[str]:
+    def wait_for_operation_complete(self, query_instrument: bool = True, timeout: float = 10.0) -> Optional[str]:
         """
         Waits for the instrument to finish all pending overlapping commands.
         The 'timeout' parameter's effect depends on the backend's query timeout settings.
@@ -584,7 +583,7 @@ class Instrument(Generic[ConfigType]):
             try:
                 # The timeout parameter of this method is not directly passed to _query here.
                 # _query's delay parameter is for a different purpose.
-                response = await self._query("*OPC?") # This now uses self._backend.query
+                response = self._query("*OPC?") # This now uses self._backend.query
                 self._logger.debug("Operation complete query (*OPC?) returned.")
                 if response.strip() != "1":
                     self._logger.debug(f"Warning: *OPC? returned '{response}' instead of expected '1'.")
@@ -598,37 +597,37 @@ class Instrument(Generic[ConfigType]):
                 ) from e
             # 'finally' block for restoring timeout removed.
         else:
-            await self._send_command("*OPC") # This now uses self._backend.write
+            self._send_command("*OPC") # This now uses self._backend.write
             self._logger.debug("Operation complete command (*OPC) sent (non-blocking). Status polling required.")
             return None
 
-    async def set_communication_timeout(self, timeout_ms: int) -> None:
+    def set_communication_timeout(self, timeout_ms: int) -> None:
         """Sets the communication timeout on the backend."""
-        await self._backend.set_timeout(timeout_ms)
+        self._backend.set_timeout(timeout_ms)
         self._logger.debug(f"Communication timeout set to {timeout_ms} ms on backend.")
 
-    async def get_communication_timeout(self) -> int:
+    def get_communication_timeout(self) -> int:
         """Gets the communication timeout from the backend."""
-        timeout = await self._backend.get_timeout()
+        timeout = self._backend.get_timeout()
         self._logger.debug(f"Communication timeout retrieved from backend: {timeout} ms.")
         return timeout
 
-    async def get_scpi_version(self) -> str:
+    def get_scpi_version(self) -> str:
         """
         Queries the version of the SCPI standard the instrument complies with.
         """
-        response = (await self._query("SYSTem:VERSion?")).strip()
+        response = (self._query("SYSTem:VERSion?")).strip()
         self._logger.debug(f"SCPI Version reported: {response}")
         return response
 
     @abstractmethod
-    async def health_check(self) -> HealthReport: # Type hint HealthReport
+    def health_check(self) -> HealthReport: # Type hint HealthReport
         """Performs a basic health check of the instrument."""
         # Base implementation could try IDN and error queue check
         # report = HealthReport() # Initialize HealthReport
         # try:
-        #     report.instrument_idn = await self.id() # Ensure await for async calls
-        #     instrument_errors = await self.get_all_errors() # Ensure await for async calls
+        #     report.instrument_idn = self.id() # Direct synchronous call
+        #     instrument_errors = self.get_all_errors() # Direct synchronous call
         #     if instrument_errors:
         #         report.warnings.extend([f"Stored Error: {code} - {msg}" for code, msg in instrument_errors])
         #

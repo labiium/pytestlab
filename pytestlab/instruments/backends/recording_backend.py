@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import re
 import time
@@ -19,24 +18,18 @@ class RecordingBackend:
         self.log = []
         self.start_time = time.monotonic()
 
-    async def write(self, command: str, *args, **kwargs):
-        """Async write a command to the instrument and log it."""
+    def write(self, command: str, *args, **kwargs):
+        """Write a command to the instrument and log it."""
         self.log.append({"type": "write", "command": command.strip()})
         if hasattr(self.backend, 'write') and callable(getattr(self.backend, 'write')):
             result = self.backend.write(command, *args, **kwargs)
-            if asyncio.iscoroutine(result):
-                return await result
             return result
         raise NotImplementedError("Backend does not support write method.")
 
-    async def query(self, command: str, *args, **kwargs):
-        """Async query to the instrument, log it, and return the response."""
+    def query(self, command: str, *args, **kwargs):
+        """Query to the instrument, log it, and return the response."""
         if hasattr(self.backend, 'query') and callable(getattr(self.backend, 'query')):
-            result = self.backend.query(command, *args, **kwargs)
-            if asyncio.iscoroutine(result):
-                response = await result
-            else:
-                response = result
+            response = self.backend.query(command, *args, **kwargs)
             self.log.append({
                 "type": "query",
                 "command": command.strip(),
@@ -45,14 +38,10 @@ class RecordingBackend:
             return response
         raise NotImplementedError("Backend does not support query method.")
 
-    async def query_raw(self, command: str, *args, **kwargs):
-        """Async query to the instrument, log it, and return the response."""
+    def query_raw(self, command: str, *args, **kwargs):
+        """Query to the instrument, log it, and return the response."""
         if hasattr(self.backend, 'query_raw') and callable(getattr(self.backend, 'query_raw')):
-            result = self.backend.query_raw(command, *args, **kwargs)
-            if asyncio.iscoroutine(result):
-                response = await result
-            else:
-                response = result
+            response = self.backend.query_raw(command, *args, **kwargs)
             self.log.append({
                 "type": "query_raw",
                 "command": command.strip(),
@@ -67,12 +56,10 @@ class RecordingBackend:
         self.log.append({"type": "read", "response": response.strip()})
         return response
 
-    async def close(self):
+    def close(self):
         """Close the backend and write the simulation profile."""
         if hasattr(self.backend, 'close') and callable(getattr(self.backend, 'close')):
-            result = self.backend.close()
-            if asyncio.iscoroutine(result):
-                await result
+            self.backend.close()
         print("DEBUG: Calling generate_profile from RecordingBackend.close()")
         self.generate_profile()
 

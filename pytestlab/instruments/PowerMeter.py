@@ -10,7 +10,7 @@ class PowerMeter(Instrument[PowerMeterConfig]):
     configuring the power sensor and reading power values.
     """
 
-    async def configure_sensor(
+    def configure_sensor(
         self,
         channel: int = 1,
         freq: Optional[float] = None,
@@ -33,26 +33,26 @@ class PowerMeter(Instrument[PowerMeterConfig]):
 
         # Set the frequency compensation for the sensor.
         if freq is not None:
-            await self._send_command(f"SENS{channel}:FREQ {freq}")
+            self._send_command(f"SENS{channel}:FREQ {freq}")
             self.config.frequency_compensation_value = freq  # Update local config state
 
         # Set the number of readings to average.
         if averaging_count is not None:
-            await self._send_command(f"SENS{channel}:AVER:COUN {averaging_count}")
+            self._send_command(f"SENS{channel}:AVER:COUN {averaging_count}")
             self.config.averaging_count = averaging_count  # Update local config state
 
         # Set the units for the power measurement.
         if units is not None:
             # Validate that the requested units are supported by the config model.
             if units in PowerMeterConfig.model_fields['power_units'].annotation.__args__:
-                await self._send_command(f"UNIT:POW {units.upper()}")
+                self._send_command(f"UNIT:POW {units.upper()}")
                 self.config.power_units = units  # type: ignore
             else:
                 self._logger.warning(f"Invalid power units '{units}' specified. Using config default '{self.config.power_units}'.")
 
         self._logger.info(f"Power meter sensor channel {channel} configured.")
 
-    async def read_power(self, channel: int = 1) -> float:
+    def read_power(self, channel: int = 1) -> float:
         """Reads the power from a specified sensor channel.
 
         This method queries the instrument for a power reading. Note that this
@@ -66,7 +66,7 @@ class PowerMeter(Instrument[PowerMeterConfig]):
             instrument configuration.
         """
         # In a real implementation, you would query the instrument.
-        # Example: raw_power_str = await self._query(f"FETC{channel}?")
+        # Example: raw_power_str = self._query(f"FETC{channel}?")
         # The SimBackend would need to be configured to provide realistic responses.
         self._logger.warning(f"read_power for PowerMeter channel {channel} is a placeholder and returns dummy data.")
 

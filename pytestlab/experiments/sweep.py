@@ -13,7 +13,10 @@ class Sweep:
 import numpy as np
 import functools
 from tqdm import tqdm
-from typing import Callable, List, Tuple, Any, Dict, Union, TypeVar, cast, Optional
+from typing import Callable, List, Tuple, Any, Dict, Union, TypeVar, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..measurements.measurement_session import MeasurementSession
 
 # Type variables for better typing
 T = TypeVar('T')
@@ -65,7 +68,7 @@ class ParameterSpace:
             self.ranges = [ranges[name] for name in self.names]
 
     @classmethod
-    def from_session(cls, session, constraint=None):
+    def from_session(cls, session: 'MeasurementSession', constraint: Optional[Callable] = None) -> 'ParameterSpace':
         """
         Create a ParameterSpace from a MeasurementSession.
 
@@ -97,7 +100,7 @@ class ParameterSpace:
 
         return space
 
-    def get_parameters(self):
+    def get_parameters(self) -> Union[Tuple[List[str], List[Tuple[float, float]]], Tuple[List[str], str]]:
         """
         Get parameter information.
 
@@ -135,7 +138,7 @@ class ParameterSpace:
 
         return self.constraint(param_dict)
 
-    def wrap_function(self, func: Callable):
+    def wrap_function(self, func: Callable) -> Callable:
         """
         Wrap a function to handle parameter passing and session integration.
 
@@ -167,7 +170,7 @@ class ParameterSpace:
 # Monte Carlo Sweep
 # ==========================================
 
-def monte_carlo_sweep(f: Callable[..., Any], param_ranges: List[Tuple[float, float]], n_samples_list: List[int]) -> List[Tuple[List[float], Any]]:
+def _monte_carlo_sweep_impl(f: Callable[..., Any], param_ranges: List[Tuple[float, float]], n_samples_list: List[int]) -> List[Tuple[List[float], Any]]:
     """
     Perform a Monte Carlo sweep by randomly sampling the parameter space.
 
@@ -215,7 +218,7 @@ def monte_carlo_sweep(f: Callable[..., Any], param_ranges: List[Tuple[float, flo
 # Grid Sweep
 # ==========================================
 
-def grid_sweep(f: Callable[..., Any], param_ranges: List[Tuple[float, float]], q_n: Union[int, List[int]]) -> List[Tuple[List[float], Any]]:
+def _grid_sweep_impl(f: Callable[..., Any], param_ranges: List[Tuple[float, float]], q_n: Union[int, List[int]]) -> List[Tuple[List[float], Any]]:
     """
     Perform a simple grid sweep over the parameter space.
     Args:
@@ -255,15 +258,15 @@ def grid_sweep(f: Callable[..., Any], param_ranges: List[Tuple[float, float]], q
 # Gradient-Weighted Adaptive Sampling
 # ==========================================
 
-def gwass(f: Callable[..., Any], param_ranges: List[Tuple[float, float]], q_n: int, initial_percentage: float = 0.1) -> List[Tuple[List[float], Any]]:
+def _gwass_impl(f: Callable[..., Any], param_ranges: List[Tuple[float, float]], budget: int, initial_percentage: float = 0.1) -> List[Tuple[List[float], Any]]:
     """
     Gradient-weighted adaptive stochastic sampling for function evaluation.
 
     Args:
         f (Callable): The function to evaluate.
         param_ranges (List[Tuple[float, float]]): A list of (min, max) for each parameter.
-        q_n (int): Total number of evaluations allowed.
-        initial_percentage (float): Percentage of q_n to use for initial coarse grid.
+        budget (int): Total number of evaluations allowed.
+        initial_percentage (float): Percentage of budget to use for initial coarse grid.
 
     Returns:
         List[Tuple[List[float], Any]]: Parameter combinations and function outputs.
@@ -401,16 +404,16 @@ def gwass(f: Callable[..., Any], param_ranges: List[Tuple[float, float]], q_n: i
 # ==========================================
 # Rename existing implementation functions
 # ==========================================
-grid_sweep_impl = grid_sweep
-monte_carlo_sweep_impl = monte_carlo_sweep
-gwass_impl = gwass
+grid_sweep_impl = _grid_sweep_impl
+monte_carlo_sweep_impl = _monte_carlo_sweep_impl
+gwass_impl = _gwass_impl
 
 
 # ==========================================
 # New decorator-based API
 # ==========================================
 
-def grid_sweep(param_space=None, points=10):
+def grid_sweep(param_space: Union[ParameterSpace, List[Tuple[float, float]], Dict[str, Tuple[float, float]], str, None] = None, points: Union[int, List[int]] = 10) -> Callable:
     """
     Apply a grid sweep to a measurement function.
 
@@ -436,7 +439,7 @@ def grid_sweep(param_space=None, points=10):
         # Or with auto parameter extraction from session
         @session.acquire
         @grid_sweep(points=15)
-        async def measure(voltage, current, instrument):
+        def measure(voltage, current, instrument):
             # Measurement code
             return result
 
@@ -495,7 +498,7 @@ def grid_sweep(param_space=None, points=10):
     return decorator
 
 
-def monte_carlo_sweep(param_space=None, samples=50):
+def monte_carlo_sweep(param_space: Union[ParameterSpace, List[Tuple[float, float]], Dict[str, Tuple[float, float]], str, None] = None, samples: Union[int, List[int]] = 50) -> Callable:
     """
     Apply a Monte Carlo sweep to a measurement function.
 
@@ -581,7 +584,7 @@ def monte_carlo_sweep(param_space=None, samples=50):
     return decorator
 
 
-def gwass(param_space=None, budget=100, initial_percentage=0.1):
+def gwass(param_space: Union[ParameterSpace, List[Tuple[float, float]], Dict[str, Tuple[float, float]], str, None] = None, budget: int = 100, initial_percentage: float = 0.1) -> Callable:
     """
     Apply gradient-weighted adaptive stochastic sampling to a measurement function.
 
@@ -639,7 +642,7 @@ def gwass(param_space=None, budget=100, initial_percentage=0.1):
                 names, ranges = local_space.get_parameters()
                 wrapped_func = local_space.wrap_function(measure_func)
 
-                # Run the original GWASS function
+                # Call the original GWASS function
                 return gwass_impl(wrapped_func, ranges, budget, initial_percentage)
             else:
                 # Standard usage without session

@@ -71,7 +71,7 @@ class Multimeter(Instrument[MultimeterConfig]):
         # If config is already a MultimeterConfig instance:
         raise NotImplementedError("Please use AutoInstrument.from_config() to create instrument instances.")
     
-    async def get_config(self) -> MultimeterConfigResult:
+    def get_config(self) -> MultimeterConfigResult:
         """Retrieves the current measurement configuration from the DMM.
 
         This method queries the instrument to determine its current settings,
@@ -88,7 +88,7 @@ class Multimeter(Instrument[MultimeterConfig]):
         """
         # Query the instrument for its current configuration. The response is typically
         # a string like '"VOLT:DC 10,0.0001"'.
-        config_str: str = (await self._query("CONFigure?")).replace('"', '').strip()
+        config_str: str = (self._query("CONFigure?")).replace('"', '').strip()
         try:
             # Handle cases where resolution is not returned, e.g., "FRES 1.000000E+02"
             parts = config_str.split()
@@ -136,7 +136,7 @@ class Multimeter(Instrument[MultimeterConfig]):
             units=unit_str
         )
 
-    async def set_measurement_function(self, function: DMMFunction) -> None:
+    def set_measurement_function(self, function: DMMFunction) -> None:
         """Configures the primary measurement function of the DMM.
 
         This method sets the DMM to measure a specific quantity, such as DC
@@ -147,10 +147,10 @@ class Multimeter(Instrument[MultimeterConfig]):
                       `DMMFunction` enum.
         """
         # Using the recommended SCPI command from the programming guide (page 145)
-        await self._send_command(f'SENSe:FUNCtion "{function.value}"')
+        self._send_command(f'SENSe:FUNCtion "{function.value}"')
         self._logger.info(f"Set measurement function to {function.name} ({function.value})")
 
-    async def set_trigger_source(self, source: Literal["IMM", "EXT", "BUS"]) -> None:
+    def set_trigger_source(self, source: Literal["IMM", "EXT", "BUS"]) -> None:
         """Sets the trigger source for initiating a measurement.
 
         The trigger source determines what event will cause the DMM to start
@@ -162,7 +162,7 @@ class Multimeter(Instrument[MultimeterConfig]):
         Args:
             source: The desired trigger source.
         """
-        await self._send_command(f"TRIG:SOUR {source.upper()}")
+        self._send_command(f"TRIG:SOUR {source.upper()}")
         self._logger.info(f"Set trigger source to {source}")
 
     def _get_function_spec(self, function: DMMFunction) -> Optional[FunctionSpec]:
@@ -195,7 +195,7 @@ class Multimeter(Instrument[MultimeterConfig]):
         if "CONTINUITY" in function.name: return "Ω", function.name.replace("_", " ").title()
         return "", function.name.replace("_", " ").title()
 
-    async def measure(self, function: DMMFunction, range_val: Optional[str] = None, resolution: Optional[str] = None) -> MeasurementResult:
+    def measure(self, function: DMMFunction, range_val: Optional[str] = None, resolution: Optional[str] = None) -> MeasurementResult:
         """Performs a measurement and returns the result.
 
         This is the primary method for acquiring data from the DMM. It configures
@@ -226,19 +226,19 @@ class Multimeter(Instrument[MultimeterConfig]):
         # This is convenient but makes querying the actual range used in autorange tricky.
         # For accurate uncertainty, we will use CONFigure separately when in autorange.
         if is_autorange:
-            await self.set_measurement_function(function)
-            await self._send_command(f"{function.value}:RANGe:AUTO ON")
+            self.set_measurement_function(function)
+            self._send_command(f"{function.value}:RANGe:AUTO ON")
             if resolution:
-                await self._send_command(f"{function.value}:RESolution {resolution.upper()}")
+                self._send_command(f"{function.value}:RESolution {resolution.upper()}")
             
-            response_str = await self._query("READ?")
+            response_str = self._query("READ?")
         else:
             # Use the combined MEASure? command for fixed range
             range_for_query = range_val.upper() if range_val is not None else "AUTO"
             resolution_for_query = resolution.upper() if resolution is not None else "DEF"
             query_command = f"MEASURE:{scpi_function_val}? {range_for_query},{resolution_for_query}"
             self._logger.debug(f"Executing DMM measure query: {query_command}")
-            response_str = await self._query(query_command)
+            response_str = self._query(query_command)
 
         try:
             reading = float(response_str)
@@ -252,7 +252,7 @@ class Multimeter(Instrument[MultimeterConfig]):
         if function_spec:
             try:
                 # Determine the actual range used by the instrument to find the correct spec
-                current_instrument_config = await self.get_config()
+                current_instrument_config = self.get_config()
                 actual_instrument_range = current_instrument_config.range_value
 
                 # Find the matching range specification
@@ -298,12 +298,12 @@ class Multimeter(Instrument[MultimeterConfig]):
             measurement_type=measurement_name_val,
         )
 
-    async def configure_measurement(self, function: DMMFunction, range_val: Optional[str] = None, resolution: Optional[str] = None):
+    def configure_measurement(self, function: DMMFunction, range_val: Optional[str] = None, resolution: Optional[str] = None):
         """Configures the instrument for a measurement without triggering it."""
         scpi_function_val = function.value
         range_for_query = range_val.upper() if range_val is not None else "AUTO"
         resolution_for_query = resolution.upper() if resolution is not None else "DEF"
         # Using CONFigure command as per programming guide page 44
         cmd = f"CONFigure:{scpi_function_val} {range_for_query},{resolution_for_query}"
-        await self._send_command(cmd)
+        self._send_command(cmd)
         self._logger.info(f"Configured DMM for {function.name} with range={range_for_query}, resolution={resolution_for_query}")

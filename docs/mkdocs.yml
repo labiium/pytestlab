@@ -97,6 +97,7 @@ nav:
       - "Custom Validations": tutorials/custom_validations.ipynb
       - "Profile Creation": tutorials/profile_creation.ipynb
       - "SmartBench Example": tutorials/smartbench.ipynb
+      - "Example Tutorial": tutorials/example.ipynb
   - API:
       - "Instruments": api/instruments.md
       - "Measurements": api/measurements.md
@@ -110,4 +111,5 @@ nav:
       - "Creating Profiles": profiles/creating.md
   - Community:
       - "Contributing": contributing.md
+      - "Code of Conduct": CODE_OF_CONDUCT.md
       - "Changelog": changelog.md

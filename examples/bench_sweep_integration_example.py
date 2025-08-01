@@ -19,10 +19,10 @@ Requires:
 Edit the bench YAML path as needed for your setup.
 """
 
-import asyncio
 import numpy as np
 import polars as pl
 import matplotlib.pyplot as plt
+import time
 from pathlib import Path
 
 from pytestlab.bench import Bench
@@ -63,28 +63,28 @@ def visualize_results(results_dict):
     plt.savefig("bench_sweep_comparison.png", dpi=150)
     print("Visualization saved to 'bench_sweep_comparison.png'")
 
-async def main():
+def main():
     print("=== Bench + MeasurementSession + Sweep Example ===")
-    async with await Bench.open(BENCH_YAML) as bench:
+    with Bench.open(BENCH_YAML) as bench:
         print(f"Bench loaded: {bench.name}")
 
         # --- 1. Built-in MeasurementSession grid sweep ---
-        async with MeasurementSession(bench=bench) as session:
+        with MeasurementSession(bench=bench) as session:
             session.parameter("V_base", np.linspace(0.6, 1.0, 5), unit="V", notes="Base voltage")
             session.parameter("V_collector", np.linspace(0, 5, 10), unit="V", notes="Collector voltage")
 
             @session.acquire
-            async def measure(V_base, V_collector, psu, dmm):
-                await psu.set_voltage(1, V_base)
-                await psu.set_current(1, 0.05)
-                await psu.set_voltage(2, V_collector)
-                await psu.set_current(2, 0.5)
-                await psu.output(1, True)
-                await psu.output(2, True)
-                await asyncio.sleep(0.05)
-                result = await dmm.measure_current_dc()
-                await psu.output(1, False)
-                await psu.output(2, False)
+            def measure(V_base, V_collector, psu, dmm):
+                psu.set_voltage(1, V_base)
+                psu.set_current(1, 0.05)
+                psu.set_voltage(2, V_collector)
+                psu.set_current(2, 0.5)
+                psu.output(1, True)
+                psu.output(2, True)
+                time.sleep(0.05)
+                result = dmm.measure_current_dc()
+                psu.output(1, False)
+                psu.output(2, False)
                 return {
                     "I_collector": result.values.nominal_value,
                     "V_base": V_base,
@@ -92,7 +92,7 @@ async def main():
                 }
 
             print("Running built-in grid sweep...")
-            experiment = await session.run(show_progress=True)
+            experiment = session.run(show_progress=True)
             built_in_results = experiment.data
             print(f"Built-in sweep: {len(built_in_results)} points")
 
@@ -147,4 +147,4 @@ async def main():
         print("All sweeps complete.")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

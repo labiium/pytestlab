@@ -41,13 +41,13 @@ That's it – run the cell and the panel is displayed & fully asynchronous.
 
 Widgets
 -------
-Slider  – float/int slider + live read-back  
-Toggle  – on/off button  
-Button  – executes arbitrary *async* function  
+Slider  – float/int slider + live read-back
+Toggle  – on/off button
+Button  – executes arbitrary function
 (You can extend the base‐class with only ~15 LOC.)
 
-All callbacks (`getter`, `setter`, `action`) may be **sync or async** – the
-framework takes care of dispatching them in the running asyncio loop.
+All callbacks (`getter`, `setter`, `action`) are synchronous functions – the
+framework handles them efficiently in the background.
 
 The code is only ~180 lines yet covers 95 % of typical bench‐control needs.
 """
@@ -55,7 +55,7 @@ from __future__ import annotations
 
 import inspect
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable, List, Sequence
+from typing import Any, Callable, List, Sequence
 
 import ipywidgets as w
 from IPython.display import display
@@ -73,10 +73,8 @@ Setter = Callable[[T_Inst, Any], CoroOrVal]
 Action = Callable[[T_Inst, "InstrumentPanel"], CoroOrVal]
 
 
-async def _maybe_await(value: CoroOrVal) -> Any:
-    """Await *value* if it's a coroutine, otherwise return it unchanged."""
-    if inspect.isawaitable(value):
-        return await value
+def _maybe_await(value: CoroOrVal) -> Any:
+    """Return value directly since all operations are now synchronous."""
     return value
 
 
@@ -115,8 +113,8 @@ class Slider(_ControlBase):
         )
 
         # initialise from instrument
-        async def _init():
-            val = await _maybe_await(self.getter(panel.inst))
+        def _init():
+            val = _maybe_await(self.getter(panel.inst))
             sld.value = float(val)
 
         panel._background(_init())
@@ -140,16 +138,16 @@ class Toggle(_ControlBase):
         btn = w.ToggleButton(value=False, description=self.off_desc or self.label)
 
         # read initial state
-        async def _init():
-            state = await _maybe_await(self.getter(panel.inst))
+        def _init():
+            state = _maybe_await(self.getter(panel.inst))
             btn.value = bool(state)
             btn.description = self.on_desc if btn.value else self.off_desc or self.label
 
         panel._background(_init())
 
-        async def _apply(change):
+        def _apply(change):
             new_state = change["new"]
-            await _maybe_await(self.setter(panel.inst, new_state))
+            _maybe_await(self.setter(panel.inst, new_state))
             btn.description = self.on_desc if new_state else self.off_desc or self.label
 
         btn.observe(awidget_callback(_apply), names="value")
@@ -165,8 +163,8 @@ class Button(_ControlBase):
     def _build_widget(self, panel: "InstrumentPanel") -> w.Widget:
         btn = w.Button(description=self.label, button_style=self.style)
 
-        async def _on_click(_):
-            await _maybe_await(self.action(panel.inst, panel))
+        def _on_click(_):
+            _maybe_await(self.action(panel.inst, panel))
 
         btn.on_click(awidget_callback(_on_click))
         return btn
@@ -193,18 +191,19 @@ class InstrumentPanel:
 
         display(col)
 
-    # helper to schedule coroutines in background (no await in __init__)
+    # helper to execute operations in background
     @staticmethod
-    def _background(coro: Awaitable[Any]) -> None:
-        from .async_utils import run_coro_safely
-        run_coro_safely(coro)
+    def _background(func: Any) -> None:
+        # Since operations are now synchronous, just call the function
+        if callable(func):
+            func()
 
     # ------------------------------------------------------------------ #
     # Convenience helpers users can call in their actions if needed      #
     # ------------------------------------------------------------------ #
-    async def refresh(self):
+    def refresh(self):
         """Iterate over **Slider** controls and re-pull their getter."""
         for ctrl, widget in zip(self.controls, self.widgets):
             if isinstance(ctrl, Slider):
-                val = await _maybe_await(ctrl.getter(self.inst))
+                val = _maybe_await(ctrl.getter(self.inst))
                 widget.value = float(val)

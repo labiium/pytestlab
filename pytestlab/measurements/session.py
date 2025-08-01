@@ -9,10 +9,10 @@ parameter grid is known in advance.
 """
 from __future__ import annotations
 
-import asyncio
 import contextlib
 import inspect
 import itertools
+import threading
 import time
 from dataclasses import dataclass
 from datetime import datetime
@@ -99,11 +99,11 @@ class MeasurementSession(contextlib.AbstractAsyncContextManager, contextlib.Abst
                 )
 
     # Context management ------------------------------------------------
-    async def __aenter__(self) -> "MeasurementSession":  # noqa: D401
+    def __aenter__(self) -> "MeasurementSession":  # noqa: D401
         return self
 
-    async def __aexit__(self, exc_type, exc, tb) -> bool:  # noqa: D401
-        await self._disconnect_all_instruments()
+    def __aexit__(self, exc_type, exc, tb) -> bool:  # noqa: D401
+        self._disconnect_all_instruments()
         return False
 
     def __enter__(self) -> "MeasurementSession":  # noqa: D401
@@ -112,22 +112,15 @@ class MeasurementSession(contextlib.AbstractAsyncContextManager, contextlib.Abst
 
     def __exit__(self, exc_type, exc, tb) -> bool:  # noqa: D401
         """Synchronous context manager exit."""
-        # Use asyncio to run the async disconnect method synchronously
+        # Directly call the synchronous disconnect method
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # Create a new loop if we're already in a running event loop
-                loop = asyncio.new_event_loop()
-                loop.run_until_complete(self._disconnect_all_instruments())
-                loop.close()
-            else:
-                loop.run_until_complete(self._disconnect_all_instruments())
+            self._disconnect_all_instruments()
         except Exception:  # noqa: BLE001
             pass  # Keep original error handling behavior
         return False
 
     # ─── Instruments ───────────────────────────────────────────────────
-    async def instrument(self, alias: str, config_key: str, /, **kw) -> Any:
+    def instrument(self, alias: str, config_key: str, /, **kw) -> Any:
         if alias in self._instruments:
             record = self._instruments[alias]
             if not record.resource.startswith("bench:"):
@@ -138,7 +131,7 @@ class MeasurementSession(contextlib.AbstractAsyncContextManager, contextlib.Abst
                 f"Instrument '{alias}' not found on the bench. "
                 "When using a bench, all instruments must be defined in the bench configuration."
             )
-        inst = await AutoInstrument.from_config(config_key, **kw)
+        inst = AutoInstrument.from_config(config_key, **kw)
         self._instruments[alias] = _InstrumentRecord(alias, config_key, inst)
         return inst
 
@@ -164,18 +157,18 @@ class MeasurementSession(contextlib.AbstractAsyncContextManager, contextlib.Abst
         return func
 
     def task(self, func: T_TaskFunc | None = None, /, *, name: str | None = None):
-        """Decorator to register a coroutine as a background task for parallel execution."""
+        """Decorator to register a function as a background task for parallel execution."""
         if func is None:  # decorator usage
             return lambda f: self.task(f, name=name)
 
-        if not asyncio.iscoroutinefunction(func):
-            raise TypeError("Only async functions can be registered as tasks.")
+        if not callable(func):
+            raise TypeError("Only callable functions can be registered as tasks.")
         reg_name = name or func.__name__
         self._tasks.append((reg_name, func))
         return func
 
     # ─── Execution ────────────────────────────────────────────────────
-    async def run(
+    def run(
         self,
         duration: Optional[float] = None,
         interval: float = 0.1,
@@ -193,11 +186,11 @@ class MeasurementSession(contextlib.AbstractAsyncContextManager, contextlib.Abst
             show_progress: Whether to display a progress bar.
         """
         if self._tasks:
-            return await self._run_parallel(duration, interval, show_progress)
+            return self._run_parallel(duration, interval, show_progress)
         else:
-            return await self._run_sweep(show_progress)
+            return self._run_sweep(show_progress)
 
-    async def _run_sweep(self, show_progress: bool) -> Experiment:
+    def _run_sweep(self, show_progress: bool) -> Experiment:
         if not self._parameters:
             raise RuntimeError("No parameters defined.")
         if not self._meas_funcs:
@@ -222,7 +215,7 @@ class MeasurementSession(contextlib.AbstractAsyncContextManager, contextlib.Abst
                         kwargs[alias] = inst_rec.instance
                 if "ctx" in sig.parameters:
                     kwargs["ctx"] = row
-                res = await func(**kwargs)
+                res = func(**kwargs)
                 if not isinstance(res, Mapping):
                     raise TypeError(f"Measurement '{meas_name}' returned {type(res)}, expected Mapping.")
                 for key, val in res.items():
@@ -230,17 +223,17 @@ class MeasurementSession(contextlib.AbstractAsyncContextManager, contextlib.Abst
                     row[col] = val
 
             self._data_rows[idx] = row  # assign Dict[str, Any] to slot
-            await asyncio.sleep(0)  # yield to event loop in long sweeps
+            # No need for asyncio.sleep in synchronous mode
 
         self._has_run = True
         self._build_experiment()
         if self._bench and self._bench.db:
-            await self._bench.save_experiment()
+            self._bench.save_experiment()
         if self._experiment is None:
             raise RuntimeError("Experiment was not created.")
         return self._experiment
 
-    async def _run_parallel(
+    def _run_parallel(
         self, duration: Optional[float], interval: float, show_progress: bool
     ) -> Experiment:
         """Executes registered background tasks and acquisition loops concurrently."""
@@ -254,7 +247,8 @@ class MeasurementSession(contextlib.AbstractAsyncContextManager, contextlib.Abst
             )
 
         self._data_rows = []
-        running_tasks = []
+        running_threads = []
+        stop_event = threading.Event()
 
         # 1. Prepare and start background stimulus tasks
         for task_name, task_func in self._tasks:
@@ -264,9 +258,33 @@ class MeasurementSession(contextlib.AbstractAsyncContextManager, contextlib.Abst
                 for alias, rec in self._instruments.items()
                 if alias in sig.parameters
             }
-            coro = task_func(**kwargs)
-            # mypy: ignore error about Awaitable vs Coroutine
-            running_tasks.append(asyncio.create_task(coro, name=task_name))  # type: ignore
+            # Add stop_event to kwargs if the function accepts it
+            if "stop_event" in sig.parameters:
+                kwargs["stop_event"] = stop_event
+
+            # Create a wrapper that handles the stop_event
+            def task_wrapper(func=task_func, kw=kwargs):
+                try:
+                    if "stop_event" in inspect.signature(func).parameters:
+                        func(**kw)
+                    else:
+                        # For functions without stop_event, run in a loop checking the event
+                        while not stop_event.is_set():
+                            try:
+                                func(**kw)
+                                time.sleep(0.1)  # Small delay to prevent busy waiting
+                            except Exception:
+                                if stop_event.is_set():
+                                    break
+                                raise
+                except Exception as e:
+                    if not stop_event.is_set():
+                        print(f"Background task '{task_name}' failed: {e}")
+
+            thread = threading.Thread(target=task_wrapper, name=task_name)
+            thread.daemon = True
+            thread.start()
+            running_threads.append(thread)
 
         # 2. Run the acquisition loop for the specified duration
         start_time = time.monotonic()
@@ -282,25 +300,25 @@ class MeasurementSession(contextlib.AbstractAsyncContextManager, contextlib.Abst
                 sig = inspect.signature(func)
                 kwargs = {alias: rec.instance for alias, rec in self._instruments.items() if alias in sig.parameters}
                 if "ctx" in sig.parameters: kwargs["ctx"] = row
-                res = await func(**kwargs)
+                res = func(**kwargs)
                 if not isinstance(res, Mapping):
                     raise TypeError(f"Measurement '{meas_name}' returned {type(res)}, expected Mapping.")
                 for key, val in res.items():
                     row[key] = val
             self._data_rows.append(row)
             pbar.update(1)
-            await asyncio.sleep(interval)
+            time.sleep(interval)
         pbar.close()
 
-        # 3. Cleanup: Cancel background stimulus tasks
-        for task in running_tasks:
-            task.cancel()
-        await asyncio.gather(*running_tasks, return_exceptions=True)
+        # 3. Cleanup: Signal background tasks to stop and wait for them
+        stop_event.set()
+        for thread in running_threads:
+            thread.join(timeout=5.0)  # Wait up to 5 seconds for each thread
 
         self._has_run = True
         self._build_experiment()
         if self._bench and self._bench.db:
-            await self._bench.save_experiment()
+            self._bench.save_experiment()
         if self._experiment is None:
             raise RuntimeError("Experiment was not created.")
         return self._experiment
@@ -319,7 +337,7 @@ class MeasurementSession(contextlib.AbstractAsyncContextManager, contextlib.Abst
             self._experiment = exp
         self._experiment.add_trial(self.data)
 
-    async def _disconnect_all_instruments(self) -> None:
+    def _disconnect_all_instruments(self) -> None:
         for rec in self._instruments.values():
             if not rec.auto_close:
                 continue
@@ -328,7 +346,7 @@ class MeasurementSession(contextlib.AbstractAsyncContextManager, contextlib.Abst
                 if callable(close_method):
                     result = close_method()
                     if inspect.isawaitable(result):
-                        await result
+                        result
             except Exception:  # noqa: BLE001
                 pass
 

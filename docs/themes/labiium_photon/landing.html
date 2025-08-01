@@ -598,8 +598,8 @@ asyncio.run(run_bench())`,
         `<span class="token keyword">from</span> pytestlab.measurements <span class="token keyword">import</span> MeasurementSession
 
 <span class="token comment"># Declaratively build a complex experiment</span>
-<span class="token keyword">async def</span> <span class="token function">run_sweep</span>():
-    <span class="token keyword">async with</span> MeasurementSession(<span class="token string">"MOSFET IV Curve"</span>) <span class="token keyword">as</span> meas:
+<span class="token keyword">def</span> <span class="token function">run_sweep</span>():
+    <span class="token keyword">with</span> MeasurementSession(<span class="token string">"MOSFET IV Curve"</span>) <span class="token keyword">as</span> meas:
         meas.instrument(<span class="token string">"psu"</span>, <span class="token string">"keysight/EDU36311A"</span>, address=<span class="token string">"..."</span>)
         meas.instrument(<span class="token string">"dmm"</span>, <span class="token string">"keysight/34470A"</span>, address=<span class="token string">"..."</span>)
 
@@ -607,15 +607,15 @@ asyncio.run(run_bench())`,
         meas.parameter(<span class="token string">"v_drain"</span>, [<span class="token number">0.1</span>, <span class="token number">1.0</span>, <span class="token number">5.0</span>], unit=<span class="token string">"V"</span>)
 
         <span class="token decorator">@meas.acquire</span>
-        <span class="token keyword">async def</span> <span class="token function">drain_current</span>(psu, dmm, v_gate, v_drain):
-            <span class="token keyword">await</span> psu.channel(<span class="token number">1</span>).set_voltage(v_gate)
-            <span class="token keyword">await</span> psu.channel(<span class="token number">2</span>).set_voltage(v_drain)
-            <span class="token keyword">return</span> <span class="token keyword">await</span> dmm.measure_current_dc()
+        <span class="token keyword">def</span> <span class="token function">drain_current</span>(psu, dmm, v_gate, v_drain):
+            psu.channel(<span class="token number">1</span>).set_voltage(v_gate)
+            psu.channel(<span class="token number">2</span>).set_voltage(v_drain)
+            <span class="token keyword">return</span> dmm.measure_current_dc()
 
-        results = <span class="token keyword">await</span> meas.run()
+        results = meas.run()
         print(results.data.head())
 
-asyncio.run(run_sweep())`
+run_sweep()`
     ];
 
     // Function to type code with animation

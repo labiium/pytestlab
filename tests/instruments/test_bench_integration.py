@@ -1,14 +1,14 @@
 """
 End-to-End Test for Bench, MeasurementSession, and Database Integration
 
-This script tests the full integration between the Bench, MeasurementSession, 
+This script tests the full integration between the Bench, MeasurementSession,
 and MeasurementDatabase classes.
 """
 
 import pytest
-import asyncio
 import os
 import tempfile
+import time
 from pathlib import Path
 import polars as pl
 
@@ -76,17 +76,14 @@ def bench_config_file_with_db(db_path):
     yield config_path
     if os.path.exists(config_path):
         os.unlink(config_path)
-
-
-@pytest.mark.asyncio
-async def test_bench_session_database_integration(bench_config_file_with_db, db_path):
+def test_bench_session_database_integration(bench_config_file_with_db, db_path):
     """Test the full integration of Bench, MeasurementSession, and MeasurementDatabase."""
-    async with await Bench.open(bench_config_file_with_db) as bench:
+    with Bench.open(bench_config_file_with_db) as bench:
         assert bench.experiment is not None
         assert bench.db is not None
         assert bench.db.db_path == Path(db_path)
 
-        async with MeasurementSession(bench=bench) as session:
+        with MeasurementSession(bench=bench) as session:
             # The session should inherit the experiment from the bench
             assert session.name == "Bench Integration Test"
             assert session._experiment is bench.experiment
@@ -96,20 +93,20 @@ async def test_bench_session_database_integration(bench_config_file_with_db, db_
 
             # Define a measurement function that uses instruments from the bench
             @session.acquire
-            async def measure_voltage(voltage: float, psu, dmm):
-                await psu.set_voltage(1, voltage)
-                await psu.set_current(1, 0.1)
-                await psu.output(1, True)
-                await asyncio.sleep(0.1)  # Wait for voltage to stabilize
-                
-                measurement = await dmm.measure(function=DMMFunction.VOLTAGE_DC)
-                
-                await psu.output(1, False)
-                
+            def measure_voltage(voltage: float, psu, dmm):
+                psu.set_voltage(1, voltage)
+                psu.set_current(1, 0.1)
+                psu.output(1, True)
+                time.sleep(0.1)  # Wait for voltage to stabilize
+
+                measurement = dmm.measure(function=DMMFunction.VOLTAGE_DC)
+
+                psu.output(1, False)
+
                 return {"measured_voltage": float(measurement.values.nominal_value)}
 
             # Run the measurement session
-            experiment = await session.run(show_progress=False)
+            experiment = session.run(show_progress=False)
 
             # The experiment data should be populated
             assert isinstance(experiment.data, pl.DataFrame)
@@ -121,10 +118,10 @@ async def test_bench_session_database_integration(bench_config_file_with_db, db_
     db = MeasurementDatabase(db_path)
     experiments = db.list_experiments()
     assert len(experiments) == 1
-    
+
     codename = experiments[0]
     retrieved_experiment = db.retrieve_experiment(codename)
-    
+
     assert retrieved_experiment.name == "Bench Integration Test"
     assert "integration" in retrieved_experiment.description
     assert len(retrieved_experiment.data) == 3

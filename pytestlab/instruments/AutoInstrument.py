@@ -83,7 +83,7 @@ class AutoInstrument:
             )
     
     @classmethod
-    async def get_config_from_cdn(cls: Type[AutoInstrument], identifier: str) -> Dict[str, Any]:
+    def get_config_from_cdn(cls: Type[AutoInstrument], identifier: str) -> Dict[str, Any]:
         """Fetches an instrument configuration from a CDN with local caching.
 
         This method attempts to retrieve a configuration file from a predefined
@@ -112,8 +112,8 @@ class AutoInstrument:
         # Check for a cached version of the configuration first
         if os.path.exists(cache_file):
             try:
-                async with aiofiles.open(cache_file, 'r') as f:
-                    content = await f.read()
+                with aiofiles.open(cache_file, 'r') as f:
+                    content = f.read()
                     loaded_config = yaml.safe_load(content)
                     # Validate the cached content; if corrupt, proceed to download
                     if not isinstance(loaded_config, dict):
@@ -133,9 +133,9 @@ class AutoInstrument:
         
         # If not cached, fetch from the official CDN
         url = f"https://pytestlab.org/config/{identifier}.yaml"
-        async with httpx.AsyncClient() as client:
+        with httpx.AsyncClient() as client:
             try:
-                response = await client.get(url, timeout=10)
+                response = client.get(url, timeout=10)
                 response.raise_for_status()  # Raise an exception for bad status codes
 
                 config_text = response.text
@@ -147,8 +147,8 @@ class AutoInstrument:
                     )
 
                 # Cache the newly downloaded configuration
-                async with aiofiles.open(cache_file, 'w') as f:
-                    await f.write(config_text)
+                with aiofiles.open(cache_file, 'w') as f:
+                    f.write(config_text)
 
                 return loaded_config
             except httpx.HTTPStatusError as http_err:
@@ -168,7 +168,7 @@ class AutoInstrument:
 
 
     @classmethod
-    async def get_config_from_local(cls: Type[AutoInstrument], identifier: str, normalized_identifier: Optional[str] = None) -> Dict[str, Any]:
+    def get_config_from_local(cls: Type[AutoInstrument], identifier: str, normalized_identifier: Optional[str] = None) -> Dict[str, Any]:
         """Loads an instrument configuration from the local filesystem.
 
         This method searches for a configuration file in two primary locations:
@@ -207,8 +207,8 @@ class AutoInstrument:
         
         if path_to_try:
             try:
-                async with aiofiles.open(path_to_try, 'r') as file:
-                    content = await file.read()
+                with aiofiles.open(path_to_try, 'r') as file:
+                    content = file.read()
                     loaded_config = yaml.safe_load(content)
                     if not isinstance(loaded_config, dict):
                         raise InstrumentConfigurationError(
@@ -227,7 +227,7 @@ class AutoInstrument:
         raise FileNotFoundError(f"No configuration found for identifier '{identifier}' in local paths.")
 
     @classmethod
-    async def from_config(cls: Type[AutoInstrument],
+    def from_config(cls: Type[AutoInstrument],
                           config_source: Union[str, Dict[str, Any], PydanticInstrumentConfig], # Adjusted type hint
                           *args,
                           serial_number: Optional[str] = None,
@@ -248,8 +248,7 @@ class AutoInstrument:
         4. Instantiates the final instrument driver with the config and backend.
 
         Note: This method creates and configures the instrument object but does not
-        establish the connection. The caller must explicitly call `await
-        instrument.connect_backend()` on the returned object.
+        establish the connection. The caller must explicitly call `instrument.connect_backend()` on the returned object.
 
         Args:
             config_source: A dictionary containing the configuration, a string
@@ -304,12 +303,12 @@ class AutoInstrument:
             elif isinstance(config_source, str):
                 try:
                     # Try fetching from the CDN first
-                    config_data = await cls.get_config_from_cdn(config_source)
+                    config_data = cls.get_config_from_cdn(config_source)
                     if debug_mode: print(f"Successfully loaded configuration for '{config_source}' from CDN.")
                 except FileNotFoundError:
                     try:
                         # Fallback to local file system if not found on CDN
-                        config_data = await cls.get_config_from_local(config_source)
+                        config_data = cls.get_config_from_local(config_source)
                         if debug_mode: print(f"Successfully loaded configuration for '{config_source}' from local.")
                     except FileNotFoundError:
                         # If not found in either location, raise an error
@@ -483,7 +482,7 @@ class AutoInstrument:
         
         if debug_mode:
             print(f"Instantiated {instrument_class_to_init.__name__} with {type(backend_instance).__name__}.")
-            print("Note: Backend connection is not established by __init__. Call 'await instrument.connect_backend()' explicitly.")
+            print("Note: Backend connection is not established by __init__. Call 'instrument.connect_backend()' explicitly.")
             
         return instrument
 

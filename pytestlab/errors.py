@@ -1,5 +1,8 @@
 import warnings
 
+# Import replay-specific errors
+from .instruments.backends.replay_backend import ReplayMismatchError
+
 class InstrumentConnectionError(Exception):
     """Exception raised for SCPI instrument connection errors."""
 
@@ -80,7 +83,7 @@ class InstrumentConfigurationError(Exception):
             super().__init__(f"Invalid configuration for instrument '{instrument}'. {message}")
         else:
             super().__init__(f"Invalid instrument configuration. {message}")
-        
+
 
 ## WARNINGS
 

@@ -12,7 +12,7 @@ class SParameterData:
 class VectorNetworkAnalyser(Instrument[VNAConfig]):
     model_config = {"arbitrary_types_allowed": True}
 
-    async def configure_s_parameter_sweep(
+    def configure_s_parameter_sweep(
         self, 
         s_params: Optional[List[str]] = None, # e.g. ["S11", "S21"]
         start_freq: Optional[float] = None, 
@@ -27,26 +27,26 @@ class VectorNetworkAnalyser(Instrument[VNAConfig]):
             self.config.s_parameters = s_params
             self._logger.info(f"VNA S-parameters set to: {s_params}")
         if start_freq is not None:
-            await self._send_command(f"SENS:FREQ:STAR {start_freq}") # Example SCPI
+            self._send_command(f"SENS:FREQ:STAR {start_freq}") # Example SCPI
             self.config.start_frequency = start_freq
         if stop_freq is not None:
-            await self._send_command(f"SENS:FREQ:STOP {stop_freq}") # Example SCPI
+            self._send_command(f"SENS:FREQ:STOP {stop_freq}") # Example SCPI
             self.config.stop_frequency = stop_freq
         if num_points is not None:
-            await self._send_command(f"SENS:SWE:POIN {num_points}") # Example SCPI
+            self._send_command(f"SENS:SWE:POIN {num_points}") # Example SCPI
             self.config.num_points = num_points
         if if_bandwidth is not None:
-            await self._send_command(f"SENS:BWID {if_bandwidth}") # Example SCPI for IF bandwidth
+            self._send_command(f"SENS:BWID {if_bandwidth}") # Example SCPI for IF bandwidth
             self.config.if_bandwidth = if_bandwidth
         if power_level is not None:
-            await self._send_command(f"SOUR:POW {power_level}") # Example SCPI for power
+            self._send_command(f"SOUR:POW {power_level}") # Example SCPI for power
             self.config.power_level = power_level
         self._logger.info("VNA measurement configured (simulated).")
 
-    async def get_s_parameter_data(self) -> SParameterData:
+    def get_s_parameter_data(self) -> SParameterData:
         # Example: Query S-parameter data. This is often complex, involving selecting
         # the S-parameter, then querying data (e.g., in Real, Imaginary or LogMag, Phase format).
-        # raw_data_str = await self._query(f"CALC:DATA? SDAT") # Example SCPI for S-parameter data
+        # raw_data_str = self._query(f"CALC:DATA? SDAT") # Example SCPI for S-parameter data
         # For simulation, SimBackend needs to be taught to respond.
         self._logger.warning("get_s_parameter_data for VNA is a placeholder and returns dummy data.")
         

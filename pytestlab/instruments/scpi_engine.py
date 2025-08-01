@@ -16,7 +16,7 @@ lives in the YAML profile_, not in Python source code.
 Quick start
 ----------------------------------------------------------------------------
 
-    >>> import yaml, asyncio
+    >>> import yaml
     >>> from pytestlab.instruments.scpi_engine import SCPIEngine
     >>>
     >>> cfg = yaml.safe_load(open("my_scope.yml", "rt"))["scpi"]

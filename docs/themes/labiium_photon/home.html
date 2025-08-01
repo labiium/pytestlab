@@ -1692,27 +1692,22 @@
                 // --- Code Showcase ---
                 const codeSnippets = [
                     // Step 1
-                    `import asyncio
-from pytestlab.instruments import AutoInstrument
+                    `from pytestlab.instruments import AutoInstrument
 
 # PyTestLab can run without hardware!
-async def main():
-    scope = AutoInstrument.from_config(
+def main():
+    with AutoInstrument.from_config(
         "keysight/DSOX1204G", simulate=True
-    )
-    await scope.connect_backend()
+    ) as scope:
+        # Use a clean, chainable API
+        scope.channel(1).setup(scale=0.5).enable()
+        scope.trigger.setup_edge(source="CH1", level=0.2)
 
-    # Use a clean, chainable API
-    await scope.channel(1).setup(scale=0.5).enable()
-    await scope.trigger.setup_edge(source="CH1", level=0.2)
+        # Get data back as a Polars DataFrame
+        trace = scope.read_channels(1)
+        print(trace.head())
 
-    # Get data back as a Polars DataFrame
-    trace = await scope.read_channels(1)
-    print(trace.head())
-
-    await scope.close()
-
-asyncio.run(main())`,
+main()`,
                     // Step 2
                     `# bench.yaml
 bench_name: "Power-Amp Characterisation"
@@ -1729,29 +1724,29 @@ instruments:
     profile: "keysight/34470A"
     address: "USB0::...::INSTR"`,
                     // Step 3
-                    `import asyncio, pytestlab
+                    `import pytestlab
 
-async def run_bench():
+def run_bench():
     # Context manager handles connections & safety
-    async with await pytestlab.Bench.open("bench.yaml") as bench:
+    with pytestlab.Bench.open("bench.yaml") as bench:
 
         # Access instruments by their alias
-        v = await bench.dmm.measure_voltage_dc()
+        v = bench.dmm.measure_voltage_dc()
         print(f"Measured: {v.values:.4f} {v.units}")
 
         # Safety limits are automatically enforced
         try:
-            await bench.psu.channel(1).set_voltage(7.0)
+            bench.psu.channel(1).set_voltage(7.0)
         except SafetyLimitError as e:
             print(f"\\nError: {e}")
 
-asyncio.run(run_bench())`,
+run_bench()`,
                     // Step 4
                     `from pytestlab.measurements import MeasurementSession
 
 # Declaratively build a complex experiment
-async def run_sweep():
-    async with MeasurementSession("MOSFET IV Curve") as meas:
+def run_sweep():
+    with MeasurementSession("MOSFET IV Curve") as meas:
         meas.instrument("psu", "keysight/EDU36311A", address="...")
         meas.instrument("dmm", "keysight/34470A", address="...")
 
@@ -1759,15 +1754,15 @@ async def run_sweep():
         meas.parameter("v_drain", [0.1, 1.0, 5.0], unit="V")
 
         @meas.acquire
-        async def drain_current(psu, dmm, v_gate, v_drain):
-            await psu.channel(1).set_voltage(v_gate)
-            await psu.channel(2).set_voltage(v_drain)
-            return await dmm.measure_current_dc()
+        def drain_current(psu, dmm, v_gate, v_drain):
+            psu.channel(1).set_voltage(v_gate)
+            psu.channel(2).set_voltage(v_drain)
+            return dmm.measure_current_dc()
 
-        results = await meas.run()
+        results = meas.run()
         print(results.data.head())
 
-asyncio.run(run_sweep())`,
+run_sweep()`,
                 ];
 
                 const codeDisplay = document.getElementById("codeDisplay");
