@@ -13,6 +13,72 @@ extra:
       link: https://github.com/pytestlab/pytestlab
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/pytestlab/
+  t:
+    en:
+      title: PyTestLab
+      404_title: Signal Lost
+      404_message: The pathway you were looking for seems to have scattered through the quantum foam.
+      return_button: Return to Safe Space
+      back_button: Step Back
+      search_placeholder: Search documentation...
+      search_meta: Type to start searching
+      search_results_found: "{count} result(s) found"
+      search_no_results: No results found
+      search_start: Type to start searching
+      hero_title_1: Enlightened Measurement
+      hero_title_2: for Modern Science
+      hero_subtitle: PyTestLab is a modern, async-first Python toolbox for laboratory test-and-measurement automation, data management, and analysis. Move faster, build smarter, and trust your results.
+      explore_button: Explore Documentation
+      installation_button: Installation Guide
+      features_title: A Toolbox Built for Velocity
+      features_subtitle: Stop wrestling with legacy APIs. Start building reproducible experiments.
+      feature_1_title: Async by Design
+      feature_1_desc: Run parallel tests and non-blocking I/O with native `async/await`. Maximize instrument uptime and slash test execution times.
+      feature_2_title: Unified Driver Layer
+      feature_2_desc: A consistent, high-level API across oscilloscopes, PSUs, DMMs, and more. Swap instruments without rewriting your test logic.
+      feature_3_title: Declarative & Validated
+      feature_3_desc: Define instruments and benches with simple YAML files, validated by Pydantic. Catch configuration errors before they hit the hardware.
+      code_showcase_title: An API Designed for Flow
+      code_showcase_subtitle: Follow the journey from a single command to a complete, automated experiment.
+      step_1_title: 1. Hello, Instrument
+      step_1_desc: Start simple. Connect to any instrument with one line. PyTestLab's `AutoInstrument` handles the backend, even providing a full simulation for development and CI.
+      step_2_title: 2. Define Your Bench
+      step_2_desc: Describe your entire lab bench in a simple, readable YAML file. Specify instruments, connection details, and even safety limits to prevent accidents.
+      step_3_title: 3. Run Your Bench
+      step_3_desc: Bring your bench to life. The `Bench` context manager handles all connections and provides access to your instruments by the aliases you defined. Safety limits are enforced automatically.
+      step_4_title: 4. Design Experiments
+      step_4_desc: Go beyond simple commands. Use the declarative `MeasurementSession` to design complex experiments, sweep multiple parameters, and automatically collect structured data, ready for analysis.
+      cta_title: Ready to Accelerate Your Research?
+      cta_subtitle: PyTestLab is ready for your lab. Get started today and transform how you measure, test, and analyze.
+      get_started_button: Get Started
+      tour_button: 10-Minute Tour
+      footer_docs: Documentation
+      footer_api: API
+      footer_tutorials: Tutorials
+      footer_instruments: Instruments
+      footer_contribute: Contribute
+      footer_about: About
+      footer_getting_started: Getting Started
+      footer_async_vs_sync: Async vs Sync
+      footer_simulation: Simulation Mode
+      footer_bench: Bench Descriptors
+      footer_reference: Reference
+      footer_measurements: Measurements
+      footer_experiments: Experiments
+      footer_backends: Backends
+      footer_community: Community
+      footer_github: GitHub
+      footer_changelog: Changelog
+      footer_cli: CLI Tools
+      footer_brand_desc: A modern, async-first Python toolbox for laboratory test-and-measurement automation, data management, and analysis.
+      footer_copyright: All rights reserved.
+      nav_docs: Docs
+      nav_api: API
+      nav_tutorials: Tutorials
+      nav_instruments: Instruments
+      nav_contribute: Contribute
+      copy_button: Copy
+      copied_button: Copied!
 
 theme:
   name: null
@@ -40,7 +106,22 @@ plugins:
           build: true
         fr:
           name: Français
-          build: false # Example for future extension
+          build: false
+        es:
+          name: Español
+          build: false
+        de:
+          name: Deutsch
+          build: false
+        ja:
+          name: 日本語
+          build: false
+        ko:
+          name: 한국어
+          build: false
+        zh:
+          name: 中文
+          build: false
   - mkdocstrings:
       handlers:
         python:

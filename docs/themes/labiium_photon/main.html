@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="{{ config.site_description }}">
-    <meta name="author" content="LABIIUM">
+    <meta name="author" content="{{ config.site_author }}">
     <meta name="robots" content="index, follow">
 
     <!-- Favicon -->
     <link rel="icon" href="{{ 'img/favicon.ico'|url }}" type="image/x-icon">
 
-    <title>{% if page.title %}{{ page.title }} - {% endif %}{{ config.site_name }}{% if page.is_404 %} - Page Not Found{% endif %}</title>
+    <title>{% if page.title %}{{ page.title }} - {% endif %}{{ config.site_name }}{% if page.is_404 %} - {{ config.extra.t[lang].e404_title }}{% endif %}</title>
 
     <!-- CSS -->
     <link rel="stylesheet" href="{{ 'css/theme.css'|url }}">
@@ -260,7 +260,7 @@
                         <div class="search-modal" id="searchModal">
                             <div class="search-modal-content">
                                 <form class="search-form">
-                                    <input type="text" class="search-input" id="searchInput" placeholder="Search documentation..." autofocus>
+                                    <input type="text" class="search-input" id="searchInput" placeholder="{{ config.extra.t[lang].search_placeholder }}" autofocus>
                                     <button type="button" class="search-close" id="searchClose">
                                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -269,7 +269,7 @@
                                     </button>
                                 </form>
                                 <div class="search-results">
-                                    <div class="search-results-meta" id="searchResultsMeta">Type to start searching</div>
+                                    <div class="search-results-meta" id="searchResultsMeta">{{ config.extra.t[lang].search_meta }}</div>
                                     <div id="searchResults"></div>
                                 </div>
                             </div>
@@ -277,7 +277,7 @@
 
                         {% if config.repo_url %}
                         <a href="{{ config.repo_url }}" target="_blank" class="beam-button beam-button-sm">
-                            <span class="beam-button-text">GitHub</span>
+                            <span class="beam-button-text">{{ config.extra.t[lang].footer_github }}</span>
                         </a>
                         {% endif %}
                     </div>
@@ -361,18 +361,18 @@
             <div class="container">
                 <div class="footer-content">
                     <div class="footer-copyright">
-                        <p>&copy; {{ build_date_utc.strftime('%Y') }} LABIIUM. All rights reserved.</p>
-                        <p>PyTestLab is an open-source project.</p>
+                        <p>&copy; {{ build_date_utc.strftime('%Y') }} {{ config.site_author }}. {{ config.extra.t[lang].footer_copyright }}</p>
+                        <p>{{ config.extra.t[lang].footer_brand_desc }}</p>
                     </div>
 
                     <div class="footer-links">
                         {% if config.repo_url %}
-                            <a href="{{ config.repo_url }}" target="_blank">GitHub</a>
+                            <a href="{{ config.repo_url }}" target="_blank">{{ config.extra.t[lang].footer_github }}</a>
                         {% endif %}
                         {% if config.site_url %}
-                            <a href="{{ config.site_url }}">Website</a>
+                            <a href="{{ config.site_url }}">{{ config.extra.t[lang].footer_about }}</a>
                         {% endif %}
-                        <a href="{{ 'changelog/'|url }}">Changelog</a>
+                        <a href="{{ 'changelog/'|url }}">{{ config.extra.t[lang].footer_changelog }}</a>
                     </div>
                 </div>
             </div>
@@ -461,7 +461,7 @@
                             searchResults.innerHTML = '<div class="search-result-item"><p style="color: var(--lab-aqua); padding: 1rem;">Search index is loading. If this persists, make sure the site has been built with <code>mkdocs build</code>.</p></div>';
                         }
                     } else {
-                        searchResultsMeta.textContent = 'Type to start searching';
+                        searchResultsMeta.textContent = '{{ config.extra.t[lang].search_start }}';
                         searchResults.innerHTML = '';
                     }
                 });
@@ -512,7 +512,7 @@
 
             function displaySearchResults(results, metaElement, resultsElement) {
                 if (results.length > 0) {
-                    metaElement.textContent = `${results.length} result${results.length > 1 ? 's' : ''} found`;
+                    metaElement.textContent = '{{ config.extra.t[lang].search_results_found }}'.replace('{count}', results.length);
 
                     resultsElement.innerHTML = results.map(result => {
                         // Ensure the search result text is properly escaped
@@ -539,7 +539,7 @@
                         });
                     }, 100);
                 } else {
-                    metaElement.textContent = 'No results found';
+                    metaElement.textContent = '{{ config.extra.t[lang].search_no_results }}';
                     resultsElement.innerHTML = '<div class="search-result-item"><div style="padding: 1rem; color: rgba(255, 255, 255, 0.6); text-align: center;">Try different keywords or check your spelling.</div></div>';
                 }
             }
@@ -590,7 +590,7 @@
             // Add custom YAML token patterns
             if (Prism.languages.yaml) {
                 Prism.languages.yaml.key = {
-                    pattern: /(\s*(?:^|[:\-,[{\r\n?])[ \t]*)[^\r\n{[\]},#\s]+?(?=\s*:\s)/,
+                    pattern: /(\s*(?:^|[:\-,[{\r\n?])[ \t]*)[^\r\n{[\\]},#\s]+?(?=\s*:\s)/,
                     lookbehind: true,
                     alias: 'atrule'
                 };
