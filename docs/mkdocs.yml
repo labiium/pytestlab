@@ -94,34 +94,8 @@ theme:
     primary: custom
 
 plugins:
-  - search:
-      separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
-      min_search_length: 2
-      prebuild_index: true
-  - i18n:
-      default_language: en
-      languages:
-        en:
-          name: English
-          build: true
-        fr:
-          name: Français
-          build: false
-        es:
-          name: Español
-          build: false
-        de:
-          name: Deutsch
-          build: false
-        ja:
-          name: 日本語
-          build: false
-        ko:
-          name: 한국어
-          build: false
-        zh:
-          name: 中文
-          build: false
+  - search
+
   - mkdocstrings:
       handlers:
         python:
