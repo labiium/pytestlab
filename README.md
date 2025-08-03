@@ -22,11 +22,11 @@
   <a href="https://github.com/your-org/pytestlab/actions/workflows/build_wheels.yml"><img
      alt="CI"
      src="https://github.com/your-org/pytestlab/actions/workflows/build_wheels.yml/badge.svg"/></a>
-  <a href="https://pytestlab.readthedocs.io"><img
+  <a href="https://pytestlab.org"><img
      alt="Docs"
      src="https://img.shields.io/badge/docs-latest-blue"/></a>
-  <a href="LICENSE"><img alt="License"
-     src="https://img.shields.io/badge/license-MIT-green"/></a>
+  <a href="https://opensource.org/licenses/Apache-2.0"><img alt="Apache License"
+        src="https://img.shields.io/badge/license-Apache%202.0-blue"/></a>
 </p>
 
 ---
@@ -34,9 +34,9 @@
 ## ✨ Key Features
 
 * **Async by design** – non-blocking instrument I/O with `async/await`.
-* **Unified driver layer** – consistent high-level API across oscilloscopes, PSUs, DMMs, VNAs, AWGs, spectrum & power meters, DC loads, …  
+* **Unified driver layer** – consistent high-level API across oscilloscopes, PSUs, DMMs, VNAs, AWGs, spectrum & power meters, DC loads, …
   (see `pytestlab.instruments.*`).
-* **Plug-and-play profiles** – YAML descriptors validated by Pydantic & JSON-schema.  
+* **Plug-and-play profiles** – YAML descriptors validated by Pydantic & JSON-schema.
   Browse ready-made Keysight profiles in `pytestlab/profiles/keysight`.
 * **Simulation mode** – develop anywhere using the built-in `SimBackend` (no hardware required, deterministic outputs for CI).
 * **Record & Replay** – record real instrument sessions and replay them exactly for reproducible measurements, offline analysis, and regression testing with strict sequence validation.
@@ -134,7 +134,7 @@ PyTestLab's **Record & Replay** system enables you to capture real instrument in
 ### Core Benefits
 
 - **🎯 Reproducible Measurements** – Exact same SCPI command sequences every time
-- **🛡️ Measurement Integrity** – Scripts cannot deviate from validated sequences  
+- **🛡️ Measurement Integrity** – Scripts cannot deviate from validated sequences
 - **🔬 Offline Analysis** – Run complex measurements without real hardware
 - **🧪 Regression Testing** – Catch unintended script modifications immediately
 
@@ -164,19 +164,19 @@ from pytestlab.instruments.backends import ReplayBackend
 async def main():
     # Load a recorded session
     replay_backend = ReplayBackend("recorded_session.yaml")
-    
+
     # Create instrument with replay backend
     psu = AutoInstrument.from_config(
-        "keysight/EDU36311A", 
+        "keysight/EDU36311A",
         backend_override=replay_backend
     )
-    
+
     await psu.connect_backend()
-    
+
     # This will replay the exact recorded sequence
     await psu.set_voltage(1, 5.0)
     voltage = await psu.read_voltage(1)
-    
+
     await psu.close()
 
 asyncio.run(main())
@@ -205,7 +205,7 @@ psu:
 If your script deviates from the recorded sequence:
 
 ```python
-# During recording: set_voltage(1, 5.0) 
+# During recording: set_voltage(1, 5.0)
 # During replay: set_voltage(1, 3.0)  # ← Different value!
 
 # Raises: ReplayMismatchError: Expected 'VOLT 5.0, (@1)' but got 'VOLT 3.0, (@1)'
@@ -245,7 +245,7 @@ HTML docs hosted at <https://pytestlab.readthedocs.io> (builds from `docs/`).
 
 ## 🧑‍💻 Contributing
 
-Pull requests are welcome! See [`CONTRIBUTING.md`](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).  
+Pull requests are welcome! See [`CONTRIBUTING.md`](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
 Run the test-suite (`pytest`), type-check (`mypy`), lint/format (`ruff`), and keep commits conventional (`cz c`).
 
 ---

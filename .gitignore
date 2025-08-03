@@ -20,3 +20,5 @@ coverage.xml
 *.db
 demo_db.db
 site
+
+node_modules

@@ -109,17 +109,20 @@
 .jp-OutputArea pre,
 .input_area pre,
 .output pre {
-    background: transparent !important;
-    border: none !important;
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
     margin: 0 !important;
-    padding: var(--spacing-md, 1rem) !important;
-    font-family: var(--font-code, 'IBM Plex Mono', monospace);
-    font-size: 0.9rem;
+    padding: var(--spacing-lg, 1.5rem) !important;
+    font-family: var(--font-code, "IBM Plex Mono", monospace);
+    font-size: 1rem;
+    font-weight: 500;
     line-height: 1.6;
-    color: var(--photon-white, #f5f7fa);
+    color: #1e293b !important;
     overflow-x: auto;
     white-space: pre;
     word-wrap: normal;
+    border-radius: var(--border-radius-sm, 4px) !important;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .jp-InputArea code,
@@ -127,9 +130,10 @@
 .input_area code,
 .output code {
     background: transparent !important;
-    color: var(--photon-white, #f5f7fa) !important;
-    font-family: var(--font-code, 'IBM Plex Mono', monospace) !important;
-    font-size: 0.9rem !important;
+    color: #1e293b !important;
+    font-family: var(--font-code, "IBM Plex Mono", monospace) !important;
+    font-size: 1rem !important;
+    font-weight: 500 !important;
     line-height: 1.6 !important;
     border: none !important;
     padding: 0 !important;
@@ -149,7 +153,10 @@
 .output_area .output_text pre {
     white-space: pre-wrap;
     word-wrap: break-word;
-    color: var(--photon-white, #f5f7fa);
+    color: #1e293b !important;
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    font-weight: 500;
 }
 
 /* Image outputs */
@@ -186,11 +193,12 @@
     width: 100%;
     border-collapse: collapse;
     margin: var(--spacing-md, 1rem) 0;
-    background: rgba(30, 33, 38, 0.5);
+    background: #ffffff;
     border-radius: var(--border-radius-sm, 4px);
     overflow: hidden;
-    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
-    font-size: 0.85rem;
+    border: 1px solid #cbd5e1;
+    font-size: 0.9rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .jp-OutputArea table th,
@@ -199,26 +207,35 @@
 .output table td {
     padding: var(--spacing-sm, 0.75rem) var(--spacing-md, 1rem);
     text-align: left;
-    border-bottom: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
-    color: var(--photon-white, #f5f7fa);
+    border-bottom: 1px solid #e2e8f0;
+    color: #1e293b;
+    font-weight: 500;
 }
 
 .jp-OutputArea table th,
 .output table th {
-    background: rgba(4, 226, 220, 0.1);
-    color: var(--lab-aqua, #04e2dc);
-    border-bottom: 2px solid var(--lab-aqua, #04e2dc);
-    font-weight: 600;
+    background: linear-gradient(
+        135deg,
+        rgba(4, 226, 220, 0.15),
+        rgba(4, 226, 220, 0.2)
+    );
+    color: #0891b2;
+    border-bottom: 2px solid #0891b2;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 0.8rem;
 }
 
 .jp-OutputArea table tbody tr:nth-child(even),
 .output table tbody tr:nth-child(even) {
-    background: rgba(255, 255, 255, 0.02);
+    background: #f8fafc;
 }
 
 .jp-OutputArea table tbody tr:hover,
 .output table tbody tr:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: #f1f5f9;
+    transform: none;
 }
 
 /* DataFrame styling (pandas outputs) */
@@ -234,15 +251,22 @@
 }
 
 /* Error outputs */
-.jp-OutputArea-output .jp-OutputArea-executeResult.jp-OutputArea-executeResult--error,
+.jp-OutputArea-output
+    .jp-OutputArea-executeResult.jp-OutputArea-executeResult--error,
 .output_area .output_subarea.output_stderr {
-    background: rgba(255, 84, 96, 0.1) !important;
-    border-left: 3px solid var(--status-error, #ff5460);
+    background: #fef2f2 !important;
+    border-left: 4px solid #dc2626;
+    border-radius: 0 var(--border-radius-sm, 4px) var(--border-radius-sm, 4px) 0;
 }
 
-.jp-OutputArea-output .jp-OutputArea-executeResult.jp-OutputArea-executeResult--error pre,
+.jp-OutputArea-output
+    .jp-OutputArea-executeResult.jp-OutputArea-executeResult--error
+    pre,
 .output_area .output_subarea.output_stderr pre {
-    color: #ffcdd2 !important;
+    color: #dc2626 !important;
+    background: #fef2f2 !important;
+    border-color: #fca5a5 !important;
+    font-weight: 600;
     white-space: pre-wrap;
     word-wrap: break-word;
 }
@@ -310,11 +334,15 @@
 .jp-OutputArea-output::after,
 .input_area::after,
 .output::after {
-    content: 'Copy';
+    content: "Copy";
     position: absolute;
     top: 0.75rem;
     right: 0.75rem;
-    background: linear-gradient(135deg, var(--lab-violet, #5333ed), rgba(83, 51, 237, 0.8));
+    background: linear-gradient(
+        135deg,
+        var(--lab-violet, #5333ed),
+        rgba(83, 51, 237, 0.8)
+    );
     color: var(--photon-white, #f5f7fa);
     border: none;
     border-radius: var(--border-radius-sm, 4px);
@@ -341,7 +369,7 @@
 /* Language badges */
 .jp-InputArea::before,
 .input_area::before {
-    content: 'Python';
+    content: "Python";
     position: absolute;
     bottom: 0.75rem;
     right: 0.75rem;
@@ -361,7 +389,7 @@
 
 .jp-OutputArea-output::before,
 .output::before {
-    content: 'Output';
+    content: "Output";
     position: absolute;
     bottom: 0.75rem;
     right: 0.75rem;

@@ -803,9 +803,9 @@
 
                 // Load search index - try multiple paths
                 const searchPaths = [
+                    "/search/search_index.json",
                     "search/search_index.json",
-                    "../search/search_index.json",
-                    "/search/search_index.json"
+                    "../search/search_index.json"
                 ];
 
                 async function loadSearchIndex() {
