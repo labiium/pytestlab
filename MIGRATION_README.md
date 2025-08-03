@@ -187,7 +187,7 @@ The `migrate_async_to_sync.py` script automatically handles:
 - [PyTestLab Documentation](https://pytestlab.readthedocs.io/)
 - [API Reference](https://pytestlab.readthedocs.io/en/latest/api/)
 - [Examples Repository](examples/)
-- [GitHub Issues](https://github.com/pytestlab/pytestlab/issues)
+- [GitHub Issues](https://github.com/labiium/pytestlab/issues)
 
 ---
 

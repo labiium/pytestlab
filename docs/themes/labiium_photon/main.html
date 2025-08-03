@@ -16,180 +16,390 @@
 
     <!-- CSS -->
     <link rel="stylesheet" href="{{ 'css/theme.css'|url }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
 
-    <!-- Enhanced Prism.js CSS for LABIIUM Photonic theme -->
     <style>
-        /* LABIIUM Photonic Prism.js Theme */
-        code[class*="language-"],
-        pre[class*="language-"] {
-            color: var(--photon-white, #f5f7fa);
+        /* Core Variables */
+        :root {
+            --photon-black: #0b0e11;
+            --photon-white: #f5f7fa;
+            --lab-violet: #5333ed;
+            --lab-violet-light: #7a5ff5;
+            --lab-aqua: #04e2dc;
+            --lab-aqua-light: #2cefea;
+
+            --glass-frost-bg: rgba(30, 33, 38, 0.75);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --glass-border-hover: rgba(255, 255, 255, 0.25);
+
+            --graphite-30: #1a1d20;
+            --graphite-50: #2b2e32;
+            --graphite-70: #42454a;
+
+            --status-success: #00b27c;
+            --status-warning: #ffb02e;
+            --status-error: #ff5460;
+
+            --ease-curve: cubic-bezier(0.16, 1, 0.3, 1);
+
+            --font-ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --font-display: "Manrope", "Inter", sans-serif;
+            --font-code: "IBM Plex Mono", SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+
+            --spacing-xs: 0.25rem;
+            --spacing-sm: 0.5rem;
+            --spacing-md: 1rem;
+            --spacing-lg: 1.5rem;
+            --spacing-xl: 2rem;
+            --spacing-xxl: 3rem;
+
+            --header-height: 70px;
+            --border-radius-sm: 4px;
+            --border-radius-md: 8px;
+            --border-radius-lg: 16px;
+            --border-radius-xl: 32px;
+        }
+
+        /* Reset & Base Styles */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--photon-black);
+            color: var(--photon-white);
+            font-family: var(--font-ui);
+            font-weight: 400;
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            overflow-x: hidden;
+        }
+
+        /* Background Beams Effect */
+        #background-beams {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(
+                    ellipse 80% 80% at 20% -10%,
+                    rgba(83, 51, 237, 0.1),
+                    transparent
+                ),
+                radial-gradient(
+                    ellipse 60% 80% at 80% 110%,
+                    rgba(4, 226, 220, 0.1),
+                    transparent
+                );
+            z-index: -1;
+            transition: background 1s ease-out;
+        }
+
+        /* Typography */
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6 {
+            font-family: var(--font-display);
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            color: var(--photon-white);
+            line-height: 1.2;
+        }
+
+        a {
+            color: var(--lab-aqua);
+            text-decoration: none;
+            transition:
+                color 0.3s var(--ease-curve),
+                text-shadow 0.3s var(--ease-curve);
+        }
+
+        a:hover {
+            color: var(--photon-white);
+            text-shadow: 0 0 8px rgba(4, 226, 220, 0.3);
+            text-decoration: none;
+        }
+
+        /* Layout & Container */
+        .container {
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 var(--spacing-md);
+        }
+
+        /* Header / Navigation */
+        .site-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 100;
+            background: transparent;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            border-bottom: 1px solid transparent;
+            padding: 1rem 0;
+            transition: all 0.4s var(--ease-curve);
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .site-header.visible {
+            opacity: 1;
+            transform: translateY(0);
+            background: rgba(11, 14, 17, 0.8);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+        }
+
+        .site-logo {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+        }
+
+        .site-logo img {
+            height: 36px;
+            width: auto;
+        }
+
+        .site-name {
+            font-family: var(--font-display);
+            font-weight: 800;
+            font-size: 1.25rem;
+            color: var(--photon-white);
+        }
+
+        /* Main Navigation */
+        .nav-primary {
+            display: flex;
+            align-items: center;
+        }
+
+        .nav-links {
+            display: flex;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            gap: var(--spacing-lg);
+        }
+
+        .nav-item a {
+            color: rgba(255, 255, 255, 0.75);
+            font-weight: 500;
+            position: relative;
+        }
+
+        .nav-item.active a,
+        .nav-item a:hover {
+            color: #fff;
+            text-shadow: 0 0 6px var(--lab-aqua), 0 0 2px var(--lab-violet);
             background: none;
-            text-shadow: 0 1px rgba(0, 0, 0, 0.3);
-            font-family: var(--font-code, 'IBM Plex Mono', Consolas, 'Courier New', monospace);
-            font-size: 0.9em;
-            text-align: left;
-            white-space: pre;
-            word-spacing: normal;
-            word-break: normal;
-            word-wrap: normal;
-            line-height: 1.6;
-            tab-size: 4;
-            hyphens: none;
+            -webkit-background-clip: initial;
+            -webkit-text-fill-color: initial;
+            background-clip: initial;
         }
 
-        .token.comment,
-        .token.prolog,
-        .token.doctype,
-        .token.cdata {
-            color: #6b7280;
-            font-style: italic;
+        .nav-item a::after {
+            content: "";
+            position: absolute;
+            width: 0;
+            height: 2px;
+            bottom: -4px;
+            left: 0;
+            background: linear-gradient(
+                90deg,
+                var(--lab-violet),
+                var(--lab-aqua)
+            );
+            transition: width 0.3s var(--ease-curve);
         }
 
-        .token.punctuation {
-            color: #d1d5db;
+        .nav-item a:hover::after,
+        .nav-item.active a::after {
+            width: 100%;
+            box-shadow: 0 2px 8px 0 var(--lab-aqua);
         }
 
-        .token.property,
-        .token.tag,
-        .token.constant,
-        .token.symbol,
-        .token.deleted {
-            color: #ef4444;
+        /* Mobile Menu Button */
+        .menu-toggle {
+            display: none;
+            background: none;
+            border: none;
+            width: 32px;
+            height: 32px;
+            position: relative;
+            cursor: pointer;
+            z-index: 150;
         }
 
-        .token.boolean,
-        .token.number {
-            color: #f59e0b;
+        .menu-toggle .line {
+            display: block;
+            height: 2px;
+            width: 100%;
+            background: var(--photon-white);
+            position: absolute;
+            left: 0;
+            transition: all 0.3s var(--ease-curve);
         }
 
-        .token.selector,
-        .token.attr-name,
-        .token.string,
-        .token.char,
-        .token.builtin,
-        .token.inserted {
-            color: var(--lab-aqua, #04e2dc);
+        .menu-toggle .line:nth-child(1) {
+            top: 8px;
         }
 
-        .token.operator,
-        .token.entity,
-        .token.url,
-        .language-css .token.string,
-        .style .token.string,
-        .token.variable {
-            color: #ec4899;
+        .menu-toggle .line:nth-child(2) {
+            top: 16px;
         }
 
-        .token.atrule,
-        .token.attr-value,
-        .token.function,
-        .token.class-name {
-            color: #8b5cf6;
+        .menu-toggle .line:nth-child(3) {
+            top: 24px;
         }
 
-        .token.keyword {
-            color: var(--lab-violet, #5333ed);
-            font-weight: 600;
+        .menu-toggle.active .line:nth-child(1) {
+            transform: translateY(8px) rotate(45deg);
         }
 
-        .token.regex,
-        .token.important {
-            color: #f59e0b;
+        .menu-toggle.active .line:nth-child(2) {
+            opacity: 0;
         }
 
-        .token.important,
-        .token.bold {
-            font-weight: bold;
+        .menu-toggle.active .line:nth-child(3) {
+            transform: translateY(-8px) rotate(-45deg);
         }
 
-        .token.italic {
-            font-style: italic;
-        }
-
-        .token.entity {
-            cursor: help;
-        }
-
-        /* Python-specific highlighting */
-        .language-python .token.decorator {
-            color: var(--lab-violet, #5333ed);
-        }
-
-        .language-python .token.triple-quoted-string {
-            color: var(--lab-aqua, #04e2dc);
-        }
-
-        /* Enhanced notebook-specific styling */
-        .nb-input-content .token.keyword,
-        .nb-output-content .token.keyword {
-            color: var(--lab-violet, #5333ed) !important;
-            text-shadow: 0 0 10px rgba(83, 51, 237, 0.3);
-        }
-
-        .nb-input-content .token.string,
-        .nb-output-content .token.string {
-            color: var(--lab-aqua, #04e2dc) !important;
-            text-shadow: 0 0 10px rgba(4, 226, 220, 0.3);
-        }
-    </style>
-
-    <!-- Search styles -->
-    <style>
+        /* Search Component */
         .search-container {
             position: relative;
             margin-right: 1rem;
         }
 
-        .md-search {
-            position: relative;
-        }
-
-        .md-search__inner {
-            width: 100%;
-        }
-
-        .md-search__form {
-            position: relative;
-            display: flex;
-            align-items: center;
-            padding: 0 0.5rem;
-            height: 2.4rem;
-            width: 16rem;
-        }
-
-        .md-search__input {
-            flex-grow: 1;
-            height: 100%;
-            background: transparent;
+        .search-button {
+            background: none;
             border: none;
-            outline: none;
-            padding: 0 0.5rem;
-        }
-
-        .md-search__icon {
+            color: var(--photon-white);
+            cursor: pointer;
+            opacity: 0.75;
+            transition: opacity 0.3s var(--ease-curve);
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 1.8rem;
-            height: 1.8rem;
-            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
         }
 
-        .md-search__icon svg {
-            width: 1.2rem;
-            height: 1.2rem;
+        .search-button:hover {
+            opacity: 1;
+            background: rgba(255, 255, 255, 0.1);
         }
 
-        .md-search-result {
-            display: none;
-            position: absolute;
-            top: 100%;
+        .search-button svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .search-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
             right: 0;
-            width: 24rem;
-            max-height: 75vh;
-            overflow-y: auto;
-            margin-top: 0.5rem;
-            z-index: 100;
+            bottom: 0;
+            background: rgba(11, 14, 17, 0.9);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 15vh;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s var(--ease-curve);
+        }
+
+        .search-modal.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .search-modal-content {
+            width: 100%;
+            max-width: 700px;
+            padding: 0 var(--spacing-lg);
+        }
+
+        .search-form {
+            position: relative;
+            display: flex;
+            align-items: center;
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .search-input {
+            width: 100%;
+            font-family: var(--font-ui);
+            font-size: 1.5rem;
+            background: rgba(43, 46, 50, 0.5);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--border-radius-md);
+            color: var(--photon-white);
+            padding: 1rem var(--spacing-lg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            transition: all 0.3s var(--ease-curve);
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--lab-aqua);
+            box-shadow: 0 0 0 3px rgba(4, 226, 220, 0.3);
+        }
+
+        .search-close {
+            position: absolute;
+            right: 1rem;
+            background: none;
+            border: none;
+            color: var(--photon-white);
+            cursor: pointer;
+            font-size: 1.5rem;
+            opacity: 0.75;
+            transition: opacity 0.3s var(--ease-curve);
+        }
+
+        .search-close:hover {
+            opacity: 1;
         }
     </style>
 
@@ -216,16 +426,20 @@
                         </a>
                     </div>
 
-                    <nav class="nav-primary">
-                        <button class="mobile-nav-toggle" aria-label="Toggle navigation">
-                            <span class="line"></span>
-                            <span class="line"></span>
-                            <span class="line"></span>
-                        </button>
+                    <button
+                        class="menu-toggle"
+                        id="menuToggle"
+                        aria-label="Toggle Navigation"
+                    >
+                        <span class="line"></span>
+                        <span class="line"></span>
+                        <span class="line"></span>
+                    </button>
 
+                    <nav class="nav-primary">
                         <ul class="nav-links">
                             {% for nav_item in nav %}
-                                {% if nav_item.title != "Home" or not page.is_homepage %}
+                                {% if nav_item.title != "Home" %}
                                     {% if nav_item.children %}
                                         <li class="nav-item dropdown {% if nav_item.active %}active{% endif %}">
                                             <a href="#" class="dropdown-toggle">{{ nav_item.title }}</a>
@@ -288,7 +502,7 @@
         </header>
 
         <!-- Page Content -->
-        <main class="main-content">
+        <main class="main-content" style="margin-top: var(--header-height);">
             <div class="container">
                 <div class="content-layout">
                     <!-- Sidebar / Table of Contents -->
@@ -382,168 +596,83 @@
     </div>
 
     <!-- JavaScript -->
-    <script src="{{ 'js/theme.js'|url }}"></script>
-
-    <!-- Search and Enhanced functionality -->
+    <!-- JavaScript -->
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // --- Search Modal ---
-            const searchButton = document.getElementById('searchButton');
-            const searchModal = document.getElementById('searchModal');
-            const searchClose = document.getElementById('searchClose');
-            const searchInput = document.getElementById('searchInput');
-            let searchIndex = null;
+        document.addEventListener("DOMContentLoaded", function () {
+            // --- Background Beams Effect ---
+            const backgroundBeams = document.getElementById("background-beams");
+            if (backgroundBeams) {
+                document.addEventListener("mousemove", (e) => {
+                    const { clientX, clientY } = e;
+                    const { innerWidth, innerHeight } = window;
+                    const xPercent = (clientX / innerWidth) * 100;
+                    const yPercent = (clientY / innerHeight) * 100;
 
-            // Load search index with improved path resolution
-            const currentPath = window.location.pathname;
-            const baseUrl = currentPath.replace(/\/[^\/]*$/, '');
+                    window.requestAnimationFrame(() => {
+                        backgroundBeams.style.background = `
+                        radial-gradient(ellipse 80% 80% at ${xPercent - 10}% ${yPercent - 20}%, rgba(83, 51, 237, 0.15), transparent),
+                        radial-gradient(ellipse 60% 80% at ${xPercent + 10}% ${yPercent + 20}%, rgba(4, 226, 220, 0.15), transparent)
+                        `;
+                    });
+                });
+            }
 
-            // Try multiple search index paths
-            const searchPaths = [
-                'search/search_index.json',
-                '../search/search_index.json',
-                './search/search_index.json',
-                '/search/search_index.json',
-                baseUrl + '/search/search_index.json'
-            ];
+            // --- Navbar Scroll Behavior ---
+            const siteHeader = document.querySelector(".site-header");
+            let lastScrollTop = 0;
 
-            const tryLoadSearchIndex = async () => {
-                for (const path of searchPaths) {
-                    try {
-                        const response = await fetch(path);
-                        if (response.ok) {
-                            searchIndex = await response.json();
-                            console.log('Search index loaded from:', path);
-                            return;
-                        }
-                    } catch (error) {
-                        // Continue to next path
-                    }
+            window.addEventListener("scroll", function () {
+                const scrollTop =
+                    window.pageYOffset ||
+                    document.documentElement.scrollTop;
+
+                if (scrollTop > 100) {
+                    siteHeader.classList.add("visible");
+                } else {
+                    siteHeader.classList.remove("visible");
                 }
-                console.log('Search functionality disabled - no search index found');
-            };
 
-            tryLoadSearchIndex();
+                lastScrollTop = scrollTop;
+            });
+
+            // --- Mobile Menu Toggle ---
+            const menuToggle = document.getElementById("menuToggle");
+            const navPrimary = document.querySelector(".nav-primary");
+
+            if (menuToggle && navPrimary) {
+                menuToggle.addEventListener("click", function () {
+                    this.classList.toggle("active");
+                    navPrimary.classList.toggle("active");
+                });
+            }
+
+            // --- Search Modal ---
+            const searchButton = document.getElementById("searchButton");
+            const searchModal = document.getElementById("searchModal");
+            const searchClose = document.getElementById("searchClose");
+            const searchInput = document.getElementById("searchInput");
 
             if (searchButton && searchModal && searchClose) {
-                searchButton.addEventListener('click', function() {
-                    searchModal.classList.add('active');
+                searchButton.addEventListener("click", function () {
+                    searchModal.classList.add("active");
                     setTimeout(() => {
                         searchInput.focus();
                     }, 100);
                 });
 
-                searchClose.addEventListener('click', function() {
-                    searchModal.classList.remove('active');
+                searchClose.addEventListener("click", function () {
+                    searchModal.classList.remove("active");
                 });
 
                 // Close on escape key
-                document.addEventListener('keydown', function(e) {
-                    if (e.key === 'Escape' && searchModal.classList.contains('active')) {
-                        searchModal.classList.remove('active');
+                document.addEventListener("keydown", function (e) {
+                    if (
+                        e.key === "Escape" &&
+                        searchModal.classList.contains("active")
+                    ) {
+                        searchModal.classList.remove("active");
                     }
                 });
-            }
-
-            if (searchInput) {
-                searchInput.addEventListener('input', function() {
-                    const query = this.value.trim().toLowerCase();
-                    const searchResultsMeta = document.getElementById('searchResultsMeta');
-                    const searchResults = document.getElementById('searchResults');
-
-                    if (query.length > 1) {
-                        searchResultsMeta.textContent = 'Searching...';
-                        searchResults.innerHTML = '';
-
-                        if (searchIndex) {
-                            const results = performSearch(query, searchIndex);
-                            displaySearchResults(results, searchResultsMeta, searchResults);
-                        } else {
-                            searchResultsMeta.textContent = 'Loading search index...';
-                            searchResults.innerHTML = '<div class="search-result-item"><p style="color: var(--lab-aqua); padding: 1rem;">Search index is loading. If this persists, make sure the site has been built with <code>mkdocs build</code>.</p></div>';
-                        }
-                    } else {
-                        searchResultsMeta.textContent = '{{ config.extra.t[lang].search_start or 'Type to start searching' }}';
-                        searchResults.innerHTML = '';
-                    }
-                });
-            }
-
-            function performSearch(query, index) {
-                const results = [];
-                // Handle different search index formats
-                const docs = index.docs || index.articles || [];
-
-                docs.forEach((doc, i) => {
-                    const title = (doc.title || '').toLowerCase();
-                    const text = (doc.text || doc.content || '').toLowerCase();
-                    let location = doc.location || doc.url || '#';
-
-                    // Fix URL resolution for search results
-                    if (location && location !== '#') {
-                        // Remove leading slash if present and ensure proper relative path
-                        location = location.replace(/^\//, '');
-
-                        // If we're not on the root page, adjust the path
-                        const currentPath = window.location.pathname;
-                        if (currentPath !== '/' && !currentPath.endsWith('/index.html')) {
-                            // Count directory depth to add proper ../
-                            const depth = (currentPath.match(/\//g) || []).length - 1;
-                            if (depth > 0 && !location.startsWith('../')) {
-                                location = '../'.repeat(depth) + location;
-                            }
-                        }
-                    }
-
-                    if (title.includes(query) || text.includes(query)) {
-                        const titleIndex = title.indexOf(query);
-                        const textIndex = text.indexOf(query);
-                        const score = (titleIndex >= 0 ? 10 : 0) + (textIndex >= 0 ? 1 : 0);
-
-                        results.push({
-                            title: doc.title || 'Untitled',
-                            location: location,
-                            text: text || 'No description available',
-                            score: score
-                        });
-                    }
-                });
-
-                return results.sort((a, b) => b.score - a.score).slice(0, 10);
-            }
-
-            function displaySearchResults(results, metaElement, resultsElement) {
-                if (results.length > 0) {
-                    metaElement.textContent = '{{ config.extra.t[lang].search_results_found or '{count} result(s) found' }}'.replace('{count}', results.length);
-
-                    resultsElement.innerHTML = results.map(result => {
-                        // Ensure the search result text is properly escaped
-                        const escapedTitle = result.title.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                        const escapedText = result.text.substring(0, 150).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-                        return `
-                            <div class="search-result-item">
-                                <a href="${result.location}" class="search-result-link">
-                                    <div class="search-result-title">${escapedTitle}</div>
-                                    <div class="search-result-text">${escapedText}...</div>
-                                </a>
-                            </div>
-                        `;
-                    }).join('');
-
-                    // Add click handlers to close search modal when clicking results
-                    setTimeout(() => {
-                        const searchResultLinks = resultsElement.querySelectorAll('.search-result-link');
-                        searchResultLinks.forEach(link => {
-                            link.addEventListener('click', () => {
-                                searchModal.classList.remove('active');
-                            });
-                        });
-                    }, 100);
-                } else {
-                    metaElement.textContent = '{{ config.extra.t[lang].search_no_results or 'No results found' }}';
-                    resultsElement.innerHTML = '<div class="search-result-item"><div style="padding: 1rem; color: rgba(255, 255, 255, 0.6); text-align: center;">Try different keywords or check your spelling.</div></div>';
-                }
             }
         });
     </script>

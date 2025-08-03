@@ -696,10 +696,47 @@
             }
 
             .code-story-step {
-                padding: 1rem 0;
-                opacity: 0.4;
-                transition: opacity 0.4s var(--ease-curve);
+                padding: 1.25rem 1.5rem;
+                margin-bottom: 1rem;
+                opacity: 0.5;
+                background: rgba(30, 33, 38, 0.75);
+                border: 1.5px solid var(--glass-border);
+                border-radius: var(--border-radius-lg);
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+                transition:
+                    opacity 0.4s var(--ease-curve),
+                    box-shadow 0.3s var(--ease-curve),
+                    transform 0.3s var(--ease-curve),
+                    background 0.3s var(--ease-curve),
+                    border-color 0.3s var(--ease-curve);
                 cursor: pointer;
+                position: relative;
+            }
+            .code-story-step.active,
+            .code-story-step:focus,
+            .code-story-step:hover {
+                opacity: 1;
+                background: rgba(83, 51, 237, 0.18);
+                border-color: var(--lab-aqua);
+                box-shadow:
+                    0 4px 24px 0 rgba(4, 226, 220, 0.12),
+                    0 1.5px 0 0 var(--lab-aqua);
+                transform: translateY(-2px) scale(1.025);
+                outline: none;
+            }
+            .code-story-step.active {
+                background: linear-gradient(
+                    90deg,
+                    rgba(83, 51, 237, 0.22) 0%,
+                    rgba(4, 226, 220, 0.18) 100%
+                );
+                border-color: var(--lab-aqua);
+                box-shadow:
+                    0 6px 32px 0 rgba(83, 51, 237, 0.18),
+                    0 2px 0 0 var(--lab-aqua);
+                color: #fff;
+                opacity: 1;
             }
 
             .code-story-step.active {
@@ -1411,7 +1448,14 @@
                 </div>
                 <div class="code-showcase-grid fade-in">
                     <div class="code-story-steps">
-                        <div class="code-story-step active" data-step="0">
+                        <div
+                            class="code-story-step active"
+                            data-step="0"
+                            tabindex="0"
+                            role="button"
+                            aria-pressed="true"
+                            aria-label="Hello, Instrument"
+                        >
                             <h3>1. Hello, Instrument</h3>
                             <p>
                                 Start simple. Connect to any instrument with one
@@ -1420,7 +1464,14 @@
                                 development and CI.
                             </p>
                         </div>
-                        <div class="code-story-step" data-step="1">
+                        <div
+                            class="code-story-step"
+                            data-step="1"
+                            tabindex="0"
+                            role="button"
+                            aria-pressed="false"
+                            aria-label="Define Your Bench"
+                        >
                             <h3>2. Define Your Bench</h3>
                             <p>
                                 Describe your entire lab bench in a simple,
@@ -1429,7 +1480,14 @@
                                 prevent accidents.
                             </p>
                         </div>
-                        <div class="code-story-step" data-step="2">
+                        <div
+                            class="code-story-step"
+                            data-step="2"
+                            tabindex="0"
+                            role="button"
+                            aria-pressed="false"
+                            aria-label="Run Your Bench"
+                        >
                             <h3>3. Run Your Bench</h3>
                             <p>
                                 Bring your bench to life. The `Bench` context
@@ -1439,7 +1497,14 @@
                                 automatically.
                             </p>
                         </div>
-                        <div class="code-story-step" data-step="3">
+                        <div
+                            class="code-story-step"
+                            data-step="3"
+                            tabindex="0"
+                            role="button"
+                            aria-pressed="false"
+                            aria-label="Design Experiments"
+                        >
                             <h3>4. Design Experiments</h3>
                             <p>
                                 Go beyond simple commands. Use the declarative
@@ -1768,6 +1833,16 @@ run_sweep()`,
                 const codeDisplay = document.getElementById("codeDisplay");
                 const storySteps =
                     document.querySelectorAll(".code-story-step");
+
+                // Keyboard accessibility: trigger click on Enter/Space
+                storySteps.forEach((step) => {
+                    step.addEventListener("keydown", (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            step.click();
+                        }
+                    });
+                });
 
                 function typeCode(code, element, language = "python") {
                     let i = 0;

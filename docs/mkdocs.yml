@@ -4,13 +4,13 @@ site_dir: ../site
 site_description: "Scientific test & measurement toolbox for Python."
 site_author: "LABIIUM"
 copyright: "Copyright &copy; 2023-2024 LABIIUM"
-repo_url: https://github.com/pytestlab/pytestlab
+repo_url: https://github.com/labiium/pytestlab
 edit_uri: edit/main/docs/
 
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/pytestlab/pytestlab
+      link: https://github.com/labiium/pytestlab
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/pytestlab/
   t:
