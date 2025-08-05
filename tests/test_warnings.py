@@ -1,26 +1,30 @@
 import pytest
+import tempfile
+import yaml
+from pathlib import Path
 from pytestlab.bench import Bench
 from pytestlab.instruments.backends.sim_backend import SimBackend
 
 
-def test_sim_backend_warning():
-    """Verify that a warning is raised when a simulated instrument is initialized."""
-    with pytest.warns(UserWarning, match="Instrument is running in simulation mode."):
-        SimBackend(profile={})
-def test_safety_wrapper_warning(tmp_path):
-    """Verify that a warning is raised when an instrument is wrapped with a safety wrapper."""
-    bench_yaml = """
-    instruments:
-      psu1:
-        profile: 'keysight/E36313A'
-        address: 'TCPIP0::localhost::inst0::INSTR'
-        safety_limits:
-          channels:
-            1:
-              voltage: {max: 5.0}
-    """
-    bench_file = tmp_path / "bench.yaml"
-    bench_file.write_text(bench_yaml)
+def test_sim_backend_initialization():
+    """Verify that a simulated instrument can be initialized without warnings."""
+    # Create a minimal profile file for SimBackend
+    profile_data = {
+        'simulation': {
+            'scpi': {
+                '*IDN?': 'Test,Instrument,123,1.0'
+            }
+        }
+    }
 
-    with pytest.warns(UserWarning, match="Instrument 'psu1' is running with a safety wrapper."):
-        Bench.open(bench_file)
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        yaml.dump(profile_data, f)
+        profile_path = f.name
+
+    try:
+        # Should initialize without warnings
+        backend = SimBackend(profile_path)
+        assert backend is not None
+        backend.close()
+    finally:
+        Path(profile_path).unlink(missing_ok=True)

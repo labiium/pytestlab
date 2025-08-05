@@ -1,73 +1,73 @@
 name: Publish PyTestLab Release
 
 on:
-  push:
-    tags:
-      - 'v*.*.*' # Trigger on version tags like v0.1.0
+    push:
+        tags:
+            - "v*.*.*" # Trigger on version tags like v0.1.0
 
 jobs:
-  build_and_publish:
-    name: Build and publish Python distributions to PyPI and TestPyPI
-    runs-on: ubuntu-latest
-    environment: # Optional: Define environments for PyPI tokens if using GitHub Environments
-      name: pypi
-      url: https://pypi.org/p/pytestlab # Link to the project on PyPI
+    build_and_publish:
+        name: Build and publish Python distributions to PyPI and TestPyPI
+        runs-on: ubuntu-latest
+        environment: # Optional: Define environments for PyPI tokens if using GitHub Environments
+            name: pypi
+            url: https://pypi.org/labiium/pytestlab # Link to the project on PyPI
 
-    permissions: # Required for trusted publishing to PyPI
-        id-token: write 
+        permissions: # Required for trusted publishing to PyPI
+            id-token: write
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x' # Use a recent Python for building/publishing tools
+            - name: Set up Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: "3.x" # Use a recent Python for building/publishing tools
 
-      - name: Install Hatch
-        run: python -m pip install hatch
+            - name: Install Hatch
+              run: python -m pip install hatch
 
-      - name: Build sdist and wheel
-        run: python -m hatch build # This will produce sdist and a pure Python wheel
+            - name: Build sdist and wheel
+              run: python -m hatch build # This will produce sdist and a pure Python wheel
 
-      # Optional: Download all cross-platform wheels built by cibuildwheel (if build_wheels.yml is separate)
-      # This assumes build_wheels.yml uploads artifacts named 'wheels-<os>-py<version>'
-      # - name: Download all wheel artifacts
-      #   uses: actions/download-artifact@v4
-      #   with:
-      #     path: dist # Download all artifacts to dist/
-      #     # If cibuildwheel artifacts are named, e.g., wheels-ubuntu-latest-py3.9
-      #     # you might need to list them or use a pattern if download-artifact supports it for multiple artifacts.
-      #     # Or, have build_wheels.yml upload to a single 'all-wheels' artifact.
-      #     # For simplicity, this example assumes hatch build is sufficient for sdist + one wheel,
-      #     # and cibuildwheel handles the platform wheels separately if that workflow also publishes.
-      #     # If this workflow is the *only* publisher, it needs all wheels.
+            # Optional: Download all cross-platform wheels built by cibuildwheel (if build_wheels.yml is separate)
+            # This assumes build_wheels.yml uploads artifacts named 'wheels-<os>-py<version>'
+            # - name: Download all wheel artifacts
+            #   uses: actions/download-artifact@v4
+            #   with:
+            #     path: dist # Download all artifacts to dist/
+            #     # If cibuildwheel artifacts are named, e.g., wheels-ubuntu-latest-py3.9
+            #     # you might need to list them or use a pattern if download-artifact supports it for multiple artifacts.
+            #     # Or, have build_wheels.yml upload to a single 'all-wheels' artifact.
+            #     # For simplicity, this example assumes hatch build is sufficient for sdist + one wheel,
+            #     # and cibuildwheel handles the platform wheels separately if that workflow also publishes.
+            #     # If this workflow is the *only* publisher, it needs all wheels.
 
-      - name: Publish package to TestPyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          user: __token__
-          password: ${{ secrets.TEST_PYPI_API_TOKEN }} # GitHub secret for TestPyPI token
-          repository_url: https://test.pypi.org/legacy/
-          # packages_dir: dist/ # Hatch puts builds in dist/ by default
-          # skip_existing: true # Skip if version already exists
+            - name: Publish package to TestPyPI
+              uses: pypa/gh-action-pypi-publish@release/v1
+              with:
+                  user: __token__
+                  password: ${{ secrets.TEST_PYPI_API_TOKEN }} # GitHub secret for TestPyPI token
+                  repository_url: https://test.pypi.org/legacy/
+                  # packages_dir: dist/ # Hatch puts builds in dist/ by default
+                  # skip_existing: true # Skip if version already exists
 
-      # Add a step here for smoke testing from TestPyPI if desired (complex to set up in this single task)
-      # - name: Run smoke tests against TestPyPI package
-      #   run: |
-      #     pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple pytestlab==${{{ github.ref_name }}}
-      #     # Run some basic import or CLI command test
-      #     pytestlab --version # Example
+            # Add a step here for smoke testing from TestPyPI if desired (complex to set up in this single task)
+            # - name: Run smoke tests against TestPyPI package
+            #   run: |
+            #     pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple pytestlab==${{{ github.ref_name }}}
+            #     # Run some basic import or CLI command test
+            #     pytestlab --version # Example
 
-      - name: Publish package to PyPI
-        # This step should ideally run only after TestPyPI is confirmed,
-        # or be guarded by a manual approval if TestPyPI smoke tests are not automated.
-        # For now, let's assume direct publish after TestPyPI attempt.
-        # Consider adding an 'if' condition for manual approval or successful TestPyPI smoke test.
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN }} # GitHub secret for PyPI token
-          # packages_dir: dist/
-          # skip_existing: true
+            - name: Publish package to PyPI
+              # This step should ideally run only after TestPyPI is confirmed,
+              # or be guarded by a manual approval if TestPyPI smoke tests are not automated.
+              # For now, let's assume direct publish after TestPyPI attempt.
+              # Consider adding an 'if' condition for manual approval or successful TestPyPI smoke test.
+              uses: pypa/gh-action-pypi-publish@release/v1
+              with:
+                  user: __token__
+                  password: ${{ secrets.PYPI_API_TOKEN }} # GitHub secret for PyPI token
+                  # packages_dir: dist/
+                  # skip_existing: true

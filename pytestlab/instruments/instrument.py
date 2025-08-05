@@ -1,12 +1,12 @@
 from __future__ import annotations
 from .._log import get_logger
 
-from typing import Optional, Tuple, Any, Callable, Type, List as TypingList, Dict, Union, Protocol, TypeVar, Generic
+from typing import Optional, Tuple, Any, Callable, Type, List as TypingList, Dict, Protocol, TypeVar, Generic
 from abc import abstractmethod
 import numpy as np
 # polars.List is a DataType, not for type hinting Python lists.
 # from polars import List
-from ..errors import InstrumentConnectionBusy, InstrumentConfigurationError, InstrumentNotFoundError, InstrumentCommunicationError, InstrumentConnectionError, InstrumentParameterError
+from ..errors import InstrumentConnectionError, InstrumentCommunicationError, InstrumentConfigurationError, InstrumentDataError
 from ..config import InstrumentConfig # Assuming InstrumentConfig is the base Pydantic model
 from ..common.health import HealthReport, HealthStatus # Adjusted import
 from .scpi_engine import SCPIEngine
@@ -87,7 +87,7 @@ class Instrument(Generic[ConfigType]):
     """Base class for all instrument drivers.
 
     This class provides the core functionality for interacting with an instrument
-    through a standardized, asynchronous interface. It handles command sending,
+    through a standardized interface. It handles command sending,
     querying, error checking, and logging. It is designed to be subclassed for
     specific instrument types (e.g., Oscilloscope, PowerSupply).
 
@@ -97,20 +97,23 @@ class Instrument(Generic[ConfigType]):
     Attributes:
         config (ConfigType): The Pydantic configuration model instance for this
                              instrument.
-        _backend (AsyncInstrumentIO): The communication backend used to interact
-                                      with the hardware or simulation.
+        _backend (InstrumentIO): The communication backend used to interact
+                                 with the hardware or simulation.
         _command_log (List[Dict[str, Any]]): A log of all commands sent and
                                              responses received.
         _logger: The logger instance for this instrument.
     """
 
+    # Maximum number of errors to read before stopping
+    MAX_ERRORS_TO_READ = 50
+
     # Class-level annotations for instance variables
     config: ConfigType
-    _backend: AsyncInstrumentIO # Changed to AsyncInstrumentIO as per "True Async" approach
+    _backend: InstrumentIO
     _command_log: TypingList[Dict[str, Any]]
     _logger: Any # Actual type would be logging.Logger, using Any if Logger type not imported
 
-    def __init__(self, config: ConfigType, backend: AsyncInstrumentIO, **kwargs: Any) -> None: # Changed to AsyncInstrumentIO
+    def __init__(self, config: ConfigType, backend: InstrumentIO, **kwargs: Any) -> None:
         """
         Initialize the Instrument class.
 
@@ -126,14 +129,15 @@ class Instrument(Generic[ConfigType]):
             )
 
         self.config = config
-        self._backend = backend # This will be an AsyncInstrumentIO instance
+        self._backend = backend
         self._command_log = []
 
         logger_name = self.config.model if hasattr(self.config, 'model') else self.__class__.__name__
         self._logger = get_logger(logger_name)
 
         self._logger.info(f"Instrument '{logger_name}': Initializing with backend '{type(backend).__name__}'.")
-        self.scpi_engine = SCPIEngine(self.config.scpi)
+        scpi_section = self.config.scpi if hasattr(self.config, 'scpi') and self.config.scpi is not None else {}
+        self.scpi_engine = SCPIEngine(scpi_section)
     # Note: from_config might need to become async or handle async backend instantiation.
     # This will be addressed when AutoInstrument is updated.
     @classmethod
@@ -268,7 +272,7 @@ class Instrument(Generic[ConfigType]):
                 message=f"Failed to send command: {e}",
             ) from e
 
-    def _query(self, query: str, delay: Optional[float] = None) -> str:
+    def _query(self, query: str, delay: Optional[float] = None, skip_check: bool = False) -> str:
         """Sends a query to the instrument and returns a string response.
 
         This is a low-level method for interacting with the instrument when a
@@ -278,6 +282,9 @@ class Instrument(Generic[ConfigType]):
             query: The SCPI query string to send.
             delay: An optional delay in seconds to wait after sending the query
                    before reading the response.
+            skip_check: If True, the instrument's error queue will not be checked
+                        after sending the query. This is useful for error-related
+                        queries to avoid circular checking.
 
         Returns:
             The instrument's response, stripped of leading/trailing whitespace.
@@ -289,7 +296,8 @@ class Instrument(Generic[ConfigType]):
             # self._logger.debug(f"QUERY: {query}" + (f" with delay: {delay}" if delay is not None else ""))
             response: str = self._backend.query(query, delay=delay)
             # self._logger.debug(f"RESPONSE: {response}")
-            self._error_check() # Keep error check as it's a SYST:ERR? query
+            if not skip_check:
+                self._error_check()
             self._command_log.append({"command": query, "success": True, "type": "query", "timestamp": time.time(), "response": response, "delay": delay})
             return response.strip()
         except Exception as e:
@@ -407,12 +415,30 @@ class Instrument(Generic[ConfigType]):
         """
         try:
             error_response = self._backend.query(":SYSTem:ERRor?") # delay=None by default
-            # More robust check for "No error"
-            if not (error_response.strip().startswith("+0,\"No error\"") or error_response.strip().startswith("0,\"No error\"")):
+            error_response = error_response.strip()
+
+            # Parse the error response
+            try:
+                code_str, msg_part = error_response.split(',', 1)
+                code = int(code_str)
+                message = msg_part.strip().strip('"')
+            except (ValueError, IndexError):
+                # If we can't parse, assume it's an error
                 raise InstrumentCommunicationError(
                     instrument=self.config.model,
-                    message=f"Instrument returned error: {error_response.strip()}",
+                    command=":SYSTem:ERRor?",
+                    message=f"Could not parse error response: '{error_response}'",
                 )
+
+            # Check if there's an actual error (non-zero code)
+            if code != 0:
+                raise InstrumentCommunicationError(
+                    instrument=self.config.model,
+                    message=f"Instrument error: {message}",
+                )
+        except InstrumentCommunicationError:
+            # Re-raise InstrumentCommunicationError as-is
+            raise
         except Exception as e:
             raise InstrumentCommunicationError(
                 instrument=self.config.model,
@@ -436,6 +462,7 @@ class Instrument(Generic[ConfigType]):
             self._backend.close() # Changed to use close as per AsyncInstrumentIO
             self._logger.info(f"Instrument '{model_name_for_logger}': Connection closed.")
         except Exception as e:
+            model_name_for_logger = self.config.model if hasattr(self.config, 'model') else self.__class__.__name__
             self._logger.error(f"Instrument '{model_name_for_logger}': Error during backend close: {e}")
             # Optionally re-raise if failed close is critical:
             # raise InstrumentConnectionError(f"Failed to close backend connection: {e}") from e
@@ -453,6 +480,7 @@ class Instrument(Generic[ConfigType]):
              self._logger.debug("Note: `full_test=False` currently ignored, running standard *TST? self-test.")
 
         self._logger.debug("Running self-test (*TST?)...")
+        result_str = ""
         try:
              result_str = self._query("*TST?")
              code = int(result_str.strip())
@@ -520,8 +548,7 @@ class Instrument(Generic[ConfigType]):
         Reads and clears all errors currently present in the instrument's error queue.
         """
         errors: TypingList[Tuple[int, str]] = []
-        max_errors_to_read = 50
-        for i in range(max_errors_to_read):
+        for i in range(self.MAX_ERRORS_TO_READ):
             try:
                 code, message = self.get_error()
             except InstrumentCommunicationError as e:
@@ -537,7 +564,7 @@ class Instrument(Generic[ConfigType]):
                  self._logger.debug("Error queue overflow (-350) detected. Stopping read.")
                  break
         else:
-            self._logger.debug(f"Warning: Read {max_errors_to_read} errors without reaching 'No error'. "
+            self._logger.debug(f"Warning: Read {self.MAX_ERRORS_TO_READ} errors without reaching 'No error'. "
                       "Error queue might still contain errors or be in an unexpected state.")
 
         if not errors:
@@ -550,7 +577,7 @@ class Instrument(Generic[ConfigType]):
         """
         Reads and clears the oldest error from the instrument's error queue.
         """
-        response = (self._query("SYSTem:ERRor?")).strip()
+        response = (self._query("SYSTem:ERRor?", skip_check=True)).strip()
         try:
             code_str, msg_part = response.split(',', 1)
             code = int(code_str)
@@ -620,26 +647,24 @@ class Instrument(Generic[ConfigType]):
         self._logger.debug(f"SCPI Version reported: {response}")
         return response
 
-    @abstractmethod
-    def health_check(self) -> HealthReport: # Type hint HealthReport
+    def health_check(self) -> HealthReport:
         """Performs a basic health check of the instrument."""
         # Base implementation could try IDN and error queue check
-        # report = HealthReport() # Initialize HealthReport
-        # try:
-        #     report.instrument_idn = self.id() # Direct synchronous call
-        #     instrument_errors = self.get_all_errors() # Direct synchronous call
-        #     if instrument_errors:
-        #         report.warnings.extend([f"Stored Error: {code} - {msg}" for code, msg in instrument_errors])
-        #
-        #     if not report.errors and not report.warnings:
-        #          report.status = HealthStatus.OK
-        #     elif report.warnings and not report.errors:
-        #          report.status = HealthStatus.WARNING
-        #     else: # if errors are present
-        #          report.status = HealthStatus.ERROR
-        #
-        # except Exception as e:
-        #     report.status = HealthStatus.ERROR
-        #     report.errors.append(f"Health check failed during IDN/Error Query: {str(e)}")
-        # return report
-        pass # Replace with actual base implementation
+        report = HealthReport()
+        try:
+            report.instrument_idn = self.id()
+            instrument_errors = self.get_all_errors()
+            if instrument_errors:
+                report.warnings.extend([f"Stored Error: {code} - {msg}" for code, msg in instrument_errors])
+
+            if not report.errors and not report.warnings:
+                 report.status = HealthStatus.OK
+            elif report.warnings and not report.errors:
+                 report.status = HealthStatus.WARNING
+            else: # if errors are present
+                 report.status = HealthStatus.ERROR
+
+        except Exception as e:
+            report.status = HealthStatus.ERROR
+            report.errors.append(f"Health check failed during IDN/Error Query: {str(e)}")
+        return report

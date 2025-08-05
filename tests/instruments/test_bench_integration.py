@@ -9,6 +9,7 @@ import pytest
 import os
 import tempfile
 import time
+import yaml
 from pathlib import Path
 import polars as pl
 
@@ -34,6 +35,10 @@ experiment:
     Testing full integration of the measurement system.
 
 simulate: false
+
+# Continue operation even if some instruments fail to connect
+continue_on_instrument_error: true
+continue_on_automation_error: true
 
 backend_defaults:
   type: "lamb"
@@ -65,6 +70,37 @@ def db_path():
     if os.path.exists(db_path):
         os.unlink(db_path)
 
+def check_hardware_available():
+    """Check if bench hardware is available for testing."""
+    try:
+        # Create a minimal bench config for testing
+        test_config = TEST_BENCH_CONFIG_WITH_DB.format(db_path="/tmp/test.db")
+        with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as f:
+            f.write(test_config.encode('utf-8'))
+            config_path = f.name
+
+        try:
+            # Try to open the bench - this will test instrument connectivity
+            bench = Bench.open(config_path)
+
+            # Test actual instrument communication by trying to get IDs
+            try:
+                psu_id = bench.psu.id()
+                dmm_id = bench.dmm.id()
+                bench.close_all()
+                return True, None
+            except Exception as e:
+                bench.close_all()
+                return False, f"Instrument communication failed: {str(e)}"
+
+        except Exception as e:
+            return False, str(e)
+        finally:
+            if os.path.exists(config_path):
+                os.unlink(config_path)
+    except Exception as e:
+        return False, f"Failed to create test configuration: {str(e)}"
+
 
 @pytest.fixture
 def bench_config_file_with_db(db_path):
@@ -76,8 +112,13 @@ def bench_config_file_with_db(db_path):
     yield config_path
     if os.path.exists(config_path):
         os.unlink(config_path)
+@pytest.mark.requires_real_hw
 def test_bench_session_database_integration(bench_config_file_with_db, db_path):
     """Test the full integration of Bench, MeasurementSession, and MeasurementDatabase."""
+    # Check if hardware is available
+    is_available, error_msg = check_hardware_available()
+    if not is_available:
+        pytest.skip(f"Hardware not available: {error_msg}")
     with Bench.open(bench_config_file_with_db) as bench:
         assert bench.experiment is not None
         assert bench.db is not None

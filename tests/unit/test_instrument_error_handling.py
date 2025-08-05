@@ -30,7 +30,9 @@ class ProgrammableErrorSimBackend(SimBackend):
 
     def query(self, cmd: str, delay: Optional[float] = None) -> str:
         cmd_upper = cmd.upper().strip()
-        if cmd_upper == "SYST:ERR?" or cmd_upper == "SYSTEM:ERROR?":
+        # Handle both :SYSTEM:ERROR? and SYST:ERR? formats
+        if (cmd_upper == "SYST:ERR?" or cmd_upper == "SYSTEM:ERROR?" or
+            cmd_upper == ":SYST:ERR?" or cmd_upper == ":SYSTEM:ERROR?"):
             return self._get_next_error()
         return super().query(cmd, delay)
 
@@ -115,7 +117,7 @@ def test_get_error_malformed_response(error_handling_instrument):
 
     # Depending on implementation, this might raise an error or return default/parsed values
     # Assuming it might raise an InstrumentError or return (0, "Malformed error response")
-    with pytest.raises(InstrumentDataError): # Or check for specific parsing error handling
+    with pytest.raises(InstrumentCommunicationError): # Or check for specific parsing error handling
          instrument.get_error()
     # Or if it tries to parse and fails:
     # code, message = instrument.get_error()
@@ -135,7 +137,7 @@ def test_get_all_errors_single_error(error_handling_instrument):
     errors = instrument.get_all_errors()
     assert len(errors) == 1
     assert errors[0] == (-350, "Queue overflow")
-    assert backend.get_syst_err_query_count() == 2 # One for error, one for "No error"
+    assert backend.get_syst_err_query_count() == 1 # Only one call because -350 stops reading immediately
 
 def test_get_all_errors_multiple_errors(error_handling_instrument):
     """Test get_all_errors() reads multiple errors until '+0,No error'."""

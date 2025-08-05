@@ -213,7 +213,20 @@ def test_signature_verification_with_different_signers(temp_signer_dir):
 
 @pytest.mark.skip(reason="Complex timestamping authority integration requires network access.")
 def test_timestamping_authority_integration():
-    """Placeholder for testing integration with a timestamping authority."""
+    """Placeholder for testing integration with a timestamping authority.
+
+    This test is intentionally skipped because it requires:
+    1. Network access to external RFC 3161 timestamping authorities
+    2. Complex certificate validation infrastructure
+    3. Handling of network timeouts and failures
+    4. Integration with third-party timestamping services
+
+    Implementation would involve:
+    - Connecting to trusted timestamping authorities
+    - Sending timestamp requests for measurement signatures
+    - Validating timestamp responses and certificates
+    - Embedding timestamps in compliance envelopes
+    """
     # This would test RFC 3161 timestamping integration
     # when that feature is implemented
     pass
@@ -221,7 +234,21 @@ def test_timestamping_authority_integration():
 
 @pytest.mark.skip(reason="Complex compliance reporting not yet implemented.")
 def test_compliance_report_generation():
-    """Placeholder for testing compliance report generation."""
+    """Placeholder for testing compliance report generation.
+
+    This test is intentionally skipped because it requires:
+    1. Comprehensive report generation infrastructure
+    2. Template system for various compliance standards
+    3. Integration with database for historical data
+    4. PDF/document generation capabilities
+    5. Audit trail aggregation and formatting
+
+    Implementation would involve:
+    - Aggregating all measurements, signatures, and audit events
+    - Generating standardized compliance reports (ISO, FDA, etc.)
+    - Including verification of all digital signatures
+    - Formatting for regulatory submission requirements
+    """
     # This would test generation of compliance reports
     # that include all measurements, signatures, and audit trails
     pass

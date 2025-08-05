@@ -281,7 +281,6 @@ class Bench:
         # Apply safety limits if configured
         if entry.safety_limits:
             wrapped = SafeInstrumentWrapper(instrument, entry.safety_limits, instrument_type)
-            # Safety wrapper is applied without warning since its use is clear from bench.yaml configuration
             logger.debug(f"Instrument '{alias}' is running with a safety wrapper")
             self._instrument_instances[alias] = instrument
             self._instrument_wrappers[alias] = wrapped

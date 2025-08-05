@@ -6,6 +6,7 @@ from typing import List, Optional, Literal, Dict, Any, Union
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 from pytestlab.config.instrument_config import InstrumentConfig
+from pytestlab.config.accuracy import AccuracySpec
 try:
     from uncertainties.core import UFloat
 except ImportError:
@@ -138,7 +139,7 @@ class MultimeterConfig(InstrumentConfig):
     )
 
     # Fields mapping directly to the YAML specification file
-    limits: Dict[str, Any]
-    measurement_functions: MeasurementFunctionsSpec
-    math_functions: List[str]
-    sampling_rates_rps: Dict[str, Any]
+    limits: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    measurement_functions: Optional[MeasurementFunctionsSpec] = Field(default_factory=MeasurementFunctionsSpec)
+    math_functions: Optional[List[str]] = Field(default_factory=list)
+    sampling_rates_rps: Optional[Dict[str, Any]] = Field(default_factory=dict)

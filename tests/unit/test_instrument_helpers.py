@@ -66,18 +66,25 @@ def test_read_to_np_correct_formats(header, data, expected_array, dtype, is_big_
     # Assuming _read_to_np handles the trailing newline if present, or it's stripped before.
     # Some instruments add \n after binary block.
     # Test with and without newline if require_nl_term is a feature.
-    
+
     # Test without newline termination
     result_array = _read_to_np(input_bytes, dtype=dtype, is_big_endian=is_big_endian)
     np.testing.assert_array_equal(result_array, expected_array)
-    assert result_array.dtype == dtype
+    # For big-endian cases, the dtype will have endianness info, so we need to compare base types
+    if is_big_endian:
+        assert result_array.dtype.type == dtype
+    else:
+        assert result_array.dtype == dtype
 
     # Test with newline termination (if function supports require_nl_term or similar)
     # This depends on the actual implementation of _read_to_np
     try:
         result_array_nl = _read_to_np(input_bytes + b'\n', dtype=dtype, is_big_endian=is_big_endian, require_nl_term=True)
         np.testing.assert_array_equal(result_array_nl, expected_array)
-        assert result_array_nl.dtype == dtype
+        if is_big_endian:
+            assert result_array_nl.dtype.type == dtype
+        else:
+            assert result_array_nl.dtype == dtype
     except TypeError as e:
         if "require_nl_term" in str(e): # Parameter not supported by placeholder/actual
             pass # Silently pass if the param is not in the function signature
@@ -95,7 +102,7 @@ def test_read_to_np_correct_formats(header, data, expected_array, dtype, is_big_
     (b"#05hello", np.int8, False, ValueError),         # n=0 is invalid for length specifier
     (b"#", np.int8, False, ValueError),                # Header too short (no n)
     (b"#1", np.int8, False, ValueError),               # Header too short (no length)
-    
+
     # Data length mismatch
     # Header length (5) greater than actual data length (4: "hell")
     (b"#15hell", np.int8, False, ValueError),

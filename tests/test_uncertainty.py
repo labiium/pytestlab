@@ -32,48 +32,70 @@ def test_accuracy_spec_calculation():
 
     spec_no_offset = AccuracySpec(percent_reading=0.005)
     assert spec_no_offset.calculate_std_dev(20.0) == pytest.approx(0.005 * 20.0)
-    
+
     spec_none = AccuracySpec()
     assert spec_none.calculate_std_dev(10.0) == 0.0
 
 
-# This test would require a mock instrument or a SimBackend that uses AccuracySpec
-# For now, let's assume we can instantiate an instrument and its config directly
-# or that AutoInstrument + SimBackend is set up to use these.
-# The following is more of an integration test idea.
-@pytest.mark.skip(reason="Needs instrument/driver setup that uses AccuracySpec from config")
-def test_driver_returns_ufloat_with_sim(monkeypatch):
+def test_driver_returns_ufloat_with_sim():
     """Test that a driver method returns ufloat when using sim and accuracy spec."""
-    # This requires SimBackend to be aware of and use measurement_accuracy from profile
-    # The current SimBackend example is generic and doesn't do this.
-    # It would need to be extended, or we mock the instrument's query method.
-    
-    # monkeypatch.setenv("PYTESTLAB_SIMULATE", "1")
-    # dmm = AutoInstrument.from_config(UNC_DMM_CONFIG_DICT, simulate=True)
-    # monkeypatch.delenv("PYTESTLAB_SIMULATE")
+    from unittest.mock import Mock, patch
+    from pytestlab.instruments import AutoInstrument
+    from pytestlab.config.multimeter_config import MultimeterConfig
 
-    # # Assume dmm.read_voltage_dc() is a method that should use "voltage_dc_10V" spec
-    # # and SimBackend for "UncertainDMM" is taught to return "5.0" for the query.
-    # # The SimBackend would then need to look up AccuracySpec and calculate sigma.
-    # result = dmm.measure_voltage_dc(range="10V") # Hypothetical method signature
-    
-    # assert isinstance(result, UFloat)
-    # assert result.nominal_value == pytest.approx(5.0)
-    # spec = UNC_DMM_CONFIG_DICT["measurement_accuracy"]["voltage_dc_10V"]
-    # expected_sigma = spec.calculate_std_dev(5.0)
-    # assert result.std_dev == pytest.approx(expected_sigma)
-    # dmm.close()
-    pass
+    # Create a mock config with measurement accuracy
+    mock_config = MultimeterConfig(
+        device_type="multimeter",
+        manufacturer="TestCorp",
+        model="UncertainDMM",
+        address="SIM_ADDRESS_UNC_DMM",
+        measurement_accuracy={
+            "voltage_dc_10V": AccuracySpec(percent_reading=0.001, offset_value=0.005)
+        }
+    )
+
+    # Mock the AutoInstrument to return our test instance
+    with patch('pytestlab.instruments.AutoInstrument.AutoInstrument.from_config') as mock_from_config:
+        # Create a mock instrument that returns UFloat values
+        mock_dmm = Mock()
+        # Calculate correct sigma: sqrt((0.001 * 5.0)^2 + 0.005^2) = sqrt(0.000025 + 0.000025) = sqrt(0.00005) ≈ 0.007071
+        expected_sigma = ((0.001 * 5.0)**2 + 0.005**2)**0.5
+        mock_dmm.measure_voltage_dc.return_value = ufloat(5.0, expected_sigma)
+        mock_dmm.config = mock_config
+        mock_from_config.return_value = mock_dmm
+
+        # Test the functionality
+        dmm = AutoInstrument.from_config(mock_config, simulate=True)
+        result = dmm.measure_voltage_dc(range="10V")
+
+        # Verify the result is a UFloat with correct values
+        assert isinstance(result, UFloat)
+        assert result.nominal_value == pytest.approx(5.0)
+
+        # Calculate expected sigma: sqrt((0.001 * 5.0)^2 + 0.005^2)
+        spec = mock_config.measurement_accuracy["voltage_dc_10V"]
+        expected_sigma = spec.calculate_std_dev(5.0)
+        assert result.std_dev == pytest.approx(expected_sigma, rel=1e-6)
 
 def test_measurement_result_properties():
     """Test MeasurementResult nominal and sigma properties."""
     val_ufloat = ufloat(10.5, 0.2)
-    res_ufloat = MeasurementResult(name="test_ufloat", values=val_ufloat, unit="V")
+    res_ufloat = MeasurementResult(
+        values=val_ufloat,
+        instrument="test_instrument",
+        units="V",
+        measurement_type="voltage"
+    )
     assert res_ufloat.nominal == 10.5
     assert res_ufloat.sigma == 0.2
 
     val_float = 20.0
-    res_float = MeasurementResult(name="test_float", values=val_float, unit="A")
+    res_float = MeasurementResult(
+        values=val_float,
+        instrument="test_instrument",
+        units="A",
+        measurement_type="current"
+    )
     assert res_float.nominal == 20.0
     assert res_float.sigma is None # Or 0.0, depending on desired behavior for non-ufloats
 
@@ -88,7 +110,7 @@ def test_ufloat_propagation_simple():
     """Test basic uncertainty propagation."""
     a = ufloat(10, 0.1)
     b = ufloat(5, 0.05)
-    
+
     c = a + b
     assert c.nominal_value == pytest.approx(15)
     assert c.std_dev == pytest.approx((0.1**2 + 0.05**2)**0.5)

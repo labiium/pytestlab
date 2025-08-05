@@ -42,6 +42,7 @@ import re
 import statistics
 import sys
 import time
+import warnings
 from datetime import datetime
 from pathlib import Path
 from types import MappingProxyType
@@ -351,8 +352,14 @@ class SimBackend:  # implements AsyncInstrumentIO
                     # convert simple glob to regex group capture
                     patt = re.escape(raw).replace("\\*", "(.*)")
                 else:
-                    # For patterns with regex chars, escape the ? for proper regex matching
-                    patt = patt.replace("?", "\\?")
+                    # Handle SCPI patterns that end with ? - these need the ? escaped
+                    # but may contain regex capture groups like [1-4] or (pattern)
+                    if raw.endswith("?"):
+                        # This is a SCPI query pattern, escape the final ?
+                        patt = raw[:-1] + "\\?"
+                    else:
+                        # This is a regex pattern with quantifiers, leave as-is
+                        patt = raw
                 compiled = re.compile(patt, re.IGNORECASE)
                 self._pattern_rules.append(_PatternRule(compiled, val, None))
             else:
@@ -402,7 +409,7 @@ class SimBackend:  # implements AsyncInstrumentIO
 
     def _execute_entry(
         self,
-        entry: str | Dict[str, Any],
+        entry: str | Dict[str, Any] | List[str],
         orig_cmd: str,
         groups: Tuple[str, ...],
     ) -> str:
@@ -412,17 +419,64 @@ class SimBackend:  # implements AsyncInstrumentIO
         * **str** — static response, *or* template containing ``$1`` etc,
           *or* starting with ``lambda``/``py:`` indicating dynamic eval.
         * **dict** — keys ``set``, ``get``, ``delay`` etc.
+        * **list** — list of string commands to execute sequentially.
         """
         response = ""
+        # list form - execute each command sequentially
+        if isinstance(entry, list):
+            for cmd in entry:
+                if isinstance(cmd, str) and cmd.startswith("set."):
+                    # Handle dot notation set commands
+                    parts = cmd.split("=", 1)
+                    if len(parts) == 2:
+                        key = parts[0].strip()[4:]  # Remove "set." prefix
+                        value = parts[1].strip()
+                        # Parse value - remove quotes and convert types
+                        if value.startswith(("'", '"')) and value.endswith(("'", '"')):
+                            value = value[1:-1]  # Remove quotes
+                        elif value in ('True', 'False'):
+                            value = value == 'True'
+                        elif value.isdigit() or (value.startswith('-') and value[1:].isdigit()):
+                            value = int(value)
+                        elif '.' in value:
+                            try:
+                                value = float(value)
+                            except ValueError:
+                                pass
+
+                        if '.' in key:
+                            self._set_nested_state_value(key, value)
+                        else:
+                            self._state[key] = value
         # mapping form
-        if isinstance(entry, dict):
+        elif isinstance(entry, dict):
             # delay first – simulate instrument busy
             if "delay" in entry:
                 delay = float(entry["delay"])
                 logger.debug("%s busy delay %.3fs", self.model, delay)
                 time.sleep(delay)
 
-            # state mutators
+            # query operations first (before state modifications)
+            if "get" in entry:
+                key = entry["get"]
+                # Substitute placeholders in the key first
+                substituted_key = self._substitute(key, groups)
+                value = self._get_nested_state_value(substituted_key)
+                if value is not None:
+                    response = str(value)
+                else:
+                    response = ""
+            elif "response" in entry:
+                response = self._substitute(entry["response"], groups)
+            elif "binary" in entry:
+                binary_path = self.profile_path.parent / entry["binary"]
+                if binary_path.exists():
+                    response = binary_path.read_bytes()
+                else:
+                    logger.warning(f"Binary file not found: {binary_path}")
+                    response = b""
+
+            # state mutators after response generation
             if "set" in entry:
                 for k, v in entry["set"].items():
                     # Apply substitution to both key and value
@@ -445,25 +499,6 @@ class SimBackend:  # implements AsyncInstrumentIO
             if "dec" in entry:
                 for k, v in entry["dec"].items():
                     self._state[k] = self._state.get(k, 0) - float(self._substitute(v, groups))
-            # query
-            if "get" in entry:
-                key = entry["get"]
-                # Substitute placeholders in the key first
-                substituted_key = self._substitute(key, groups)
-                value = self._get_nested_state_value(substituted_key)
-                if value is not None:
-                    response = str(value)
-                else:
-                    response = ""
-            elif "response" in entry:
-                response = self._substitute(entry["response"], groups)
-            elif "binary" in entry:
-                binary_path = self.profile_path.parent / entry["binary"]
-                if binary_path.exists():
-                    response = binary_path.read_bytes()
-                else:
-                    logger.warning(f"Binary file not found: {binary_path}")
-                    response = b""
 
         # scalar form
         elif isinstance(entry, str):
@@ -485,10 +520,17 @@ class SimBackend:  # implements AsyncInstrumentIO
 
     # ................ substitution ..................... #
 
-    def _substitute(self, template: str, groups: Tuple[str, ...]) -> Any:
+    def _substitute(self, template: str | int | float | bool, groups: Tuple[str, ...]) -> Any:
         """Substitute template variables and evaluate Python expressions."""
+        # Handle non-string values directly
+        if not isinstance(template, str):
+            return template
+
         if template.startswith("py:"):
             return safe_eval(template[3:], self._state, groups, self._initial_state)
+        elif template.startswith("lambda"):
+            func: Callable[..., Any] = safe_eval(template, self._state, groups)
+            return str(func(*groups))
         else:
             out = template
             for i, g in enumerate(groups, 1):

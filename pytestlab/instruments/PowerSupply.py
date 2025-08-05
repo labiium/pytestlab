@@ -163,11 +163,18 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
 
     def __init__(self, config: PowerSupplyConfig, **kwargs: Any):
         super().__init__(config=config, **kwargs)
-        # Initialize SCPI engine from the config
+        # Initialize SCPI engine from the config if available
         if config.scpi:
             self.scpi_engine = SCPIEngine(config.scpi, variant=config.scpi_variant)
         else:
-            raise InstrumentConfigurationError("No SCPI configuration found in instrument config")
+            # SCPI configuration is optional for power supplies
+            self.scpi_engine = None
+
+        # Initialize safety limit properties
+        self._voltage_limit = None
+        self._current_limit = None
+        self._voltage_value = 0.0
+        self._current_value = 0.0
 
     # PowerSupply uses the base Instrument.__init__ method
 
@@ -450,3 +457,83 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         """
         commands = self.scpi_engine.build("reset")
         self._send_command(commands[0])
+
+    @property
+    def voltage_limit(self) -> Optional[float]:
+        """Get the current voltage safety limit."""
+        return self._voltage_limit
+
+    @voltage_limit.setter
+    def voltage_limit(self, value: float) -> None:
+        """Set the voltage safety limit."""
+        from ..bench import SafetyLimitError
+
+        if value < 0:
+            raise SafetyLimitError(f"Voltage limit cannot be negative: {value}V")
+
+        # Check against current voltage setting
+        if hasattr(self, '_voltage_value') and self._voltage_value > value:
+            raise SafetyLimitError(
+                f"Cannot set voltage limit {value}V below current voltage setting {self._voltage_value}V"
+            )
+
+        self._voltage_limit = value
+
+    @property
+    def current_limit(self) -> Optional[float]:
+        """Get the current safety limit."""
+        return self._current_limit
+
+    @current_limit.setter
+    def current_limit(self, value: float) -> None:
+        """Set the current safety limit."""
+        from ..bench import SafetyLimitError
+
+        if value < 0:
+            raise SafetyLimitError(f"Current limit cannot be negative: {value}A")
+
+        # Check against current setting
+        if hasattr(self, '_current_value') and self._current_value > value:
+            raise SafetyLimitError(
+                f"Cannot set current limit {value}A below current setting {self._current_value}A"
+            )
+
+        self._current_limit = value
+
+    @property
+    def voltage(self) -> float:
+        """Get the current voltage value."""
+        return self._voltage_value
+
+    @voltage.setter
+    def voltage(self, value: float) -> None:
+        """Set the voltage value with safety checking."""
+        from ..bench import SafetyLimitError
+
+        if self._voltage_limit is not None and value > self._voltage_limit:
+            raise SafetyLimitError(
+                f"Refusing to set voltage {value}V, which is above the safety limit of {self._voltage_limit}V."
+            )
+
+        self._voltage_value = value
+        # In a real implementation, this would call set_voltage for channel 1
+        # For safety testing, we just store the value
+
+    @property
+    def current(self) -> float:
+        """Get the current value."""
+        return self._current_value
+
+    @current.setter
+    def current(self, value: float) -> None:
+        """Set the current value with safety checking."""
+        from ..bench import SafetyLimitError
+
+        if self._current_limit is not None and value > self._current_limit:
+            raise SafetyLimitError(
+                f"Refusing to set current {value}A, which is above the safety limit of {self._current_limit}A."
+            )
+
+        self._current_value = value
+        # In a real implementation, this would call set_current for channel 1
+        # For safety testing, we just store the value

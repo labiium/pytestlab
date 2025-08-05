@@ -33,6 +33,13 @@ def test_recording_backend_psu(tmp_path):
     with open(sim_profile_path) as f:
         data = yaml.safe_load(f)
     assert "simulation" in data, "Simulation key missing in profile YAML"
-    assert isinstance(data["simulation"], list), "Simulation log should be a list"
-    assert any(entry.get("type") == "query" for entry in data["simulation"]), "No query entries in simulation log"
-    assert any(entry.get("type") == "write" for entry in data["simulation"]), "No write entries in simulation log"
+    assert "scpi" in data["simulation"], "SCPI section missing in simulation profile"
+    assert isinstance(data["simulation"]["scpi"], dict), "SCPI section should be a dict"
+
+    # Check for expected SCPI commands
+    scpi_commands = data["simulation"]["scpi"]
+    assert "*IDN?" in scpi_commands, "Missing *IDN? command in SCPI profile"
+    assert "VOLT 1.5, (@1)" in scpi_commands, "Missing voltage set command in SCPI profile"
+    assert "CURR 0.1, (@1)" in scpi_commands, "Missing current set command in SCPI profile"
+    assert "OUTP:STAT ON, (@1)" in scpi_commands, "Missing output on command in SCPI profile"
+    assert "OUTP:STAT OFF, (@1)" in scpi_commands, "Missing output off command in SCPI profile"

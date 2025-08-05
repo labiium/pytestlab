@@ -71,6 +71,7 @@ class BenchConfigExtended(BaseModel):
     simulate: Optional[bool] = False
     description: Optional[str] = None
     continue_on_automation_error: Optional[bool] = False
+    continue_on_instrument_error: Optional[bool] = False
 
     @model_validator(mode="after")
     def check_instruments(self) -> "BenchConfigExtended":

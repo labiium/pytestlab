@@ -63,13 +63,42 @@ def test_safety_limit_exceeded(psu):
         psu.voltage = 6.0
 
 
-@pytest.mark.skip(reason="Complex scenario, to be implemented later.")
-def test_complex_safety_scenario_one():
-    """Placeholder for a more complex safety test."""
-    pass
+def test_complex_safety_scenario_one(psu):
+    """Test multiple safety limit interactions and cascading effects."""
+    # Set initial limits
+    psu.voltage_limit = 4.0
+    psu.current_limit = 2.0
+
+    # Test that setting voltage within limits works
+    psu.voltage = 3.5
+    assert psu.voltage == 3.5
+
+    # Test that reducing voltage limit below current setting raises error
+    with pytest.raises(SafetyLimitError):
+        psu.voltage_limit = 3.0  # Below current voltage of 3.5
+
+    # Test that current limit enforcement works
+    with pytest.raises(SafetyLimitError):
+        psu.current = 2.5  # Above current limit of 2.0
 
 
-@pytest.mark.skip(reason="Complex scenario, to be implemented later.")
-def test_complex_safety_scenario_two():
-    """Another placeholder for a complex safety test."""
-    pass
+def test_complex_safety_scenario_two(psu):
+    """Test safety limit persistence and validation edge cases."""
+    # Test setting limits at boundary values
+    psu.voltage_limit = 6.0  # Max allowed from profile
+    psu.current_limit = 5.0  # Max allowed from profile
+
+    # Test that setting voltage at the limit works
+    psu.voltage = 6.0
+    assert psu.voltage == 6.0
+
+    # Test that exceeding by small amount still raises error
+    with pytest.raises(SafetyLimitError):
+        psu.voltage = 6.001
+
+    # Test that negative limits are rejected
+    with pytest.raises(SafetyLimitError):
+        psu.voltage_limit = -1.0
+
+    with pytest.raises(SafetyLimitError):
+        psu.current_limit = -0.5
