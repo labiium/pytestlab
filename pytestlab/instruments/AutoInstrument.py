@@ -289,6 +289,15 @@ class AutoInstrument:
             # When overriding, we still need the config model. The rest of the logic can be simplified.
             if isinstance(config_source, PydanticInstrumentConfig):
                 config_model = config_source
+            elif isinstance(config_source, dict):
+                # Check if this is a config dict with a 'profile' key
+                if 'profile' in config_source:
+                    # Load the profile first, then merge with other config
+                    profile_source = config_source['profile']
+                    config_model = load_profile(profile_source)
+                else:
+                    # Treat the dict as profile data directly
+                    config_model = load_profile(config_source)
             else:
                 config_model = load_profile(config_source)
         else:
@@ -298,8 +307,20 @@ class AutoInstrument:
                 config_model = config_source
                 config_data = config_model.model_dump(mode='python')
             elif isinstance(config_source, dict):
-                config_data = config_source
-                config_model = load_profile(config_data)
+                # Check if this is a config dict with a 'profile' key
+                if 'profile' in config_source:
+                    # Load the profile first, then merge with other config
+                    profile_source = config_source['profile']
+                    config_model = load_profile(profile_source)
+                    config_data = config_model.model_dump(mode='python')
+                    # Merge any additional config like address
+                    for key, value in config_source.items():
+                        if key != 'profile':
+                            config_data[key] = value
+                else:
+                    # Treat the dict as profile data directly
+                    config_data = config_source
+                    config_model = load_profile(config_data)
             elif isinstance(config_source, str):
                 # Determine if this looks like a file path or a CDN identifier
                 # File paths typically contain path separators or file extensions

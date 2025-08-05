@@ -234,9 +234,13 @@ simulation:
             get: trigger.source
         "TRIGger:SOURce?":
             get: trigger.source
-        ":TRIGger:LEVel\\s+([0-9.E+-]+)(?:,\\s*CHANnel[1-4])?":
+        ":TRIGger:LEVel\\s+([0-9.E+-]+)":
             set: { "trigger.level": "py:float(g1)" }
-        "TRIGger:LEVel\\s+([0-9.E+-]+)(?:,\\s*CHANnel[1-4])?":
+        "TRIGger:LEVel\\s+([0-9.E+-]+)":
+            set: { "trigger.level": "py:float(g1)" }
+        ":TRIGger:LEVel\\s+([0-9.E+-]+),\\s*CHANnel[1-4]":
+            set: { "trigger.level": "py:float(g1)" }
+        "TRIGger:LEVel\\s+([0-9.E+-]+),\\s*CHANnel[1-4]":
             set: { "trigger.level": "py:float(g1)" }
         ":TRIGger:LEVel?":
             get: trigger.level
@@ -260,27 +264,27 @@ simulation:
             get: trigger.mode
 
         # Waveform commands
-        ":?WAVeform:SOURce\\s+(CHANnel[1-4])":
+        ":WAVeform:SOURce\\s+(CHANnel[1-4])":
             set: { "waveform.source": "$1" }
-        ":?WAVeform:POINts:MODE\\s+(RAW|NORMal)":
+        ":WAVeform:POINts:MODE\\s+(RAW|NORMal)":
             set: { "waveform.points_mode": "$1" }
-        ":?WAVeform:FORMat\\s+(BYTE|WORD)":
+        ":WAVeform:FORMat\\s+(BYTE|WORD)":
             set: { "waveform.format": "$1" }
 
         # Dynamically generate the preamble based on the current state
-        ":?WAVeform:PREamble?":
+        ":WAVeform:PREamble?":
             response: 'py:f"{state[''waveform''][''format'']},{state[''acquisition''][''type'']},{state[''waveform''][''points'']},1,{state[''waveform''][''xinc'']},{state[''waveform''][''xorg'']},{state[''waveform''][''xref'']},{state[''waveform''][''yinc'']},{state[''waveform''][''yorg'']},{state[''waveform''][''yref'']}"'
 
         # Dynamically generate fake waveform data as a SCPI binary block
-        ":?WAVeform:DATA?":
+        ":WAVeform:DATA?":
             response: 'py:f"#8{state[''waveform''][''points'']:08d}" + chr(128) * state[''waveform''][''points'']'
 
         # Acquisition commands
-        ":?ACQuire:SRATe?":
+        ":ACQuire:SRATe?":
             get: acquisition.sample_rate
-        ":?ACQuire:TYPE?":
+        ":ACQuire:TYPE?":
             get: acquisition.type
-        ":?ACQuire:MODE?":
+        ":ACQuire:MODE?":
             get: acquisition.mode
 
         # A general "do nothing" command for DIGitize, which is complex to simulate

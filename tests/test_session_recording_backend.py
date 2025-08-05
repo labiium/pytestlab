@@ -57,7 +57,7 @@ def temp_output_file():
 @pytest.fixture
 def recording_backend(mock_backend, temp_output_file):
     """Create a SessionRecordingBackend for testing."""
-    return SessionRecordingBackend(mock_backend, temp_output_file, 'psu')
+    return SessionRecordingBackend(mock_backend, temp_output_file)
 
 
 class TestSessionRecordingBackend:
@@ -202,7 +202,7 @@ class TestSessionRecordingBackend:
                     raise ValueError("Write error")
 
         error_backend = ErrorBackend()
-        recording_backend = SessionRecordingBackend(error_backend, temp_output_file, 'test')
+        recording_backend = SessionRecordingBackend(error_backend, temp_output_file)
 
         # Test query error propagation
         with pytest.raises(RuntimeError, match="Backend error"):
@@ -218,8 +218,8 @@ class TestSessionRecordingBackend:
     def test_multiple_profile_keys(self, mock_backend, temp_output_file):
         """Test recording multiple instruments to same session file."""
         # Create two recording backends for different instruments
-        psu_backend = SessionRecordingBackend(mock_backend, temp_output_file, 'psu')
-        osc_backend = SessionRecordingBackend(mock_backend, temp_output_file, 'osc')
+        psu_backend = SessionRecordingBackend(mock_backend, temp_output_file)
+        osc_backend = SessionRecordingBackend(mock_backend, temp_output_file)
 
         # Record commands for PSU
         psu_backend.query('*IDN?')
@@ -260,13 +260,13 @@ class TestSessionRecordingBackendEdgeCases:
     def test_invalid_output_file_path(self, mock_backend):
         """Test error handling for invalid output file path."""
         invalid_path = '/nonexistent/directory/output.yaml'
-        backend = SessionRecordingBackend(mock_backend, invalid_path, 'psu')
+        backend = SessionRecordingBackend(mock_backend, invalid_path)
 
         # Recording should work
         backend.query('*IDN?')
 
         # But saving should fail gracefully
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises(FileNotFoundError, match="Cannot create directory"):
             backend.save_session('test/profile')
     def test_sequential_recording(self, recording_backend):
         """Test sequential command recording."""
@@ -316,10 +316,15 @@ def test_session_recording_backend_integration():
         def write(self, command):
             time.sleep(0.001)
 
-            if 'VOLT' in command and ',(' in command:
-                # Extract voltage value
+            if 'VOLT' in command:
+                # Extract voltage value - handle format "VOLT 1.0, (@1)"
                 parts = command.split()
-                self.voltage = float(parts[1].rstrip(','))
+                if len(parts) >= 2:
+                    voltage_str = parts[1].rstrip(',')
+                    try:
+                        self.voltage = float(voltage_str)
+                    except ValueError:
+                        pass  # Invalid voltage format, ignore
             elif 'CURR' in command:
                 # Extract current value
                 parts = command.split()
@@ -335,7 +340,7 @@ def test_session_recording_backend_integration():
 
     try:
         mock_backend = RealisticMockBackend()
-        recording_backend = SessionRecordingBackend(mock_backend, temp_file, 'psu')
+        recording_backend = SessionRecordingBackend(mock_backend, temp_file)
 
         # Simulate a realistic measurement sequence
         idn = recording_backend.query('*IDN?')

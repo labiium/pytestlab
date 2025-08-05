@@ -16,21 +16,44 @@ from pytestlab.instruments.backends.replay_backend import ReplayBackend
 def sample_instrument_profile():
     """Sample instrument profile for testing."""
     return {
-        'info': {
-            'manufacturer': 'Keysight',
-            'model': 'EDU36311A',
-            'type': 'power_supply'
-        },
-        'connection': {
-            'interface': 'visa',
-            'address_template': 'USB0::0x{vid:04X}::0x{pid:04X}::{serial}::INSTR',
-            'vid': 0x2A8D,
-            'pid': 0x3102
-        },
-        'capabilities': {
-            'channels': 1,
-            'max_voltage': 30.0,
-            'max_current': 5.0
+        'device_type': 'power_supply',
+        'manufacturer': 'Keysight',
+        'model': 'EDU36311A',
+        'channels': [
+            {
+                'channel_id': 1,
+                'description': 'Channel 1',
+                'voltage_range': {
+                    'min_val': 0,
+                    'max_val': 30.0
+                },
+                'current_limit_range': {
+                    'min_val': 0,
+                    'max_val': 5.0
+                },
+                'accuracy': {
+                    'voltage': 0.05,
+                    'current': 0.2
+                }
+            }
+        ],
+        'total_power': 90,
+        'line_regulation': 0.01,
+        'load_regulation': 0.01,
+        'scpi': {
+            'commands': {
+                'set_voltage': {
+                    'template': 'VOLT {voltage}, (@{channel})',
+                    'defaults': {'channel': 1},
+                    'validators': {'voltage': {'min': 0, 'max': 30}, 'channel': {'min': 1, 'max': 3}}
+                }
+            },
+            'queries': {
+                'identify': {
+                    'template': '*IDN?',
+                    'response': {'type': 'str'}
+                }
+            }
         }
     }
 
@@ -103,11 +126,11 @@ class TestAutoInstrumentBackendOverride:
             'address': 'USB0::0x2A8D::0x3102::CN61130056::INSTR'
         }
 
-        # Mock the normal backend creation process
-        with pytest.raises(Exception):
-            # This will fail because we don't have actual VISA/backends set up
-            # but it tests that the method accepts the config correctly
-            AutoInstrument.from_config(config)
+        # Test normal AutoInstrument.from_config without backend override
+        # This should work with simulation backends
+        instrument = AutoInstrument.from_config(config, simulate=True)
+        assert instrument is not None
+        assert instrument._backend is not None
 
     def test_from_config_with_backend_override(self, temp_profile_file):
         """Test AutoInstrument.from_config with backend_override."""
@@ -147,21 +170,44 @@ class TestAutoInstrumentBackendOverride:
         """Test that backend_override takes precedence over profile backend settings."""
         # Create profile with specific backend configuration
         profile_with_backend = {
-            'info': {
-                'manufacturer': 'Keysight',
-                'model': 'EDU36311A',
-                'type': 'power_supply'
-            },
-            'connection': {
-                'interface': 'visa',  # This should be ignored due to override
-                'address_template': 'USB0::0x{vid:04X}::0x{pid:04X}::{serial}::INSTR',
-                'vid': 0x2A8D,
-                'pid': 0x3102
-            },
-            'capabilities': {
-                'channels': 1,
-                'max_voltage': 30.0,
-                'max_current': 5.0
+            'device_type': 'power_supply',
+            'manufacturer': 'Keysight',
+            'model': 'EDU36311A',
+            'channels': [
+                {
+                    'channel_id': 1,
+                    'description': 'Channel 1',
+                    'voltage_range': {
+                        'min_val': 0,
+                        'max_val': 30.0
+                    },
+                    'current_limit_range': {
+                        'min_val': 0,
+                        'max_val': 5.0
+                    },
+                    'accuracy': {
+                        'voltage': 0.05,
+                        'current': 0.2
+                    }
+                }
+            ],
+            'total_power': 90,
+            'line_regulation': 0.01,
+            'load_regulation': 0.01,
+            'scpi': {
+                'commands': {
+                    'set_voltage': {
+                        'template': 'VOLT {voltage}, (@{channel})',
+                        'defaults': {'channel': 1},
+                        'validators': {'voltage': {'min': 0, 'max': 30}, 'channel': {'min': 1, 'max': 3}}
+                    }
+                },
+                'queries': {
+                    'identify': {
+                        'template': '*IDN?',
+                        'response': {'type': 'str'}
+                    }
+                }
             }
         }
 
@@ -227,7 +273,7 @@ class TestAutoInstrumentBackendOverride:
         assert result == expected
 
         # Verify replay backend state
-        assert replay_backend._log_index == 1
+        assert replay_backend._step == 1
 
     def test_backend_override_none(self, temp_profile_file):
         """Test that backend_override=None works like no override."""
@@ -237,9 +283,10 @@ class TestAutoInstrumentBackendOverride:
         }
 
         # Test with None override (should behave like normal)
-        with pytest.raises(Exception):
-            # Will fail due to missing backends, but tests the code path
-            AutoInstrument.from_config(config, backend_override=None)
+        # This should work with simulation backends
+        instrument = AutoInstrument.from_config(config, backend_override=None, simulate=True)
+        assert instrument is not None
+        assert instrument._backend is not None
 
 
 class TestBackendOverrideEdgeCases:
@@ -330,12 +377,41 @@ def test_backend_override_with_session_recording():
 
     try:
         # Create SessionRecordingBackend
-        recording_backend = SessionRecordingBackend(mock_backend, session_file, 'test_instrument')
+        recording_backend = SessionRecordingBackend(mock_backend, session_file)
 
         # Create temporary profile
         profile = {
-            'info': {'manufacturer': 'Test', 'model': 'TEST001', 'type': 'test'},
-            'connection': {'interface': 'test', 'address_template': 'TEST::ADDRESS'}
+            'device_type': 'power_supply',
+            'manufacturer': 'Test',
+            'model': 'TEST001',
+            'channels': [
+                {
+                    'channel_id': 1,
+                    'description': 'Channel 1',
+                    'voltage_range': {
+                        'min_val': 0,
+                        'max_val': 30.0
+                    },
+                    'current_limit_range': {
+                        'min_val': 0,
+                        'max_val': 5.0
+                    }
+                }
+            ],
+            'scpi': {
+                'commands': {
+                    'set_voltage': {
+                        'template': 'VOLT {voltage}, (@{channel})',
+                        'defaults': {'channel': 1}
+                    }
+                },
+                'queries': {
+                    'identify': {
+                        'template': '*IDN?',
+                        'response': {'type': 'str'}
+                    }
+                }
+            }
         }
 
         with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:

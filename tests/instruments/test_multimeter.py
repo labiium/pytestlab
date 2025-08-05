@@ -136,7 +136,7 @@ def test_multimeter_configuration_retrieval():
         # Set a known state first
         mm.configure_measurement(DMMFunction.CURRENT_DC, range_val="0.1", resolution="MAX")
         config = mm.get_config()
-        print(f"Current Configuration:\n{config}")
+        print(config)
         assert config.measurement_mode == "Current"
         assert config.range_value == 0.1
         assert config.units == "A"

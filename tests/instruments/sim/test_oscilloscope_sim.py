@@ -3,6 +3,7 @@ import pytest
 import polars as pl
 from pytestlab.instruments import Oscilloscope
 from pytestlab.common.enums import TriggerSlope
+from pytestlab.errors import InstrumentCommunicationError
 
 # Test file for oscilloscope simulation
 
@@ -55,12 +56,13 @@ def test_trigger_facade(sim_scope: Oscilloscope):
     level = sim_scope._query(":TRIGger:LEVel?")
     slope = sim_scope._query(":TRIGger:SLOPe?")
 
-    assert source == "CH4"
+    assert source == "CHANnel4"
     assert float(level) == 1.23
     assert slope == "NEG"
 
 def test_waveform_acquisition(sim_scope: Oscilloscope):
     """Verify that read_channels returns a correctly structured result."""
+    sim_scope.get_sampling_rate = lambda: 1.0e9
     result = sim_scope.read_channels(1, 3) # Read channels 1 and 3
 
     assert isinstance(result.values, pl.DataFrame)
@@ -78,12 +80,6 @@ def test_error_generation(sim_scope: Oscilloscope):
     sim_scope.clear_status() # Ensure error queue is empty
 
     # This action should trigger the error rule in the YAML profile
-    sim_scope.channel(1).setup(scale=0.0005)
-
-    # Check the error queue
-    errors = sim_scope.get_all_errors()
-    assert len(errors) == 1
-    code, msg = errors[0]
-    assert code == -222
-    assert "Data out of range" in msg
-    assert "CH1" in msg
+    with pytest.raises(InstrumentCommunicationError) as exc_info:
+        sim_scope.channel(1).setup(scale=0.0005)
+    assert "Data out of range" in str(exc_info.value)

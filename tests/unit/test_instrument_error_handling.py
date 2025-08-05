@@ -1,4 +1,7 @@
 import pytest
+import yaml
+import tempfile
+from pathlib import Path
 from typing import List, Optional
 
 from pytestlab.instruments.instrument import Instrument
@@ -8,8 +11,9 @@ from pytestlab.errors import InstrumentCommunicationError, InstrumentDataError
 
 # A specialized SimBackend for testing error handling
 class ProgrammableErrorSimBackend(SimBackend):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, profile_path: str, *args, **kwargs):
+        super().__init__(profile_path, *args, **kwargs)
+        self.command_map = {}
         self._error_responses: List[str] = []
         self._syst_err_query_count: int = 0
         # Ensure SYST:ERR? is in the command_map if not already by default
@@ -40,9 +44,15 @@ class ProgrammableErrorSimBackend(SimBackend):
 @pytest.fixture
 def error_handling_instrument():
     """Fixture to provide an Instrument instance with ProgrammableErrorSimBackend."""
-    backend = ProgrammableErrorSimBackend(default_response="DUMMY_RESPONSE")
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        profile_file = f.name
+        yaml.dump({'device_type': 'instrument', 'scpi': {'*IDN?': 'dummy_idn'}}, f)
+    backend = ProgrammableErrorSimBackend(profile_path=profile_file)
     # Minimal config for the instrument
     config = InstrumentConfig(
+        manufacturer="Test",
+        model="TestErrorInstrument",
+        device_type="instrument",
         general=dict(id="TestErrorInstrument", driver="GenericInstrument"),
         settings=dict(check_errors_on_read=False, check_errors_on_write=False) # Disable auto checks for these tests
     )
@@ -50,7 +60,9 @@ def error_handling_instrument():
     # instrument.connect() # connect might do an error check, skip for manual control initially
     # Manually set connected state if needed, or ensure connect doesn't auto-error-check
     instrument._connected = True # pylint: disable=protected-access
-    return instrument, backend
+    yield instrument, backend
+    Path(profile_file).unlink(missing_ok=True)
+
 
 # Tests for _error_check()
 

@@ -48,7 +48,7 @@ def test_replay_backend():
 
     except Exception as e:
         print(f"✗ Error in successful replay test: {e}")
-        return False
+        assert False, f"Error in successful replay test: {e}"
 
     # Test mismatch detection
     try:
@@ -62,7 +62,7 @@ def test_replay_backend():
         try:
             backend2.query("WRONG:CMD?")
             print("✗ Mismatch detection failed - should have raised ReplayMismatchError")
-            return False
+            assert False, "Mismatch detection failed - should have raised ReplayMismatchError"
         except ReplayMismatchError as e:
             print(f"✓ Correctly caught mismatch: {e}")
 
@@ -70,9 +70,7 @@ def test_replay_backend():
 
     except Exception as e:
         print(f"✗ Error in mismatch test: {e}")
-        return False
-
-    return True
+        assert False, f"Error in mismatch test: {e}"
 
 
 def test_session_files():
@@ -123,11 +121,9 @@ def test_session_files():
         dmm_backend.close()
         print(f"✓ DMM replay successful: {dmm_id}, Reading: {reading}")
 
-        return True
-
     except Exception as e:
         print(f"✗ Session file test failed: {e}")
-        return False
+        assert False, f"Session file test failed: {e}"
     finally:
         if session_file.exists():
             session_file.unlink()
@@ -135,15 +131,10 @@ def test_session_files():
 
 if __name__ == "__main__":
     def main():
-        success1 = test_replay_backend()
-        success2 = test_session_files()
-
-        if success1 and success2:
-            print("\n✓ All tests passed!")
-            return 0
-        else:
-            print("\n✗ Some tests failed!")
-            return 1
+        test_replay_backend()
+        test_session_files()
+        print("\n✓ All tests passed!")
+        return 0
 
     import sys
     sys.exit(main())

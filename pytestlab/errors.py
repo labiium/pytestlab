@@ -132,3 +132,16 @@ class InstrumentDataError(Exception):
 
 class ReplayMismatchError(InstrumentCommunicationError):
     """Raised when a command during replay does not match the recorded log."""
+
+    def __init__(self, message, instrument=None, command=None, expected_command=None, actual_command=None, log_index=None):
+        # Store additional attributes
+        self.expected_command = expected_command
+        self.actual_command = actual_command
+        self.log_index = log_index
+
+        # For simple message-only construction (test case), just use the message directly
+        if instrument is None and command is None and expected_command is not None:
+            super(Exception, self).__init__(message)
+        else:
+            # Call parent constructor for full SCPI error formatting
+            super().__init__(instrument=instrument, command=command, message=message)

@@ -19,22 +19,48 @@ class ReplayBackend(InstrumentIO):
     ReplayMismatchError.
     """
 
-    def __init__(self, session_data: Union[List[Dict[str, Any]], str, Path], model_name: str):
-        if isinstance(session_data, (str, Path)):
-            # Load from file
-            with open(session_data, 'r') as f:
-                session_file_data = yaml.safe_load(f)
-            self._log = session_file_data[model_name]['log']
+    def __init__(self, session_file: Union[str, Path, List[Dict[str, Any]]], profile_key: str):
+        """
+        Initialize ReplayBackend with session file and profile key.
+
+        Args:
+            session_file: Path to the YAML session file or list of command log entries
+            profile_key: Key identifying the instrument profile in the session data
+        """
+        self.profile_key = profile_key
+
+        # Handle direct log data vs file path
+        if isinstance(session_file, list):
+            # Direct log data provided
+            self._command_log = session_file
+            self.session_file = None
+            self.session_data = None
         else:
-            # Direct log data
-            self._log = session_data
-        self._model_name = model_name
-        self._step = 0
+            # File path provided
+            self.session_file = str(session_file)
+
+            # Load session data from file
+            try:
+                with open(session_file, 'r') as f:
+                    self.session_data = yaml.safe_load(f)
+            except FileNotFoundError:
+                raise FileNotFoundError(f"Session file not found: {session_file}")
+
+            # Validate profile key exists
+            if profile_key not in self.session_data:
+                raise KeyError(f"'{profile_key}' not found in session data")
+
+            # Extract command log and initialize tracking
+            profile_data = self.session_data[profile_key]
+            self._command_log = profile_data.get('log', [])
+
+        self._log_index = 0
+        self._model_name = profile_key
 
     @classmethod
-    def from_session_file(cls, session_file: Union[str, Path], model_name: str) -> 'ReplayBackend':
+    def from_session_file(cls, session_file: Union[str, Path], profile_key: str) -> 'ReplayBackend':
         """Create a ReplayBackend from a session file."""
-        return cls(session_file, model_name)
+        return cls(session_file, profile_key)
 
     def connect(self) -> None:
         LOGGER.debug(f"ReplayBackend for '{self._model_name}': Connected.")
@@ -42,46 +68,79 @@ class ReplayBackend(InstrumentIO):
     def disconnect(self) -> None:
         LOGGER.debug(f"ReplayBackend for '{self._model_name}': Disconnected.")
 
-    def _get_next_log_entry(self, expected_type: str, command: str) -> Dict[str, Any]:
-        if self._step >= len(self._log):
+    def _get_next_log_entry(self, expected_type: str, cmd: str) -> Dict[str, Any]:
+        """Get the next log entry and validate it matches expectations."""
+        if self._log_index >= len(self._command_log):
             raise ReplayMismatchError(
-                f"Replay for '{self._model_name}' ended, but received unexpected command: '{command}'"
+                message="No more commands in replay log",
+                instrument=self._model_name,
+                command=cmd
             )
 
-        entry = self._log[self._step]
-        cmd_in_log = entry.get("command", "").strip()
-        cmd_received = command.strip()
+        entry = self._command_log[self._log_index]
+        expected_cmd = entry.get("command", "").strip()
+        received_cmd = cmd.strip()
+        entry_type = entry.get("type", "")
 
-        if entry.get("type") != expected_type or cmd_in_log != cmd_received:
+        # Check for command type mismatch
+        if entry_type != expected_type:
+            if entry_type == "write" and expected_type == "query":
+                error_msg = f"Expected command type 'write', but got 'query'"
+            elif entry_type == "query" and expected_type == "write":
+                error_msg = f"Expected command type 'query', but got 'write'"
+            else:
+                error_msg = f"Replay mismatch for '{self._model_name}' at step {self._log_index}.\n" \
+                           f"  Expected: type='{entry_type}', cmd='{expected_cmd}'\n" \
+                           f"  Received: type='{expected_type}', cmd='{received_cmd}'"
+
             raise ReplayMismatchError(
-                f"Replay mismatch for '{self._model_name}' at step {self._step}.\n"
-                f"  Expected: type='{entry.get('type')}', cmd='{cmd_in_log}'\n"
-                f"  Received: type='{expected_type}', cmd='{cmd_received}'"
+                message=error_msg,
+                instrument=self._model_name,
+                command=received_cmd,
+                expected_command=expected_cmd,
+                actual_command=received_cmd,
+                log_index=self._log_index
             )
 
-        self._step += 1
+        # Check for command mismatch
+        if expected_cmd != received_cmd:
+            error_msg = f"Expected command '{expected_cmd}', but got '{received_cmd}'"
+            raise ReplayMismatchError(
+                message=error_msg,
+                instrument=self._model_name,
+                command=received_cmd,
+                expected_command=expected_cmd,
+                actual_command=received_cmd,
+                log_index=self._log_index
+            )
+
+        self._log_index += 1
         return entry
 
-    def write(self, command: str) -> None:
-        self._get_next_log_entry("write", command)
+    def write(self, cmd: str) -> None:
+        """Execute a write command."""
+        self._get_next_log_entry("write", cmd)
 
-    def query(self, command: str, delay: Optional[float] = None) -> str:
-        entry = self._get_next_log_entry("query", command)
+    def query(self, cmd: str, delay: Optional[float] = None) -> str:
+        """Execute a query command and return the response."""
+        entry = self._get_next_log_entry("query", cmd)
         return entry.get("response", "")
 
-    def query_raw(self, command: str, delay: Optional[float] = None) -> bytes:
-        entry = self._get_next_log_entry("query_raw", command)
-        # Assuming the response is stored as a base64 string or similar if not directly in YAML
-        # For this implementation, we'll assume it's a simple string that needs encoding.
-        # A more robust solution might use base64 encoding in the YAML.
+    def query_raw(self, cmd: str, delay: Optional[float] = None) -> bytes:
+        """Execute a raw query command and return bytes response."""
+        entry = self._get_next_log_entry("query_raw", cmd)
+        # Assuming the response is stored as a string that needs encoding
         return str(entry.get("response", "")).encode('utf-8')
 
     def close(self) -> None:
+        """Close the backend connection."""
         self.disconnect()
 
     # The following methods are part of the protocol but are no-ops for replay
     def set_timeout(self, timeout_ms: int) -> None:
+        """Set timeout (no-op for replay)."""
         pass
 
     def get_timeout(self) -> int:
+        """Get timeout (returns default for replay)."""
         return 5000  # Default value
