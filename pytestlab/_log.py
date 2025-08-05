@@ -28,16 +28,27 @@ def setup_logging():
     handler.setFormatter(formatter)
     _root_logger.addHandler(handler)
     _root_logger.setLevel(log_level)
-    _root_logger.propagate = False
+    # Enable propagation so pytest caplog can capture logs
+    _root_logger.propagate = True
+
+def reinitialize_logging():
+    """
+    Reinitialize logging configuration, useful for tests that modify environment variables.
+    """
+    setup_logging()
 
 def set_log_level(level: int | str):
     """
     Sets the logging level for the pytestlab logger.
     :param level: The logging level, e.g., "DEBUG", "INFO", logging.DEBUG, logging.INFO.
     """
-    if isinstance(level, str):
-        level = level.upper()
-    _root_logger.setLevel(level)
+    try:
+        if isinstance(level, str):
+            level = level.upper()
+        _root_logger.setLevel(level)
+    except ValueError as e:
+        # Log the warning and keep the current level
+        _root_logger.warning(f"Invalid log level: {level}")
 
 def get_logger(name: str) -> logging.Logger:
     """

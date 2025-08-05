@@ -1,130 +1,299 @@
-# tests/instruments/sim/DSOX1204G_sim.yaml
-#
-# Simulation profile for the Keysight DSOX1204G Oscilloscope.
-# This file drives the behavior of SimBackend for comprehensive testing.
-#
+manufacturer: Keysight
+model: DSOX1204G
+device_type: oscilloscope
+trigger:
+    types:
+        - HIGH
+        - LOW
+    modes:
+        - EDGE
+        - GLITch
+        - PATTern
+        - SHOLd
+        - TRANsition
+        - TV
+        - SBUS1
+    slopes:
+        - POS
+        - NEG
+        - EITH
+        - ALT
+channels:
+    - description: Analog Channel 1
+      channel_range:
+          min_val: -5
+          max_val: 5
+      input_coupling:
+          - DC
+          - AC
+      input_impedance: 1.e+6
+      probe_attenuation:
+          - 1
+          - 10
+      timebase:
+          range:
+              min_val: 5.e-9
+              max_val: 50
+          horizontal_resolution: 1.e-12
+    - description: Analog Channel 2
+      channel_range:
+          min_val: -5
+          max_val: 5
+      input_coupling:
+          - DC
+          - AC
+      input_impedance: 1.e+6
+      probe_attenuation:
+          - 1
+          - 10
+      timebase:
+          range:
+              min_val: 5.e-9
+              max_val: 50
+          horizontal_resolution: 1.e-12
+    - description: Analog Channel 3
+      channel_range:
+          min_val: -5
+          max_val: 5
+      input_coupling:
+          - DC
+          - AC
+      input_impedance: 1.e+6
+      probe_attenuation:
+          - 1
+          - 10
+      timebase:
+          range:
+              min_val: 5.e-9
+              max_val: 50
+          horizontal_resolution: 1.e-12
+    - description: Analog Channel 4
+      channel_range:
+          min_val: -5
+          max_val: 5
+      input_coupling:
+          - DC
+          - AC
+      input_impedance: 1.e+6
+      probe_attenuation:
+          - 1
+          - 10
+      timebase:
+          range:
+              min_val: 5.e-9
+              max_val: 50
+          horizontal_resolution: 1.e-12
+bandwidth: 7.e+7
+sampling_rate: 2.e+9
+memory: 2.e+6
+waveform_update_rate: 2.e+5
+fft:
+    window_types:
+        - RECTangular
+        - HANNing
+        - FLATtop
+        - BHARris
+    units:
+        - DECibel
+        - VRMS
+function_generator:
+    waveform_types:
+        - SIN
+        - SQUare
+        - RAMp
+        - PULse
+        - NOISe
+        - DC
+    supported_states:
+        - "ON"
+        - "OFF"
+    offset:
+        min_val: -11
+        max_val: 11
+    frequency:
+        min_val: 0.1
+        max_val: 2.e+20
+    amplitude:
+        min_val: 0
+        max_val: 9
+franalysis:
+    sweep_points:
+        min_val: 1
+        max_val: 1.e+3
+    load:
+        - ONEMeg
+        - FIFTy
+    trace:
+        - NONE
+        - ALL
+        - GAIN
+        - PHASe
+    mode:
+        - SWE
 
-# The `identification` string is returned for the *IDN? query.
+# Simulation section for SimBackend
 identification: "Simulated,Keysight,DSOX1204G,SIM1.0"
 
 simulation:
-  # `initial_state` defines the default state of the instrument.
-  # The `*RST` command will reset the live state to this dictionary.
-  initial_state:
-    display.CH1: "1"
-    display.CH2: "0"
-    display.CH3: "0"
-    display.CH4: "0"
-    timebase:
-      scale: 1.0e-3
-      position: 0.0
-    channels:
-      CH1: { scale: 1.0, offset: 0.0, coupling: "DC" }
-      CH2: { scale: 1.0, offset: 0.0, coupling: "DC" }
-      CH3: { scale: 1.0, offset: 0.0, coupling: "DC" }
-      CH4: { scale: 1.0, offset: 0.0, coupling: "DC" }
-    trigger:
-      source: "CH1"
-      slope: "POS"
-      mode: "EDGE"
-      level: 0.5
-    acquisition:
-      type: "NORM"
-      mode: "RTIMe"
-      sample_rate: 2.0e9
-    waveform:
-      source: "CHANnel1"
-      format: "BYTE"
-      points_mode: "RAW"
-      points: 1024
-      xinc: 1.0e-6
-      xorg: -5.12e-4
-      xref: 512
-      yinc: 0.01
-      yorg: 0.0
-      yref: 128
+    # `initial_state` defines the default state of the instrument.
+    # The `*RST` command will reset the live state to this dictionary.
+    initial_state:
+        display.CH1: "1"
+        display.CH2: "0"
+        display.CH3: "0"
+        display.CH4: "0"
+        timebase:
+            scale: 1.0e-3
+            position: 0.0
+        channels:
+            CH1: { scale: 1.0, offset: 0.0, coupling: "DC" }
+            CH2: { scale: 1.0, offset: 0.0, coupling: "DC" }
+            CH3: { scale: 1.0, offset: 0.0, coupling: "DC" }
+            CH4: { scale: 1.0, offset: 0.0, coupling: "DC" }
+        trigger:
+            source: "CH1"
+            slope: "POS"
+            mode: "EDGE"
+            level: 0.5
+        acquisition:
+            type: "NORM"
+            mode: "RTIMe"
+            sample_rate: 2.0e9
+        waveform:
+            source: "CHANnel1"
+            format: "BYTE"
+            points_mode: "RAW"
+            points: 1024
+            xinc: 1.0e-6
+            xorg: -5.12e-4
+            xref: 512
+            yinc: 0.01
+            yorg: 0.0
+            yref: 128
 
-  # `scpi` maps SCPI command patterns to responses and state changes.
-  scpi:
-    # Reset command sets the live state back to `initial_state`.
-    "*RST":
-      set: { "": "py:state.clear(); state.update(initial_state)" }
+    # `scpi` maps SCPI command patterns to responses and state changes.
+    scpi:
+        # Reset command sets the live state back to `initial_state`.
+        "*RST":
+            set: { "": "py:state.clear(); state.update(initial_state)" }
 
-    # Timebase control
-    ":TIMebase:SCALe\\s+([0-9.E+-]+)":
-      set: { "timebase.scale": "py:float(g1)" }
-    ":TIMebase:SCALe?":
-      get: timebase.scale
-    ":TIMebase:POSition\\s+([0-9.E+-]+)":
-      set: { "timebase.position": "py:float(g1)" }
-    ":TIMebase:POSition?":
-      get: timebase.position
-      
-    # Channel display control
-    ":CHANnel([1-4]):DISPlay\\s+(ON|OFF|1|0)":
-      set: { "display.CH$1": "py:'1' if g2.upper() in ['ON', '1'] else '0'" }
-    ":CHANnel([1-4]):DISPlay?":
-      get: "display.CH$1"
+        # Timebase control
+        ":TIMebase:SCALe\\s+([0-9.E+-]+)":
+            set: { "timebase.scale": "py:float(g1)" }
+        ":TIMebase:SCALe?":
+            get: timebase.scale
+        ":TIMebase:POSition\\s+([0-9.E+-]+)":
+            set: { "timebase.position": "py:float(g1)" }
+        ":TIMebase:POSition?":
+            get: timebase.position
 
-    # Channel axis control
-    ":CHANnel([1-4]):SCALe\\s+([0-9.E+-]+)":
-      set: { "channels.CH$1.scale": "py:float(g2)" }
-    ":CHANnel([1-4]):SCALe?":
-      get: "channels.CH$1.scale"
-    ":CHANnel([1-4]):OFFSet\\s+([0-9.E+-]+)":
-      set: { "channels.CH$1.offset": "py:float(g2)" }
-    ":CHANnel([1-4]):OFFSet?":
-      get: "channels.CH$1.offset"
+        # Channel display control
+        ":CHANnel([1-4]):DISPlay\\s+(ON|OFF|1|0)":
+            set:
+                {
+                    "display.CH$1": "py:'1' if g2.upper() in ['ON', '1'] else '0'",
+                }
+        "CHANnel([1-4]):DISPlay\\s+(ON|OFF|1|0)":
+            set:
+                {
+                    "display.CH$1": "py:'1' if g2.upper() in ['ON', '1'] else '0'",
+                }
+        ":CHANnel([1-4]):DISPlay?":
+            get: "display.CH$1"
+        "CHANnel([1-4]):DISPlay?":
+            get: "display.CH$1"
 
-    # Trigger control
-    ":TRIGger:SOURce\\s+(CH[1-4]|EXT|LINE)":
-      set: { "trigger.source": "$1" }
-    ":TRIGger:SOURce?":
-      get: trigger.source
-    ":TRIGger:LEVel\\s+([0-9.E+-]+)":
-      set: { "trigger.level": "py:float(g1)" }
-    ":TRIGger:LEVel?":
-      get: trigger.level
-    ":TRIGger:SLOPe\\s+(POS|NEG|EITH)":
-      set: { "trigger.slope": "$1" }
-    ":TRIGger:SLOPe?":
-      get: trigger.slope
-    ":TRIGger:MODE\\s+(EDGE)":
-      set: { "trigger.mode": "$1" }
-    ":TRIGger:MODE?":
-      get: trigger.mode
-      
-    # Waveform commands
-    ":WAVeform:SOURce\\s+(CHANnel[1-4])":
-      set: { "waveform.source": "$1" }
-    ":WAVeform:POINts:MODE\\s+(RAW|NORMal)":
-      set: { "waveform.points_mode": "$1" }
-    ":WAVeform:FORMat\\s+(BYTE|WORD)":
-      set: { "waveform.format": "$1" }
-    
-    # Dynamically generate the preamble based on the current state
-    ":WAVeform:PREamble?":
-      response: >
-        py: f"{state.waveform.format},{state.acquisition.type},{state.waveform.points},1,"
-        f"{state.waveform.xinc},{state.waveform.xorg},{state.waveform.xref},"
-        f"{state.waveform.yinc},{state.waveform.yorg},{state.waveform.yref}"
+        # Channel axis control
+        ":CHANnel([1-4]):SCALe\\s+([0-9.E+-]+)":
+            set: { "channels.CH$1.scale": "py:float(g2)" }
+        "CHANnel([1-4]):SCALe\\s+([0-9.E+-]+)":
+            set: { "channels.CH$1.scale": "py:float(g2)" }
+        ":CHANnel([1-4]):SCALe?":
+            get: "channels.CH$1.scale"
+        "CHANnel([1-4]):SCALe?":
+            get: "channels.CH$1.scale"
+        ":CHANnel([1-4]):OFFSet\\s+([0-9.E+-]+)":
+            set: { "channels.CH$1.offset": "py:float(g2)" }
+        "CHANnel([1-4]):OFFSet\\s+([0-9.E+-]+)":
+            set: { "channels.CH$1.offset": "py:float(g2)" }
+        ":CHANnel([1-4]):OFFSet?":
+            get: "channels.CH$1.offset"
+        "CHANnel([1-4]):OFFSet?":
+            get: "channels.CH$1.offset"
 
-    # Dynamically generate fake waveform data as a SCPI binary block
-    ":WAVeform:DATA?":
-      response: >
-        py: (
-            lambda points: f"#8{points:08d}" + "".join(
-                [chr(random.randint(50, 200)) for _ in range(points)]
-            )
-        )(state.waveform.points)
-    
-    # A general "do nothing" command for DIGitize, which is complex to simulate
-    ":DIGitize.*": {}
-    "*OPC?": "1"
+        # Trigger control
+        ":TRIG:SOUR\\s+(CHANnel[1-4]|EXTernal|LINE|WGEN)":
+            set: { "trigger.source": "$1" }
+        "TRIG:SOUR\\s+(CHANnel[1-4]|EXTernal|LINE|WGEN)":
+            set: { "trigger.source": "$1" }
+        ":TRIGger:SOURce\\s+(CHANnel[1-4]|EXTernal|LINE|WGEN)":
+            set: { "trigger.source": "$1" }
+        "TRIGger:SOURce\\s+(CHANnel[1-4]|EXTernal|LINE|WGEN)":
+            set: { "trigger.source": "$1" }
+        ":TRIGger:SOURce?":
+            get: trigger.source
+        "TRIGger:SOURce?":
+            get: trigger.source
+        ":TRIGger:LEVel\\s+([0-9.E+-]+)(?:,\\s*CHANnel[1-4])?":
+            set: { "trigger.level": "py:float(g1)" }
+        "TRIGger:LEVel\\s+([0-9.E+-]+)(?:,\\s*CHANnel[1-4])?":
+            set: { "trigger.level": "py:float(g1)" }
+        ":TRIGger:LEVel?":
+            get: trigger.level
+        "TRIGger:LEVel?":
+            get: trigger.level
+        ":TRIGger:SLOPe\\s+(POS|NEG|EITH)":
+            set: { "trigger.slope": "$1" }
+        "TRIGger:SLOPe\\s+(POS|NEG|EITH)":
+            set: { "trigger.slope": "$1" }
+        ":TRIGger:SLOPe?":
+            get: trigger.slope
+        "TRIGger:SLOPe?":
+            get: trigger.slope
+        ":TRIGger:MODE\\s+(EDGE)":
+            set: { "trigger.mode": "$1" }
+        "TRIGger:MODE\\s+(EDGE)":
+            set: { "trigger.mode": "$1" }
+        ":TRIGger:MODE?":
+            get: trigger.mode
+        "TRIGger:MODE?":
+            get: trigger.mode
 
-  # `errors` define rules for pushing errors to the instrument's error queue.
-  errors:
-    - scpi: ":CHANnel([1-4]):SCALe\\s+([0-9.E+-]+)"
-      condition: "py: float(g2) < 0.001"
-      code: -222
-      message: "Data out of range; CH$1 scale cannot be less than 1mV/div"
+        # Waveform commands
+        ":?WAVeform:SOURce\\s+(CHANnel[1-4])":
+            set: { "waveform.source": "$1" }
+        ":?WAVeform:POINts:MODE\\s+(RAW|NORMal)":
+            set: { "waveform.points_mode": "$1" }
+        ":?WAVeform:FORMat\\s+(BYTE|WORD)":
+            set: { "waveform.format": "$1" }
+
+        # Dynamically generate the preamble based on the current state
+        ":?WAVeform:PREamble?":
+            response: 'py:f"{state[''waveform''][''format'']},{state[''acquisition''][''type'']},{state[''waveform''][''points'']},1,{state[''waveform''][''xinc'']},{state[''waveform''][''xorg'']},{state[''waveform''][''xref'']},{state[''waveform''][''yinc'']},{state[''waveform''][''yorg'']},{state[''waveform''][''yref'']}"'
+
+        # Dynamically generate fake waveform data as a SCPI binary block
+        ":?WAVeform:DATA?":
+            response: 'py:f"#8{state[''waveform''][''points'']:08d}" + chr(128) * state[''waveform''][''points'']'
+
+        # Acquisition commands
+        ":?ACQuire:SRATe?":
+            get: acquisition.sample_rate
+        ":?ACQuire:TYPE?":
+            get: acquisition.type
+        ":?ACQuire:MODE?":
+            get: acquisition.mode
+
+        # A general "do nothing" command for DIGitize, which is complex to simulate
+        ":DIGitize.*": {}
+        "*OPC?": "1"
+
+    # `errors` define rules for pushing errors to the instrument's error queue.
+    errors:
+        - scpi: ":CHANnel([1-4]):SCALe\\s+([0-9.E+-]+)"
+          condition: "py: float(g2) < 0.001"
+          code: -222
+          message: "Data out of range; CH$1 scale cannot be less than 1mV/div"
+        - scpi: "CHANnel([1-4]):SCALe\\s+([0-9.E+-]+)"
+          condition: "py: float(g2) < 0.001"
+          code: -222
+          message: "Data out of range; CH$1 scale cannot be less than 1mV/div"

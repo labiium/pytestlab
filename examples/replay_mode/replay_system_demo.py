@@ -11,7 +11,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from pytestlab.instruments import AutoInstrument
-from pytestlab.instruments.backends.replay_backend import ReplayBackend, ReplayMismatchError
+from pytestlab.instruments.backends.replay_backend import ReplayBackend
+from pytestlab.errors import ReplayMismatchError
 import yaml
 
 

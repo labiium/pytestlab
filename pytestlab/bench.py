@@ -41,7 +41,7 @@ class SafeInstrumentWrapper:
         self,
         instrument: Instrument,
         safety_limits: Any,
-        instrument_type: str = None
+        instrument_type: Optional[str] = None
     ):
         self._inst = instrument
         self._safety_limits = safety_limits
@@ -510,6 +510,14 @@ class Bench:
                 logger.debug(f"Instrument {alias} does not support health checks")
 
         return health_reports
+
+    def __enter__(self):
+        """Synchronous context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Synchronous context manager exit."""
+        self.close_all()
 
     def __aenter__(self):
         """Async context manager entry."""

@@ -31,6 +31,7 @@ License: MIT
 from __future__ import annotations
 
 import contextlib
+import copy
 import importlib
 import inspect
 import logging
@@ -114,6 +115,14 @@ _ALLOWED_GLOBALS: Dict[str, Any] = MappingProxyType(
         "sum": sum,
         "round": round,
         "len": len,
+        "range": range,
+        "chr": chr,
+        "ord": ord,
+        # type conversion functions
+        "float": float,
+        "int": int,
+        "str": str,
+        "bool": bool,
         # datetime helpers
         "datetime": datetime,
         # constants
@@ -122,7 +131,7 @@ _ALLOWED_GLOBALS: Dict[str, Any] = MappingProxyType(
 )
 
 
-def safe_eval(expr: str, /, state: dotdict, groups: Tuple[str, ...] = ()) -> Any:
+def safe_eval(expr: str, /, state: dotdict, groups: Tuple[str, ...] = (), initial_state: Dict[str, Any] = None) -> Any:
     """
     Evaluate *expr* inside a hardened namespace.
 
@@ -133,10 +142,28 @@ def safe_eval(expr: str, /, state: dotdict, groups: Tuple[str, ...] = ()) -> Any
     10.0
     """
     local_ns: Dict[str, Any] = {"state": state}
+    if initial_state:
+        local_ns["initial_state"] = initial_state
     for i, g in enumerate(groups, 1):
         local_ns[f"g{i}"] = g
     try:
-        return eval(expr, _ALLOWED_GLOBALS, local_ns)  # nosec
+        # Try eval first for expressions
+        # Check for dangerous statement keywords, but allow conditional expressions
+        import re
+        # Allow 'if' in conditional expressions (x if condition else y) but block statement forms
+        statement_keywords = r'\b(?:import|def|class|for|while|try|exec|eval|__import__|compile)\b'
+        # Block 'if' only when it appears to be a statement (not in ternary expressions)
+        if_statement = r'\bif\b(?!.*\belse\b)'  # 'if' without 'else' suggests a statement
+
+        if (';' not in expr and
+            not re.search(statement_keywords, expr) and
+            not re.search(if_statement, expr)):
+            result = eval(expr, dict(_ALLOWED_GLOBALS), local_ns)  # nosec
+            return result
+        else:
+            # Use exec for statements
+            exec(expr, dict(_ALLOWED_GLOBALS), local_ns)  # nosec
+            return None
     except Exception as exc:  # pragma: no cover
         raise SimulationError(f"Unsafe expression failed: {expr!r}: {exc}") from exc
 
@@ -232,7 +259,8 @@ class SimBackend:  # implements AsyncInstrumentIO
         self.model = model or self.profile_path.stem
         # main data
         self._profile = self._load_profile()
-        self._state: dotdict = dotdict(self._profile["simulation"].get("initial_state", {}))
+        self._initial_state = copy.deepcopy(self._profile["simulation"].get("initial_state", {}))
+        self._state: dotdict = dotdict(copy.deepcopy(self._initial_state))
         self._error_queue: List[Tuple[int, str]] = []
         # dispatcher
         self._exact_map: Dict[str, Any] = {}
@@ -311,13 +339,20 @@ class SimBackend:  # implements AsyncInstrumentIO
         sim: Dict[str, Any] = self._profile["simulation"]
         scpi_map: Dict[str, Any] = sim.get("scpi", {})
         for raw, val in scpi_map.items():
+            # Special handling for standard SCPI commands that start with *
+            if raw.startswith("*") and not any(ch in raw[1:] for ch in "*[](){}+|^$"):
+                # This is a standard SCPI command like *RST, *IDN?, *OPC?, etc.
+                self._exact_map[raw.upper()] = val
             # pattern?
-            if ("*" in raw) or any(ch in raw for ch in ".[](){}+|^$"):
+            elif ("*" in raw) or any(ch in raw for ch in ".[](){}+|^$?"):
                 # treat as regex; escape SCPI special chars except *
                 patt = raw
                 if "*" in raw and "(" not in raw:
                     # convert simple glob to regex group capture
                     patt = re.escape(raw).replace("\\*", "(.*)")
+                else:
+                    # For patterns with regex chars, escape the ? for proper regex matching
+                    patt = patt.replace("?", "\\?")
                 compiled = re.compile(patt, re.IGNORECASE)
                 self._pattern_rules.append(_PatternRule(compiled, val, None))
             else:
@@ -346,7 +381,7 @@ class SimBackend:  # implements AsyncInstrumentIO
                 return self._execute_entry(rule.template, cmd, m.groups())
 
         # 3. Built-in commands (fallback)
-        if upper.endswith("SYST:ERR?") or upper.endswith("SYSTEM:ERROR?"):
+        if upper.endswith("SYST:ERR?") or upper.endswith("SYSTEM:ERROR?") or upper.endswith(":SYSTEM:ERROR?") or ":SYSTEM:ERR" in upper:
              return self._builtin_error_query()
         if upper == "*CLS":
             self._clear_errors()
@@ -390,7 +425,20 @@ class SimBackend:  # implements AsyncInstrumentIO
             # state mutators
             if "set" in entry:
                 for k, v in entry["set"].items():
-                    self._state[k] = self._substitute(v, groups)
+                    # Apply substitution to both key and value
+                    substituted_key = self._substitute(k, groups) if isinstance(k, str) else k
+                    value = self._substitute(v, groups)
+                    # Special handling for reset command (empty key)
+                    if substituted_key == "":
+                        # Execute the reset logic: clear state and restore initial values
+                        self._state.clear()
+                        self._state.update(copy.deepcopy(self._initial_state))
+                    else:
+                        # Always use nested state setting for dot notation keys
+                        if '.' in substituted_key:
+                            self._set_nested_state_value(substituted_key, value)
+                        else:
+                            self._state[substituted_key] = value
             if "inc" in entry:
                 for k, v in entry["inc"].items():
                     self._state[k] = self._state.get(k, 0) + float(self._substitute(v, groups))
@@ -400,7 +448,13 @@ class SimBackend:  # implements AsyncInstrumentIO
             # query
             if "get" in entry:
                 key = entry["get"]
-                response = str(self._state.get(key, self._substitute(key, groups)))
+                # Substitute placeholders in the key first
+                substituted_key = self._substitute(key, groups)
+                value = self._get_nested_state_value(substituted_key)
+                if value is not None:
+                    response = str(value)
+                else:
+                    response = ""
             elif "response" in entry:
                 response = self._substitute(entry["response"], groups)
             elif "binary" in entry:
@@ -418,7 +472,7 @@ class SimBackend:  # implements AsyncInstrumentIO
                 func: Callable[..., Any] = safe_eval(entry, self._state, groups)
                 response = str(func(*groups))
             elif entry.startswith("py:"):
-                response = str(safe_eval(entry[3:], self._state, groups))
+                response = str(safe_eval(entry[3:].strip(), self._state, groups, self._initial_state))
             else:
                 response = self._substitute(entry, groups)
         else:
@@ -431,12 +485,63 @@ class SimBackend:  # implements AsyncInstrumentIO
 
     # ................ substitution ..................... #
 
-    @staticmethod
-    def _substitute(template: str, groups: Tuple[str, ...]) -> str:
-        out = template
-        for i, g in enumerate(groups, 1):
-            out = out.replace(f"${i}", g if g is not None else "")
-        return out
+    def _substitute(self, template: str, groups: Tuple[str, ...]) -> Any:
+        """Substitute template variables and evaluate Python expressions."""
+        if template.startswith("py:"):
+            return safe_eval(template[3:], self._state, groups, self._initial_state)
+        else:
+            out = template
+            for i, g in enumerate(groups, 1):
+                out = out.replace(f"${i}", g if g is not None else "")
+            return out
+
+    def _get_nested_state_value(self, key: str) -> Any:
+        """Get value from state using dot notation for nested dictionaries."""
+        # First try the key as a flat key (some keys like 'display.CH1' are stored flat)
+        if key in self._state:
+            return self._state[key]
+
+        # If no dot, it's definitely a flat key
+        if '.' not in key:
+            return self._state.get(key)
+
+        # Try nested access
+        parts = key.split('.')
+        current = self._state
+        for part in parts:
+            if isinstance(current, dict) and part in current:
+                current = current[part]
+            else:
+                return None
+        return current
+
+    def _set_nested_state_value(self, key: str, value: Any) -> None:
+        """Set value in state using dot notation for nested dictionaries."""
+        # First try the key as a flat key (some keys like 'display.CH1' are stored flat)
+        if key in self._state:
+            self._state[key] = value
+            return
+
+        # If no dot, it's definitely a flat key
+        if '.' not in key:
+            self._state[key] = value
+            return
+
+        # Try nested setting
+        parts = key.split('.')
+        current = self._state
+
+        # Navigate to the parent of the target key
+        for part in parts[:-1]:
+            if not isinstance(current, dict):
+                return  # Can't navigate further
+            if part not in current:
+                current[part] = {}  # Create missing intermediate dictionaries
+            current = current[part]
+
+        # Set the final value
+        if isinstance(current, dict):
+            current[parts[-1]] = value
 
     # ................ error handling ................... #
 
@@ -461,8 +566,12 @@ class SimBackend:  # implements AsyncInstrumentIO
             patt = rule["scpi"]
             if re.fullmatch(patt, cmd, flags=re.IGNORECASE):
                 cond = rule.get("condition", "False")
-                if safe_eval(cond, self._state, groups):
-                    self._push_error(int(rule["code"]), rule["message"])
+                # Strip py: prefix if present before evaluation
+                eval_cond = cond[3:].strip() if cond.startswith("py:") else cond
+                if safe_eval(eval_cond, self._state, groups, self._initial_state):
+                    # Apply placeholder substitution to error message
+                    error_message = self._substitute(rule["message"], groups)
+                    self._push_error(int(rule["code"]), error_message)
 
 ###############################################################################
 # CLI helpers – OPTIONAL

@@ -11,7 +11,7 @@ from .SpectrumAnalyser import SpectrumAnalyser
 from .VectorNetworkAnalyser import VectorNetworkAnalyser
 from .PowerMeter import PowerMeter
 from .VirtualInstrument import VirtualInstrument
-from .instrument import Instrument, AsyncInstrumentIO # Import AsyncInstrumentIO
+from .instrument import Instrument, InstrumentIO # Import InstrumentIO
 from ..errors import InstrumentConfigurationError # Removed InstrumentNotFoundError as it's not used here
 from ..config.loader import load_profile
 from ..config.instrument_config import InstrumentConfig as PydanticInstrumentConfig # Base Pydantic config
@@ -26,7 +26,7 @@ import os
 import warnings
 import yaml
 import httpx
-import aiofiles
+# import aiofiles  # Removed for synchronous operation
 import tempfile
 
 
@@ -81,7 +81,7 @@ class AutoInstrument:
             raise InstrumentConfigurationError(
                 instrument_type, f"Unknown instrument type: {instrument_type}"
             )
-    
+
     @classmethod
     def get_config_from_cdn(cls: Type[AutoInstrument], identifier: str) -> Dict[str, Any]:
         """Fetches an instrument configuration from a CDN with local caching.
@@ -103,16 +103,16 @@ class AutoInstrument:
             InstrumentConfigurationError: If the downloaded configuration is invalid.
         """
         import pytestlab as ptl
-        
+
         cache_dir = os.path.join(os.path.dirname(ptl.__file__), "cache", "configs")
         os.makedirs(cache_dir, exist_ok=True)
-        
+
         cache_file = os.path.join(cache_dir, f"{identifier}.yaml")
-        
+
         # Check for a cached version of the configuration first
         if os.path.exists(cache_file):
             try:
-                with aiofiles.open(cache_file, 'r') as f:
+                with open(cache_file, 'r') as f:
                     content = f.read()
                     loaded_config = yaml.safe_load(content)
                     # Validate the cached content; if corrupt, proceed to download
@@ -130,10 +130,10 @@ class AutoInstrument:
                         os.remove(cache_file)
                     except OSError:
                         pass
-        
+
         # If not cached, fetch from the official CDN
         url = f"https://pytestlab.org/config/{identifier}.yaml"
-        with httpx.AsyncClient() as client:
+        with httpx.Client() as client:
             try:
                 response = client.get(url, timeout=10)
                 response.raise_for_status()  # Raise an exception for bad status codes
@@ -147,7 +147,7 @@ class AutoInstrument:
                     )
 
                 # Cache the newly downloaded configuration
-                with aiofiles.open(cache_file, 'w') as f:
+                with open(cache_file, 'w') as f:
                     f.write(config_text)
 
                 return loaded_config
@@ -190,12 +190,12 @@ class AutoInstrument:
                                           YAML/JSON dictionary.
         """
         import pytestlab as ptl
-        
+
         norm_id = normalized_identifier if normalized_identifier is not None else os.path.normpath(identifier)
-        
+
         current_file_directory = os.path.dirname(ptl.__file__)
         preset_path = os.path.join(current_file_directory, "profiles", norm_id + '.yaml')
-        
+
         # Determine the correct file path to load from
         path_to_try: Optional[str] = None
         if os.path.exists(preset_path):
@@ -204,10 +204,10 @@ class AutoInstrument:
         elif os.path.exists(identifier) and (identifier.endswith('.yaml') or identifier.endswith('.json')):
             # Next, check if the identifier is a direct path to an existing file
             path_to_try = identifier
-        
+
         if path_to_try:
             try:
-                with aiofiles.open(path_to_try, 'r') as file:
+                with open(path_to_try, 'r') as file:
                     content = file.read()
                     loaded_config = yaml.safe_load(content)
                     if not isinstance(loaded_config, dict):
@@ -236,7 +236,7 @@ class AutoInstrument:
                           backend_type_hint: Optional[str] = None,
                           address_override: Optional[str] = None,
                           timeout_override_ms: Optional[int] = None,
-                          backend_override: Optional[AsyncInstrumentIO] = None # Add this new parameter
+                          backend_override: Optional[InstrumentIO] = None # Add this new parameter
                          ) -> Instrument[Any]:
         """Initializes an instrument from a configuration source.
 
@@ -278,9 +278,9 @@ class AutoInstrument:
             serial_number = args[0]
 
         config_data: Dict[str, Any]
-        
+
         # Step 1: Add the backend_override check at the beginning
-        backend_instance: AsyncInstrumentIO
+        backend_instance: InstrumentIO
 
         if backend_override:
             backend_instance = backend_override
@@ -301,18 +301,41 @@ class AutoInstrument:
                 config_data = config_source
                 config_model = load_profile(config_data)
             elif isinstance(config_source, str):
-                try:
-                    # Try fetching from the CDN first
-                    config_data = cls.get_config_from_cdn(config_source)
-                    if debug_mode: print(f"Successfully loaded configuration for '{config_source}' from CDN.")
-                except FileNotFoundError:
+                # Determine if this looks like a file path or a CDN identifier
+                # File paths typically contain path separators or file extensions
+                is_file_path = (
+                    os.path.sep in config_source or
+                    '/' in config_source or
+                    config_source.endswith('.yaml') or
+                    config_source.endswith('.json') or
+                    os.path.exists(config_source)
+                )
+
+                if is_file_path:
+                    # Try local file system first for file paths
                     try:
-                        # Fallback to local file system if not found on CDN
                         config_data = cls.get_config_from_local(config_source)
                         if debug_mode: print(f"Successfully loaded configuration for '{config_source}' from local.")
                     except FileNotFoundError:
-                        # If not found in either location, raise an error
-                        raise FileNotFoundError(f"Configuration '{config_source}' not found in CDN or local paths.")
+                        # Fallback to CDN if local fails (unlikely for file paths)
+                        try:
+                            config_data = cls.get_config_from_cdn(config_source)
+                            if debug_mode: print(f"Successfully loaded configuration for '{config_source}' from CDN.")
+                        except FileNotFoundError:
+                            raise FileNotFoundError(f"Configuration '{config_source}' not found in local paths or CDN.")
+                else:
+                    # Try CDN first for identifiers
+                    try:
+                        config_data = cls.get_config_from_cdn(config_source)
+                        if debug_mode: print(f"Successfully loaded configuration for '{config_source}' from CDN.")
+                    except FileNotFoundError:
+                        try:
+                            # Fallback to local file system if not found on CDN
+                            config_data = cls.get_config_from_local(config_source)
+                            if debug_mode: print(f"Successfully loaded configuration for '{config_source}' from local.")
+                        except FileNotFoundError:
+                            # If not found in either location, raise an error
+                            raise FileNotFoundError(f"Configuration '{config_source}' not found in CDN or local paths.")
                 config_model = load_profile(config_data)
             else:
                 raise TypeError("config_source must be a file path (str), a dict, or an InstrumentConfig object.")
@@ -360,14 +383,14 @@ class AutoInstrument:
                 timeout_from_config = getattr(config_model, 'communication_timeout_ms', None)
                 if hasattr(config_model, 'communication') and hasattr(config_model.communication, 'timeout_ms'): # type: ignore
                      timeout_from_config = config_model.communication.timeout_ms # type: ignore
-                
+
                 if isinstance(timeout_from_config, int) and timeout_from_config > 0:
                     actual_timeout = timeout_from_config
                     if debug_mode: print(f"Timeout from config: {actual_timeout}ms.")
                 else:
                     actual_timeout = default_communication_timeout_ms
                     if debug_mode: print(f"Warning: Invalid or missing timeout in config, using default {actual_timeout}ms.")
-            
+
             if not isinstance(actual_timeout, int) or actual_timeout <= 0: # Final safety check
                 actual_timeout = default_communication_timeout_ms
                 if debug_mode: print(f"Warning: Corrected invalid timeout to default {actual_timeout}ms.")
@@ -465,25 +488,25 @@ class AutoInstrument:
                     raise InstrumentConfigurationError(
                         config_source, f"Unsupported backend_type '{chosen_backend_type}'."
                     )
-        
+
         # Step 5: Instantiate the final instrument driver class
         device_type_str: str = config_model.device_type
         instrument_class_to_init = cls._instrument_mapping.get(device_type_str.lower())
-        
+
         if instrument_class_to_init is None:
             raise InstrumentConfigurationError(
                 config_source,
                 f"Unknown device_type: '{device_type_str}'. No registered instrument class.",
             )
-        
+
         # The instrument's constructor receives the parsed configuration model and the
         # instantiated backend.
         instrument = instrument_class_to_init(config=config_model, backend=backend_instance)
-        
+
         if debug_mode:
             print(f"Instantiated {instrument_class_to_init.__name__} with {type(backend_instance).__name__}.")
             print("Note: Backend connection is not established by __init__. Call 'instrument.connect_backend()' explicitly.")
-            
+
         return instrument
 
     @classmethod
@@ -505,7 +528,7 @@ class AutoInstrument:
                                           in use or if the provided class is not a
                                           valid subclass of `Instrument`.
         """
-        type_key = instrument_type.lower() 
+        type_key = instrument_type.lower()
         if type_key in cls._instrument_mapping:
             raise InstrumentConfigurationError(
                 instrument_type,

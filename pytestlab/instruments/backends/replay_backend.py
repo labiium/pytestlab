@@ -1,18 +1,16 @@
 # pytestlab/instruments/backends/replay_backend.py
 import logging
-from typing import Any, Dict, List, Optional
+import yaml
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
 
-from ...errors import InstrumentCommunicationError
-from ..instrument import AsyncInstrumentIO
+from ...errors import InstrumentCommunicationError, ReplayMismatchError
+from ..instrument import InstrumentIO
 
 LOGGER = logging.getLogger(__name__)
 
 
-class ReplayMismatchError(InstrumentCommunicationError):
-    """Raised when a command during replay does not match the recorded log."""
-
-
-class ReplayBackend(AsyncInstrumentIO):
+class ReplayBackend(InstrumentIO):
     """
     A backend that replays a previously recorded session from a log file.
 
@@ -21,10 +19,22 @@ class ReplayBackend(AsyncInstrumentIO):
     ReplayMismatchError.
     """
 
-    def __init__(self, session_log: List[Dict[str, Any]], model_name: str):
-        self._log = session_log
+    def __init__(self, session_data: Union[List[Dict[str, Any]], str, Path], model_name: str):
+        if isinstance(session_data, (str, Path)):
+            # Load from file
+            with open(session_data, 'r') as f:
+                session_file_data = yaml.safe_load(f)
+            self._log = session_file_data[model_name]['log']
+        else:
+            # Direct log data
+            self._log = session_data
         self._model_name = model_name
         self._step = 0
+
+    @classmethod
+    def from_session_file(cls, session_file: Union[str, Path], model_name: str) -> 'ReplayBackend':
+        """Create a ReplayBackend from a session file."""
+        return cls(session_file, model_name)
 
     def connect(self) -> None:
         LOGGER.debug(f"ReplayBackend for '{self._model_name}': Connected.")
@@ -33,25 +43,24 @@ class ReplayBackend(AsyncInstrumentIO):
         LOGGER.debug(f"ReplayBackend for '{self._model_name}': Disconnected.")
 
     def _get_next_log_entry(self, expected_type: str, command: str) -> Dict[str, Any]:
-        with self._lock:
-            if self._step >= len(self._log):
-                raise ReplayMismatchError(
-                    f"Replay for '{self._model_name}' ended, but received unexpected command: '{command}'"
-                )
+        if self._step >= len(self._log):
+            raise ReplayMismatchError(
+                f"Replay for '{self._model_name}' ended, but received unexpected command: '{command}'"
+            )
 
-            entry = self._log[self._step]
-            cmd_in_log = entry.get("command", "").strip()
-            cmd_received = command.strip()
+        entry = self._log[self._step]
+        cmd_in_log = entry.get("command", "").strip()
+        cmd_received = command.strip()
 
-            if entry.get("type") != expected_type or cmd_in_log != cmd_received:
-                raise ReplayMismatchError(
-                    f"Replay mismatch for '{self._model_name}' at step {self._step}.\n"
-                    f"  Expected: type='{entry.get('type')}', cmd='{cmd_in_log}'\n"
-                    f"  Received: type='{expected_type}', cmd='{cmd_received}'"
-                )
+        if entry.get("type") != expected_type or cmd_in_log != cmd_received:
+            raise ReplayMismatchError(
+                f"Replay mismatch for '{self._model_name}' at step {self._step}.\n"
+                f"  Expected: type='{entry.get('type')}', cmd='{cmd_in_log}'\n"
+                f"  Received: type='{expected_type}', cmd='{cmd_received}'"
+            )
 
-            self._step += 1
-            return entry
+        self._step += 1
+        return entry
 
     def write(self, command: str) -> None:
         self._get_next_log_entry("write", command)

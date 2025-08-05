@@ -256,7 +256,7 @@ class Instrument(Generic[ConfigType]):
             InstrumentCommunicationError: If writing the command to the backend fails.
         """
         try:
-            self._backend.write(scpi_command)
+            self._backend.write(command)
             if not skip_check:
                 self._error_check()
             self._command_log.append({"command": command, "success": True, "type": "write", "timestamp": time.time()})

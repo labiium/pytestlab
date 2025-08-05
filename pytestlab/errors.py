@@ -1,8 +1,5 @@
 import warnings
 
-# Import replay-specific errors
-from .instruments.backends.replay_backend import ReplayMismatchError
-
 class InstrumentConnectionError(Exception):
     """Exception raised for SCPI instrument connection errors."""
 
@@ -131,3 +128,7 @@ class InstrumentDataError(Exception):
             super().__init__(f"Instrument data error for '{instrument}'. {message}")
         else:
             super().__init__(f"Instrument data error. {message}")
+
+
+class ReplayMismatchError(InstrumentCommunicationError):
+    """Raised when a command during replay does not match the recorded log."""

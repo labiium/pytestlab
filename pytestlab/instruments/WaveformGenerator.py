@@ -59,12 +59,12 @@ class WGChannelFacade:
 
     @validate_call
     def setup_square(self, frequency: float, amplitude: float, offset: float = 0.0, duty_cycle: float = 50.0, phase: Optional[float] = None) -> Self:
-        self._coros.append(self._wg.set_function(self._channel, WaveformType.SQUARE, duty_cycle=duty_cycle))
-        self._coros.append(self._wg.set_frequency(self._channel, frequency))
-        self._coros.append(self._wg.set_amplitude(self._channel, amplitude))
-        self._coros.append(self._wg.set_offset(self._channel, offset))
+        self._wg.set_function(self._channel, WaveformType.SQUARE, duty_cycle=duty_cycle)
+        self._wg.set_frequency(self._channel, frequency)
+        self._wg.set_amplitude(self._channel, amplitude)
+        self._wg.set_offset(self._channel, offset)
         if phase is not None:
-            self._coros.append(self._wg.set_phase(self._channel, phase))
+            self._wg.set_phase(self._channel, phase)
         return self
 
     @validate_call

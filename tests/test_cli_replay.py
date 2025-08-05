@@ -9,10 +9,11 @@ import shutil
 import time
 from pathlib import Path
 from unittest.mock import patch, AsyncMock
+import click.exceptions
 
 from pytestlab.cli import replay_record, replay_run
-from pytestlab.instruments.Bench import Bench
-from pytestlab.instruments.backends.replay_backend import ReplayMismatchError
+from pytestlab.bench import Bench
+from pytestlab.errors import ReplayMismatchError
 
 
 @pytest.fixture
@@ -173,7 +174,7 @@ class TestReplayRecord:
                     pass
 
             # Mock Bench.open
-            with patch('pytestlab.instruments.Bench.Bench.open', return_value=MockBench()):
+            with patch('pytestlab.bench.Bench.open', return_value=MockBench()):
                 # Test that the function can be called without errors
                 # Note: Full integration testing would require actual instrument backends
                 # Here we test the command structure and argument parsing
@@ -186,7 +187,7 @@ class TestReplayRecord:
     def test_replay_record_argument_validation(self):
         """Test replay record command argument validation."""
         # Test missing script file
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises(click.exceptions.Exit):
             replay_record('/nonexistent/script.py', '/nonexistent/bench.yaml', 'output.yaml')
 
         # Test missing bench file
@@ -194,7 +195,7 @@ class TestReplayRecord:
         Path(script_file).touch()
 
         try:
-            with pytest.raises(FileNotFoundError):
+            with pytest.raises(click.exceptions.Exit):
                 replay_record(script_file, '/nonexistent/bench.yaml', 'output.yaml')
         finally:
             Path(script_file).unlink(missing_ok=True)
@@ -249,13 +250,21 @@ if __name__ == "__main__":
                 def __aexit__(self, exc_type, exc_val, exc_tb):
                     pass
 
-            # Mock Bench.from_session to return our replay bench
-            with patch('pytestlab.instruments.Bench.Bench.from_session') as mock_from_session:
-                mock_from_session.return_value = MockReplayBench(temp_session_file)
+            # Test that the ReplayBackend can be set up correctly with session data
+            # This verifies the core replay functionality works
+            from pytestlab.instruments.backends.replay_backend import ReplayBackend
+            backend = ReplayBackend(temp_session_file, 'psu')
 
-                # This would run the replay - we test that it can be set up correctly
-                # Full testing requires the actual CLI integration which is complex to mock
-                pass
+            # Verify it can replay the exact sequence from the session
+            idn = backend.query('*IDN?')
+            assert idn == 'Keysight Technologies,EDU36311A,CN61130056,K-01.08.03-01.00-01.08-02.00'
+
+            backend.write('CURR 0.1, (@1)')
+            backend.write('OUTP:STAT ON, (@1)')
+            backend.write('VOLT 1.0, (@1)')
+
+            voltage = backend.query('MEAS:VOLT? (@1)')
+            assert voltage == '+9.99749200E-01'
 
         finally:
             Path(exact_script_file).unlink(missing_ok=True)
@@ -297,8 +306,8 @@ def main(bench):
                 backend.write('VOLT 2.0, (@1)')
 
             error = exc_info.value
-            assert "Expected command 'CURR 0.1, (@1)'" in str(error)
-            assert "but got 'VOLT 2.0, (@1)'" in str(error)
+            assert "Expected: type='write', cmd='CURR 0.1, (@1)'" in str(error)
+            assert "Received: type='write', cmd='VOLT 2.0, (@1)'" in str(error)
 
         finally:
             Path(mismatch_script_file).unlink(missing_ok=True)
@@ -309,8 +318,8 @@ def main(bench):
 
         try:
             # Test missing session file
-            with pytest.raises(FileNotFoundError):
-                await replay_run(script_file, '/nonexistent/session.yaml')
+            with pytest.raises(click.exceptions.Exit):
+                replay_run(script_file, '/nonexistent/session.yaml')
 
         finally:
             Path(script_file).unlink(missing_ok=True)
@@ -512,7 +521,7 @@ def test_replay_backend_with_cli_workflow():
         backend.write('VOLT 0.0, (@1)')
 
         # Verify all commands consumed
-        assert backend._log_index == len(backend._command_log)
+        assert backend._step == len(backend._log)
 
     finally:
         Path(session_file).unlink(missing_ok=True)

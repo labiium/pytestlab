@@ -40,12 +40,27 @@ from pytestlab.errors import InstrumentParameterError
 DC_LOAD_CONFIG_KEY = "keysight/EL33133A"  # <-- Set your profile key or path here
 # --------------------------------------------------------------------
 
+def check_hardware_available():
+    """Check if DC load hardware is available for testing."""
+    try:
+        dcl = AutoInstrument.from_config(DC_LOAD_CONFIG_KEY)
+        dcl.connect_backend()
+        # Try to get IDN to verify connection
+        idn = dcl.id()
+        dcl.close()
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
 
 @pytest.mark.requires_real_hw
 def test_dc_load_full_real():
     """
     Full functional test for a real DC Electronic Load using PyTestLab async API.
     """
+    is_available, error_msg = check_hardware_available()
+    if not is_available:
+        pytest.skip(f"DC Load hardware not available: {error_msg}")
     # Instantiate the DC Load (real hardware)
     dcl = AutoInstrument.from_config(DC_LOAD_CONFIG_KEY)
     dcl.connect_backend()
@@ -159,6 +174,9 @@ def test_dc_load_advanced_features_real():
    """
    Tests the advanced features of the DC Electronic Load driver.
    """
+   is_available, error_msg = check_hardware_available()
+   if not is_available:
+       pytest.skip(f"DC Load hardware not available: {error_msg}")
    dcl: DCActiveLoad = AutoInstrument.from_config(DC_LOAD_CONFIG_KEY)
    dcl.connect_backend()
 
@@ -226,6 +244,9 @@ def test_dc_load_error_cases_real():
     """
     Test error handling for invalid parameters on a real DC Load.
     """
+    is_available, error_msg = check_hardware_available()
+    if not is_available:
+        pytest.skip(f"DC Load hardware not available: {error_msg}")
     dcl = AutoInstrument.from_config(DC_LOAD_CONFIG_KEY)
     dcl.connect_backend()
 

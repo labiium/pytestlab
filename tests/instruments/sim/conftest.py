@@ -14,11 +14,9 @@ def sim_scope() -> Oscilloscope:
     module have run, making the test suite efficient.
     """
     # Construct the path to the simulation profile relative to this file
-    sim_profile_path = Path(__file__).parent / "DSOX1204G_sim.yaml"
-
-    # Instantiate the instrument using the simulation profile
-    # `simulate=True` ensures SimBackend is used.
-    # The profile path is passed via the `config_source` argument.
+    # Use the local simulation profile with custom configuration
+    # `simulate=True` ensures SimBackend is used
+    sim_profile_path = Path(__file__).parent / "keysight" / "DSOX1204G.yaml"
     scope = AutoInstrument.from_config(
         config_source=str(sim_profile_path),
         simulate=True

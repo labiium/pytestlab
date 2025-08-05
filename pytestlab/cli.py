@@ -10,6 +10,7 @@ from rich.syntax import Syntax
 import importlib.util # For finding profile paths
 import pkgutil # For finding profile paths
 import types # For creating a simple namespace for the replay bench
+import importlib.util
 
 import os
 import shutil
@@ -27,7 +28,25 @@ from pytestlab.config.bench_config import BenchConfigExtended
 from pytestlab.bench import Bench
 import time # For sleep functionality
 
+# Import version for CLI
+from pytestlab import __version__
+
+def version_callback(value: bool):
+    if value:
+        rich.print(f"PyTestLab version {__version__}")
+        raise typer.Exit()
+
 app = typer.Typer(help="PyTestLab: Scientific test & measurement toolbox CLI.")
+
+@app.callback()
+def main_callback(
+    version: Optional[bool] = typer.Option(
+        None, "--version", callback=version_callback, is_eager=True,
+        help="Show version and exit."
+    )
+):
+    """PyTestLab: Scientific test & measurement toolbox CLI."""
+    pass
 profile_app = typer.Typer(name="profile", help="Manage instrument profiles.")
 instrument_app = typer.Typer(name="instrument", help="Interact with instruments.")
 bench_app = typer.Typer(name="bench", help="Manage bench configurations.")
@@ -578,6 +597,12 @@ def replay_run(
     session: Annotated[Path, typer.Option("--session", help="Path to the recorded session YAML file.")],
 ):
     """Replays a recorded measurement session against a simulated bench."""
+    # Convert to Path objects if they're strings (for direct function calls)
+    if isinstance(script, str):
+        script = Path(script)
+    if isinstance(session, str):
+        session = Path(session)
+
     rich.print(f"[bold cyan]Starting replay session...[/bold cyan]")
     rich.print(f"Session File: {session}")
     rich.print(f"Script: {script}")
@@ -638,6 +663,192 @@ def replay_run(
             inst.close()
 
     rich.print("[bold green]Replay complete.[/bold green]")
+
+@app.command("run")
+def run_command(
+    script: Annotated[Path, typer.Argument(help="Path to the Python script to execute.")],
+    bench_config: Annotated[Path, typer.Option("--bench", help="Path to the bench.yaml configuration file.")],
+    simulate: Annotated[bool, typer.Option("--simulate", help="Force simulation mode.")] = False,
+    output: Annotated[Optional[Path], typer.Option("--output", help="Path to save measurement results.")] = None,
+):
+    """Execute a measurement script against a bench configuration."""
+    rich.print(f"[bold cyan]Running measurement script...[/bold cyan]")
+    rich.print(f"Script: {script}")
+    rich.print(f"Bench Config: {bench_config}")
+    rich.print(f"Simulation Mode: {simulate}")
+
+    if not script.exists():
+        rich.print(f"[bold red]Error: Script file not found at {script}[/bold red]")
+        raise typer.Exit(code=1)
+
+    if not bench_config.exists():
+        rich.print(f"[bold red]Error: Bench config file not found at {bench_config}[/bold red]")
+        raise typer.Exit(code=1)
+
+    bench = None
+    try:
+        # Load bench configuration
+        if simulate:
+            # Modify config to force simulation
+            with open(bench_config, 'r') as f:
+                config_data = yaml.safe_load(f)
+            config_data['simulate'] = True
+            # Save to temp file
+            import tempfile
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as temp_file:
+                yaml.dump(config_data, temp_file)
+                temp_bench_config = Path(temp_file.name)
+            bench = Bench.open(temp_bench_config)
+            temp_bench_config.unlink()  # Clean up temp file
+        else:
+            bench = Bench.open(bench_config)
+
+        rich.print(f"[bold green]Bench '{bench.config.bench_name}' loaded successfully[/bold green]")
+
+        # Load and execute the script
+        spec = importlib.util.spec_from_file_location("measurement_script", script)
+        if not spec or not spec.loader:
+            raise FileNotFoundError(f"Could not load script module from {script}")
+
+        script_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(script_module)
+
+        # Execute main function if it exists
+        if hasattr(script_module, "main"):
+            rich.print("[bold]Executing script main function...[/bold]")
+            result = script_module.main(bench)
+
+            # Save results if output path specified
+            if output and result:
+                rich.print(f"[bold]Saving results to {output}...[/bold]")
+                with open(output, 'w') as f:
+                    if isinstance(result, dict):
+                        yaml.dump(result, f)
+                    else:
+                        f.write(str(result))
+                rich.print(f"[bold green]Results saved to {output}[/bold green]")
+
+            rich.print("[bold green]Script execution completed successfully[/bold green]")
+        else:
+            rich.print(f"[bold yellow]Warning: No 'main' function found in {script}[/bold yellow]")
+            rich.print("[bold yellow]Script was loaded but no main function was executed[/bold yellow]")
+
+    except Exception as e:
+        rich.print(f"[bold red]Error during execution: {e}[/bold red]")
+        import traceback
+        traceback.print_exc()
+        raise typer.Exit(code=1)
+    finally:
+        if bench:
+            bench.close_all()
+
+@app.command("list")
+def list_command(
+    resource: Annotated[str, typer.Argument(help="Resource type to list: 'profiles', 'benches', 'examples'")] = "profiles"
+):
+    """List available resources (profiles, bench configs, examples)."""
+
+    if resource == "profiles":
+        rich.print("[bold cyan]Available instrument profiles:[/bold cyan]")
+        try:
+            # Find built-in profiles
+            spec = importlib.util.find_spec("pytestlab.profiles")
+            if spec and spec.origin:
+                profiles_dir = Path(spec.origin).parent
+                table = rich.table.Table(title="Instrument Profiles")
+                table.add_column("Profile Key", style="cyan")
+                table.add_column("Vendor", style="magenta")
+                table.add_column("Model", style="green")
+
+                for vendor_dir in profiles_dir.iterdir():
+                    if vendor_dir.is_dir() and vendor_dir.name != "__pycache__":
+                        vendor = vendor_dir.name
+                        for profile_file in vendor_dir.glob("*.yaml"):
+                            model = profile_file.stem
+                            profile_key = f"{vendor}/{model}"
+                            table.add_row(profile_key, vendor, model)
+
+                rich.print(table)
+            else:
+                rich.print("[bold red]Could not find profiles directory[/bold red]")
+
+        except Exception as e:
+            rich.print(f"[bold red]Error listing profiles: {e}[/bold red]")
+
+    elif resource == "benches":
+        rich.print("[bold cyan]Searching for bench configurations:[/bold cyan]")
+        bench_files = []
+
+        # Search in common locations
+        search_paths = [
+            Path.cwd(),
+            Path.cwd() / "examples",
+            Path.cwd() / "configs",
+            Path.cwd() / "benches"
+        ]
+
+        for search_path in search_paths:
+            if search_path.exists():
+                bench_files.extend(search_path.glob("*bench*.yaml"))
+                bench_files.extend(search_path.glob("bench.yaml"))
+
+        if bench_files:
+            table = rich.table.Table(title="Bench Configurations")
+            table.add_column("File", style="cyan")
+            table.add_column("Path", style="green")
+
+            for bench_file in sorted(set(bench_files)):
+                table.add_row(bench_file.name, str(bench_file.parent))
+
+            rich.print(table)
+        else:
+            rich.print("[bold yellow]No bench configuration files found[/bold yellow]")
+            rich.print("Searched in: " + ", ".join(str(p) for p in search_paths))
+
+    elif resource == "examples":
+        rich.print("[bold cyan]Available examples:[/bold cyan]")
+        try:
+            # Find examples directory
+            examples_dir = Path.cwd() / "examples"
+            if not examples_dir.exists():
+                # Try to find examples relative to package
+                spec = importlib.util.find_spec("pytestlab")
+                if spec and spec.origin:
+                    pkg_dir = Path(spec.origin).parent.parent
+                    examples_dir = pkg_dir / "examples"
+
+            if examples_dir.exists():
+                table = rich.table.Table(title="Example Scripts")
+                table.add_column("Script", style="cyan")
+                table.add_column("Description", style="green")
+
+                for script_file in examples_dir.glob("*.py"):
+                    description = "Python script"
+                    # Try to read first line of docstring for description
+                    try:
+                        with open(script_file, 'r') as f:
+                            lines = f.readlines()
+                            for line in lines[:10]:  # Check first 10 lines
+                                if '"""' in line and len(line.strip()) > 3:
+                                    description = line.strip().replace('"""', '').strip()
+                                    if description:
+                                        break
+                    except:
+                        pass
+
+                    table.add_row(script_file.name, description[:60] + "..." if len(description) > 60 else description)
+
+                rich.print(table)
+            else:
+                rich.print("[bold yellow]Examples directory not found[/bold yellow]")
+
+        except Exception as e:
+            rich.print(f"[bold red]Error listing examples: {e}[/bold red]")
+
+    else:
+        rich.print(f"[bold red]Unknown resource type: {resource}[/bold red]")
+        rich.print("Available resource types: profiles, benches, examples")
+        raise typer.Exit(code=1)
 
 def run_app():
     """Main entry point for the CLI."""

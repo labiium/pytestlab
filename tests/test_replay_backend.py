@@ -8,7 +8,8 @@ import yaml
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
-from pytestlab.instruments.backends.replay_backend import ReplayBackend, ReplayMismatchError
+from pytestlab.instruments.backends.replay_backend import ReplayBackend
+from pytestlab.errors import ReplayMismatchError
 
 
 @pytest.fixture

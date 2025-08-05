@@ -113,12 +113,12 @@ class ScopeChannelFacade:
 
     def enable(self) -> Self:
         """Enables the channel display."""
-        self._coros.append(self._scope.display_channel(self._channel, True))
+        self._scope.display_channel(self._channel, True)
         return self
 
     def disable(self) -> Self:
         """Disables the channel display."""
-        self._coros.append(self._scope.display_channel(self._channel, False))
+        self._scope.display_channel(self._channel, False)
         return self
 
     def measure_peak_to_peak(self) -> MeasurementResult:
@@ -178,19 +178,15 @@ class ScopeTriggerFacade:
                 )
 
         # The main configure_trigger method handles source validation and mapping.
-        self._coros.append(
-            self._scope.configure_trigger(
-                channel=trigger_channel_for_level,
-                level=level,
-                source=source,
-                slope=slope,
-                mode=mode,
-            )
+        self._scope.configure_trigger(
+            channel=trigger_channel_for_level,
+            level=level,
+            source=source,
+            slope=slope,
+            mode=mode
         )
         if coupling is not None:
-            self._coros.append(
-                self._scope._send_command(f":TRIGger:{mode.upper()}:COUPling {coupling.upper()}")
-            )
+            self._scope._send_command(f":TRIGger:{mode.upper()}:COUPling {coupling.upper()}")
         return self
 
     # Add other trigger setup methods like setup_pulse, setup_pattern etc.

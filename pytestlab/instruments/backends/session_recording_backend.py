@@ -3,18 +3,18 @@ import logging
 import time
 from typing import List, Dict, Any
 
-from ..instrument import AsyncInstrumentIO
+from ..instrument import InstrumentIO
 
 LOGGER = logging.getLogger(__name__)
 
 
-class SessionRecordingBackend(AsyncInstrumentIO):
+class SessionRecordingBackend(InstrumentIO):
     """
     A backend wrapper that records all interactions into a list of events.
     This is used by the `pytestlab replay record` command.
     """
 
-    def __init__(self, original_backend: AsyncInstrumentIO, session_log: List[Dict[str, Any]]):
+    def __init__(self, original_backend: InstrumentIO, session_log: List[Dict[str, Any]]):
         self.original_backend = original_backend
         self.session_log = session_log
         self.start_time = time.monotonic()

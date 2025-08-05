@@ -43,11 +43,27 @@ from pytestlab.common.enums import TriggerSlope, AcquisitionType
 OSC_CONFIG_KEY = "keysight/DSOX1204G"                 # <-- Set your profile key or path here
 # --------------------------------------------------------------------
 
+def check_hardware_available():
+    """Check if oscilloscope hardware is available for testing."""
+    try:
+        osc = AutoInstrument.from_config(OSC_CONFIG_KEY)
+        osc.connect_backend()
+        # Try to get IDN to verify connection
+        idn = osc.id()
+        osc.close()
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
 @pytest.mark.requires_real_hw
 def test_oscilloscope_full_real():
     """
     Full functional test for a real oscilloscope using PyTestLab async API.
     """
+    is_available, error_msg = check_hardware_available()
+    if not is_available:
+        pytest.skip(f"Oscilloscope hardware not available: {error_msg}")
+
     # Instantiate the oscilloscope (real hardware)
     osc = AutoInstrument.from_config(
         OSC_CONFIG_KEY
@@ -159,10 +175,14 @@ def test_oscilloscope_facades_real():
     """
     Test the async channel, trigger, and acquisition facades on a real oscilloscope.
     """
+    is_available, error_msg = check_hardware_available()
+    if not is_available:
+        pytest.skip(f"Oscilloscope hardware not available: {error_msg}")
+
     osc = AutoInstrument.from_config(
         OSC_CONFIG_KEY
     )
-    # osc.connect_backend()
+    osc.connect_backend()
 
     # Channel facade
     ch1 = osc.channel(1)
@@ -194,10 +214,14 @@ def test_oscilloscope_error_cases_real():
     """
     Test error handling for invalid parameters on a real oscilloscope.
     """
+    is_available, error_msg = check_hardware_available()
+    if not is_available:
+        pytest.skip(f"Oscilloscope hardware not available: {error_msg}")
+
     osc = AutoInstrument.from_config(
         OSC_CONFIG_KEY
     )
-    # osc.connect_backend()
+    osc.connect_backend()
 
     # Invalid channel number
     with pytest.raises(Exception):

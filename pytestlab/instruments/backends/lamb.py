@@ -68,7 +68,7 @@ class AsyncLambBackend:  # Implements AsyncInstrumentIO
             payload = {"model_name": self.model_name}
             if self.serial_number:
                 payload["serial_number"] = self.serial_number
-            with httpx.AsyncClient(timeout=self._timeout_sec) as client:
+            with httpx.Client(timeout=self._timeout_sec) as client:
                 response = client.post(
                     f"{self.base_url}/add",
                     json=payload,
@@ -110,7 +110,7 @@ class AsyncLambBackend:  # Implements AsyncInstrumentIO
         self._ensure_connected()
         lamb_logger.debug(f"WRITE to '{self.instrument_address}': {cmd}")
         try:
-            with httpx.AsyncClient(timeout=self._timeout_sec) as client:
+            with httpx.Client(timeout=self._timeout_sec) as client:
                 response = client.post(
                     f"{self.base_url}/instrument/write",
                     json={"visa_string": self.instrument_address, "command": cmd},
@@ -130,7 +130,7 @@ class AsyncLambBackend:  # Implements AsyncInstrumentIO
         self._ensure_connected()
         lamb_logger.debug(f"QUERY to '{self.instrument_address}': {cmd}")
         try:
-            with httpx.AsyncClient(timeout=self._timeout_sec) as client:
+            with httpx.Client(timeout=self._timeout_sec) as client:
                 response = client.post(
                     f"{self.base_url}/instrument/query",
                     json={"visa_string": self.instrument_address, "command": cmd},
@@ -152,7 +152,7 @@ class AsyncLambBackend:  # Implements AsyncInstrumentIO
         self._ensure_connected()
         lamb_logger.debug(f"QUERY_RAW to '{self.instrument_address}': {cmd}")
         try:
-            with httpx.AsyncClient(timeout=self._timeout_sec) as client:
+            with httpx.Client(timeout=self._timeout_sec) as client:
                 response = client.post(
                     f"{self.base_url}/instrument/query_raw",
                     json={"visa_string": self.instrument_address, "command": cmd},

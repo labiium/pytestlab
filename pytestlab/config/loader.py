@@ -162,9 +162,11 @@ def load_profile(key_or_path_or_dict: str | Path | dict[str, Any]) -> Instrument
             f"Discovered models: {list(model_registry.keys())}"
         )
 
-    # Pop the simulation section before validation, as it's not part of the config model
+    # Pop simulation-specific fields before validation, as they're not part of the config model
     if "simulation" in data:
         data.pop("simulation")
+    if "identification" in data:
+        data.pop("identification")
 
     try:
         validated_model = model_cls.model_validate(data)

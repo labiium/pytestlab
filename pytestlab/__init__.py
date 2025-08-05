@@ -16,7 +16,7 @@ __version__ = "0.2.1"  # Update this line to change the version
 
 from importlib import metadata as _metadata
 import logging # Required for set_log_level
-from ._log import get_logger, set_log_level
+from ._log import get_logger, set_log_level, reinitialize_logging
 
 
 
@@ -67,5 +67,3 @@ __all__ = [
 # needs to be imported after the MeasurementResult class is defined
 from . import compliance
 compliance.initialize()
-
-

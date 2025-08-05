@@ -5,7 +5,8 @@ Simple test script to verify the ReplayBackend functionality.
 
 import yaml
 from pathlib import Path
-from pytestlab.instruments.backends.replay_backend import ReplayBackend, ReplayMismatchError
+from pytestlab.instruments.backends.replay_backend import ReplayBackend
+from pytestlab.errors import ReplayMismatchError
 
 
 def test_replay_backend():
