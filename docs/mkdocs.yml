@@ -6,6 +6,8 @@ site_author: "LABIIUM"
 copyright: "Copyright &copy; 2023-2024 LABIIUM"
 repo_url: https://github.com/labiium/pytestlab
 edit_uri: edit/master/docs/
+site_url: https://pytestlab.org/
+use_directory_urls: true
 
 extra:
   social:

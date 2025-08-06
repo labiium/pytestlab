@@ -18,6 +18,11 @@
     <link rel="stylesheet" href="{{ 'css/theme.css'|url }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
 
+    <!-- Extra CSS files from mkdocs.yml -->
+    {% for path in config.extra_css %}
+        <link rel="stylesheet" href="{{ path|url }}">
+    {% endfor %}
+
     <style>
         /* Core Variables */
         :root {
@@ -906,14 +911,24 @@
 
                         resultsElement.innerHTML = results
                             .map(
-                                (result) => `
+                                (result) => {
+                                    // Convert relative URLs to absolute paths from site root
+                                    let resultUrl = result.location;
+
+                                    // For relative URLs (not starting with / or http), make them absolute
+                                    if (resultUrl && !resultUrl.startsWith('/') && !resultUrl.startsWith('http') && !resultUrl.startsWith('#')) {
+                                        resultUrl = '/' + resultUrl;
+                                    }
+
+                                    return `
                             <div class="search-result-item">
-                                <a href="${result.location}" class="search-result-link">
+                                <a href="${resultUrl}" class="search-result-link">
                                     <div class="search-result-title">${result.title}</div>
                                     <div class="search-result-text">${result.text.substring(0, 150)}...</div>
                                 </a>
                             </div>
-                        `,
+                        `;
+                                }
                             )
                             .join("");
                     } else {

@@ -523,6 +523,476 @@
     }
 }
 
+/* ====================================
+ * API DOCUMENTATION ENHANCEMENTS
+ * ==================================== */
+
+/* Enhanced typography hierarchy for API docs */
+.doc.doc-object {
+    margin: var(--spacing-md, 1rem) 0;
+    position: relative;
+}
+
+/* Module-level styling */
+.doc.doc-object.doc-module {
+    background: rgba(30, 33, 38, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--border-radius-lg, 16px);
+    padding: var(--spacing-lg, 1.5rem);
+    margin: var(--spacing-xl, 2rem) 0;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.doc.doc-object.doc-module > .doc.doc-heading {
+    margin-top: 0;
+    margin-bottom: var(--spacing-md, 1rem);
+    padding-bottom: var(--spacing-sm, 0.5rem);
+    border-bottom: 2px solid var(--lab-violet, #5333ed);
+    position: relative;
+}
+
+.doc.doc-object.doc-module > .doc.doc-heading::before {
+    content: "📦";
+    margin-right: var(--spacing-sm, 0.5rem);
+    font-size: 1.2em;
+}
+
+/* Class-level styling */
+.doc.doc-object.doc-class {
+    background: linear-gradient(
+        135deg,
+        rgba(83, 51, 237, 0.08) 0%,
+        rgba(83, 51, 237, 0.04) 100%
+    );
+    border: 1px solid rgba(83, 51, 237, 0.2);
+    border-radius: var(--border-radius-md, 8px);
+    padding: var(--spacing-md, 1rem);
+    margin: var(--spacing-lg, 1.5rem) 0;
+    transition: all 0.3s var(--ease-curve, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+.doc.doc-object.doc-class:hover {
+    border-color: rgba(83, 51, 237, 0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(83, 51, 237, 0.15);
+}
+
+.doc.doc-object.doc-class > .doc.doc-heading {
+    color: var(--lab-violet, #5333ed);
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: var(--spacing-md, 1rem);
+    position: relative;
+}
+
+.doc.doc-object.doc-class > .doc.doc-heading::before {
+    content: "🏗️";
+    margin-right: var(--spacing-sm, 0.5rem);
+    font-size: 1.1em;
+}
+
+.doc.doc-object.doc-class > .doc.doc-heading code {
+    background: rgba(83, 51, 237, 0.1) !important;
+    color: var(--lab-violet, #5333ed) !important;
+    padding: var(--spacing-xs, 0.25rem) var(--spacing-sm, 0.5rem) !important;
+    border-radius: var(--border-radius-sm, 4px) !important;
+    border: 1px solid rgba(83, 51, 237, 0.2) !important;
+    font-weight: 600 !important;
+}
+
+/* Function/Method-level styling */
+.doc.doc-object.doc-function {
+    background: linear-gradient(
+        135deg,
+        rgba(4, 226, 220, 0.06) 0%,
+        rgba(4, 226, 220, 0.03) 100%
+    );
+    border: 1px solid rgba(4, 226, 220, 0.15);
+    border-radius: var(--border-radius-sm, 4px);
+    padding: var(--spacing-sm, 0.5rem) var(--spacing-md, 1rem);
+    margin: var(--spacing-sm, 0.5rem) 0;
+    transition: all 0.3s var(--ease-curve, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+.doc.doc-object.doc-function:hover {
+    border-color: rgba(4, 226, 220, 0.3);
+    box-shadow: 0 4px 20px rgba(4, 226, 220, 0.1);
+}
+
+.doc.doc-object.doc-function > .doc.doc-heading {
+    color: var(--lab-aqua, #04e2dc);
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: var(--spacing-sm, 0.5rem);
+    line-height: 1.4;
+}
+
+.doc.doc-object.doc-function > .doc.doc-heading::before {
+    content: "⚡";
+    margin-right: var(--spacing-sm, 0.5rem);
+    font-size: 0.9em;
+}
+
+.doc.doc-object.doc-function > .doc.doc-heading code {
+    background: rgba(4, 226, 220, 0.08) !important;
+    color: var(--lab-aqua, #04e2dc) !important;
+    padding: var(--spacing-xs, 0.25rem) var(--spacing-sm, 0.5rem) !important;
+    border-radius: var(--border-radius-sm, 4px) !important;
+    border: 1px solid rgba(4, 226, 220, 0.2) !important;
+    font-weight: 500 !important;
+    font-size: 0.95em !important;
+}
+
+/* Property/Attribute styling */
+.doc.doc-object.doc-property,
+.doc.doc-object.doc-attribute {
+    background: linear-gradient(
+        135deg,
+        rgba(255, 180, 46, 0.06) 0%,
+        rgba(255, 180, 46, 0.03) 100%
+    );
+    border: 1px solid rgba(255, 180, 46, 0.15);
+    border-radius: var(--border-radius-sm, 4px);
+    padding: var(--spacing-xs, 0.25rem) var(--spacing-md, 1rem);
+    margin: var(--spacing-sm, 0.5rem) 0;
+}
+
+.doc.doc-object.doc-property > .doc.doc-heading,
+.doc.doc-object.doc-attribute > .doc.doc-heading {
+    color: #ffb42e;
+    font-size: 1rem;
+    font-weight: 500;
+    margin-bottom: var(--spacing-sm, 0.5rem);
+}
+
+.doc.doc-object.doc-property > .doc.doc-heading::before,
+.doc.doc-object.doc-attribute > .doc.doc-heading::before {
+    content: "🔧";
+    margin-right: var(--spacing-sm, 0.5rem);
+    font-size: 0.8em;
+}
+
+/* Enhanced heading typography */
+.doc.doc-heading {
+    font-family: var(--font-display, "Manrope", sans-serif);
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+    scroll-margin-top: calc(
+        var(--header-height, 70px) + var(--spacing-lg, 1.5rem)
+    );
+}
+
+/* Code styling in headings */
+.doc.doc-heading code {
+    font-family: var(--font-code, "IBM Plex Mono", monospace) !important;
+    font-size: 0.9em !important;
+    line-height: 1.4 !important;
+    word-break: break-word;
+}
+
+/* Labels and badges */
+.doc.doc-labels {
+    margin-top: var(--spacing-sm, 0.5rem);
+    margin-bottom: var(--spacing-md, 1rem);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs, 0.25rem);
+}
+
+.doc.doc-label {
+    display: inline-block;
+    padding: var(--spacing-xs, 0.25rem) var(--spacing-sm, 0.5rem);
+    border-radius: var(--border-radius-sm, 4px);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1px solid;
+}
+
+.doc.doc-label.doc-label-classmethod {
+    background: rgba(83, 51, 237, 0.1);
+    color: var(--lab-violet, #5333ed);
+    border-color: rgba(83, 51, 237, 0.3);
+}
+
+.doc.doc-label.doc-label-staticmethod {
+    background: rgba(4, 226, 220, 0.1);
+    color: var(--lab-aqua, #04e2dc);
+    border-color: rgba(4, 226, 220, 0.3);
+}
+
+.doc.doc-label.doc-label-property {
+    background: rgba(255, 180, 46, 0.1);
+    color: #ffb42e;
+    border-color: rgba(255, 180, 46, 0.3);
+}
+
+.doc.doc-label.doc-label-async {
+    background: rgba(0, 178, 124, 0.1);
+    color: #00b27c;
+    border-color: rgba(0, 178, 124, 0.3);
+}
+
+/* Content styling */
+.doc.doc-contents {
+    padding: var(--spacing-sm, 0.5rem) 0;
+    line-height: 1.7;
+}
+
+.doc.doc-contents.first {
+    padding-top: 0;
+}
+
+.doc.doc-contents > p:first-child {
+    font-size: 1.05em;
+    color: rgba(245, 247, 250, 0.9);
+    line-height: 1.6;
+    margin-bottom: var(--spacing-md, 1rem);
+}
+
+/* Parameters and returns sections */
+.doc.doc-contents h5 {
+    color: var(--lab-aqua, #04e2dc);
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: var(--spacing-lg, 1.5rem);
+    margin-bottom: var(--spacing-sm, 0.5rem);
+    border-bottom: 1px solid rgba(4, 226, 220, 0.3);
+    padding-bottom: var(--spacing-xs, 0.25rem);
+}
+
+/* Parameter lists */
+.doc.doc-contents ul li {
+    margin-bottom: var(--spacing-sm, 0.5rem);
+    position: relative;
+}
+
+.doc.doc-contents ul li code {
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: var(--photon-white, #f5f7fa) !important;
+    padding: var(--spacing-xs, 0.25rem) var(--spacing-sm, 0.5rem) !important;
+    border-radius: var(--border-radius-sm, 4px) !important;
+    font-weight: 500 !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Children sections */
+.doc.doc-children {
+    margin-top: var(--spacing-lg, 1.5rem);
+}
+
+.doc.doc-children > h3 {
+    color: var(--lab-violet, #5333ed);
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: var(--spacing-md, 1rem);
+    padding-bottom: var(--spacing-xs, 0.25rem);
+    border-bottom: 1px solid rgba(83, 51, 237, 0.3);
+    position: relative;
+}
+
+.doc.doc-children > h3::before {
+    content: "📂";
+    margin-right: var(--spacing-sm, 0.5rem);
+    font-size: 0.9em;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .doc.doc-object.doc-module {
+        padding: var(--spacing-lg, 1.5rem);
+        margin: var(--spacing-lg, 1.5rem) 0;
+    }
+
+    .doc.doc-object.doc-class {
+        padding: var(--spacing-md, 1rem);
+        margin: var(--spacing-lg, 1.5rem) 0;
+    }
+
+    .doc.doc-object.doc-function {
+        padding: var(--spacing-sm, 0.5rem) var(--spacing-md, 1rem);
+        margin: var(--spacing-md, 1rem) 0;
+    }
+
+    .doc.doc-heading {
+        font-size: 0.9em;
+        line-height: 1.4;
+    }
+
+    .doc.doc-heading code {
+        font-size: 0.85em !important;
+        word-break: break-all;
+    }
+
+    .doc.doc-labels {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+/* Instrument type sections */
+.article h3[id*="supported-instrument-types"] + h3,
+.article h3[id*="oscilloscope"],
+.article h3[id*="power-supply"],
+.article h3[id*="powersupply"],
+.article h3[id*="waveform-generator"],
+.article h3[id*="multimeter"],
+.article h3[id*="dc-active-load"],
+.article h3[id*="spectrum-analyzer"],
+.article h3[id*="spectrum-analyser"],
+.article h3[id*="vector-network-analyzer"],
+.article h3[id*="vector-network-analyser"],
+.article h3[id*="power-meter"] {
+    background: linear-gradient(
+        135deg,
+        rgba(4, 226, 220, 0.1) 0%,
+        rgba(4, 226, 220, 0.05) 100%
+    );
+    border-left: 4px solid var(--lab-aqua, #04e2dc);
+    padding: var(--spacing-sm, 0.5rem) var(--spacing-md, 1rem);
+    margin: var(--spacing-lg, 1.5rem) 0 var(--spacing-md, 1rem) 0;
+    border-radius: 0 var(--border-radius-md, 8px) var(--border-radius-md, 8px) 0;
+    position: relative;
+    color: var(--lab-aqua, #04e2dc);
+    font-weight: 700;
+}
+
+.article h3[id*="oscilloscope"]::before {
+    content: "📊 ";
+}
+.article h3[id*="power-supply"]::before,
+.article h3[id*="powersupply"]::before {
+    content: "⚡ ";
+}
+.article h3[id*="waveform-generator"]::before {
+    content: "🌊 ";
+}
+.article h3[id*="multimeter"]::before {
+    content: "🔍 ";
+}
+.article h3[id*="dc-active-load"]::before {
+    content: "🔋 ";
+}
+.article h3[id*="spectrum-analyzer"]::before,
+.article h3[id*="spectrum-analyser"]::before {
+    content: "📈 ";
+}
+.article h3[id*="vector-network-analyzer"]::before,
+.article h3[id*="vector-network-analyser"]::before {
+    content: "🔗 ";
+}
+.article h3[id*="power-meter"]::before {
+    content: "⚙️ ";
+}
+
+/* Section dividers */
+.article hr {
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        var(--lab-violet, #5333ed) 20%,
+        var(--lab-aqua, #04e2dc) 50%,
+        var(--lab-violet, #5333ed) 80%,
+        transparent 100%
+    );
+    height: 2px;
+    border: none;
+    margin: var(--spacing-xxl, 3rem) 0;
+    opacity: 0.6;
+}
+
+/* API page main headings */
+.article h1.page-title {
+    background: linear-gradient(
+        135deg,
+        var(--photon-white) 0%,
+        var(--lab-violet) 50%,
+        var(--lab-aqua) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-align: center;
+    padding-bottom: var(--spacing-md, 1rem);
+    margin-bottom: var(--spacing-lg, 1.5rem);
+    position: relative;
+}
+
+.article h1.page-title::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100px;
+    height: 3px;
+    background: linear-gradient(
+        90deg,
+        var(--lab-violet, #5333ed) 0%,
+        var(--lab-aqua, #04e2dc) 100%
+    );
+    border-radius: var(--border-radius-sm, 4px);
+}
+
+/* Enhanced section hierarchy */
+.article h2[id*="core-instrument-classes"],
+.article h2[id*="supported-instrument-types"],
+.article h2[id*="api-reference"] {
+    background: rgba(83, 51, 237, 0.08);
+    border: 1px solid rgba(83, 51, 237, 0.2);
+    border-radius: var(--border-radius-md, 8px);
+    padding: var(--spacing-sm, 0.5rem) var(--spacing-md, 1rem);
+    margin: var(--spacing-lg, 1.5rem) 0;
+    position: relative;
+}
+
+.article h2[id*="core-instrument-classes"]::before {
+    content: "🏗️ ";
+    margin-right: var(--spacing-sm, 0.5rem);
+}
+
+.article h2[id*="supported-instrument-types"]::before {
+    content: "🔧 ";
+    margin-right: var(--spacing-sm, 0.5rem);
+}
+
+.article h2[id*="api-reference"]::before {
+    content: "📚 ";
+    margin-right: var(--spacing-sm, 0.5rem);
+}
+
+/* Print styles for API docs */
+@media print {
+    .doc.doc-object {
+        background: white !important;
+        border: 1px solid #ccc !important;
+        box-shadow: none !important;
+        break-inside: avoid;
+    }
+
+    .doc.doc-heading::before {
+        display: none !important;
+    }
+
+    .doc.doc-labels {
+        display: none !important;
+    }
+
+    .article h2::before,
+    .article h3::before {
+        display: none !important;
+    }
+
+    .article hr {
+        background: #ccc !important;
+        height: 1px !important;
+    }
+}
+
 /* Matplotlib figure styling */
 .jp-OutputArea .jp-OutputArea-executeResult .matplotlib-figure,
 .output .output_png .matplotlib-figure {
