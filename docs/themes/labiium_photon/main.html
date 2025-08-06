@@ -288,7 +288,7 @@
             height: 32px;
             position: relative;
             cursor: pointer;
-            z-index: 150;
+            z-index: 10000;
         }
 
         .menu-toggle .line {
@@ -835,24 +835,24 @@
                             </button>
                         </div>
 
-                        <!-- Search Modal -->
-                        <div class="search-modal" id="searchModal">
-                            <div class="search-modal-content">
-                                <form class="search-form">
-                                    <input type="text" class="search-input" id="searchInput" placeholder="Search documentation..." autofocus>
-                                    <button type="button" class="search-close" id="searchClose">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                                        </svg>
-                                    </button>
-                                </form>
-                                <div class="search-results">
-                                    <div class="search-results-meta" id="searchResultsMeta">Type to start searching</div>
-                                    <div id="searchResults"></div>
-                                </div>
-                            </div>
-                        </div>
+        <!-- Search Modal -->
+        <div class="search-modal" id="searchModal">
+            <div class="search-modal-content">
+                <form class="search-form">
+                    <input type="text" class="search-input" id="searchInput" placeholder="Search documentation..." autofocus>
+                    <button type="button" class="search-close" id="searchClose">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </form>
+                <div class="search-results">
+                    <div class="search-results-meta" id="searchResultsMeta">Type to start searching</div>
+                    <div id="searchResults"></div>
+                </div>
+            </div>
+        </div>
 
                         {% if config.repo_url %}
                         <a href="{{ config.repo_url }}" target="_blank" class="beam-button beam-button-sm">
@@ -1119,6 +1119,7 @@
             if (searchButton && searchModal && searchClose) {
                 searchButton.addEventListener("click", function () {
                     searchModal.classList.add("active");
+                    document.body.style.overflow = "hidden";
                     setTimeout(() => {
                         searchInput.focus();
                     }, 100);
@@ -1126,6 +1127,7 @@
 
                 searchClose.addEventListener("click", function () {
                     searchModal.classList.remove("active");
+                    document.body.style.overflow = "";
                 });
 
                 // Close on escape key
@@ -1135,6 +1137,7 @@
                         searchModal.classList.contains("active")
                     ) {
                         searchModal.classList.remove("active");
+                        document.body.style.overflow = "";
                     }
                 });
 
@@ -1143,9 +1146,10 @@
 
                 // Load search index - try multiple paths
                 const searchPaths = [
-                    "/search/search_index.json",
+                    "./search/search_index.json",
                     "search/search_index.json",
-                    "../search/search_index.json"
+                    "../search/search_index.json",
+                    "/search/search_index.json"
                 ];
 
                 async function loadSearchIndex() {
@@ -1250,9 +1254,11 @@
                                     // Convert relative URLs to absolute paths from site root
                                     let resultUrl = result.location;
 
-                                    // For relative URLs (not starting with / or http), make them absolute
-                                    if (resultUrl && !resultUrl.startsWith('/') && !resultUrl.startsWith('http') && !resultUrl.startsWith('#')) {
-                                        resultUrl = '/' + resultUrl;
+                                    // Handle relative URLs properly
+                                    if (resultUrl && !resultUrl.startsWith('http') && !resultUrl.startsWith('#')) {
+                                        if (!resultUrl.startsWith('/')) {
+                                            resultUrl = '../' + resultUrl;
+                                        }
                                     }
 
                                     return `

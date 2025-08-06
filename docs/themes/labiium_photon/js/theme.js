@@ -262,6 +262,36 @@ document.addEventListener("DOMContentLoaded", () => {
   const searchInput = document.querySelector(".search-input");
 
   if (searchButton && searchModal && searchInput) {
+    let searchIndex = null;
+
+    // Load search index - try multiple paths
+    const searchPaths = [
+      "./search/search_index.json",
+      "search/search_index.json",
+      "../search/search_index.json",
+      "/search/search_index.json",
+    ];
+
+    async function loadSearchIndex() {
+      for (const path of searchPaths) {
+        try {
+          console.log("Trying search index path:", path);
+          const response = await fetch(path);
+          if (response.ok) {
+            const data = await response.json();
+            searchIndex = data;
+            console.log("Search index loaded successfully from:", path);
+            return;
+          }
+        } catch (error) {
+          console.log("Failed to load search index from:", path, error);
+        }
+      }
+      console.log("Search index could not be loaded from any path");
+    }
+
+    loadSearchIndex();
+
     const openSearch = () => {
       searchModal.classList.add("active");
       document.body.style.overflow = "hidden";
@@ -276,6 +306,13 @@ document.addEventListener("DOMContentLoaded", () => {
       searchModal.classList.remove("active");
       document.body.style.overflow = "";
       searchInput.value = "";
+
+      // Clear search results
+      const searchResults = document.getElementById("searchResults");
+      const searchResultsMeta = document.getElementById("searchResultsMeta");
+      if (searchResults) searchResults.innerHTML = "";
+      if (searchResultsMeta)
+        searchResultsMeta.textContent = "Type to start searching";
     };
 
     searchButton.addEventListener("click", openSearch);
@@ -300,12 +337,100 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    // Search functionality placeholder
+    // Search functionality
     searchInput.addEventListener("input", (e) => {
-      const query = e.target.value;
-      // Search implementation would go here
-      console.log("Search query:", query);
+      const query = e.target.value.trim().toLowerCase();
+      const searchResultsMeta = document.getElementById("searchResultsMeta");
+      const searchResults = document.getElementById("searchResults");
+
+      if (query.length > 1) {
+        if (searchResultsMeta) searchResultsMeta.textContent = "Searching...";
+        if (searchResults) searchResults.innerHTML = "";
+
+        if (searchIndex) {
+          console.log(
+            "Search index is available, performing search for:",
+            query,
+          );
+          const results = performSearch(query, searchIndex);
+          console.log("Search results:", results);
+          displaySearchResults(results, searchResultsMeta, searchResults);
+        } else {
+          console.log("Search index is null, showing error message");
+          if (searchResultsMeta)
+            searchResultsMeta.textContent = "Search index not loaded";
+          if (searchResults) {
+            searchResults.innerHTML =
+              '<p style="color: rgba(255, 255, 255, 0.7); padding: 1rem; text-align: center;">Search functionality requires the MkDocs search plugin to be enabled and the site to be built.</p>';
+          }
+        }
+      } else {
+        if (searchResultsMeta)
+          searchResultsMeta.textContent = "Type to start searching";
+        if (searchResults) searchResults.innerHTML = "";
+      }
     });
+
+    function performSearch(query, index) {
+      const results = [];
+      const docs = index.docs || [];
+
+      docs.forEach((doc, i) => {
+        const title = (doc.title || "").toLowerCase();
+        const text = (doc.text || "").toLowerCase();
+
+        if (title.includes(query) || text.includes(query)) {
+          const titleIndex = title.indexOf(query);
+          const textIndex = text.indexOf(query);
+          const score = (titleIndex >= 0 ? 10 : 0) + (textIndex >= 0 ? 1 : 0);
+
+          results.push({
+            title: doc.title,
+            location: doc.location,
+            text: doc.text,
+            score: score,
+          });
+        }
+      });
+
+      return results.sort((a, b) => b.score - a.score).slice(0, 10);
+    }
+
+    function displaySearchResults(results, metaElement, resultsElement) {
+      if (!metaElement || !resultsElement) return;
+
+      if (results.length > 0) {
+        metaElement.textContent = `${results.length} result${results.length > 1 ? "s" : ""} found`;
+
+        resultsElement.innerHTML = results
+          .map((result) => {
+            // Handle relative URLs properly
+            let resultUrl = result.location;
+            if (
+              resultUrl &&
+              !resultUrl.startsWith("http") &&
+              !resultUrl.startsWith("#")
+            ) {
+              if (!resultUrl.startsWith("/")) {
+                resultUrl = "../" + resultUrl;
+              }
+            }
+
+            return `
+              <div class="search-result-item">
+                <a href="${resultUrl}" class="search-result-link">
+                  <div class="search-result-title">${result.title}</div>
+                  <div class="search-result-text">${result.text.substring(0, 150)}...</div>
+                </a>
+              </div>
+            `;
+          })
+          .join("");
+      } else {
+        metaElement.textContent = "No results found";
+        resultsElement.innerHTML = "";
+      }
+    }
   }
 
   // --- Dynamic Page Transitions ---
