@@ -249,7 +249,7 @@ Run the test-suite (`pytest`), type-check (`mypy`), lint/format (`ruff`), and ke
 
 ## 🗜️ License
 
-Apache-2.0 © 2023Emmanuel Olowe & contributors.
+Apache-2.0 © 2023 Emmanuel Olowe & contributors.
 
 Commercial support / custom drivers? Open an issue or contact <support@pytestlab.org>.
 
