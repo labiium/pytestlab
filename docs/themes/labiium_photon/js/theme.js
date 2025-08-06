@@ -45,30 +45,96 @@ document.addEventListener("DOMContentLoaded", () => {
     handleScroll();
   }
 
-  // --- Mobile Navigation Toggle ---
-  const mobileNavToggle = document.querySelector(".mobile-nav-toggle");
-  const navLinks = document.querySelector(".nav-links");
+  // --- Enhanced Mobile Navigation Toggle ---
+  const menuToggle = document.querySelector(".menu-toggle");
+  const navPrimary = document.querySelector(".nav-primary");
 
-  if (mobileNavToggle && navLinks) {
-    mobileNavToggle.addEventListener("click", (e) => {
+  if (menuToggle && navPrimary) {
+    const openNav = () => {
+      menuToggle.classList.add("active");
+      navPrimary.classList.add("active");
+      document.body.style.overflow = "hidden";
+    };
+
+    const closeNav = () => {
+      menuToggle.classList.remove("active");
+      navPrimary.classList.remove("active");
+      document.body.style.overflow = "";
+
+      // Close any open dropdowns
+      document.querySelectorAll(".dropdown.active").forEach((dropdown) => {
+        dropdown.classList.remove("active");
+      });
+    };
+
+    menuToggle.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-
-      mobileNavToggle.classList.toggle("active");
-      navLinks.classList.toggle("active");
-
-      // Update aria attributes
-      const expanded = navLinks.classList.contains("active");
-      mobileNavToggle.setAttribute("aria-expanded", expanded);
+      if (navPrimary.classList.contains("active")) {
+        closeNav();
+      } else {
+        openNav();
+      }
     });
 
-    // Close mobile nav when clicking outside
-    document.addEventListener("click", (e) => {
-      if (!navLinks.contains(e.target) && !mobileNavToggle.contains(e.target)) {
-        mobileNavToggle.classList.remove("active");
-        navLinks.classList.remove("active");
-        mobileNavToggle.setAttribute("aria-expanded", "false");
+    // Close menu when clicking on the nav background (not nav content)
+    navPrimary.addEventListener("click", (e) => {
+      // Only close if clicking directly on the nav container, not its children
+      if (e.target === navPrimary) {
+        closeNav();
       }
+    });
+
+    // Close menu when clicking outside nav content
+    document.addEventListener("click", (e) => {
+      if (
+        navPrimary.classList.contains("active") &&
+        !navPrimary.contains(e.target) &&
+        !menuToggle.contains(e.target)
+      ) {
+        closeNav();
+      }
+    });
+
+    // Close menu on escape key
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && navPrimary.classList.contains("active")) {
+        closeNav();
+      }
+    });
+
+    // Close menu when clicking on nav links
+    const navLinks = document.querySelectorAll(".nav-links a");
+    navLinks.forEach((link) => {
+      link.addEventListener("click", () => {
+        if (!link.classList.contains("dropdown-toggle")) {
+          closeNav();
+        }
+      });
+    });
+
+    // Handle dropdown toggles
+    const dropdownToggles = document.querySelectorAll(".dropdown-toggle");
+    dropdownToggles.forEach((toggle) => {
+      toggle.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const dropdown = toggle.closest(".dropdown");
+        const isActive = dropdown.classList.contains("active");
+
+        // Close all other dropdowns
+        document
+          .querySelectorAll(".dropdown.active")
+          .forEach((otherDropdown) => {
+            if (otherDropdown !== dropdown) {
+              otherDropdown.classList.remove("active");
+            }
+          });
+
+        // Toggle current dropdown
+        dropdown.classList.toggle("active", !isActive);
+      });
     });
   }
 
