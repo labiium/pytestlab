@@ -19,9 +19,6 @@
 <p align="center">
   <a href="https://pypi.org/project/pytestlab"><img alt="PyPI"
      src="https://img.shields.io/pypi/v/pytestlab?logo=pypi&label=PyPI&color=blue"/></a>
-  <a href="https://github.com/your-org/pytestlab/actions/workflows/build_wheels.yml"><img
-     alt="CI"
-     src="https://github.com/your-org/pytestlab/actions/workflows/build_wheels.yml/badge.svg"/></a>
   <a href="https://pytestlab.org"><img
      alt="Docs"
      src="https://img.shields.io/badge/docs-latest-blue"/></a>
