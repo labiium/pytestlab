@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "pytestlab"
 description = "Scientific test & measurement toolbox"
 authors = [{ name = "Emmanuel Olowe", email = "e.a.olowe@ed.ac.uk" }]
-license = { text = "MIT" }
+license = { text = "Apache-2.0" }
 readme = "README.md"
 requires-python = ">=3.11"
 dynamic = ["version"]
