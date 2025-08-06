@@ -25,6 +25,7 @@ dependencies = [
     "httpx",
     "aiofiles",
     "typer",
+    "Pillow",
 ]
 
 [tool.hatch.version]
