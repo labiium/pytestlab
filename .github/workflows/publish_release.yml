@@ -1,73 +1,97 @@
 name: Publish PyTestLab Release
 
 on:
-    push:
-        tags:
-            - "v*.*.*" # Trigger on version tags like v0.1.0
+  push:
+    tags:
+      - "v*.*.*"
 
 jobs:
-    build_and_publish:
-        name: Build and publish Python distributions to PyPI and TestPyPI
-        runs-on: ubuntu-latest
-        environment: # Optional: Define environments for PyPI tokens if using GitHub Environments
-            name: pypi
-            url: https://pypi.org/labiium/pytestlab # Link to the project on PyPI
+  build:
+    name: Build distribution packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-        permissions: # Required for trusted publishing to PyPI
-            id-token: write
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.x"
 
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build
 
-            - name: Set up Python
-              uses: actions/setup-python@v5
-              with:
-                  python-version: "3.x" # Use a recent Python for building/publishing tools
+      - name: Build source distribution
+        run: python -m build --sdist
 
-            - name: Install Hatch
-              run: python -m pip install hatch
+      - name: Build wheel
+        run: python -m build --wheel
 
-            - name: Build sdist and wheel
-              run: python -m hatch build # This will produce sdist and a pure Python wheel
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
 
-            # Optional: Download all cross-platform wheels built by cibuildwheel (if build_wheels.yml is separate)
-            # This assumes build_wheels.yml uploads artifacts named 'wheels-<os>-py<version>'
-            # - name: Download all wheel artifacts
-            #   uses: actions/download-artifact@v4
-            #   with:
-            #     path: dist # Download all artifacts to dist/
-            #     # If cibuildwheel artifacts are named, e.g., wheels-ubuntu-latest-py3.9
-            #     # you might need to list them or use a pattern if download-artifact supports it for multiple artifacts.
-            #     # Or, have build_wheels.yml upload to a single 'all-wheels' artifact.
-            #     # For simplicity, this example assumes hatch build is sufficient for sdist + one wheel,
-            #     # and cibuildwheel handles the platform wheels separately if that workflow also publishes.
-            #     # If this workflow is the *only* publisher, it needs all wheels.
+  publish-to-pypi:
+    name: Publish to PyPI
+    if: startsWith(github.ref, 'refs/tags/')
+    needs:
+      - build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/pytestlab
+    permissions:
+      id-token: write
 
-            - name: Publish package to TestPyPI
-              uses: pypa/gh-action-pypi-publish@release/v1
-              with:
-                  user: __token__
-                  password: ${{ secrets.TEST_PYPI_API_TOKEN }} # GitHub secret for TestPyPI token
-                  repository_url: https://test.pypi.org/legacy/
-                  # packages_dir: dist/ # Hatch puts builds in dist/ by default
-                  # skip_existing: true # Skip if version already exists
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
 
-            # Add a step here for smoke testing from TestPyPI if desired (complex to set up in this single task)
-            # - name: Run smoke tests against TestPyPI package
-            #   run: |
-            #     pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple pytestlab==${{{ github.ref_name }}}
-            #     # Run some basic import or CLI command test
-            #     pytestlab --version # Example
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
 
-            - name: Publish package to PyPI
-              # This step should ideally run only after TestPyPI is confirmed,
-              # or be guarded by a manual approval if TestPyPI smoke tests are not automated.
-              # For now, let's assume direct publish after TestPyPI attempt.
-              # Consider adding an 'if' condition for manual approval or successful TestPyPI smoke test.
-              uses: pypa/gh-action-pypi-publish@release/v1
-              with:
-                  user: __token__
-                  password: ${{ secrets.PYPI_API_TOKEN }} # GitHub secret for PyPI token
-                  # packages_dir: dist/
-                  # skip_existing: true
+  github-release:
+    name: Create GitHub Release
+    needs:
+      - publish-to-pypi
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Sign the dists with Sigstore
+        uses: sigstore/gh-action-sigstore-python@v2.1.1
+        with:
+          inputs: >-
+            ./dist/*.tar.gz
+            ./dist/*.whl
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create
+          '${{ github.ref_name }}'
+          --repo '${{ github.repository }}'
+          --notes ""
+
+      - name: Upload artifact signatures to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          gh release upload
+          '${{ github.ref_name }}' dist/**
+          --repo '${{ github.repository }}'
