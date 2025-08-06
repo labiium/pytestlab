@@ -1,356 +1,70 @@
 /* ====================================
- * PYTESTLAB NOTEBOOK ENHANCEMENTS
- * Professional styling for Jupyter notebooks
+ * NOTEBOOK ENHANCEMENTS
+ * Clean, modern styling for Jupyter notebooks
  * ==================================== */
 
-/* CSS Variables for consistent theming */
 :root {
-    /* Core Brand Colors */
-    --lab-violet: #5333ed;
-    --lab-aqua: #04e2dc;
-    --photon-white: #f5f7fa;
-    --photon-black: #0b0e11;
-
-    /* Glass Effects for glassmorphism */
-    --glass-frost-bg: rgba(245, 247, 250, 0.85);
-    --glass-border: rgba(83, 51, 237, 0.1);
-    --glass-border-hover: rgba(83, 51, 237, 0.2);
-
-    /* Status Colors */
-    --status-success: #00b27c;
-    --status-warning: #ffb02e;
-    --status-error: #ff5460;
-
-    /* Typography */
-    --font-ui: "Inter", system-ui, sans-serif;
-    --font-display: "Manrope", "Inter", sans-serif;
-    --font-code: "IBM Plex Mono", SFMono-Regular, Consolas, monospace;
-
-    /* Spacing & Layout */
-    --spacing-xs: 0.25rem;
+    --notebook-bg: rgba(30, 33, 38, 0.95);
+    --notebook-border: rgba(83, 51, 237, 0.3);
+    --notebook-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    --notebook-hover-shadow: 0 4px 16px rgba(83, 51, 237, 0.4);
+    --code-bg: rgba(26, 29, 32, 0.9);
+    --code-border: rgba(66, 69, 74, 0.5);
+    --markdown-bg: rgba(30, 33, 38, 0.9);
     --spacing-sm: 0.5rem;
     --spacing-md: 1rem;
     --spacing-lg: 1.5rem;
     --spacing-xl: 2rem;
-
-    /* Border Radius */
     --border-radius-sm: 4px;
     --border-radius-md: 8px;
-    --border-radius-lg: 16px;
-
-    /* Animation */
+    --font-ui:
+        "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        sans-serif;
+    --font-code: "JetBrains Mono", "Fira Code", "SF Mono", Consolas, monospace;
     --ease-curve: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ====================================
- * ENHANCED NOTEBOOK CELL STRUCTURE
+ * NOTEBOOK WRAPPER
  * ==================================== */
 
-/* Main notebook container */
 .jupyter-wrapper,
 .notebook-content {
-    max-width: none;
-    margin: 0;
-    padding: 0;
+    max-width: 100%;
+    margin: 0 auto;
+    padding: var(--spacing-lg);
     background: transparent;
-    font-family: var(--font-ui, "Inter", system-ui, sans-serif);
 }
 
-/* Enhanced cell styling with better visual hierarchy */
+/* ====================================
+ * CELL STRUCTURE
+ * ==================================== */
+
 .jp-Cell,
 .cell,
 .nb-cell {
-    margin-bottom: var(--spacing-xl, 2rem);
-    border-radius: var(--border-radius-lg, 16px);
-    overflow: hidden;
-    background: linear-gradient(
-        145deg,
-        rgba(245, 247, 250, 0.95) 0%,
-        rgba(240, 242, 247, 0.9) 100%
-    );
-    border: 1px solid rgba(83, 51, 237, 0.08);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    box-shadow:
-        0 2px 20px rgba(83, 51, 237, 0.05),
-        0 1px 3px rgba(0, 0, 0, 0.02),
-        inset 0 1px 0 rgba(255, 255, 255, 0.9);
-    transition: all 0.4s var(--ease-curve, cubic-bezier(0.16, 1, 0.3, 1));
+    background: var(--notebook-bg);
+    border: 1px solid var(--notebook-border);
+    border-radius: var(--border-radius-md);
+    margin-bottom: var(--spacing-lg);
+    box-shadow: var(--notebook-shadow);
+    transition: all 0.3s var(--ease-curve);
     position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
 }
 
 .jp-Cell:hover,
 .cell:hover,
 .nb-cell:hover {
-    border-color: rgba(83, 51, 237, 0.15);
-    box-shadow:
-        0 8px 40px rgba(83, 51, 237, 0.12),
-        0 4px 20px rgba(0, 0, 0, 0.03),
-        inset 0 1px 0 rgba(255, 255, 255, 0.95);
-    transform: translateY(-3px);
-}
-
-/* Cell type indicators */
-.jp-Cell::before,
-.cell::before,
-.nb-cell::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(
-        90deg,
-        var(--lab-violet, #5333ed) 0%,
-        var(--lab-aqua, #04e2dc) 100%
-    );
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.jp-Cell:hover::before,
-.cell:hover::before,
-.nb-cell:hover::before {
-    opacity: 1;
+    border-color: rgba(83, 51, 237, 0.3);
+    box-shadow: var(--notebook-hover-shadow);
+    transform: translateY(-2px);
 }
 
 /* ====================================
- * INPUT AREAS - CODE CELLS
- * ==================================== */
-
-.jp-InputArea,
-.input_area,
-.nb-input {
-    display: flex;
-    align-items: stretch;
-    background: transparent;
-    position: relative;
-    min-height: 60px;
-}
-
-/* Enhanced input prompts with better typography */
-.jp-InputPrompt,
-.input_prompt,
-.nb-input-prompt {
-    background: linear-gradient(
-        135deg,
-        rgba(83, 51, 237, 0.08) 0%,
-        rgba(83, 51, 237, 0.12) 100%
-    );
-    border-right: 3px solid var(--lab-violet, #5333ed);
-    color: var(--lab-violet, #5333ed);
-    font-family: var(--font-code, "IBM Plex Mono", monospace);
-    font-size: 0.85rem;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    padding: var(--spacing-lg, 1.5rem) var(--spacing-md, 1rem);
-    min-width: 100px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    user-select: none;
-    flex-shrink: 0;
-    position: relative;
-}
-
-.jp-InputPrompt::after,
-.input_prompt::after,
-.nb-input-prompt::after {
-    content: "CODE";
-    position: absolute;
-    bottom: 4px;
-    right: 4px;
-    font-size: 0.6rem;
-    opacity: 0.5;
-    font-weight: 500;
-    letter-spacing: 1px;
-}
-
-/* Code editor areas */
-.jp-InputArea-editor,
-.input_area .highlight,
-.nb-input-content {
-    flex: 1;
-    position: relative;
-    background: linear-gradient(
-        135deg,
-        rgba(248, 250, 252, 0.9) 0%,
-        rgba(241, 245, 249, 0.95) 100%
-    );
-}
-
-.jp-InputArea .jp-Editor,
-.input_area .codehilite,
-.nb-input-content pre {
-    background: rgba(248, 250, 252, 0.8) !important;
-    border: none !important;
-    margin: 0 !important;
-    padding: var(--spacing-lg, 1.5rem) !important;
-    font-family: var(--font-code, "IBM Plex Mono", monospace) !important;
-    font-size: 1rem !important;
-    font-weight: 500 !important;
-    line-height: 1.6 !important;
-    color: #1e293b !important;
-    overflow-x: auto;
-    white-space: pre;
-    word-wrap: normal;
-    border-radius: 0;
-}
-
-/* Enhanced syntax highlighting for light theme with better contrast */
-.jp-InputArea .token.keyword,
-.input_area .token.keyword,
-.nb-input-content .token.keyword {
-    color: #8b5cf6 !important;
-    font-weight: 700 !important;
-}
-
-.jp-InputArea .token.string,
-.input_area .token.string,
-.nb-input-content .token.string {
-    color: #16a34a !important;
-    font-weight: 500 !important;
-}
-
-.jp-InputArea .token.number,
-.input_area .token.number,
-.nb-input-content .token.number {
-    color: #dc2626 !important;
-    font-weight: 600 !important;
-}
-
-.jp-InputArea .token.function,
-.input_area .token.function,
-.nb-input-content .token.function {
-    color: #1d4ed8 !important;
-    font-weight: 600 !important;
-}
-
-.jp-InputArea .token.comment,
-.input_area .token.comment,
-.nb-input-content .token.comment {
-    color: #64748b !important;
-    font-style: italic;
-    font-weight: 500 !important;
-}
-
-.jp-InputArea .token.operator,
-.input_area .token.operator,
-.nb-input-content .token.operator {
-    color: #1e293b !important;
-    font-weight: 600 !important;
-}
-
-.jp-InputArea .token.builtin,
-.input_area .token.builtin,
-.nb-input-content .token.builtin {
-    color: #b45309 !important;
-    font-weight: 600 !important;
-}
-
-/* ====================================
- * OUTPUT AREAS
- * ==================================== */
-
-.jp-OutputArea,
-.output_area,
-.nb-output {
-    margin-top: 0;
-    position: relative;
-}
-
-.jp-OutputPrompt,
-.output_prompt,
-.nb-output-prompt {
-    background: linear-gradient(
-        135deg,
-        rgba(4, 226, 220, 0.08) 0%,
-        rgba(4, 226, 220, 0.12) 100%
-    );
-    border-right: 3px solid var(--lab-aqua, #04e2dc);
-    color: var(--lab-aqua, #04e2dc);
-    font-family: var(--font-code, "IBM Plex Mono", monospace);
-    font-size: 0.85rem;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    padding: var(--spacing-lg, 1.5rem) var(--spacing-md, 1rem);
-    min-width: 100px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    user-select: none;
-    flex-shrink: 0;
-    position: relative;
-}
-
-.jp-OutputPrompt::after,
-.output_prompt::after,
-.nb-output-prompt::after {
-    content: "OUT";
-    position: absolute;
-    bottom: 4px;
-    right: 4px;
-    font-size: 0.6rem;
-    opacity: 0.5;
-    font-weight: 500;
-    letter-spacing: 1px;
-}
-
-.jp-OutputArea-output,
-.output,
-.nb-output-content {
-    display: flex;
-    align-items: stretch;
-    background: linear-gradient(
-        135deg,
-        rgba(241, 245, 249, 0.95) 0%,
-        rgba(226, 232, 240, 0.98) 100%
-    );
-    margin-bottom: var(--spacing-sm, 0.75rem);
-    border-radius: 0 0 var(--border-radius-md, 8px) var(--border-radius-md, 8px);
-}
-
-.jp-OutputArea-output:last-child,
-.output:last-child {
-    margin-bottom: 0;
-    border-radius: 0;
-}
-
-/* Output content areas */
-.jp-OutputArea-executeResult,
-.jp-OutputArea-output > div,
-.output_area .output_subarea,
-.nb-output-content > div {
-    flex: 1;
-    padding: var(--spacing-lg, 1.5rem);
-    overflow-x: auto;
-    color: var(--photon-black, #0b0e11);
-}
-
-/* Text outputs with enhanced readability */
-.jp-OutputArea-output pre,
-.output_area pre,
-.nb-output pre {
-    background: #f8fafc !important;
-    border: 1px solid #cbd5e1 !important;
-    border-radius: var(--border-radius-sm, 4px) !important;
-    padding: var(--spacing-lg, 1.5rem) !important;
-    margin: var(--spacing-md, 1rem) 0 !important;
-    font-family: var(--font-code, "IBM Plex Mono", monospace) !important;
-    font-size: 0.95rem !important;
-    font-weight: 500 !important;
-    line-height: 1.6 !important;
-    color: #1e293b !important;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08);
-}
-
-/* ====================================
- * MARKDOWN CELLS
+ * MARKDOWN CELLS - CLEAN STYLING
  * ==================================== */
 
 .jp-MarkdownCell,
@@ -358,39 +72,53 @@
 .nb-markdown {
     background: linear-gradient(
         135deg,
-        rgba(255, 255, 255, 0.9) 0%,
-        rgba(249, 250, 251, 0.95) 100%
+        rgba(30, 33, 38, 0.95) 0%,
+        rgba(26, 29, 32, 0.9) 100%
     );
-    border: 1px solid rgba(229, 231, 235, 0.6);
-    padding: var(--spacing-xl, 2rem);
-    border-radius: var(--border-radius-lg, 16px);
+    border-left: 4px solid var(--lab-violet, #5333ed);
+    border-radius: var(--border-radius-md);
     box-shadow:
-        0 1px 15px rgba(0, 0, 0, 0.02),
-        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+        0 2px 20px rgba(83, 51, 237, 0.05),
+        0 1px 3px rgba(0, 0, 0, 0.02);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
 }
 
 .jp-MarkdownCell .jp-MarkdownOutput,
 .text_cell .text_cell_render,
 .nb-markdown-content {
-    color: var(--photon-black, #0b0e11);
+    padding: var(--spacing-xl);
+    color: var(--photon-white, #f5f7fa);
     line-height: 1.7;
     font-size: 1rem;
+    font-family: var(--font-ui, "Inter", system-ui, sans-serif);
+}
+
+/* CRITICAL: Hide ALL copy elements from markdown cells */
+.jp-MarkdownCell clipboard-copy,
+.jp-MarkdownCell .clipboard-copy,
+.jp-MarkdownCell .zeroclipboard-container,
+.jp-MarkdownCell .copy-button,
+.jp-MarkdownCell .jp-InputArea::after,
+.jp-MarkdownCell .jp-InputArea::before {
+    display: none !important;
+    visibility: hidden !important;
 }
 
 /* Enhanced typography for markdown */
 .jp-MarkdownCell h1,
 .text_cell h1,
 .nb-markdown h1 {
-    color: var(--photon-black, #0b0e11);
+    color: var(--photon-white, #f5f7fa);
     font-family: var(--font-display, "Manrope", "Inter", sans-serif);
     font-size: 2.25rem;
     font-weight: 700;
+    margin: 0 0 var(--spacing-lg) 0;
     line-height: 1.2;
-    margin: 0 0 var(--spacing-lg, 1.5rem) 0;
     background: linear-gradient(
         135deg,
-        var(--lab-violet, #5333ed),
-        var(--lab-aqua, #04e2dc)
+        var(--lab-violet, #5333ed) 0%,
+        var(--lab-aqua, #04e2dc) 100%
     );
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -400,14 +128,19 @@
 .jp-MarkdownCell h2,
 .text_cell h2,
 .nb-markdown h2 {
-    color: var(--photon-black, #0b0e11);
+    color: var(--photon-white, #f5f7fa);
     font-family: var(--font-display, "Manrope", "Inter", sans-serif);
-    font-size: 1.75rem;
+    font-size: 1.875rem;
     font-weight: 600;
-    line-height: 1.3;
-    margin: var(--spacing-xl, 2rem) 0 var(--spacing-md, 1rem) 0;
-    padding-bottom: var(--spacing-sm, 0.5rem);
-    border-bottom: 2px solid rgba(83, 51, 237, 0.1);
+    margin: var(--spacing-xl) 0 var(--spacing-lg) 0;
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 3px solid transparent;
+    border-image: linear-gradient(
+            90deg,
+            var(--lab-violet, #5333ed) 0%,
+            var(--lab-aqua, #04e2dc) 100%
+        )
+        1;
 }
 
 .jp-MarkdownCell h3,
@@ -415,262 +148,389 @@
 .nb-markdown h3 {
     color: var(--lab-violet, #5333ed);
     font-family: var(--font-display, "Manrope", "Inter", sans-serif);
-    font-size: 1.375rem;
+    font-size: 1.5rem;
     font-weight: 600;
-    margin: var(--spacing-lg, 1.5rem) 0 var(--spacing-md, 1rem) 0;
+    margin: var(--spacing-xl) 0 var(--spacing-md) 0;
+}
+
+.jp-MarkdownCell h4,
+.text_cell h4,
+.nb-markdown h4 {
+    color: var(--photon-white, #f5f7fa);
+    font-family: var(--font-ui, "Inter", sans-serif);
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: var(--spacing-lg) 0 var(--spacing-md) 0;
 }
 
 .jp-MarkdownCell p,
 .text_cell p,
 .nb-markdown p {
-    margin-bottom: var(--spacing-md, 1rem);
-    color: #374151;
+    margin-bottom: var(--spacing-md);
+    color: rgba(245, 247, 250, 0.9);
+    line-height: 1.8;
+    font-size: 1.05rem;
+    font-weight: 400;
+}
+
+.jp-MarkdownCell p strong,
+.text_cell p strong,
+.nb-markdown p strong {
+    color: var(--photon-white, #f5f7fa);
+    font-weight: 600;
+}
+
+.jp-MarkdownCell p em,
+.text_cell p em,
+.nb-markdown p em {
+    color: var(--lab-violet, #5333ed);
+    font-style: italic;
+}
+
+.jp-MarkdownCell ul,
+.jp-MarkdownCell ol,
+.text_cell ul,
+.text_cell ol,
+.nb-markdown ul,
+.nb-markdown ol {
+    margin: var(--spacing-md) 0;
+    padding-left: var(--spacing-xl);
+    color: rgba(245, 247, 250, 0.85);
     line-height: 1.7;
+}
+
+.jp-MarkdownCell li,
+.text_cell li,
+.nb-markdown li {
+    margin-bottom: var(--spacing-sm);
+}
+
+.jp-MarkdownCell a,
+.text_cell a,
+.nb-markdown a {
+    color: var(--lab-violet, #5333ed);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.3s var(--ease-curve);
+}
+
+.jp-MarkdownCell a:hover,
+.text_cell a:hover,
+.nb-markdown a:hover {
+    border-bottom-color: var(--lab-violet, #5333ed);
+}
+
+.jp-MarkdownCell blockquote,
+.text_cell blockquote,
+.nb-markdown blockquote {
+    border-left: 4px solid var(--lab-aqua, #04e2dc);
+    margin: var(--spacing-lg) 0;
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: rgba(4, 226, 220, 0.1);
+    border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0;
+    color: rgba(245, 247, 250, 0.9);
+    font-style: italic;
 }
 
 .jp-MarkdownCell code,
 .text_cell code,
 .nb-markdown code {
-    background: #f1f5f9 !important;
-    color: #7c3aed !important;
+    background: linear-gradient(
+        135deg,
+        rgba(83, 51, 237, 0.08) 0%,
+        rgba(83, 51, 237, 0.12) 100%
+    ) !important;
+    color: var(--lab-violet, #5333ed) !important;
     padding: 0.25em 0.5em !important;
-    border-radius: var(--border-radius-sm, 4px) !important;
+    border-radius: var(--border-radius-sm) !important;
     font-family: var(--font-code, "IBM Plex Mono", monospace) !important;
     font-size: 0.9em !important;
     font-weight: 600 !important;
-    border: 1px solid #cbd5e1;
+    border: 1px solid rgba(83, 51, 237, 0.2) !important;
+    box-shadow: 0 1px 3px rgba(83, 51, 237, 0.1) !important;
 }
 
 /* ====================================
- * INTERACTIVE ELEMENTS
+ * CODE CELLS - CLEAN INPUT/OUTPUT
  * ==================================== */
 
-/* Enhanced copy buttons */
+.jp-CodeCell {
+    background: var(--code-bg);
+    border: 1px solid rgba(83, 51, 237, 0.2);
+    border-left: 4px solid #5333ed;
+}
+
 .jp-InputArea,
-.jp-OutputArea-output,
 .input_area,
-.output,
-.nb-input,
-.nb-output {
+.nb-input {
+    background: transparent;
+    border: none;
     position: relative;
 }
 
-.copy-button,
-.jp-InputArea::after,
-.jp-OutputArea-output::after,
-.input_area::after,
-.output::after {
-    content: attr(data-copy-text, "Copy");
-    position: absolute;
-    top: var(--spacing-md, 1rem);
-    right: var(--spacing-md, 1rem);
+.jp-InputPrompt,
+.input_prompt,
+.nb-input-prompt {
+    background: linear-gradient(135deg, var(--lab-violet, #5333ed), #7c3aed);
+    color: var(--photon-white, #f5f7fa) !important;
+    font-family: var(--font-code, "IBM Plex Mono", monospace) !important;
+    font-size: 0.8rem !important;
+    font-weight: 600 !important;
+    padding: var(--spacing-sm) var(--spacing-md) !important;
+    border-radius: var(--border-radius-sm) var(--border-radius-sm) 0 0 !important;
+    margin: 0 !important;
+    min-width: 80px !important;
+    text-align: center !important;
+    border-right: 2px solid rgba(83, 51, 237, 0.3) !important;
+    position: relative !important;
+    box-shadow: 0 2px 8px rgba(83, 51, 237, 0.3) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+}
+
+/* Style the actual prompt text content */
+.jp-InputPrompt,
+.jp-InputArea-prompt {
+    color: var(--photon-white, #f5f7fa) !important;
+    font-family: var(--font-code, "IBM Plex Mono", monospace) !important;
+    font-weight: 600 !important;
+}
+
+.jp-OutputPrompt,
+.jp-OutputArea-prompt {
+    color: var(--photon-white, #f5f7fa) !important;
+    font-family: var(--font-code, "IBM Plex Mono", monospace) !important;
+    font-weight: 600 !important;
+}
+
+.jp-InputArea .jp-Editor,
+.input_area .codehilite,
+.nb-input-content pre {
     background: linear-gradient(
         135deg,
-        var(--lab-violet, #5333ed) 0%,
-        #6d28d9 100%
-    );
-    color: white;
-    border: none;
-    border-radius: var(--border-radius-md, 8px);
-    padding: 0.5rem 0.75rem;
-    font-size: 0.75rem;
-    font-family: var(--font-ui, "Inter", system-ui, sans-serif);
-    font-weight: 600;
-    letter-spacing: 0.025em;
-    cursor: pointer;
-    opacity: 0;
-    transform: translateY(-8px) scale(0.95);
-    transition: all 0.3s var(--ease-curve, cubic-bezier(0.16, 1, 0.3, 1));
-    box-shadow:
-        0 4px 15px rgba(83, 51, 237, 0.25),
-        0 2px 6px rgba(0, 0, 0, 0.1);
-    z-index: 10;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-}
-
-.jp-InputArea:hover::after,
-.jp-OutputArea-output:hover::after,
-.input_area:hover::after,
-.output:hover::after,
-.nb-input:hover .copy-button,
-.nb-output:hover .copy-button {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-}
-
-.copy-button:hover,
-.jp-InputArea::after:hover,
-.jp-OutputArea-output::after:hover {
-    background: linear-gradient(
-        135deg,
-        #6d28d9 0%,
-        var(--lab-aqua, #04e2dc) 100%
-    );
-    box-shadow:
-        0 6px 25px rgba(83, 51, 237, 0.4),
-        0 4px 12px rgba(0, 0, 0, 0.15);
-    transform: translateY(-2px) scale(1.05);
-}
-
-.copy-button.copied,
-.jp-InputArea::after.copied,
-.jp-OutputArea-output::after.copied {
-    content: "✓ Copied";
-    background: linear-gradient(
-        135deg,
-        var(--status-success, #00b27c) 0%,
-        #10b981 100%
-    );
-    box-shadow:
-        0 4px 15px rgba(0, 178, 124, 0.3),
-        0 2px 6px rgba(0, 0, 0, 0.1);
-}
-
-/* Language badges */
-.lang-badge,
-.jp-InputArea::before,
-.jp-OutputArea-output::before {
-    position: absolute;
-    bottom: var(--spacing-md, 1rem);
-    right: var(--spacing-md, 1rem);
-    background: rgba(11, 14, 17, 0.85);
-    color: var(--lab-aqua, #04e2dc);
-    border-radius: var(--border-radius-sm, 4px);
-    padding: 0.25rem 0.5rem;
-    font-size: 0.7rem;
-    font-family: var(--font-code, "IBM Plex Mono", monospace);
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    border: 1px solid rgba(4, 226, 220, 0.2);
-    opacity: 0.7;
-    z-index: 5;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    transition: all 0.3s ease;
-}
-
-.jp-InputArea::before {
-    content: "Python";
-    color: var(--lab-violet, #5333ed);
-    border-color: rgba(83, 51, 237, 0.2);
-}
-
-.jp-OutputArea-output::before {
-    content: "Output";
-}
-
-/* ====================================
- * DATA VISUALIZATIONS
- * ==================================== */
-
-/* Enhanced image outputs */
-.jp-OutputArea img,
-.output img,
-.nb-output img {
-    max-width: 100%;
-    height: auto;
-    border-radius: var(--border-radius-md, 8px);
-    box-shadow:
-        0 8px 32px rgba(0, 0, 0, 0.08),
-        0 2px 8px rgba(0, 0, 0, 0.04);
-    background: white;
-    display: block;
-    margin: var(--spacing-lg, 1.5rem) auto;
-    border: 1px solid rgba(229, 231, 235, 0.5);
-}
-
-.jp-OutputArea img:hover,
-.output img:hover,
-.nb-output img:hover {
-    box-shadow:
-        0 12px 48px rgba(0, 0, 0, 0.12),
-        0 4px 16px rgba(0, 0, 0, 0.06);
-    transform: scale(1.02);
-    transition: all 0.3s ease;
-}
-
-/* Table styling */
-.jp-OutputArea table,
-.output table,
-.nb-output table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: var(--spacing-lg, 1.5rem) 0;
-    background: rgba(255, 255, 255, 0.8);
-    border-radius: var(--border-radius-md, 8px);
-    overflow: hidden;
-    border: 1px solid rgba(229, 231, 235, 0.5);
-    font-size: 0.85rem;
-    box-shadow: 0 2px 15px rgba(0, 0, 0, 0.04);
-}
-
-.jp-OutputArea table th,
-.output table th,
-.nb-output table th {
-    background: linear-gradient(
-        135deg,
-        rgba(4, 226, 220, 0.15) 0%,
-        rgba(4, 226, 220, 0.2) 100%
-    );
-    color: #0891b2;
-    border-bottom: 2px solid #0891b2;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    font-size: 0.8rem;
-    padding: var(--spacing-md, 1rem);
-}
-
-.jp-OutputArea table td,
-.output table td,
-.nb-output table td {
-    padding: var(--spacing-md, 1rem);
-    border-bottom: 1px solid #e2e8f0;
-    color: #1e293b;
-    font-weight: 500;
-    font-size: 0.9rem;
-}
-
-.jp-OutputArea table tbody tr:nth-child(even),
-.output table tbody tr:nth-child(even),
-.nb-output table tbody tr:nth-child(even) {
-    background: rgba(248, 250, 252, 0.5);
-}
-
-.jp-OutputArea table tbody tr:hover,
-.output table tbody tr:hover,
-.nb-output table tbody tr:hover {
-    background: rgba(83, 51, 237, 0.03);
-    transform: scale(1.005);
-    transition: all 0.2s ease;
-}
-
-/* ====================================
- * ERROR HANDLING
- * ==================================== */
-
-.jp-OutputArea-output.jp-OutputArea-executeResult--error,
-.output_area .output_stderr,
-.nb-error {
-    background: linear-gradient(
-        135deg,
-        rgba(255, 84, 96, 0.05) 0%,
-        rgba(255, 84, 96, 0.08) 100%
+        rgba(30, 33, 38, 0.95) 0%,
+        rgba(26, 29, 32, 0.9) 100%
     ) !important;
-    border-left: 4px solid var(--status-error, #ff5460) !important;
-    border-radius: 0 var(--border-radius-md, 8px) var(--border-radius-md, 8px) 0;
+    border: 1px solid rgba(83, 51, 237, 0.3) !important;
+    border-radius: 0 var(--border-radius-sm) var(--border-radius-sm)
+        var(--border-radius-sm) !important;
+    margin: 0 !important;
+    padding: var(--spacing-md) !important;
+    font-family: var(--font-code) !important;
+    font-size: 0.9rem !important;
+    line-height: 1.5 !important;
+    color: #d4d4d4 !important;
+    overflow-x: auto !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(83, 51, 237, 0.1),
+        0 1px 3px rgba(0, 0, 0, 0.2) !important;
 }
 
-.jp-OutputArea-output.jp-OutputArea-executeResult--error pre,
-.output_area .output_stderr pre,
-.nb-error pre {
-    color: #dc2626 !important;
-    background: #fef2f2 !important;
-    border-color: #fca5a5 !important;
-    font-weight: 600;
-    font-size: 0.95rem !important;
+/* ====================================
+ * OUTPUT CELLS
+ * ==================================== */
+
+.jp-OutputArea,
+.output_area,
+.nb-output {
+    margin-top: var(--spacing-md);
+    background: transparent;
+}
+
+.jp-OutputPrompt,
+.output_prompt,
+.nb-output-prompt {
+    background: linear-gradient(135deg, var(--lab-aqua, #04e2dc), #059669);
+    color: var(--photon-white, #f5f7fa) !important;
+    font-family: var(--font-code, "IBM Plex Mono", monospace) !important;
+    font-size: 0.8rem !important;
+    font-weight: 600 !important;
+    padding: var(--spacing-sm) var(--spacing-md) !important;
+    border-radius: var(--border-radius-sm) var(--border-radius-sm) 0 0 !important;
+    margin: 0 !important;
+    min-width: 80px !important;
+    text-align: center !important;
+    border-right: 2px solid rgba(4, 226, 220, 0.3) !important;
+    box-shadow: 0 2px 8px rgba(4, 226, 220, 0.3) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+}
+
+.jp-OutputArea-output,
+.output,
+.nb-output-content {
+    background: linear-gradient(
+        135deg,
+        rgba(26, 29, 32, 0.9) 0%,
+        rgba(22, 25, 28, 0.95) 100%
+    );
+    border: 1px solid rgba(4, 226, 220, 0.2);
+    border-radius: 0 var(--border-radius-sm) var(--border-radius-sm)
+        var(--border-radius-sm);
+    padding: var(--spacing-md);
+    font-family: var(--font-code);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: #d4d4d4;
+    overflow-x: auto;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    box-shadow:
+        inset 0 1px 0 rgba(4, 226, 220, 0.1),
+        0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.jp-OutputArea-output:last-child,
+.output:last-child {
+    margin-bottom: 0;
+}
+
+/* ====================================
+ * EXISTING COPY BUTTON STYLING
+ * Style the existing clipboard-copy elements
+ * ==================================== */
+
+/* Style existing copy buttons on code cells only */
+.jp-CodeCell clipboard-copy,
+.jp-CodeCell .clipboard-copy {
+    position: absolute !important;
+    top: 8px !important;
+    right: 8px !important;
+    z-index: 10 !important;
+    background: rgba(83, 51, 237, 0.9) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 4px !important;
+    padding: 4px 8px !important;
+    font-size: 0.75rem !important;
+    font-family: var(--font-ui) !important;
+    cursor: pointer !important;
+    opacity: 0 !important;
+    transition: opacity 0.3s ease !important;
+}
+
+.jp-CodeCell:hover clipboard-copy,
+.jp-CodeCell:hover .clipboard-copy {
+    opacity: 1 !important;
+}
+
+/* Style the copy icon */
+.clipboard-copy-icon {
+    width: 14px !important;
+    height: 14px !important;
+    margin-right: 4px !important;
+}
+
+/* ====================================
+ * SYNTAX HIGHLIGHTING FIXES
+ * ==================================== */
+
+/* Python syntax highlighting - proper VS Code dark theme colors */
+.highlight-ipynb.hl-python .err {
+    color: #f44747 !important;
+}
+.highlight-ipynb.hl-python .k {
+    color: #569cd6 !important;
+    font-weight: 600 !important;
+}
+.highlight-ipynb.hl-python .n {
+    color: #dcdcaa !important;
+}
+.highlight-ipynb.hl-python .s,
+.highlight-ipynb.hl-python .s1,
+.highlight-ipynb.hl-python .s2 {
+    color: #ce9178 !important;
+}
+.highlight-ipynb.hl-python .nb {
+    color: #4ec9b0 !important;
+}
+.highlight-ipynb.hl-python .c1,
+.highlight-ipynb.hl-python .c {
+    color: #6a9955 !important;
+    font-style: italic !important;
+}
+.highlight-ipynb.hl-python .mi,
+.highlight-ipynb.hl-python .mf {
+    color: #b5cea8 !important;
+}
+.highlight-ipynb.hl-python .nf {
+    color: #dcdcaa !important;
+}
+.highlight-ipynb.hl-python .o {
+    color: #d4d4d4 !important;
+}
+.highlight-ipynb.hl-python .p {
+    color: #d4d4d4 !important;
+}
+
+/* Add general text color for all code elements */
+.jp-CodeCell,
+.jp-CodeCell * {
+    color: #d4d4d4;
+}
+
+.jp-CodeCell .CodeMirror,
+.jp-CodeCell .CodeMirror * {
+    background: linear-gradient(
+        135deg,
+        rgba(30, 33, 38, 0.95) 0%,
+        rgba(26, 29, 32, 0.9) 100%
+    ) !important;
+    color: #d4d4d4 !important;
+}
+
+.jp-CodeCell .CodeMirror-lines {
+    background: transparent !important;
+}
+
+.jp-CodeCell .CodeMirror-gutters {
+    background: rgba(26, 29, 32, 0.8) !important;
+    border-right: 1px solid rgba(83, 51, 237, 0.2) !important;
+}
+
+.jp-CodeCell .CodeMirror-linenumber {
+    color: rgba(245, 247, 250, 0.5) !important;
+}
+
+/* Output text specifically */
+.jp-OutputArea-output,
+.jp-OutputArea-output *,
+.output,
+.output * {
+    color: #d4d4d4 !important;
+}
+
+/* Python output pre elements */
+.jp-OutputArea-output pre,
+.output_area pre,
+.nb-output pre {
+    background: rgba(26, 29, 32, 0.8) !important;
+    color: #d4d4d4 !important;
+    border: 1px solid rgba(4, 226, 220, 0.2) !important;
+    border-radius: var(--border-radius-sm) !important;
+    padding: var(--spacing-md) !important;
+    margin: var(--spacing-sm) 0 !important;
+    font-family: var(--font-code) !important;
+    font-size: 0.9rem !important;
+    line-height: 1.5 !important;
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+}
+
+/* Python traceback/error output */
+.jp-OutputArea-output pre[class*="stderr"],
+.output_area .output_stderr pre {
+    background: rgba(244, 71, 71, 0.1) !important;
+    color: #f44747 !important;
+    border-color: rgba(244, 71, 71, 0.3) !important;
+}
+
+/* Remove incorrect language badges on markdown */
+.jp-MarkdownCell .lang-badge,
+.jp-MarkdownCell::before {
+    display: none !important;
 }
 
 /* ====================================
@@ -678,69 +538,32 @@
  * ==================================== */
 
 @media (max-width: 768px) {
+    .jupyter-wrapper,
+    .notebook-content {
+        padding: var(--spacing-md);
+    }
+
     .jp-Cell,
     .cell,
     .nb-cell {
-        margin-bottom: var(--spacing-lg, 1.5rem);
-        border-radius: var(--border-radius-md, 8px);
-    }
-
-    .jp-InputArea .jp-Editor,
-    .input_area .codehilite,
-    .nb-input-content pre {
-        font-size: 0.9rem !important;
-        padding: var(--spacing-md, 1rem) !important;
-    }
-
-    .jp-OutputArea-output pre,
-    .output_area pre,
-    .nb-output pre {
-        font-size: 0.85rem !important;
-        padding: var(--spacing-md, 1rem) !important;
-    }
-
-    .jp-InputArea,
-    .jp-OutputArea-output,
-    .input_area,
-    .output,
-    .nb-input,
-    .nb-output {
-        flex-direction: column;
+        margin-bottom: var(--spacing-md);
     }
 
     .jp-InputPrompt,
     .jp-OutputPrompt,
     .input_prompt,
-    .output_prompt,
-    .nb-input-prompt,
-    .nb-output-prompt {
-        min-width: auto;
-        text-align: left;
-        border-right: none;
-        border-bottom: 3px solid;
-        padding: var(--spacing-md, 1rem);
+    .output_prompt {
+        font-size: 0.7rem !important;
+        padding: 0.3rem 0.5rem !important;
+        min-width: 60px !important;
+        color: var(--photon-white, #f5f7fa) !important;
     }
 
     .jp-InputArea .jp-Editor,
     .input_area .codehilite,
     .nb-input-content pre {
-        padding: var(--spacing-md, 1rem) !important;
-        font-size: 0.85rem !important;
-    }
-
-    .copy-button,
-    .jp-InputArea::after,
-    .jp-OutputArea-output::after {
-        top: 0.5rem;
-        right: 0.5rem;
-        font-size: 0.7rem;
-        padding: 0.4rem 0.6rem;
-    }
-
-    .lang-badge {
-        bottom: 0.5rem;
-        right: 0.5rem;
-        font-size: 0.65rem;
+        font-size: 0.8rem !important;
+        padding: 0.75rem !important;
     }
 }
 
@@ -754,46 +577,36 @@
     .nb-cell {
         break-inside: avoid;
         background: white !important;
-        border: 1px solid #ddd !important;
+        border: 1px solid #ccc !important;
         box-shadow: none !important;
-        backdrop-filter: none !important;
         transform: none !important;
     }
 
-    .copy-button,
-    .lang-badge,
-    .jp-InputArea::after,
-    .jp-OutputArea-output::after,
-    .jp-InputArea::before,
-    .jp-OutputArea-output::before {
+    clipboard-copy,
+    .clipboard-copy,
+    .copy-button {
         display: none !important;
     }
 
     .jp-InputPrompt,
     .jp-OutputPrompt,
     .input_prompt,
-    .output_prompt,
-    .nb-input-prompt,
-    .nb-output-prompt {
-        background: #f8f9fa !important;
-        color: #495057 !important;
-        border-color: #dee2e6 !important;
+    .output_prompt {
+        background: rgba(30, 33, 38, 0.9) !important;
+        color: var(--photon-white, #f5f7fa) !important;
+        border: 1px solid rgba(83, 51, 237, 0.3) !important;
     }
 }
 
 /* ====================================
- * ACCESSIBILITY ENHANCEMENTS
+ * ACCESSIBILITY
  * ==================================== */
 
 @media (prefers-reduced-motion: reduce) {
     .jp-Cell,
     .cell,
-    .nb-cell,
-    .copy-button,
-    .jp-InputArea::after,
-    .jp-OutputArea-output::after {
+    .nb-cell {
         transition: none !important;
-        transform: none !important;
     }
 }
 
@@ -802,72 +615,109 @@
     .cell,
     .nb-cell {
         border-width: 2px !important;
-        border-color: #000 !important;
-    }
-
-    .jp-InputPrompt,
-    .jp-OutputPrompt,
-    .input_prompt,
-    .output_prompt,
-    .nb-input-prompt,
-    .nb-output-prompt {
-        border-width: 4px !important;
-        color: #000 !important;
+        border-color: currentColor !important;
     }
 }
 
-/* Focus styles for keyboard navigation */
+/* Focus indicators */
 .jp-Cell:focus-within,
 .cell:focus-within,
 .nb-cell:focus-within {
-    outline: 3px solid var(--lab-violet, #5333ed);
+    outline: 2px solid #5333ed;
     outline-offset: 2px;
 }
 
-.copy-button:focus,
-.jp-InputArea::after:focus,
-.jp-OutputArea-output::after:focus {
-    outline: 2px solid white;
-    outline-offset: 2px;
+/* ====================================
+ * DISABLE ALL PSEUDO-ELEMENT COPY BUTTONS
+ * ==================================== */
+
+.jp-InputArea::after,
+.jp-InputArea::before,
+.jp-OutputArea::after,
+.jp-OutputArea::before,
+.input_area::after,
+.input_area::before,
+.output::after,
+.output::before {
+    display: none !important;
+    content: none !important;
 }
 
-/* Additional high contrast improvements */
-code {
-    background: #f1f5f9 !important;
-    color: #475569 !important;
-    border: 1px solid #cbd5e1 !important;
-    font-weight: 600 !important;
-    padding: 0.2em 0.4em !important;
-    border-radius: 3px !important;
-    font-family: var(--font-code, "IBM Plex Mono", monospace) !important;
-}
+/* ====================================
+ * CLEAN TABLE STYLING
+ * ==================================== */
 
-pre code {
-    background: transparent !important;
-    border: none !important;
-    padding: 0 !important;
-}
-
-/* Better contrast for different output types */
-.jp-OutputArea-output .jp-OutputArea-executeResult,
-.output_area .output_subarea {
-    color: #1e293b !important;
-    font-weight: 500;
-}
-
-/* Improved table readability */
 .jp-OutputArea table,
 .output table,
 .nb-output table {
-    background: #ffffff !important;
-    border: 1px solid #cbd5e1 !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border-collapse: collapse;
+    margin: var(--spacing-md) 0;
+    width: 100%;
+    background: linear-gradient(
+        135deg,
+        rgba(26, 29, 32, 0.9) 0%,
+        rgba(22, 25, 28, 0.95) 100%
+    );
+    border-radius: var(--border-radius-sm);
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    color: #d4d4d4;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
 }
 
-/* Better image contrast */
+.jp-OutputArea table th,
+.jp-OutputArea table td,
+.output table th,
+.output table td {
+    border: 1px solid #3c3c3c;
+    padding: 0.75rem;
+    text-align: left;
+    color: #d4d4d4;
+}
+
+.jp-OutputArea table th,
+.output table th {
+    background: linear-gradient(
+        135deg,
+        rgba(30, 33, 38, 0.9) 0%,
+        rgba(26, 29, 32, 0.95) 100%
+    );
+    font-weight: 600;
+    color: #cccccc;
+    border-color: rgba(83, 51, 237, 0.3);
+}
+
+/* ====================================
+ * IMAGE STYLING
+ * ==================================== */
+
 .jp-OutputArea img,
 .output img,
 .nb-output img {
-    border: 1px solid #e5e7eb;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--border-radius-sm);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin: var(--spacing-md) 0;
+}
+
+/* ====================================
+ * ERROR OUTPUT STYLING
+ * ==================================== */
+
+.jp-OutputArea-output.jp-OutputArea-executeResult--error,
+.output_area .output_stderr,
+.nb-error {
+    background: rgba(255, 84, 96, 0.1) !important;
+    border-left: 4px solid var(--status-error, #ff5460) !important;
+    color: var(--status-error, #ff5460) !important;
+}
+
+.jp-OutputArea-output.jp-OutputArea-executeResult--error pre,
+.output_area .output_stderr pre,
+.nb-error pre {
+    background: rgba(255, 84, 96, 0.05) !important;
+    color: var(--status-error, #ff5460) !important;
+    border: 1px solid rgba(255, 84, 96, 0.2) !important;
 }

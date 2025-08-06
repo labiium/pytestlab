@@ -972,6 +972,18 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
 
     <!-- Enhanced Prism.js Configuration -->
+    <!-- JavaScript files -->
+    <script src="{{ 'js/theme.js'|url }}"></script>
+
+    <!-- Extra JavaScript files from mkdocs.yml -->
+    {% for path in config.extra_javascript %}
+        {% if path.startswith('http') %}
+            <script src="{{ path }}"></script>
+        {% else %}
+            <script src="{{ path|url }}"></script>
+        {% endif %}
+    {% endfor %}
+
     <script>
         // Configure Prism.js for better syntax highlighting
         if (window.Prism) {

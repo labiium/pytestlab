@@ -794,7 +794,12 @@ pre[class*="language-"]::before,
 }
 
 /* Copy button integration with Prism */
-pre[class*="language-"] .copy-button {
+/* Only target user guide code blocks, not notebook cells */
+.article pre .copy-button,
+.page-content pre .copy-button,
+pre.highlight .copy-button,
+pre[class*="language-"] .copy-button:not(.jp-Cell .copy-button),
+.codehilite pre .copy-button {
     position: absolute;
     top: 0.75rem;
     right: 0.75rem;
@@ -805,8 +810,8 @@ pre[class*="language-"] .copy-button {
     );
     color: var(--photon-white);
     border: none;
-    border-radius: 4px;
-    padding: 0.4rem 1rem;
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
     font-family: var(--font-ui);
     font-size: 0.75rem;
     font-weight: 500;
@@ -821,20 +826,48 @@ pre[class*="language-"] .copy-button {
     z-index: 5;
 }
 
-pre[class*="language-"]:hover .copy-button {
+.article pre:hover .copy-button,
+.page-content pre:hover .copy-button,
+pre.highlight:hover .copy-button,
+pre[class*="language-"]:hover .copy-button:not(.jp-Cell .copy-button),
+.codehilite pre:hover .copy-button {
     opacity: 1;
     transform: translateY(0);
 }
 
-pre[class*="language-"] .copy-button:hover {
+.article pre .copy-button:hover,
+.page-content pre .copy-button:hover,
+pre.highlight .copy-button:hover,
+pre[class*="language-"] .copy-button:hover:not(.jp-Cell .copy-button),
+.codehilite pre .copy-button:hover {
+    background: linear-gradient(
+        135deg,
+        var(--lab-violet-light),
+        var(--lab-aqua)
+    );
     box-shadow: 0 4px 15px rgba(83, 51, 237, 0.5);
+    transform: translateY(-2px) scale(1.05);
 }
 
-pre[class*="language-"] .copy-button.copied {
+.article pre .copy-button.copied,
+.page-content pre .copy-button.copied,
+pre.highlight .copy-button.copied,
+pre[class*="language-"] .copy-button.copied:not(.jp-Cell .copy-button),
+.codehilite pre .copy-button.copied {
     background: linear-gradient(135deg, var(--status-success), #00c98d);
     box-shadow: 0 2px 10px rgba(0, 178, 124, 0.3);
 }
 
+.article pre .copy-button.error,
+.page-content pre .copy-button.error,
+pre.highlight .copy-button.error,
+pre[class*="language-"] .copy-button.error:not(.jp-Cell .copy-button),
+.codehilite pre .copy-button.error {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    box-shadow: 0 2px 10px rgba(239, 68, 68, 0.3);
+}
+
+pre .lang-badge,
 pre[class*="language-"] .lang-badge,
 .highlight pre .lang-badge,
 .codehilite pre .lang-badge {
@@ -856,6 +889,7 @@ pre[class*="language-"] .lang-badge,
     -webkit-backdrop-filter: blur(8px);
 }
 
+pre:hover .lang-badge,
 pre[class*="language-"]:hover .lang-badge,
 .highlight pre:hover .lang-badge,
 .codehilite pre:hover .lang-badge {
