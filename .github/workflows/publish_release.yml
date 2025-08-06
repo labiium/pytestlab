@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
 
 jobs:
   build:
@@ -13,7 +14,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.x"
 
@@ -55,12 +56,12 @@ jobs:
 
   github-release:
     name: Create GitHub Release
+    if: startsWith(github.ref, 'refs/tags/')
     needs:
       - publish-to-pypi
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      id-token: write
 
     steps:
       - name: Download all build artifacts
@@ -69,26 +70,26 @@ jobs:
           name: python-package-distributions
           path: dist/
 
-      - name: Sign the dists with Sigstore
-        uses: sigstore/gh-action-sigstore-python@v2.1.1
-        with:
-          inputs: >-
-            ./dist/*.tar.gz
-            ./dist/*.whl
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: >-
-          gh release create
-          '${{ github.ref_name }}'
-          --repo '${{ github.repository }}'
-          --notes ""
+        run: |
+          gh release create \
+            '${{ github.ref_name }}' \
+            --repo '${{ github.repository }}' \
+            --title "Release ${{ steps.version.outputs.VERSION }}" \
+            --notes "Release ${{ steps.version.outputs.VERSION }}" \
+            --generate-notes
 
-      - name: Upload artifact signatures to GitHub Release
+      - name: Upload artifacts to GitHub Release
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: >-
-          gh release upload
-          '${{ github.ref_name }}' dist/**
-          --repo '${{ github.repository }}'
+        run: |
+          gh release upload \
+            '${{ github.ref_name }}' \
+            dist/* \
+            --repo '${{ github.repository }}'
