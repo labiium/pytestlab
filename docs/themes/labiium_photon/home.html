@@ -298,7 +298,7 @@
                 height: 32px;
                 position: relative;
                 cursor: pointer;
-                z-index: 10000;
+                z-index: 1000;
             }
 
             .menu-toggle .line {
@@ -379,7 +379,7 @@
                 ) !important;
                 backdrop-filter: blur(24px) !important;
                 -webkit-backdrop-filter: blur(24px) !important;
-                z-index: 200;
+                z-index: 2000;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
@@ -1143,7 +1143,7 @@
                     background: var(--glass-nav-gradient) !important;
                     backdrop-filter: var(--glass-nav-blur) !important;
                     -webkit-backdrop-filter: var(--glass-nav-blur) !important;
-                    z-index: 9999 !important;
+                    z-index: 1500 !important;
                     display: flex !important;
                     flex-direction: column !important;
                     align-items: center !important;
@@ -2007,14 +2007,21 @@
                             });
                     };
 
-                    menuToggle.addEventListener("click", function (e) {
+                    // Ensure hamburger menu works in production
+                    const handleMenuClick = function (e) {
                         e.preventDefault();
                         e.stopPropagation();
+                        console.log("Menu toggle clicked");
                         if (navPrimary.classList.contains("active")) {
                             closeNav();
                         } else {
                             openNav();
                         }
+                    };
+
+                    menuToggle.addEventListener("click", handleMenuClick);
+                    menuToggle.addEventListener("touchstart", handleMenuClick, {
+                        passive: true,
                     });
 
                     // Close menu when clicking on the nav background (not nav content)

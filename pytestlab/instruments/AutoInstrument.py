@@ -132,7 +132,7 @@ class AutoInstrument:
                         pass
 
         # If not cached, fetch from the official CDN
-        url = f"https://pytestlab.org/config/{identifier}.yaml"
+        url = f"https://cdn.pytestlab.org/config/{identifier}.yaml"
         with httpx.Client() as client:
             try:
                 response = client.get(url, timeout=10)

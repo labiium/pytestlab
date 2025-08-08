@@ -281,14 +281,15 @@
 
         /* Mobile Menu Button */
         .menu-toggle {
-            display: none;
-            background: none;
-            border: none;
-            width: 32px;
-            height: 32px;
-            position: relative;
-            cursor: pointer;
-            z-index: 10000;
+            display: none !important;
+            background: none !important;
+            border: none !important;
+            width: 32px !important;
+            height: 32px !important;
+            position: relative !important;
+            cursor: pointer !important;
+            z-index: 1000 !important;
+            touch-action: manipulation !important;
         }
 
         .menu-toggle .line {
@@ -365,7 +366,7 @@
             background: rgba(11, 14, 17, 0.9);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            z-index: 200;
+            z-index: 2000;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -470,7 +471,11 @@
         /* Mobile Menu Styles */
         @media (max-width: 992px) {
             .menu-toggle {
-                display: block;
+                display: block !important;
+                position: relative !important;
+                z-index: 1000 !important;
+                pointer-events: auto !important;
+                touch-action: manipulation !important;
             }
 
             .nav-primary {
@@ -484,7 +489,7 @@
                 background: var(--glass-nav-gradient) !important;
                 backdrop-filter: var(--glass-nav-blur) !important;
                 -webkit-backdrop-filter: var(--glass-nav-blur) !important;
-                z-index: 9999 !important;
+                z-index: 1500 !important;
                 display: flex !important;
                 flex-direction: column !important;
                 align-items: center !important;
@@ -999,8 +1004,16 @@
             });
 
             // --- Mobile Menu Toggle ---
+            console.log("Production debug - Initializing mobile menu");
             const menuToggle = document.getElementById("menuToggle");
             const navPrimary = document.querySelector(".nav-primary");
+
+            console.log("Production debug - Elements found:", {
+                menuToggle: !!menuToggle,
+                navPrimary: !!navPrimary,
+                menuToggleClass: menuToggle?.className,
+                menuToggleStyle: menuToggle?.style.cssText
+            });
 
             if (menuToggle && navPrimary) {
                 const openNav = () => {
@@ -1022,15 +1035,33 @@
                         });
                 };
 
-                menuToggle.addEventListener("click", function (e) {
+                // Ensure hamburger menu works in production
+                const handleMenuClick = function (e) {
                     e.preventDefault();
                     e.stopPropagation();
+                    console.log("Production debug - Menu toggle clicked", {
+                        target: e.target,
+                        currentTarget: e.currentTarget,
+                        navActive: navPrimary.classList.contains("active")
+                    });
                     if (navPrimary.classList.contains("active")) {
                         closeNav();
                     } else {
                         openNav();
                     }
-                });
+                };
+
+                // Add multiple event types for better compatibility
+                menuToggle.addEventListener("click", handleMenuClick);
+                menuToggle.addEventListener("touchend", handleMenuClick, { passive: false });
+                menuToggle.addEventListener("pointerup", handleMenuClick);
+
+                // Ensure menu toggle is visible and interactive
+                menuToggle.style.pointerEvents = "auto";
+                menuToggle.style.position = "relative";
+                menuToggle.style.zIndex = "1000";
+
+                console.log("Production debug - Menu toggle event handlers attached");
 
                 // Handle dropdown toggles in mobile menu
                 const dropdownToggles = navPrimary.querySelectorAll(".dropdown-toggle");
@@ -1144,30 +1175,49 @@
                 // --- Search Functionality ---
                 let searchIndex = null;
 
-                // Load search index - try multiple paths
+                // Production debugging
+                console.log("Production debug - Location:", window.location);
+                console.log("Production debug - Menu toggle found:", !!menuToggle);
+                console.log("Production debug - Nav primary found:", !!navPrimary);
+
+                // Load search index - try multiple paths for production compatibility
+                const baseUrl = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
+                const sitePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
                 const searchPaths = [
+                    sitePath + "search/search_index.json",
+                    baseUrl + "search/search_index.json",
                     "./search/search_index.json",
                     "search/search_index.json",
                     "../search/search_index.json",
-                    "/search/search_index.json"
+                    "/search/search_index.json",
+                    window.location.origin + "/search/search_index.json"
                 ];
+
+                console.log("Production debug - Search paths:", searchPaths);
 
                 async function loadSearchIndex() {
                     for (const path of searchPaths) {
                         try {
-                            console.log("Trying search index path:", path);
-                            const response = await fetch(path);
+                            console.log("Production debug - Trying search index path:", path);
+                            const response = await fetch(path, {
+                                method: 'GET',
+                                headers: {
+                                    'Accept': 'application/json',
+                                },
+                                cache: 'no-cache'
+                            });
+                            console.log("Production debug - Response status:", response.status, "for path:", path);
                             if (response.ok) {
                                 const data = await response.json();
                                 searchIndex = data;
-                                console.log("Search index loaded successfully from:", path, searchIndex);
+                                console.log("Production debug - Search index loaded successfully from:", path, "docs count:", data?.docs?.length || 0);
                                 return;
                             }
                         } catch (error) {
-                            console.log("Failed to load search index from:", path, error);
+                            console.log("Production debug - Failed to load search index from:", path, error.message);
                         }
                     }
-                    console.log("Search index could not be loaded from any path");
+                    console.error("Production debug - Search index could not be loaded from any path");
                 }
 
                 loadSearchIndex();

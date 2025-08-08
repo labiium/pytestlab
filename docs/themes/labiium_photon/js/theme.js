@@ -67,14 +67,21 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     };
 
-    menuToggle.addEventListener("click", (e) => {
+    // Ensure hamburger menu works in production
+    const handleMenuClick = (e) => {
       e.preventDefault();
       e.stopPropagation();
+      console.log("Menu toggle clicked");
       if (navPrimary.classList.contains("active")) {
         closeNav();
       } else {
         openNav();
       }
+    };
+
+    menuToggle.addEventListener("click", handleMenuClick);
+    menuToggle.addEventListener("touchstart", handleMenuClick, {
+      passive: true,
     });
 
     // Close menu when clicking on the nav background (not nav content)
@@ -264,12 +271,16 @@ document.addEventListener("DOMContentLoaded", () => {
   if (searchButton && searchModal && searchInput) {
     let searchIndex = null;
 
-    // Load search index - try multiple paths
+    // Load search index - try multiple paths for production compatibility
+    const baseUrl =
+      window.location.origin + window.location.pathname.replace(/[^/]*$/, "");
     const searchPaths = [
+      baseUrl + "search/search_index.json",
       "./search/search_index.json",
       "search/search_index.json",
       "../search/search_index.json",
       "/search/search_index.json",
+      window.location.origin + "/search/search_index.json",
     ];
 
     async function loadSearchIndex() {

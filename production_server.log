@@ -1,0 +1,87 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/emmanuel/miniconda3/envs/ptl/lib/python3.13/http/server.py", line 1323, in <module>
+    test(
+    ~~~~^
+        HandlerClass=handler_class,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+        protocol=args.protocol,
+        ^^^^^^^^^^^^^^^^^^^^^^^
+  127.0.0.1 - - [06/Aug/2025 21:32:11] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [06/Aug/2025 21:32:11] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [06/Aug/2025 21:32:11] "GET /installation/ HTTP/1.1" 200 -
+127.0.0.1 - - [06/Aug/2025 21:32:11] "GET /user_guide/getting_started/ HTTP/1.1" 200 -
+127.0.0.1 - - [06/Aug/2025 21:32:11] "GET /api/instruments/ HTTP/1.1" 200 -
+127.0.0.1 - - [06/Aug/2025 21:32:11] "GET /tutorials/10_minute_tour/ HTTP/1.1" 200 -
+127.0.0.1 - - [06/Aug/2025 21:32:11] code 404, message File not found
+127.0.0.1 - - [06/Aug/2025 21:32:11] "GET /debug_search.html HTTP/1.1" 404 -
+127.0.0.1 - - [06/Aug/2025 21:32:11] "GET /search/search_index.json HTTP/1.1" 200 -
+127.0.0.1 - - [06/Aug/2025 21:32:11] "GET /search/lunr.js HTTP/1.1" 200 -
+127.0.0.1 - - [06/Aug/2025 21:32:11] "GET /search/main.js HTTP/1.1" 200 -
+127.0.0.1 - - [06/Aug/2025 21:32:11] "GET /search/worker.js HTTP/1.1" 200 -
+127.0.0.1 - - [06/Aug/2025 21:32:11] "GET /css/theme.css HTTP/1.1" 200 -
+127.0.0.1 - - [06/Aug/2025 21:32:11] "GET /js/theme.js HTTP/1.1" 200 -
+127.0.0.1 - - [06/Aug/2025 21:32:11] "GET /stylesheets/extra.css HTTP/1.1" 200 -
+127.0.0.1 - - [06/Aug/2025 21:32:11] "GET /stylesheets/notebook-enhancements.css HTTP/1.1" 200 -
+127.0.0.1 - - [06/Aug/2025 21:32:11] "GET /js/notebook-enhancements.js HTTP/1.1" 200 -
+127.0.0.1 - - [06/Aug/2025 21:32:11] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [06/Aug/2025 21:32:11] "GET /installation/ HTTP/1.1" 200 -
+127.0.0.1 - - [06/Aug/2025 21:32:11] "GET /api/instruments/ HTTP/1.1" 200 -
+127.0.0.1 - - [06/Aug/2025 21:32:11] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [06/Aug/2025 21:32:11] "GET /search/search_index.json HTTP/1.1" 200 -
+127.0.0.1 - - [06/Aug/2025 21:32:11] "GET /installation/ HTTP/1.1" 200 -
+127.0.0.1 - - [06/Aug/2025 21:32:11] "GET /search/search_index.json HTTP/1.1" 200 -
+127.0.0.1 - - [06/Aug/2025 21:32:11] "GET /api/instruments/ HTTP/1.1" 200 -
+127.0.0.1 - - [06/Aug/2025 21:32:11] "GET /search/search_index.json HTTP/1.1" 200 -
+127.0.0.1 - - [06/Aug/2025 21:32:11] "GET /tutorials/10_minute_tour/ HTTP/1.1" 200 -
+127.0.0.1 - - [06/Aug/2025 21:32:11] "GET /search/search_index.json HTTP/1.1" 200 -
+127.0.0.1 - - [06/Aug/2025 21:32:11] code 404, message File not found
+127.0.0.1 - - [06/Aug/2025 21:32:11] "GET /debug_search.html HTTP/1.1" 404 -
+127.0.0.1 - - [06/Aug/2025 21:33:34] "HEAD /debug_search.html HTTP/1.1" 200 -
+127.0.0.1 - - [06/Aug/2025 21:33:39] "GET /search/search_index.json HTTP/1.1" 200 -
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 65045)
+Traceback (most recent call last):
+  File "/Users/emmanuel/miniconda3/lib/python3.13/socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/emmanuel/miniconda3/lib/python3.13/http/server.py", line 1317, in finish_request
+    self.RequestHandlerClass(request, client_address, self,
+    ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                             directory=args.directory)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/emmanuel/miniconda3/lib/python3.13/http/server.py", line 672, in __init__
+    super().__init__(*args, **kwargs)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Users/emmanuel/miniconda3/lib/python3.13/socketserver.py", line 766, in __init__
+    self.handle()
+    ~~~~~~~~~~~^^
+  File "/Users/emmanuel/miniconda3/lib/python3.13/http/server.py", line 436, in handle
+    self.handle_one_request()
+    ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/emmanuel/miniconda3/lib/python3.13/http/server.py", line 424, in handle_one_request
+    method()
+    ~~~~~~^^
+  File "/Users/emmanuel/miniconda3/lib/python3.13/http/server.py", line 679, in do_GET
+    self.copyfile(f, self.wfile)
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "/Users/emmanuel/miniconda3/lib/python3.13/http/server.py", line 878, in copyfile
+    shutil.copyfileobj(source, outputfile)
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/Users/emmanuel/miniconda3/lib/python3.13/shutil.py", line 204, in copyfileobj
+    fdst_write(buf)
+    ~~~~~~~~~~^^^^^
+  File "/Users/emmanuel/miniconda3/lib/python3.13/socketserver.py", line 845, in write
+    self._sock.sendall(b)
+    ~~~~~~~~~~~~~~~~~~^^^
+BrokenPipeError: [Errno 32] Broken pipe
+----------------------------------------
+127.0.0.1 - - [06/Aug/2025 21:33:44] "GET /installation/ HTTP/1.1" 200 -
+127.0.0.1 - - [07/Aug/2025 00:14:40] code 501, message Unsupported method ('POST')
+127.0.0.1 - - [07/Aug/2025 00:14:40] "POST /api/v1/auth/login HTTP/1.1" 501 -
+127.0.0.1 - - [07/Aug/2025 00:14:52] code 501, message Unsupported method ('POST')
+127.0.0.1 - - [07/Aug/2025 00:14:52] "POST /api/v1/auth/login HTTP/1.1" 501 -
+127.0.0.1 - - [07/Aug/2025 00:15:49] code 501, message Unsupported method ('POST')
+127.0.0.1 - - [07/Aug/2025 00:15:49] "POST /api/v1/auth/login HTTP/1.1" 501 -
