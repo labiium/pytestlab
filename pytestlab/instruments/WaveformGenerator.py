@@ -1300,7 +1300,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
             binary_data = np_data.astype('<f').tobytes()
         cmd_prefix = f"SOUR{ch}:DATA:{arb_cmd_node}{scpi_suffix} {arb_name},"
         try:
-            self._write_binary(cmd_prefix, binary_data) # Assumed async
+            self._write_binary(cmd_prefix, binary_data)
             transfer_type_log_msg = "IEEE 488.2 Binary Block via _write_binary"
             self._logger.debug(f"Channel {ch}: Downloaded arb '{arb_name}' via {transfer_type_log_msg} ({num_points_per_channel} pts/ch, {len(binary_data)} bytes, type: {data_type_upper})")
             self._error_check()

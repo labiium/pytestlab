@@ -1,6 +1,6 @@
 from typing import Any, TypeVar, Generic, Optional, List # Added Optional, List
 from ..config.spectrum_analyzer_config import SpectrumAnalyzerConfig
-from .instrument import Instrument # Assuming Instrument is async
+from .instrument import Instrument
 # from ..experiments.results import MeasurementResult # If this is the return type for traces
 # from .scpi_maps import CommonSCPI, SystemSCPI # And a specific SA SCPI map
 

@@ -17,9 +17,9 @@ from ..config.loader import load_profile
 from ..config.instrument_config import InstrumentConfig as PydanticInstrumentConfig # Base Pydantic config
 
 # Import new backend classes
-from .backends.async_visa_backend import AsyncVisaBackend
+from .backends.visa_backend import VisaBackend
 from .backends.sim_backend import SimBackend
-from .backends.lamb import AsyncLambBackend  # Class name changed from LambInstrument
+from .backends.lamb import LambBackend  # Class name changed from LambInstrument
 from .backends.replay_backend import ReplayBackend # Add this import
 
 import os
@@ -484,14 +484,14 @@ class AutoInstrument:
                         raise InstrumentConfigurationError(
                             config_source, "Missing address/resource_name for VISA backend."
                         )
-                    backend_instance = AsyncVisaBackend(address=actual_address, timeout_ms=actual_timeout)
-                    if debug_mode: print(f"Using AsyncVisaBackend for '{actual_address}' with timeout {actual_timeout}ms.")
+                    backend_instance = VisaBackend(address=actual_address, timeout_ms=actual_timeout)
+                    if debug_mode: print(f"Using VisaBackend for '{actual_address}' with timeout {actual_timeout}ms.")
                 elif chosen_backend_type == 'lamb':
                     lamb_server_url = getattr(config_model, 'lamb_url', 'http://lamb-server:8000')
                     if actual_address:
-                        backend_instance = AsyncLambBackend(address=actual_address, url=lamb_server_url, timeout_ms=actual_timeout)
+                        backend_instance = LambBackend(address=actual_address, url=lamb_server_url, timeout_ms=actual_timeout)
                     elif hasattr(config_model, "model") and hasattr(config_model, "serial_number"):
-                        backend_instance = AsyncLambBackend(
+                        backend_instance = LambBackend(
                             address=None,
                             url=lamb_server_url,
                             timeout_ms=actual_timeout,
@@ -504,7 +504,7 @@ class AutoInstrument:
                             "Lamb backend requires either an address or both model and serial_number in the config.",
                         )
                     if debug_mode:
-                        print(f"Using AsyncLambBackend for model='{getattr(config_model, 'model', None)}', serial='{getattr(config_model, 'serial_number', None)}' via '{lamb_server_url}' with timeout {actual_timeout}ms.")
+                        print(f"Using LambBackend for model='{getattr(config_model, 'model', None)}', serial='{getattr(config_model, 'serial_number', None)}' via '{lamb_server_url}' with timeout {actual_timeout}ms.")
                 else:
                     raise InstrumentConfigurationError(
                         config_source, f"Unsupported backend_type '{chosen_backend_type}'."

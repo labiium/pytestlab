@@ -49,7 +49,7 @@ docs = [
     "watchdog>=6.0.0",
 ]
 plot = ["matplotlib", "plotly"]
-full = ["pytestlab[plot]", "uncertainties", "pydantic", "pyvisa-sim"]
+full = ["pytestlab[plot]", "uncertainties", "pydantic"]
 dev = [
     "ruff",
     "mypy",

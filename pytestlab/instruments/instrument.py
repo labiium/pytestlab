@@ -50,39 +50,6 @@ class InstrumentIO(Protocol):
         """Gets the communication timeout in milliseconds."""
         ...
 
-class AsyncInstrumentIO(Protocol):
-    """Defines the interface for an asynchronous instrument communication backend.
-
-    This protocol specifies the essential async methods that an asynchronous
-    backend (e.g., using async VISA, HTTP, or a simulation) must implement.
-    This is the primary interface used by the `Instrument` class.
-    """
-    def connect(self) -> None:
-        """Establishes the connection to the instrument asynchronously."""
-        ...
-    def disconnect(self) -> None:
-        """Terminates the connection to the instrument asynchronously."""
-        ...
-    def write(self, cmd: str) -> None:
-        """Sends a command to the instrument asynchronously."""
-        ...
-    def query(self, cmd: str, delay: Optional[float] = None) -> str:
-        """Sends a command and reads a string response asynchronously."""
-        ...
-    def query_raw(self, cmd: str, delay: Optional[float] = None) -> bytes:
-        """Sends a command and reads a raw byte response asynchronously."""
-        ...
-    def close(self) -> None:
-        """Closes the instrument session asynchronously."""
-        ...
-
-    def set_timeout(self, timeout_ms: int) -> None:
-        """Sets the communication timeout in milliseconds asynchronously."""
-        ...
-    def get_timeout(self) -> int:
-        """Gets the communication timeout in milliseconds asynchronously."""
-        ...
-
 class Instrument(Generic[ConfigType]):
     """Base class for all instrument drivers.
 
@@ -119,7 +86,7 @@ class Instrument(Generic[ConfigType]):
 
         Args:
             config (ConfigType): Configuration for the instrument.
-            backend (AsyncInstrumentIO): The communication backend instance.
+            backend (InstrumentIO): The communication backend instance.
             **kwargs: Additional keyword arguments.
         """
         if not isinstance(config, InstrumentConfig): # Check against the bound base
@@ -138,13 +105,9 @@ class Instrument(Generic[ConfigType]):
         self._logger.info(f"Instrument '{logger_name}': Initializing with backend '{type(backend).__name__}'.")
         scpi_section = self.config.scpi if hasattr(self.config, 'scpi') and self.config.scpi is not None else {}
         self.scpi_engine = SCPIEngine(scpi_section)
-    # Note: from_config might need to become async or handle async backend instantiation.
-    # This will be addressed when AutoInstrument is updated.
+
     @classmethod
     def from_config(cls: Type[Instrument], config: InstrumentConfig, debug_mode: bool = False) -> Instrument:
-        # This method will likely need significant changes to support async backends.
-        # For now, it's a placeholder and might not work correctly with async backends.
-        # It should ideally accept an async_mode flag or similar to determine backend type.
         if not isinstance(config, InstrumentConfig):
             raise InstrumentConfigurationError(
                 cls.__name__, "from_config expects an InstrumentConfig object."
@@ -152,7 +115,7 @@ class Instrument(Generic[ConfigType]):
         # The backend instantiation is missing here and is crucial.
         # This will be handled by AutoInstrument.from_config later.
         raise NotImplementedError(
-            "from_config needs to be updated for async backend instantiation."
+            "from_config needs to be updated for backend instantiation."
         )
 
 
@@ -172,7 +135,7 @@ class Instrument(Generic[ConfigType]):
             self._logger.info(f"Instrument '{logger_name}': Backend connected.")
         except Exception as e:
             self._logger.error(f"Instrument '{logger_name}': Failed to connect backend: {e}")
-            if hasattr(self._backend, 'disconnect'): # Check if disconnect is available (it should be for AsyncInstrumentIO)
+            if hasattr(self._backend, 'disconnect'): # Check if disconnect is available
                 try:
                     self._backend.disconnect()
                 except Exception as disc_e:
@@ -459,7 +422,7 @@ class Instrument(Generic[ConfigType]):
         try:
             model_name_for_logger = self.config.model if hasattr(self.config, 'model') else self.__class__.__name__
             self._logger.info(f"Instrument '{model_name_for_logger}': Closing connection.")
-            self._backend.close() # Changed to use close as per AsyncInstrumentIO
+            self._backend.close() # Changed to use close
             self._logger.info(f"Instrument '{model_name_for_logger}': Connection closed.")
         except Exception as e:
             model_name_for_logger = self.config.model if hasattr(self.config, 'model') else self.__class__.__name__

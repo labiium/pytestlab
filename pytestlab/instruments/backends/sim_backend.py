@@ -19,7 +19,6 @@ A radical redesign of the PyTestLab simulation backend.  Key features:
   boolean expressions evaluated against the live state **and** regex groups.
 * **Time-domain realism** — optional artificial delay, busy locks and
   deterministic/random jitter to mimic real instruments.
-* **100% asyncio-first** — fully implements ``AsyncInstrumentIO``.
 * **Extensive logging** at ``DEBUG`` level with message correlation IDs.
 
 This single file is *self-contained*; split into modules inside the PyTestLab
@@ -47,7 +46,7 @@ from datetime import datetime
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Callable, Dict, List, MutableMapping, Optional, Pattern, Tuple
-
+from ..instrument import InstrumentIO
 import yaml
 
 ###############################################################################
@@ -235,7 +234,7 @@ class _PatternRule:
 # Main backend class
 ###############################################################################
 
-class SimBackend:  # implements AsyncInstrumentIO
+class SimBackend(InstrumentIO):  # implements InstrumentIO
     """
     Drop-in replacement for the existing *SimBackend* with vastly richer
     functionality (see module docstring for highlights).

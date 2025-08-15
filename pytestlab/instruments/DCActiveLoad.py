@@ -12,7 +12,7 @@ from uncertainties import ufloat
 from uncertainties.core import UFloat
 
 
-from .instrument import Instrument, AsyncInstrumentIO
+from .instrument import Instrument, InstrumentIO
 from ..errors import InstrumentParameterError, InstrumentCommunicationError
 from ..config.dc_active_load_config import DCActiveLoadConfig, ModeSpec, ReadbackAccuracySpec
 from ..config.instrument_config import InstrumentConfig
@@ -39,7 +39,7 @@ class DCActiveLoad(Instrument):
     config: DCActiveLoadConfig  # Type hint for the specific config
     current_mode: Optional[str] = None
 
-    def __init__(self, config: DCActiveLoadConfig, backend: AsyncInstrumentIO, **kwargs: Any) -> None:
+    def __init__(self, config: DCActiveLoadConfig, backend: InstrumentIO, **kwargs: Any) -> None:
         super().__init__(config, backend, **kwargs)
         self.current_mode = None
 
@@ -47,7 +47,7 @@ class DCActiveLoad(Instrument):
     def from_config(
         cls,
         config: "InstrumentConfig",
-        backend: AsyncInstrumentIO,
+        backend: InstrumentIO,
         **kwargs: Any
     ) -> "DCActiveLoad":  # type: ignore[override]
         """

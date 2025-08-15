@@ -6,8 +6,8 @@ import logging
 
 from ...errors import InstrumentConnectionError, InstrumentCommunicationError
 
-if TYPE_CHECKING:
-    from ..instrument import AsyncInstrumentIO
+# if TYPE_CHECKING:
+from ..instrument import InstrumentIO
 
 try:
     from ..._log import get_logger
@@ -17,7 +17,7 @@ except ImportError:
     lamb_logger.warning("Could not import pytestlab's get_logger; LambBackend using fallback logger.")
 
 
-class AsyncLambBackend:  # Implements AsyncInstrumentIO
+class LambBackend(InstrumentIO):  # Implements AsyncInstrumentIO
     """
     An asynchronous backend for communicating with instruments via a Lamb server.
     Supports both direct visa_string and auto-connect via model/serial_number.
