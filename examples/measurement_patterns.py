@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 """
-PyTestLab Migration Example - AFTER (Sync Version)
-
-This file demonstrates the converted synchronous PyTestLab patterns after migration
-from the async API. Compare with migration_example_before.py to see the differences.
+PyTestLab Migration Examples
 """
 
 import numpy as np

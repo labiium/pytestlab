@@ -7,6 +7,7 @@ This script tests all major features of the new extended bench configuration.
 import os
 import sys
 import traceback
+import pytest
 from pathlib import Path
 
 # Add the current directory to Python path
@@ -34,12 +35,15 @@ def test_bench_configuration_loading():
         print(f"   Custom validations: {len(config.custom_validations)}")
         print(f"   Automation hooks: pre={len(config.automation.pre_experiment)}, post={len(config.automation.post_experiment)}")
 
-        return config
+        # Validate minimally
+        assert isinstance(config.bench_name, str)
+        assert config.experiment is not None
+        assert isinstance(config.instruments, dict)
 
     except Exception as e:
         print(f"❌ Failed to load bench configuration: {e}")
         traceback.print_exc()
-        return None
+        pytest.fail(f"Failed to load bench configuration: {e}")
 
 def test_bench_opening():
     """Test opening the bench with full initialization."""
@@ -50,21 +54,28 @@ def test_bench_opening():
     try:
         # Test bench opening
         bench = Bench.open(config_file)
-        print(f"✅ Bench opened successfully: {bench.name}")
+        print(f"✅ Bench opened successfully: {bench.config.bench_name}")
         print(f"   Available instruments: {list(bench.instruments.keys())}")
 
         # Test properties
         print(f"   Experiment notes: {bench.experiment_notes[:50]}..." if bench.experiment_notes else "   No experiment notes")
         print(f"   Version: {bench.version}")
-        print(f"   Traceability info: {len(bench.traceability)} items" if bench.traceability else "   No traceability info")
+        if bench.traceability:
+            tr = bench.traceability
+            calib_count = len(tr.calibration) if tr.calibration else 0
+            env_count = 1 if tr.environment else 0
+            dut_count = 1 if tr.dut else 0
+            print(f"   Traceability info: {calib_count + env_count + dut_count} items")
+        else:
+            print("   No traceability info")
         print(f"   Measurement plan: {len(bench.measurement_plan)} steps" if bench.measurement_plan else "   No measurement plan")
 
-        return bench
+        assert bench is not None
 
     except Exception as e:
         print(f"❌ Failed to open bench: {e}")
         traceback.print_exc()
-        return None
+        pytest.fail(f"Failed to open bench: {e}")
 
 def test_instrument_access():
     """Test accessing instruments through the bench."""
@@ -74,7 +85,7 @@ def test_instrument_access():
 
     try:
         with Bench.open(config_file) as bench:
-            print(f"✅ Using bench as context manager: {bench.name}")
+            print(f"✅ Using bench as context manager: {bench.config.bench_name}")
 
             # Test instrument access
             for name, instrument in bench.instruments.items():
@@ -83,12 +94,11 @@ def test_instrument_access():
                 print(f"     Address: {instrument.address if hasattr(instrument, 'address') else 'N/A'}")
 
         print("✅ Context manager cleanup completed")
-        return True
 
     except Exception as e:
         print(f"❌ Failed to access instruments: {e}")
         traceback.print_exc()
-        return False
+        pytest.fail(f"Failed to access instruments: {e}")
 
 def test_safety_limits():
     """Test safety limit enforcement."""
@@ -102,12 +112,12 @@ def test_safety_limits():
             psu = bench.instruments.get('psu1')
             if not psu:
                 print("⚠️ PSU not available for safety testing")
-                return True
+                pytest.skip("PSU not available for safety testing")
 
             print(f"✅ Found PSU: {type(psu).__name__}")
 
             # Test that safety wrapper is applied
-            from pytestlab.instruments.safety import SafeInstrumentWrapper
+            from pytestlab.bench import SafeInstrumentWrapper
             if isinstance(psu, SafeInstrumentWrapper):
                 print("✅ Safety wrapper applied to PSU")
                 print(f"   Safety limits: {psu.safety_limits}")
@@ -118,12 +128,12 @@ def test_safety_limits():
             else:
                 print("⚠️ Safety wrapper not applied - this may be expected for simulation")
 
-        return True
+        assert True
 
     except Exception as e:
         print(f"❌ Failed to test safety limits: {e}")
         traceback.print_exc()
-        return False
+        pytest.fail(f"Failed to test safety limits: {e}")
 
 def test_automation_hooks():
     """Test automation hook execution."""
@@ -140,12 +150,11 @@ def test_automation_hooks():
             print("✅ Post-experiment hooks will execute during cleanup")
 
         print("✅ Automation hook system functional")
-        return True
 
     except Exception as e:
         print(f"❌ Failed to test automation hooks: {e}")
         traceback.print_exc()
-        return False
+        pytest.fail(f"Failed to test automation hooks: {e}")
 
 def test_traceability_and_measurement_plan():
     """Test traceability and measurement plan access."""
@@ -158,8 +167,13 @@ def test_traceability_and_measurement_plan():
             # Test traceability
             if bench.traceability:
                 print("✅ Traceability information available:")
-                for category, data in bench.traceability.items():
-                    print(f"   {category}: {len(data) if isinstance(data, dict) else 1} items")
+                tr = bench.traceability
+                if tr.calibration:
+                    print(f"   calibration: {len(tr.calibration)} items")
+                if tr.environment:
+                    print("   environment: 1 item")
+                if tr.dut:
+                    print("   dut: 1 item")
 
             # Test measurement plan
             if bench.measurement_plan:
@@ -167,12 +181,12 @@ def test_traceability_and_measurement_plan():
                 for i, step in enumerate(bench.measurement_plan):
                     print(f"   Step {i+1}: {step.name} ({step.instrument})")
 
-        return True
+        assert True
 
     except Exception as e:
         print(f"❌ Failed to test traceability/measurement plan: {e}")
         traceback.print_exc()
-        return False
+        pytest.fail(f"Failed to test traceability/measurement plan: {e}")
 
 def main():
     """Run all tests."""
@@ -219,7 +233,7 @@ def main():
     print("=" * 50)
     print("✅ Extended bench system is fully functional")
     print("✅ Configuration loading and validation works")
-    print("✅ Async bench initialization works")
+    print("✅ Bench initialization works")
     print("✅ Instrument access and management works")
     print("✅ Safety limit system is ready")
     print("✅ Automation hooks execute properly")

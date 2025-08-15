@@ -167,11 +167,7 @@ class TestReplayRecord:
                 def __init__(self):
                     self.psu = MockInstrument({'*IDN?': 'Keysight Technologies,EDU36311A,Test'})
 
-                def __aenter__(self):
-                    return self
 
-                def __aexit__(self, exc_type, exc_val, exc_tb):
-                    pass
 
             # Mock Bench.open
             with patch('pytestlab.bench.Bench.open', return_value=MockBench()):
@@ -216,11 +212,11 @@ def main(bench):
     psu = bench.psu
 
     # This sequence must match the session data exactly
-    psu_id = await psu._backend.query('*IDN?')  # Direct backend call
-    await psu._backend.write('CURR 0.1, (@1)')
-    await psu._backend.write('OUTP:STAT ON, (@1)')
-    await psu._backend.write('VOLT 1.0, (@1)')
-    voltage = await psu._backend.query('MEAS:VOLT? (@1)')
+    psu_id = psu._backend.query('*IDN?')  # Direct backend call
+    psu._backend.write('CURR 0.1, (@1)')
+    psu._backend.write('OUTP:STAT ON, (@1)')
+    psu._backend.write('VOLT 1.0, (@1)')
+    voltage = psu._backend.query('MEAS:VOLT? (@1)')
 
     return {"psu_id": psu_id, "voltage": voltage}
 
@@ -244,11 +240,7 @@ if __name__ == "__main__":
                     psu_backend = ReplayBackend(session_file, 'psu')
                     self.psu = MockReplayInstrument(psu_backend)
 
-                def __aenter__(self):
-                    return self
 
-                def __aexit__(self, exc_type, exc_val, exc_tb):
-                    pass
 
             # Test that the ReplayBackend can be set up correctly with session data
             # This verifies the core replay functionality works
@@ -279,10 +271,10 @@ def main(bench):
     psu = bench.psu
 
     # First command matches
-    await psu._backend.query('*IDN?')
+    psu._backend.query('*IDN?')
 
     # Second command is different - this should cause ReplayMismatchError
-    await psu._backend.write('VOLT 2.0, (@1)')  # Session expects 'CURR 0.1, (@1)'
+    psu._backend.write('VOLT 2.0, (@1)')  # Session expects 'CURR 0.1, (@1)'
 
     return {}
 '''

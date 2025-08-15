@@ -32,7 +32,7 @@ echo "New files implemented:"
 echo "📁 pytestlab/instruments/backends/replay_backend.py"
 echo "📁 pytestlab/instruments/backends/session_recording_backend.py" 
 echo "📄 Updated: pytestlab/instruments/AutoInstrument.py (backend_override)"
-echo "📄 Updated: pytestlab/cli.py (replay commands + async handling)"
+echo "📄 Updated: pytestlab/cli.py (replay commands)"
 echo ""
 echo "Example/test files:"
 ls -la *.py *.yaml *.sh | grep -E "(replay|session)" | head -10

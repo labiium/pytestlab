@@ -6,11 +6,11 @@ A declarative GUI framework for building interactive instrument control panels
 in Jupyter notebooks.
 
 Key modules:
-- async_utils: Helper functions for async/sync bridge in widget callbacks
+- threading_utils: Helper functions for threading in widget callbacks
 - builder: Declarative panel builder with Slider, Toggle, and Button controls
 """
 
-from .async_utils import awidget_callback, run_coro_safely
+from .threading_utils import awidget_callback
 from .builder import InstrumentPanel, Slider, Toggle, Button
 
 __all__ = [

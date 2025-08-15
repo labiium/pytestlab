@@ -37,7 +37,7 @@ Users describe **what they want to control** in plain Python dictionaries:
         ],
     )
 
-That's it – run the cell and the panel is displayed & fully asynchronous.
+That's it – run the cell and the panel is displayed & fully functional.
 
 Widgets
 -------
@@ -60,20 +60,20 @@ from typing import Any, Callable, List, Sequence
 import ipywidgets as w
 from IPython.display import display
 
-from .async_utils import awidget_callback
+from .threading_utils import awidget_callback
 
 
 # --------------------------------------------------------------------------- #
 # Type helpers                                                                #
 # --------------------------------------------------------------------------- #
 T_Inst = Any
-CoroOrVal = Awaitable[Any] | Any
+CoroOrVal = Any
 Getter = Callable[[T_Inst], CoroOrVal]
 Setter = Callable[[T_Inst, Any], CoroOrVal]
 Action = Callable[[T_Inst, "InstrumentPanel"], CoroOrVal]
 
 
-def _maybe_await(value: CoroOrVal) -> Any:
+def _get_value(value: CoroOrVal) -> Any:
     """Return value directly since all operations are now synchronous."""
     return value
 
@@ -114,7 +114,7 @@ class Slider(_ControlBase):
 
         # initialise from instrument
         def _init():
-            val = _maybe_await(self.getter(panel.inst))
+            val = _get_value(self.getter(panel.inst))
             sld.value = float(val)
 
         panel._background(_init())
@@ -139,7 +139,7 @@ class Toggle(_ControlBase):
 
         # read initial state
         def _init():
-            state = _maybe_await(self.getter(panel.inst))
+            state = _get_value(self.getter(panel.inst))
             btn.value = bool(state)
             btn.description = self.on_desc if btn.value else self.off_desc or self.label
 
@@ -147,7 +147,7 @@ class Toggle(_ControlBase):
 
         def _apply(change):
             new_state = change["new"]
-            _maybe_await(self.setter(panel.inst, new_state))
+            _get_value(self.setter(panel.inst, new_state))
             btn.description = self.on_desc if new_state else self.off_desc or self.label
 
         btn.observe(awidget_callback(_apply), names="value")
@@ -164,7 +164,7 @@ class Button(_ControlBase):
         btn = w.Button(description=self.label, button_style=self.style)
 
         def _on_click(_):
-            _maybe_await(self.action(panel.inst, panel))
+            _get_value(self.action(panel.inst, panel))
 
         btn.on_click(awidget_callback(_on_click))
         return btn
@@ -205,5 +205,5 @@ class InstrumentPanel:
         """Iterate over **Slider** controls and re-pull their getter."""
         for ctrl, widget in zip(self.controls, self.widgets):
             if isinstance(ctrl, Slider):
-                val = _maybe_await(ctrl.getter(self.inst))
+                val = _get_value(ctrl.getter(self.inst))
                 widget.value = float(val)

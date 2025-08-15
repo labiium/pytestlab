@@ -29,7 +29,6 @@ from .bench import Bench
 
 # ─── New high-level builder ────────────────────────────────────────────────
 from .measurements.session import Measurement, MeasurementSession  # noqa: E402  pylint: disable=wrong-import-position
-from .reporting import *  # Re-export reporting API
 
 __all__ = [
     # Config
@@ -56,11 +55,7 @@ __all__ = [
     # New measurement system
     "Measurement",
     "MeasurementSession",
-    "set_log_level",
-    # Reporting
-    "ReportSpec",
-    "FigureSpec",
-    "generate_pdf_report",
+    "set_log_level"
 ]
 
 # Version is defined statically above, but we can still try to get it from metadata

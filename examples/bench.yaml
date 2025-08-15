@@ -19,6 +19,9 @@ experiment:
 
 simulate: true
 
+continue_on_automation_error: true
+continue_on_instrument_error: false
+
 backend_defaults:
   type: "sim"
   timeout_ms: 10000
@@ -58,12 +61,10 @@ custom_validations:
 automation:
   pre_experiment:
     - "echo 'Starting experiment setup...'"
-    - "python scripts/setup_environment.py"
     - "psu1: output all OFF"
     - "osc: autoscale"
   post_experiment:
     - "psu1: output all OFF"
-    - "python scripts/save_results.py"
     - "echo 'Experiment completed.'"
 
 traceability:

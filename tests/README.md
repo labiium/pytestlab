@@ -136,16 +136,6 @@ The test suite covers:
 - ✅ Error handling and logging
 - ✅ Measurement uncertainty propagation
 
-## 🚀 Migration from Async
-
-This test suite has been migrated from async to synchronous patterns:
-- ❌ No `async def` test functions
-- ❌ No `await` keywords
-- ❌ No `@pytest.mark.asyncio` decorators
-- ✅ All tests use synchronous patterns
-- ✅ Direct function calls instead of awaiting
-- ✅ Standard pytest fixtures and patterns
-
 ## 📝 Writing New Tests
 
 When adding new tests:

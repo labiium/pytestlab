@@ -16,7 +16,7 @@ import threading
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union, Awaitable
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import polars as pl
@@ -30,8 +30,8 @@ __all__ = ["MeasurementSession", "Measurement"]
 
 T_Value = Union[float, int, str, np.ndarray, Sequence[Any]]
 T_ParamIterable = Union[Iterable[T_Value], Callable[[], Iterable[T_Value]]]
-T_MeasFunc = Callable[..., Awaitable[Mapping[str, Any]]]
-T_TaskFunc = Callable[..., Awaitable[None]]
+T_MeasFunc = Callable[..., Mapping[str, Any]]
+T_TaskFunc = Callable[..., None]
 
 
 @dataclass
@@ -98,13 +98,6 @@ class MeasurementSession(contextlib.AbstractContextManager):
                 )
 
     # Context management ------------------------------------------------
-    def __aenter__(self) -> "MeasurementSession":  # noqa: D401
-        return self
-
-    def __aexit__(self, exc_type, exc, tb) -> bool:  # noqa: D401
-        self._disconnect_all_instruments()
-        return False
-
     def __enter__(self) -> "MeasurementSession":  # noqa: D401
         """Synchronous context manager entry."""
         return self
@@ -342,9 +335,7 @@ class MeasurementSession(contextlib.AbstractContextManager):
             try:
                 close_method = getattr(rec.instance, "close", None)
                 if callable(close_method):
-                    result = close_method()
-                    if inspect.isawaitable(result):
-                        result
+                    close_method()
             except Exception:  # noqa: BLE001
                 pass
 

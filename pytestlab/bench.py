@@ -518,13 +518,7 @@ class Bench:
         """Synchronous context manager exit."""
         self.close_all()
 
-    # def __aenter__(self):
-    #     """Async context manager entry."""
-    #     return self
 
-    # def __aexit__(self, exc_type, exc_val, exc_tb):
-    #     """Async context manager exit."""
-    #     self.close_all()
 
     def __getattr__(self, name: str) -> Instrument:
         """Access instruments by alias."""

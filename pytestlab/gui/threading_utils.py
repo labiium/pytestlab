@@ -1,13 +1,13 @@
 """
-pytestlab.gui.async_utils
-=========================
+pytestlab.gui.threading_utils
+============================
 
 Tiny helpers that make it easy to call PyTestLab APIs from ordinary
 ipywidgets callbacks (which must be regular, synchronous functions).
 
 The pattern is:
 
-    from pytestlab.gui.async_utils import widget_callback
+    from pytestlab.gui.threading_utils import widget_callback
 
     slider.observe(widget_callback(my_handler), names="value")
 
