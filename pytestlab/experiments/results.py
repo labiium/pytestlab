@@ -355,3 +355,70 @@ class MeasurementResult:  # noqa: D101
             original_type=self.measurement_type,
             sampling_rate=self.sampling_rate
         )
+
+    # ------------------------------------------------------------------
+    # Plotting convenience
+    def plot(self, spec: "PlotSpec" | None = None, **kwargs):
+        """
+        Plot this measurement result.
+
+        - If values is a Polars DataFrame, plots columns per PlotSpec.
+        - If values is a 1D numpy array, uses plot_ndarray; honors sampling_rate and units.
+        - If values is a scalar/list, attempts to plot as 1D series.
+
+        Args:
+            spec: Optional PlotSpec. If not provided, built from kwargs.
+            **kwargs: Fields for PlotSpec.
+
+        Returns:
+            A matplotlib Figure object.
+        """
+        from ..plotting import PlotSpec, plot_dataframe, plot_ndarray  # noqa: WPS433
+        import numpy as np  # local import
+        import polars as pl  # local import
+
+        pspec = spec or (PlotSpec(**kwargs) if kwargs else PlotSpec())
+
+        if isinstance(self.values, pl.DataFrame):
+            # If ylabel not provided and a single numeric y is chosen, prefer units
+            if pspec.ylabel is None:
+                try:
+                    # The helper will set y label to the series name by default; we can override
+                    pspec = PlotSpec(
+                        kind=pspec.kind,
+                        title=pspec.title or self.measurement_type,
+                        x=pspec.x,
+                        y=pspec.y,
+                        xlabel=pspec.xlabel,
+                        ylabel=self.units if self.units else pspec.ylabel,
+                        legend=pspec.legend,
+                        grid=pspec.grid,
+                    )
+                except Exception:
+                    pass
+            return plot_dataframe(self.values, pspec)
+
+        # Convert scalar/list to numpy array for plotting
+        arr: np.ndarray
+        if isinstance(self.values, np.ndarray):
+            arr = self.values
+        elif isinstance(self.values, list):
+            arr = np.asarray(self.values)
+        else:
+            arr = np.asarray([self.values])
+
+        if arr.ndim != 1:
+            raise ValueError("Only 1D arrays are supported for simple plotting in Phase 1.")
+
+        title = pspec.title or self.measurement_type
+        pspec = PlotSpec(
+            kind=pspec.kind,
+            title=title,
+            x=pspec.x,
+            y=pspec.y,
+            xlabel=pspec.xlabel,
+            ylabel=self.units or pspec.ylabel,
+            legend=pspec.legend,
+            grid=pspec.grid,
+        )
+        return plot_ndarray(arr, pspec, sampling_rate=self.sampling_rate, units=self.units)

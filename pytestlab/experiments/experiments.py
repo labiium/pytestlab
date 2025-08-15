@@ -162,3 +162,25 @@ class Experiment:
         """
         self.data.write_parquet(file_path)
         print(f"Data saved to Parquet file at: {file_path}")
+
+    # ------------------------------------------------------------------
+    # Plotting convenience
+    def plot(self, spec: "PlotSpec" | None = None, **kwargs):
+        """
+        Plot the experiment's data using the lightweight plotting layer.
+
+        Args:
+            spec: Optional PlotSpec. If not provided, a PlotSpec is built from kwargs.
+            **kwargs: Convenience fields for PlotSpec (e.g., kind, x, y, title, xlabel, ylabel, legend, grid).
+
+        Returns:
+            A matplotlib Figure object.
+        """
+        # Local import to keep plotting optional and to avoid import cycles at module import time
+        from ..plotting import PlotSpec, plot_dataframe  # noqa: WPS433
+
+        if self.data.is_empty():
+            raise ValueError("Experiment has no data to plot.")
+
+        spec_to_use = spec or (PlotSpec(**kwargs) if kwargs else PlotSpec())
+        return plot_dataframe(self.data, spec_to_use)

@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 import numpy as np
 import polars as pl
-from typing import Any, Dict, List, Optional, Tuple, Type, Union, Self
+from typing import Any, Dict, List, Optional, Tuple, Type, Union, Self, TYPE_CHECKING
 from dataclasses import dataclass
 from PIL import Image
 from io import BytesIO, StringIO
@@ -20,6 +20,8 @@ from ..common.enums import AcquisitionType, SCPIOnOff, TriggerSlope, WaveformTyp
 from ..common.health import HealthReport, HealthStatus
 from ..errors import InstrumentConfigurationError, InstrumentParameterError, InstrumentDataError
 from pydantic import validate_call
+if TYPE_CHECKING:  # for type checkers only; avoids runtime import cycles
+    from ..plotting.simple import PlotSpec
 
 def _validate_range(val, minval, maxval, name):
     if not (minval <= val <= maxval):
@@ -43,8 +45,74 @@ _ACQ_MODE_MAP = {
 }
 
 class ChannelReadingResult(MeasurementResult):
-    """A result class for oscilloscope channel readings (time, voltage, etc)."""
-    pass
+    """A result class for oscilloscope channel readings (time, voltage, etc).
+
+    Convenience features:
+    - results[1] → returns a new ChannelReadingResult containing only CH1 and time
+    - results.for_channel(2) → same as above for channel 2
+    - results.channels → list of available channel numbers
+    - results.time → numpy array of the time axis
+    - results.to_dataframe() → underlying DataFrame
+    """
+
+    def _ensure_dataframe(self) -> pl.DataFrame:
+        if not isinstance(self.values, pl.DataFrame):
+            raise TypeError("ChannelReadingResult expects 'values' to be a Polars DataFrame.")
+        return self.values
+
+    @property
+    def channels(self) -> List[int]:
+        df = self._ensure_dataframe()
+        chans: List[int] = []
+        for name in df.columns:
+            if name.startswith("Channel ") and name.endswith(" (V)"):
+                try:
+                    num = int(name.split(" ")[1])
+                    chans.append(num)
+                except Exception:
+                    continue
+        return sorted(chans)
+
+    @property
+    def time(self) -> np.ndarray:
+        df = self._ensure_dataframe()
+        if "Time (s)" not in df.columns:
+            raise KeyError("Time (s) column not found in ChannelReadingResult.")
+        return df["Time (s)"].to_numpy()
+
+    def to_dataframe(self) -> pl.DataFrame:
+        return self._ensure_dataframe()
+
+    def _column_for_channel(self, channel: int) -> str:
+        return f"Channel {channel} (V)"
+
+    def for_channel(self, channel: int) -> "ChannelReadingResult":
+        df = self._ensure_dataframe()
+        col = self._column_for_channel(channel)
+        if col not in df.columns:
+            raise KeyError(f"Channel column not present: {col}")
+        sub_df = pl.DataFrame({
+            "Time (s)": df["Time (s)"],
+            col: df[col],
+        })
+        return ChannelReadingResult(
+            values=sub_df,
+            instrument=self.instrument,
+            units=self.units,
+            measurement_type=self.measurement_type,
+            timestamp=self.timestamp,
+            sampling_rate=getattr(self, "sampling_rate", None),
+        )
+
+    def __getitem__(self, key):  # type: ignore[override]
+        # Integer channel indexing: results[1] → CH1 + time
+        if isinstance(key, int):
+            return self.for_channel(key)
+        # Named access for time
+        if key in ("time", "t"):
+            return self.time
+        # Fall back to default behavior (may raise)
+        return super().__getitem__(key)
 
 class FFTResult(MeasurementResult):
     """A result class for FFT data from the oscilloscope."""
@@ -604,7 +672,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         self._send_command(f':WAVeform:SOURce {source}')
         self._wait()
         self._logger.debug(f"Reading data from {source}")
-
+        self._send_command(":WAVeform:POINts MAX")
         # Set the data transfer format to 8-bit bytes
         self._send_command(':WAVeform:FORMat BYTE')
 
@@ -897,7 +965,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
     def read_channels(
         self,
         *channels: Union[int, List[int], Tuple[int, ...]],
-        points: Optional[int] = None,
+
         run_after: bool = True,
         timebase: Optional[float] = None,
         **kwargs
@@ -954,9 +1022,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             self._send_command(f":WAVeform:SOURce CHANnel{ch}")
             pre = self._read_preamble()
 
-            # Always keep the instrument in BYTE, RAW mode for consistency
-            self._send_command(":WAVeform:FORMat BYTE")
-            self._send_command(":WAVeform:POINts:MODE RAW")
+
 
             raw = self._read_wave_data(f"CHANnel{ch}")
 
@@ -979,6 +1045,37 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             sampling_rate=sampling_rate,
             values=pl.DataFrame({"Time (s)": time_array, **columns}),
         )
+
+    def plot_channels(
+        self,
+        *channels: Union[int, List[int], Tuple[int, ...]],
+        points: Optional[int] = None,
+        run_after: bool = True,
+        timebase: Optional[float] = None,
+        spec: "PlotSpec" | None = None,
+        **kwargs,
+    ):
+        """
+        Convenience: acquire one or more channels and plot the result.
+
+        Args:
+            channels: Channel numbers to read (e.g., 1 or (1,2)).
+            points: Optional point count (instrument-specific behavior).
+            run_after: Whether to run a fresh acquisition prior to readback.
+            timebase: Optional time-base scale in seconds.
+            spec: Optional PlotSpec. If omitted, constructed from kwargs.
+            **kwargs: PlotSpec fields (kind, x, y, title, xlabel, ylabel, legend, grid).
+
+        Returns:
+            A matplotlib Figure.
+        """
+        from ..plotting import PlotSpec  # local import keeps plotting optional
+
+        result = self.read_channels(
+            *channels, points=points, run_after=run_after, timebase=timebase
+        )
+        plot_spec = spec or (PlotSpec(**kwargs) if kwargs else PlotSpec())
+        return result.plot(plot_spec)
 
     @validate_call
     def get_sampling_rate(self) -> float:

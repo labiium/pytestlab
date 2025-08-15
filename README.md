@@ -218,6 +218,74 @@ See `examples/replay_mode/` for complete working examples and tutorials.
 
 ---
 
+## 📈 Plotting
+
+PyTestLab includes a lightweight, backend-agnostic plotting layer with a default matplotlib backend. Install plotting extras:
+
+```bash
+pip install 'pytestlab[plot]'
+```
+
+### What you get
+- **MeasurementResult.plot()** – plot numeric arrays or `polars.DataFrame` results.
+- **Experiment.plot()** – plot the experiment's internal DataFrame.
+- **MeasurementSession.plot()** – plot data gathered during a session after `run()`.
+
+All plotting uses a declarative `PlotSpec` with sensible defaults, and automatically picks `"Time (s)"` as x-axis if available.
+
+### Basic usage
+```python
+from pytestlab.plotting import PlotSpec
+from pytestlab.experiments import Experiment
+
+exp = Experiment("Demo")
+exp.add_trial({"Time (s)": [0,1,2], "Voltage (V)": [0.0, 1.2, 2.4]})
+fig = exp.plot(PlotSpec(title="Experiment Plot"))
+```
+
+### MeasurementResult example (1D array)
+```python
+import numpy as np
+from pytestlab.experiments import MeasurementResult
+from pytestlab.plotting import PlotSpec
+
+arr = np.sin(np.linspace(0, 2*np.pi, 500))
+res = MeasurementResult(values=arr, instrument="sim", units="V", measurement_type="sine", sampling_rate=1000.0)
+fig = res.plot(PlotSpec(title="Sine Wave"))
+```
+
+### MeasurementSession example
+```python
+from pytestlab.measurements import MeasurementSession
+from pytestlab.plotting import PlotSpec
+
+with MeasurementSession("Quick Session") as session:
+    @session.acquire
+    def sample():
+        return {"Time (s)": [0,1,2], "Value": [0.1, 0.2, 0.1]}
+
+    experiment = session.run()
+    fig = session.plot(PlotSpec(title="Session Data"))
+```
+
+### Oscilloscope example – Keysight DSOX1204G (simulated)
+```python
+from pytestlab.instruments import AutoInstrument
+from pytestlab.plotting import PlotSpec
+
+scope = AutoInstrument.from_config("keysight/DSOX1204G", simulate=True)
+scope.connect_backend()
+
+result = scope.read_channels(1)  # MeasurementResult with a Polars DataFrame inside
+fig = result.plot(PlotSpec(title="DSOX1204G CH1"))
+
+scope.close()
+```
+
+See runnable scripts in `examples/plot_*`.
+
+---
+
 ## 🔧 Chainable Facade API
 
 PyTestLab features a fluent, chainable API that makes instrument control code clean and readable:
@@ -280,6 +348,7 @@ scope.close()
 | API Guide | `docs/user_guide/api_guide.md` |
 | Bench descriptors | `docs/user_guide/bench_descriptors.md` |
 | Chainable Facades | `docs/user_guide/chainable_facades.md` |
+| Plotting | `docs/user_guide/plotting.md` |
 | API reference | `docs/api/*` |
 | Instrument profile gallery | `docs/profiles/gallery.md` |
 | Tutorials | |

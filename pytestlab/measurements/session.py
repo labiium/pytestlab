@@ -360,6 +360,27 @@ class MeasurementSession(contextlib.AbstractAsyncContextManager, contextlib.Abst
             html += "<hr>" + self.data.head()._repr_html_()
         return html
 
+    # Plotting convenience ------------------------------------------------
+    def plot(self, spec: "PlotSpec" | None = None, **kwargs):
+        """
+        Plot the current session data (if any). Typically called after run().
+
+        Args:
+            spec: Optional PlotSpec. If not provided, one is created from kwargs.
+            **kwargs: Fields for PlotSpec (kind, x, y, title, xlabel, ylabel, legend, grid).
+
+        Returns:
+            A matplotlib Figure object.
+        """
+        from ..plotting import PlotSpec, plot_dataframe  # local import to keep plotting optional
+
+        df = self.data
+        if df.is_empty():
+            raise ValueError("Session has no data yet. Call run() first or ensure measurements produced rows.")
+
+        spec_to_use = spec or (PlotSpec(**kwargs) if kwargs else PlotSpec())
+        return plot_dataframe(df, spec_to_use)
+
 
 # Convenience alias – shorter name
 Measurement = MeasurementSession
