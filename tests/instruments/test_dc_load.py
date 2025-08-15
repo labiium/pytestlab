@@ -1,8 +1,8 @@
 """
-pytestlab/tests/instruments/async/test_dc_load.py
+pytestlab/tests/instruments/test_dc_load.py
 
-Comprehensive asynchronous test suite for a real DC Electronic Load using the
-PyTestLab async API.
+Comprehensive test suite for a real DC Electronic Load using the
+PyTestLab API.
 
 This test covers all major features of the DCActiveLoad driver:
 - Connection and identification
@@ -19,14 +19,13 @@ This test covers all major features of the DCActiveLoad driver:
 and accessible via VISA. Set the DC_LOAD_CONFIG_KEY below.
 
 Run with:
-    pytest -v tests/instruments/async/test_dc_load.py
+    pytest -v tests/instruments/test_dc_load.py
 
 Requires:
     pytest
-    pytest-asyncio
     numpy
     uncertainties
-    pytestlab (with async API)
+    pytestlab
 """
 
 import pytest
@@ -56,7 +55,7 @@ def check_hardware_available():
 @pytest.mark.requires_real_hw
 def test_dc_load_full_real():
     """
-    Full functional test for a real DC Electronic Load using PyTestLab async API.
+    Full functional test for a real DC Electronic Load using PyTestLab API.
     """
     is_available, error_msg = check_hardware_available()
     if not is_available:

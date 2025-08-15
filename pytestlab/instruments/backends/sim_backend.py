@@ -270,8 +270,6 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
 
     # ..................................................................... #
 
-    # Public API – asyncio ----------------------------------------------- #
-
     def connect(self) -> None:  # noqa: D401
         "Establish connection (no-op in simulation)."
         logger.debug("%s: connect()", self.model)

@@ -18,7 +18,7 @@ def main():
     bench_file = Path(__file__).parent / "bench.yaml"
     
     try:
-        # Open the bench configuration asynchronously
+        # Open the bench configuration
         # This will:
         # 1. Load and validate the YAML configuration
         # 2. Run custom validations
@@ -97,7 +97,7 @@ def main():
                 print(f"   Instrument: {first_measurement.instrument}")
                 print(f"   Settings: {first_measurement.settings}")
         
-        # When exiting the async context manager, post-experiment hooks run
+        # When exiting the context manager, post-experiment hooks run
         # and all instruments are closed automatically
         print("\n✅ Bench closed successfully. Post-experiment hooks executed.")
         

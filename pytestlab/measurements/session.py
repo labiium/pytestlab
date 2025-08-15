@@ -50,11 +50,10 @@ class _InstrumentRecord:
     auto_close: bool = True
 
 
-class MeasurementSession(contextlib.AbstractAsyncContextManager, contextlib.AbstractContextManager):
+class MeasurementSession(contextlib.AbstractContextManager):
     """
     Core builder – read the extensive doc-string in earlier assistant response
     for design details.
-    Now supports asynchronous operations for sweeps.
     """
 
     # Construction ------------------------------------------------------
@@ -223,7 +222,6 @@ class MeasurementSession(contextlib.AbstractAsyncContextManager, contextlib.Abst
                     row[col] = val
 
             self._data_rows[idx] = row  # assign Dict[str, Any] to slot
-            # No need for asyncio.sleep in synchronous mode
 
         self._has_run = True
         self._build_experiment()

@@ -1,8 +1,8 @@
 """
 pytestlab/tests/test_oscilloscope.py
 
-Comprehensive asynchronous test suite for a real oscilloscope using the
-PyTestLab async API.
+Comprehensive test suite for a real oscilloscope using the
+PyTestLab API.
 
 This test covers all major features:
 - Connection and identification
@@ -24,11 +24,10 @@ Run with:
 
 Requires:
     pytest
-    pytest-asyncio
     numpy
     polars
     Pillow
-    pytestlab (with async API)
+    pytestlab
 """
 
 import pytest
@@ -58,7 +57,7 @@ def check_hardware_available():
 @pytest.mark.requires_real_hw
 def test_oscilloscope_full_real():
     """
-    Full functional test for a real oscilloscope using PyTestLab async API.
+    Full functional test for a real oscilloscope using PyTestLab API.
     """
     is_available, error_msg = check_hardware_available()
     if not is_available:
@@ -173,7 +172,7 @@ def test_oscilloscope_full_real():
 @pytest.mark.requires_real_hw
 def test_oscilloscope_facades_real():
     """
-    Test the async channel, trigger, and acquisition facades on a real oscilloscope.
+    Test the channel, trigger, and acquisition facades on a real oscilloscope.
     """
     is_available, error_msg = check_hardware_available()
     if not is_available:

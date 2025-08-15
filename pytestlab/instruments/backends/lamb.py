@@ -17,9 +17,9 @@ except ImportError:
     lamb_logger.warning("Could not import pytestlab's get_logger; LambBackend using fallback logger.")
 
 
-class LambBackend(InstrumentIO):  # Implements AsyncInstrumentIO
+class LambBackend(InstrumentIO):  # Implements InstrumentIO
     """
-    An asynchronous backend for communicating with instruments via a Lamb server.
+    An backend for communicating with instruments via a Lamb server.
     Supports both direct visa_string and auto-connect via model/serial_number.
     """
     def __init__(
@@ -43,11 +43,11 @@ class LambBackend(InstrumentIO):  # Implements AsyncInstrumentIO
         self.model_name: Optional[str] = model_name
         self.serial_number: Optional[str] = serial_number
         self._timeout_sec: float = (timeout_ms / 1000.0) if timeout_ms and timeout_ms > 0 else 5.0
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: Optional[httpx.Client] = None
         self._auto_connect_performed: bool = False
 
         lamb_logger.info(
-            f"AsyncLambBackend initialized for address='{address}', model='{model_name}', serial='{serial_number}' at URL '{url}'"
+            f"LambBackend initialized for address='{address}', model='{model_name}', serial='{serial_number}' at URL '{url}'"
         )
 
     def _ensure_connected(self) -> None:
@@ -103,7 +103,7 @@ class LambBackend(InstrumentIO):  # Implements AsyncInstrumentIO
         lamb_logger.info(f"Connected to Lamb instrument '{self.instrument_address}'.")
 
     def disconnect(self) -> None:
-        lamb_logger.info(f"AsyncLambBackend for '{self.instrument_address}' disconnected (simulated, as client is per-request or context-managed).")
+        lamb_logger.info(f"LambBackend for '{self.instrument_address}' disconnected (simulated, as client is per-request or context-managed).")
         pass
 
     def write(self, cmd: str) -> None:
@@ -177,13 +177,13 @@ class LambBackend(InstrumentIO):  # Implements AsyncInstrumentIO
             self._timeout_sec = 0.001
         else:
             self._timeout_sec = timeout_ms / 1000.0
-        lamb_logger.debug(f"AsyncLambBackend timeout set to {self._timeout_sec} seconds.")
+        lamb_logger.debug(f"LambBackend timeout set to {self._timeout_sec} seconds.")
 
     def get_timeout(self) -> int:
         return int(self._timeout_sec * 1000)
 
 # Static type checking helper
 if TYPE_CHECKING:
-    def _check_lamb_backend_protocol(backend: AsyncInstrumentIO) -> None: ...
-    def _test_lamb_async() -> None:
-        _check_lamb_backend_protocol(AsyncLambBackend(address="GPIB0::1::INSTR", url="http://localhost:8000"))
+    def _check_lamb_backend_protocol(backend: InstrumentIO) -> None: ...
+    def _test_lamb() -> None:
+        _check_lamb_backend_protocol(LambBackend(address="GPIB0::1::INSTR", url="http://localhost:8000"))

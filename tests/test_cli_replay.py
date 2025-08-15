@@ -8,7 +8,7 @@ import yaml
 import shutil
 import time
 from pathlib import Path
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch
 import click.exceptions
 
 from pytestlab.cli import replay_record, replay_run

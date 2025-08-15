@@ -6,7 +6,6 @@ import pytest
 import tempfile
 import yaml
 from pathlib import Path
-from unittest.mock import MagicMock, AsyncMock
 
 from pytestlab.instruments.AutoInstrument import AutoInstrument
 from pytestlab.instruments.backends.replay_backend import ReplayBackend

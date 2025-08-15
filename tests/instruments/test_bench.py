@@ -8,7 +8,7 @@ This script tests the full bench functionality, including:
 - Automation hooks execution
 - Configuration access (traceability, measurement plan, etc.)
 - Error handling scenarios
-- Context manager functionality (async with)
+- Context manager functionality
 
 Tests use real instruments (PSU and Multimeter) where possible, falling back to simulated
 instruments when needed.

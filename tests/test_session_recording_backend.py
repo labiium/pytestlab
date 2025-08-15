@@ -7,7 +7,6 @@ import pytest
 import tempfile
 import yaml
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
 
 from pytestlab.instruments.backends.session_recording_backend import SessionRecordingBackend
 
@@ -275,7 +274,6 @@ class TestSessionRecordingBackendEdgeCases:
                 recording_backend.query(f'CMD_{start_index}_{i}?')
                 recording_backend.write(f'SET_{start_index}_{i} VALUE')
 
-        # Run recording tasks sequentially (no longer using asyncio)
         record_commands(1)
         record_commands(2)
         record_commands(3)

@@ -78,13 +78,13 @@ def run_grid_sweep():
     # Number of points in each dimension
     points_per_dim = 20
 
-    # Create an async wrapper for our sample function
+    # Create an wrapper for our sample function
     def sample_function_with_delay(x: float, y: float) -> float:
         # Simulate some processing time
         time.sleep(0.01)
         return sample_function(x, y)
 
-    # We need to wrap our async function to work with grid_sweep
+    # We need to wrap our function to work with grid_sweep
     # which expects a synchronous function
     # Wrapper function to handle the measurement
     def wrapper_func(x: float, y: float) -> float:
@@ -116,7 +116,7 @@ def run_gwass_sweep():
     # Total number of sample points
     total_points = 400  # 20x20
 
-    # Create an async wrapper for our sample function
+    # Create an wrapper for our sample function
     def sample_function_with_delay(x: float, y: float) -> float:
         time.sleep(0.01)
         return sample_function(x, y)

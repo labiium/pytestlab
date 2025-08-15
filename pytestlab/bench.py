@@ -165,7 +165,7 @@ class Bench:
     The `Bench` class is the primary entry point for interacting with a test setup
     defined in a YAML configuration file. It handles:
     - Loading and validating the bench configuration.
-    - Asynchronously initializing and connecting to all specified instruments.
+    - Initializing and connecting to all specified instruments.
     - Wrapping instruments with safety limit enforcement where specified.
     - Running pre- and post-experiment automation hooks.
     - Providing easy access to instruments by their aliases (e.g., `bench.psu1`).
@@ -185,7 +185,7 @@ class Bench:
 
         This class method acts as the main factory for creating a `Bench` instance.
         It orchestrates the loading of the YAML file, the execution of any custom
-        validation rules, and the asynchronous initialization of all instruments.
+        validation rules, and the initialization of all instruments.
 
         Args:
             filepath: The path to the bench.yaml configuration file.
@@ -518,13 +518,13 @@ class Bench:
         """Synchronous context manager exit."""
         self.close_all()
 
-    def __aenter__(self):
-        """Async context manager entry."""
-        return self
+    # def __aenter__(self):
+    #     """Async context manager entry."""
+    #     return self
 
-    def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Async context manager exit."""
-        self.close_all()
+    # def __aexit__(self, exc_type, exc_val, exc_tb):
+    #     """Async context manager exit."""
+    #     self.close_all()
 
     def __getattr__(self, name: str) -> Instrument:
         """Access instruments by alias."""

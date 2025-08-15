@@ -383,7 +383,6 @@ def main():
     print("\n2. Grid sweep with auto parameter extraction:")
     print("   - Uses the same parameter ranges but can use different grid density")
     print("   - Flexible parameter control via decorator")
-    print("   - Can be used with both sync and async measurement functions")
 
     print("\n3. GWASS with adaptive sampling:")
     print("   - Efficient exploration of parameter space")
@@ -393,7 +392,6 @@ def main():
     print("\nAdvantages of the new integration:")
     print("- Parameter ranges can be automatically extracted from MeasurementSession")
     print("- Sweep strategies can be applied as decorators on measurement functions")
-    print("- Compatible with both synchronous and asynchronous functions")
     print("- Offers multiple sampling strategies for different measurement needs")
     print("- Supports parameter constraints for defining valid measurement regions")
     print("- Provides a flexible ParameterSpace class for advanced parameter control")

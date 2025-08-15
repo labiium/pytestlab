@@ -29,13 +29,13 @@ extra:
       search_start: Type to start searching
       hero_title_1: Enlightened Measurement
       hero_title_2: for Modern Science
-      hero_subtitle: PyTestLab is a modern, async-first Python toolbox for laboratory test-and-measurement automation, data management, and analysis. Move faster, build smarter, and trust your results.
+      hero_subtitle: PyTestLab is a modern Python toolbox for laboratory test-and-measurement automation, data management, and analysis. Move faster, build smarter, and trust your results.
       explore_button: Explore Documentation
       installation_button: Installation Guide
       features_title: A Toolbox Built for Velocity
       features_subtitle: Stop wrestling with legacy APIs. Start building reproducible experiments.
-      feature_1_title: Async by Design
-      feature_1_desc: Run parallel tests and non-blocking I/O with native `async/await`. Maximize instrument uptime and slash test execution times.
+      feature_1_title: Extensible by Design
+      feature_1_desc: Maximize instrument uptime and slash test execution times.
       feature_2_title: Unified Driver Layer
       feature_2_desc: A consistent, high-level API across oscilloscopes, PSUs, DMMs, and more. Swap instruments without rewriting your test logic.
       feature_3_title: Declarative & Validated

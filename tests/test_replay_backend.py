@@ -6,7 +6,6 @@ import pytest
 import tempfile
 import yaml
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
 
 from pytestlab.instruments.backends.replay_backend import ReplayBackend
 from pytestlab.errors import ReplayMismatchError
@@ -163,7 +162,6 @@ class TestReplayBackend:
         def concurrent_query():
             return replay_backend.query('*IDN?')
 
-        # Test sequential access (since we removed async lock)
         result1 = concurrent_query()
         assert result1 == 'Keysight Technologies,EDU36311A,CN61130056,K-01.08.03-01.00-01.08-02.00'
 

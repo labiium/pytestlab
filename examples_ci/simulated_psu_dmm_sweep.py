@@ -1,7 +1,6 @@
 # examples_ci/simulated_psu_dmm_sweep.py
 #! pytest: marker=ci_example
 import pytest # If using pytest markers
-# Removed asyncio import - no longer needed for sync operations
 import numpy as np
 from pytestlab.instruments import AutoInstrument
 # Assuming Pydantic models for config are preferred over dicts now

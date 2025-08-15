@@ -187,7 +187,6 @@ def main():
     print("PyTestLab Facade API Examples")
     print("=" * 40)
     print("These examples demonstrate the new chainable facade API that")
-    print("resolves the 'coroutine was never awaited' issue while providing")
     print("clean, readable instrument control code.\n")
 
     def run_all_examples():
@@ -199,8 +198,6 @@ def main():
         print("\n" + "=" * 40)
         print("Key Benefits of the New Facade API:")
         print("✓ Method chaining: instrument.channel(1).set(5.0).on()")
-        print("✓ Direct function calls - no async/await needed")
-        print("✓ No 'coroutine never awaited' warnings")
         print("✓ More readable test sequences")
         print("✓ Backwards compatible with existing code")
 

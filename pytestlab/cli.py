@@ -209,7 +209,7 @@ def sim_profile_record(
                 rich.print(f"[bold red]Error: Could not load script '{script}'.[/bold red]")
         else:
             rich.print("\n[bold]Starting interactive REPL. Press Ctrl+D or type 'exit()' to quit.[/bold]")
-            # Basic async-unsafe REPL for demonstration
+            # Basic REPL for demonstration
             code.interact(
                 banner="PyTestLab Interactive Recording Session",
                 local=dict(globals(), **{'instrument': instrument}),
@@ -384,7 +384,6 @@ def instrument_idn(
 #     # import code
 #     # local_vars = {"instrument": instrument, "np": np}
 #     # code.interact(local=local_vars, banner="PyTestLab REPL...")
-#     typer.echo("Async REPL not yet fully implemented. Instrument is set up.")
 #     # instrument.close()
 
 
@@ -572,7 +571,7 @@ def replay_record(
         if hasattr(script_module, "main"):
             script_module.main(bench)
         else:
-            raise TypeError("Script must contain an async function `main(bench)`.")
+            raise TypeError("Script must contain function `main(bench)`.")
 
         rich.print("[bold green]Script execution finished.[/bold green]")
 
@@ -649,7 +648,7 @@ def replay_run(
         if hasattr(script_module, "main"):
             script_module.main(replay_bench)
         else:
-            raise TypeError("Script must contain an async function `main(bench)`.")
+            raise TypeError("Script must contain an function `main(bench)`.")
 
         rich.print("[bold green]Script execution finished successfully.[/bold green]")
 
@@ -874,7 +873,7 @@ def main():
             **kwargs
         )
     elif "replay" in sys.argv and ("record" in sys.argv or "run" in sys.argv):
-        # Handle async replay commands
+        # Handle replay commands
         if "record" in sys.argv:
             from pytestlab.cli import replay_record
             # Parse arguments for replay record
