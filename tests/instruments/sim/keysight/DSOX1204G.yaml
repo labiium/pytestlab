@@ -131,6 +131,98 @@ franalysis:
     mode:
         - SWE
 
+# SCPI engine definitions for simulation profile (used to build commands/queries)
+scpi:
+    commands:
+        set_time_axis:
+            sequence:
+                - ":TIMebase:SCALe {scale}"
+                - ":TIMebase:POSition {position}"
+        set_channel_axis:
+            sequence:
+                - ":CHANnel{channel}:SCALe {scale}"
+                - ":CHANnel{channel}:OFFSet {offset}"
+            validators:
+                channel: { min: 1, max: 4 }
+        configure_trigger:
+            sequence:
+                - ":TRIG:SOUR {source}"
+                - ":TRIGger:LEVel {level}, CHANnel{channel}"
+                - ":TRIGger:SLOPe {slope}"
+                - ":TRIGger:MODE {mode}"
+            validators:
+                channel: { min: 1, max: 4 }
+        set_trigger_coupling:
+            template: ":TRIGger:{mode}:COUPling {coupling}"
+        display_channel:
+            template: "CHANnel{channel}:DISPlay {state}"
+            validators:
+                channel: { min: 1, max: 4 }
+            enums:
+                state: { on: "ON", off: "OFF", true: "ON", false: "OFF", 1: "ON", 0: "OFF" }
+        set_wave_source:
+            template: ":WAVeform:SOURce {source}"
+        set_wave_points_max:
+            template: ":WAVeform:POINts MAX"
+        set_wave_format_byte:
+            template: ":WAVeform:FORMat BYTE"
+        set_wave_points_mode_raw:
+            template: ":WAVeform:POINts:MODE RAW"
+        digitize:
+            template: "DIGitize {sources}"
+
+    queries:
+        get_timebase_scale:
+            template: ":TIMebase:SCALe?"
+            response:
+                type: float
+        get_timebase_position:
+            template: ":TIMebase:POSition?"
+            response:
+                type: float
+        get_channel_scale:
+            template: ":CHANnel{channel}:SCALe?"
+            validators:
+                channel: { min: 1, max: 4 }
+            response:
+                type: float
+        get_channel_offset:
+            template: ":CHANnel{channel}:OFFSet?"
+            validators:
+                channel: { min: 1, max: 4 }
+            response:
+                type: float
+        wave_preamble:
+            template: ":WAVeform:PREamble?"
+            response:
+                type: csv
+        wave_data:
+            template: ":WAVeform:DATA?"
+            response:
+                type: binblock
+        channel_display:
+            template: "CHANnel{channel}:DISPlay?"
+            validators:
+                channel: { min: 1, max: 4 }
+            response:
+                type: str
+        trigger_source:
+            template: ":TRIGger:SOURce?"
+            response:
+                type: str
+        trigger_level:
+            template: ":TRIGger:LEVel?"
+            response:
+                type: str
+        trigger_slope:
+            template: ":TRIGger:SLOPe?"
+            response:
+                type: str
+        acquire_sample_rate:
+            template: ":ACQuire:SRATe?"
+            response:
+                type: float
+
 # Simulation section for SimBackend
 identification: "Simulated,Keysight,DSOX1204G,SIM1.0"
 

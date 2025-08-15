@@ -130,3 +130,246 @@ franalysis:
     - PHASe
   mode:
     - SWE
+
+scpi:
+  commands:
+    # FFT
+    fft_display:
+      template: ":FFT:DISPlay {state}"
+    fft_source:
+      template: ":FFT:SOURce1 CHANnel{channel}"
+      validators:
+        channel: { min: 1, max: 4 }
+    fft_window:
+      template: ":FFT:WINDow {window}"
+    fft_span:
+      template: ":FFT:SPAn {span}"
+    fft_vtype:
+      template: ":FFT:VTYPe {units}"
+    fft_scale:
+      template: ":FFT:SCALe {scale}"
+    fft_offset:
+      template: ":FFT:OFFSet {offset}"
+    function_display:
+      template: ":FUNCtion:DISPlay {state}"
+    system_lock:
+      template: ":SYSTem:LOCK {state}"
+    auto_scale:
+      template: ":AUToscale"
+    probe_set:
+      template: ":CHANnel{channel}:PROBe {scale}"
+      validators:
+        channel: { min: 1, max: 4 }
+    timebase_main_range:
+      template: ":TIMebase:MAIN:RANGe {time}"
+    acquire_set_rate:
+      template: "ACQuire:SRATe {rate}"
+    channel_bandwidth:
+      template: "CHANnel{channel}:BANDwidth {bandwidth}"
+      validators:
+        channel: { min: 1, max: 4 }
+    # Acquisition control
+    acq_set_type:
+      template: ":ACQuire:TYPE {value}"
+    acq_set_mode:
+      template: ":ACQuire:MODE {value}"
+    acq_set_count:
+      template: ":ACQuire:COUNt {count}"
+    seg_set_count:
+      template: ":ACQuire:SEGMented:COUNt {count}"
+    seg_set_index:
+      template: ":ACQuire:SEGMented:INDex {index}"
+    seg_analyze:
+      template: ":ACQuire:SEGMented:ANALyze"
+    set_time_axis:
+      sequence:
+        - ":TIMebase:SCALe {scale}"
+        - ":TIMebase:POSition {position}"
+    set_channel_axis:
+      sequence:
+        - ":CHANnel{channel}:SCALe {scale}"
+        - ":CHANnel{channel}:OFFSet {offset}"
+      validators:
+        channel: { min: 1, max: 4 }
+    configure_trigger:
+      sequence:
+        - ":TRIG:SOUR {source}"
+        - ":TRIGger:LEVel {level}, CHANnel{channel}"
+        - ":TRIGger:SLOPe {slope}"
+        - ":TRIGger:MODE {mode}"
+      validators:
+        channel: { min: 1, max: 4 }
+    set_trigger_coupling:
+      template: ":TRIGger:{mode}:COUPling {coupling}"
+    display_channel:
+      template: "CHANnel{channel}:DISPlay {state}"
+      validators:
+        channel: { min: 1, max: 4 }
+      enums:
+        state: { on: "ON", off: "OFF", true: "ON", false: "OFF", 1: "ON", 0: "OFF" }
+    set_channel_coupling:
+      template: ":CHANnel{channel}:COUPling {coupling}"
+      validators:
+        channel: { min: 1, max: 4 }
+    # Waveform transfer
+    set_wave_source:
+      template: ":WAVeform:SOURce {source}"
+    set_wave_points_max:
+      template: ":WAVeform:POINts MAX"
+    set_wave_format_byte:
+      template: ":WAVeform:FORMat BYTE"
+    set_wave_points_mode_raw:
+      template: ":WAVeform:POINts:MODE RAW"
+    digitize:
+      template: "DIGitize {sources}"
+    # Waveform generator (WGEN) — include only if present in config
+    wgen_output:
+      template: "WGEN:OUTP {state}"
+    wgen_set_func:
+      template: "WGEN:FUNC {func}"
+    wgen_set_freq:
+      template: "WGEN:FREQ {frequency}"
+    wgen_set_volt:
+      template: "WGEN:VOLT {amplitude}"
+    wgen_set_offset:
+      template: "WGEN:VOLT:OFFSet {offset}"
+    wgen_set_low:
+      template: ":WGEN:VOLTage:LOW {value}"
+    wgen_set_high:
+      template: ":WGEN:VOLTage:HIGH {value}"
+    wgen_set_square_duty:
+      template: ":WGEN:FUNCtion:SQUare:DCYCle {duty}"
+    wgen_set_ramp_symmetry:
+      template: ":WGEN:FUNCtion:RAMP:SYMMetry {symmetry}"
+    wgen_set_period:
+      template: ":WGEN:PERiod {period}"
+    wgen_set_pulse_width:
+      template: ":WGEN:FUNCtion:PULSe:WIDTh {width}"
+    # FRAnalysis
+    fran_enable:
+      template: ":FUNCtion:FRANalysis"
+    fran_start:
+      template: ":FREQuency:START {value}"
+    fran_stop:
+      template: ":FREQuency:STOP {value}"
+    fran_amplitude:
+      template: ":AMPLitude {value}"
+    fran_points:
+      template: ":POINTS {value}"
+    fran_trace:
+      template: ":TRACe:FEED {value}"
+    fran_load:
+      template: ":LOAD {value}"
+    fran_disable:
+      template: ":DISABLE"
+
+  queries:
+    get_timebase_scale:
+      template: ":TIMebase:SCALe?"
+      response:
+        type: float
+    get_timebase_position:
+      template: ":TIMebase:POSition?"
+      response:
+        type: float
+    get_channel_scale:
+      template: ":CHANnel{channel}:SCALe?"
+      validators:
+        channel: { min: 1, max: 4 }
+      response:
+        type: float
+    get_channel_offset:
+      template: ":CHANnel{channel}:OFFSet?"
+      validators:
+        channel: { min: 1, max: 4 }
+      response:
+        type: float
+    measure_vpp:
+      template: "MEAS:VPP? CHAN{channel}"
+      validators:
+        channel: { min: 1, max: 4 }
+      response:
+        type: float
+    measure_vrms:
+      template: "MEAS:VRMS? CHAN{channel}"
+      validators:
+        channel: { min: 1, max: 4 }
+      response:
+        type: float
+    get_sampling_rate:
+      template: ":ACQuire:SRATe?"
+      response:
+        type: float
+    wave_data:
+      template: ":WAVeform:DATA?"
+      response:
+        type: binblock
+        # parsed to bytes by SCPI engine
+    wave_preamble:
+      template: ":WAVeform:PREamble?"
+      response:
+        type: csv
+    channel_display:
+      template: "CHANnel{channel}:DISPlay?"
+      validators:
+        channel: { min: 1, max: 4 }
+      response:
+        type: str
+    trigger_source:
+      template: ":TRIGger:SOURce?"
+      response:
+        type: str
+    trigger_level:
+      template: ":TRIGger:LEVel?"
+      response:
+        type: str
+    trigger_slope:
+      template: ":TRIGger:SLOPe?"
+      response:
+        type: str
+    fran_fetch:
+      template: ":FETCH:FRANalysis?"
+      response:
+        type: str
+    probe_get:
+      template: ":CHANnel{channel}:PROBe?"
+      validators:
+        channel: { min: 1, max: 4 }
+      response:
+        type: float
+    acquire_points:
+      template: ":ACQuire:POINts?"
+      response:
+        type: int
+    acquire_sample_rate:
+      template: ":ACQuire:SRATe?"
+      response:
+        type: float
+    acquire_setup:
+      template: ":ACQuire?"
+      response:
+        type: str
+    acq_get_type:
+      template: ":ACQuire:TYPE?"
+      response:
+        type: str
+    acq_get_mode:
+      template: ":ACQuire:MODE?"
+      response:
+        type: str
+    acq_get_count:
+      template: ":ACQuire:COUNt?"
+      response:
+        type: int
+    seg_get_count:
+      template: ":ACQuire:SEGMented:COUNt?"
+      response:
+        type: int
+    seg_get_index:
+      template: ":ACQuire:SEGMented:INDex?"
+      response:
+        type: int
+    screenshot:
+      template: ":DISPlay:DATA? PNG, COLor"
+      response:
+        type: binblock

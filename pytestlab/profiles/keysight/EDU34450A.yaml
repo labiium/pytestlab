@@ -174,3 +174,24 @@ sampling_rates_rps:
   diode: {FAST: 110}
   continuity: {FAST: 110}
   temperature: {MEDIUM: 4.5}
+
+scpi:
+  commands:
+    set_function:
+      template: 'SENSe:FUNCtion "{function}"'
+    set_range_auto:
+      template: '{function}:RANGe:AUTO {state}'
+      enums:
+        state: { on: "ON", off: "OFF", true: "ON", false: "OFF" }
+    set_resolution:
+      template: '{function}:RESolution {resolution}'
+
+  queries:
+    read:
+      template: 'READ?'
+      response:
+        type: str
+    measure:
+      template: 'MEASURE:{function}? {range},{resolution}'
+      response:
+        type: str

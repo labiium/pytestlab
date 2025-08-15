@@ -146,9 +146,19 @@ class Multimeter(Instrument[MultimeterConfig]):
             function: The desired measurement function, as defined by the
                       `DMMFunction` enum.
         """
-        # Using the recommended SCPI command from the programming guide (page 145)
+        # Prefer SCPIEngine if a profile is provided; fall back to legacy command
+        try:
+            cmds = self.scpi_engine.build("set_function", function=function.value)
+            for c in cmds:
+                self._send_command(c)
+            self._logger.info(f"Set measurement function to {function.name} ({function.value}) via SCPIEngine")
+            return
+        except Exception:
+            pass
+
+        # Legacy path
         self._send_command(f'SENSe:FUNCtion "{function.value}"')
-        self._logger.info(f"Set measurement function to {function.name} ({function.value})")
+        self._logger.info(f"Set measurement function to {function.name} ({function.value}) (legacy)")
 
     def set_trigger_source(self, source: Literal["IMM", "EXT", "BUS"]) -> None:
         """Sets the trigger source for initiating a measurement.
@@ -227,18 +237,38 @@ class Multimeter(Instrument[MultimeterConfig]):
         # For accurate uncertainty, we will use CONFigure separately when in autorange.
         if is_autorange:
             self.set_measurement_function(function)
-            self._send_command(f"{function.value}:RANGe:AUTO ON")
-            if resolution:
-                self._send_command(f"{function.value}:RESolution {resolution.upper()}")
-            
-            response_str = self._query("READ?")
+            # Try SCPI engine for autorange and resolution, fall back otherwise
+            try:
+                for c in self.scpi_engine.build("set_range_auto", function=function.value, state=True):
+                    self._send_command(c)
+                if resolution:
+                    for c in self.scpi_engine.build("set_resolution", function=function.value, resolution=resolution.upper()):
+                        self._send_command(c)
+                response_str = self.scpi_engine.parse("read", self._query(self.scpi_engine.build("read")[0]))
+            except Exception:
+                self._send_command(f"{function.value}:RANGe:AUTO ON")
+                if resolution:
+                    self._send_command(f"{function.value}:RESolution {resolution.upper()}")
+                response_str = self._query("READ?")
         else:
             # Use the combined MEASure? command for fixed range
             range_for_query = range_val.upper() if range_val is not None else "AUTO"
             resolution_for_query = resolution.upper() if resolution is not None else "DEF"
-            query_command = f"MEASURE:{scpi_function_val}? {range_for_query},{resolution_for_query}"
-            self._logger.debug(f"Executing DMM measure query: {query_command}")
-            response_str = self._query(query_command)
+            # Try SCPIEngine first
+            try:
+                q = self.scpi_engine.build(
+                    "measure",
+                    function=scpi_function_val,
+                    range=range_for_query,
+                    resolution=resolution_for_query,
+                )[0]
+                self._logger.debug(f"Executing DMM measure query via SCPIEngine: {q}")
+                response_str = self._query(q)
+                # Parsing handled below as float
+            except Exception:
+                query_command = f"MEASURE:{scpi_function_val}? {range_for_query},{resolution_for_query}"
+                self._logger.debug(f"Executing DMM measure query (legacy): {query_command}")
+                response_str = self._query(query_command)
 
         try:
             reading = float(response_str)

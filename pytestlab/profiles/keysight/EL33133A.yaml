@@ -124,3 +124,126 @@ environmental:
   operating_temperature: "0 °C to 40 °C"
   storage_temperature: "-40 °C to 70 °C"
   humidity: "Up to 80% RH, non-condensing"
+
+scpi:
+  commands:
+    set_mode:
+      template: 'FUNC {mode}'
+      enums:
+        mode: { CC: 'CURR', CV: 'VOLTage', CP: 'POWer', CR: 'RESistance' }
+    set_current_level:
+      template: 'CURRent:LEVel:IMMediate:AMPLitude {value}'
+    set_voltage_level:
+      template: 'VOLTage:LEVel:IMMediate:AMPLitude {value}'
+    set_power_level:
+      template: 'POWer:LEVel:IMMediate:AMPLitude {value}'
+    set_resistance_level:
+      template: 'RESistance:LEVel:IMMediate:AMPLitude {value}'
+    set_input_state:
+      template: 'INPut:STATe {state}, (@{channel})'
+      defaults: { channel: 1 }
+      enums:
+        state: { on: 'ON', off: 'OFF', true: 'ON', false: 'OFF', 1: 'ON', 0: 'OFF' }
+    input_short_state:
+      template: 'INPut:SHORt:STATe {state}, (@{channel})'
+      defaults: { channel: 1 }
+      enums:
+        state: { on: 'ON', off: 'OFF', true: 'ON', false: 'OFF', 1: 'ON', 0: 'OFF' }
+    mode_set_slew:
+      template: '{sub}:{cmd} {rate}, (@{channel})'
+      defaults: { channel: 1 }
+      enums:
+        mode: { CC: 'CURRent', CV: 'VOLTage', CP: 'POWer', CR: 'RESistance' }
+      # derive sub and cmd via placeholders mapping
+      sequence:
+        - '{mode}:{slew} {rate}, (@{channel})'
+      # backward-compat: accept either direct mapping through mode
+    mode_set_range:
+      sequence:
+        - '{mode}:RANGe {value}, (@{channel})'
+      defaults: { channel: 1 }
+      enums:
+        mode: { CC: 'CURRent', CV: 'VOLTage', CP: 'POWer', CR: 'RESistance' }
+    transient_set_mode:
+      template: 'TRANsient:MODE {mode}, (@{channel})'
+      defaults: { channel: 1 }
+    transient_set_level:
+      sequence:
+        - '{mode}:TLEVel {value}, (@{channel})'
+      defaults: { channel: 1 }
+      enums:
+        mode: { CC: 'CURRent', CV: 'VOLTage', CP: 'POWer', CR: 'RESistance' }
+    transient_start:
+      sequence:
+        - 'INITiate:CONTinuous:TRANsient {state}, (@{channel})'
+        - 'INITiate:TRANsient (@{channel})'
+      defaults: { channel: 1 }
+      enums:
+        state: { on: 'ON', off: 'OFF', true: 'ON', false: 'OFF' }
+    transient_abort:
+      template: 'ABORt:TRANsient (@{channel})'
+      defaults: { channel: 1 }
+    battery_enable:
+      template: 'BATTery:ENABle {state}, (@{channel})'
+      defaults: { channel: 1 }
+      enums:
+        state: { on: 'ON', off: 'OFF', true: 'ON', false: 'OFF', 1: 'ON', 0: 'OFF' }
+    battery_cutoff_voltage_state:
+      template: 'BATTery:CUTOff:VOLTage:STATe {state}, (@{channel})'
+      defaults: { channel: 1 }
+      enums:
+        state: { on: 'ON', off: 'OFF', true: 'ON', false: 'OFF', 1: 'ON', 0: 'OFF' }
+    battery_cutoff_voltage:
+      template: 'BATTery:CUTOff:VOLTage {voltage}, (@{channel})'
+      defaults: { channel: 1 }
+    battery_cutoff_capacity_state:
+      template: 'BATTery:CUTOff:CAPacity:STATe {state}, (@{channel})'
+      defaults: { channel: 1 }
+      enums:
+        state: { on: 'ON', off: 'OFF', true: 'ON', false: 'OFF', 1: 'ON', 0: 'OFF' }
+    battery_cutoff_capacity:
+      template: 'BATTery:CUTOff:CAPacity {capacity}, (@{channel})'
+      defaults: { channel: 1 }
+    battery_cutoff_timer_state:
+      template: 'BATTery:CUTOff:TIMer:STATe {state}, (@{channel})'
+      defaults: { channel: 1 }
+      enums:
+        state: { on: 'ON', off: 'OFF', true: 'ON', false: 'OFF', 1: 'ON', 0: 'OFF' }
+    battery_cutoff_timer:
+      template: 'BATTery:CUTOff:TIMer {time_s}, (@{channel})'
+      defaults: { channel: 1 }
+  queries:
+    get_input_state:
+      template: 'INPut:STATe? (@{channel})'
+      defaults: { channel: 1 }
+      response:
+        type: str
+    mode_get_range:
+      template: '{quantity}:RANGe?'
+      response:
+        type: float
+      enums:
+        quantity: { A: 'CURRent', V: 'VOLTage', W: 'POWer', Ohm: 'RESistance' }
+    measure:
+      template: 'MEASure:{cmd}? (@{channel})'
+      defaults: { channel: 1 }
+      response:
+        type: float
+      enums:
+        quantity: { current: 'CURRent', voltage: 'VOLTage', power: 'POWer' }
+      sequence:
+        - 'MEASure:{quantity}? (@{channel})'
+    fetch_array:
+      template: 'FETCh:ARRay:{cmd}? (@{channel})'
+      defaults: { channel: 1 }
+      response:
+        type: binblock
+      enums:
+        quantity: { current: 'CURRent', voltage: 'VOLTage', power: 'POWer' }
+      sequence:
+        - 'FETCh:ARRay:{quantity}? (@{channel})'
+    fetch_datalogger:
+      template: 'FETCh:SCALar:DLOG? {points}, (@{channel})'
+      defaults: { channel: 1 }
+      response:
+        type: csv_float

@@ -44,7 +44,8 @@ def test_channel_facade(sim_scope: Oscilloscope):
     assert ch2_scale == 0.5
     assert ch2_offset == -0.1
 
-    ch2_display_state = sim_scope._query(":CHANnel2:DISPlay?")
+    cmd = sim_scope.scpi_engine.build("channel_display", channel=2)[0]
+    ch2_display_state = sim_scope._query(cmd)
     assert ch2_display_state == "1"
 
 def test_trigger_facade(sim_scope: Oscilloscope):
@@ -52,9 +53,9 @@ def test_trigger_facade(sim_scope: Oscilloscope):
     sim_scope.trigger.setup_edge(source="CH4", level=1.23, slope=TriggerSlope.NEGATIVE)
 
     # Verify the state change by querying the simulator
-    source = sim_scope._query(":TRIGger:SOURce?")
-    level = sim_scope._query(":TRIGger:LEVel?")
-    slope = sim_scope._query(":TRIGger:SLOPe?")
+    source = sim_scope._query(sim_scope.scpi_engine.build("trigger_source")[0])
+    level = sim_scope._query(sim_scope.scpi_engine.build("trigger_level")[0])
+    slope = sim_scope._query(sim_scope.scpi_engine.build("trigger_slope")[0])
 
     assert source == "CHANnel4"
     assert float(level) == 1.23

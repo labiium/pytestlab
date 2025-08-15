@@ -9,6 +9,7 @@ from ..errors import InstrumentConfigurationError, InstrumentParameterError
 from ..config import PowerSupplyConfig # V2 model
 from ..common.enums import SCPIOnOff # Added SCPIOnOff
 from uncertainties import ufloat
+from uncertainties.core import UFloat
 
 
 class PSUChannelFacade:
@@ -25,7 +26,6 @@ class PSUChannelFacade:
     def __init__(self, psu: 'PowerSupply', channel_num: int):
         self._psu = psu
         self._channel = channel_num
-        pass
 
     @validate_call
     def set(self, voltage: Optional[float] = None, current_limit: Optional[float] = None) -> Self:
@@ -92,11 +92,12 @@ class PSUChannelFacade:
         Raises:
             InstrumentParameterError: If the instrument returns an unexpected state.
         """
-        commands = self._psu.scpi_engine.build("get_output_state", channel=self._channel)
-        state_str = self._psu.scpi_engine.parse("get_output_state", self._psu._query(commands[0]))
-        if state_str in ("1", "ON"):
+        cmd = self._psu._eng().build("get_output_state", channel=self._channel)[0]
+        state_str = self._psu._eng().parse("get_output_state", self._psu._query(cmd))
+        s = str(state_str).strip().upper()
+        if s in {"1", "ON", "TRUE"}:
             return True
-        elif state_str in ("0", "OFF"):
+        if s in {"0", "OFF", "FALSE"}:
             return False
         raise InstrumentParameterError(f"Unexpected output state '{state_str}' for channel {self._channel}")
 
@@ -163,12 +164,9 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
 
     def __init__(self, config: PowerSupplyConfig, **kwargs: Any):
         super().__init__(config=config, **kwargs)
-        # Initialize SCPI engine from the config if available
-        if config.scpi:
-            self.scpi_engine = SCPIEngine(config.scpi, variant=config.scpi_variant)
-        else:
-            # SCPI configuration is optional for power supplies
-            self.scpi_engine = None
+        # Initialize SCPI engine from the config if available (reusing base if present)
+        if getattr(self, "scpi_engine", None) is None:
+            self.scpi_engine = SCPIEngine(config.scpi, variant=config.scpi_variant) if config.scpi else None
 
         # Initialize safety limit properties
         self._voltage_limit = None
@@ -177,6 +175,11 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         self._current_value = 0.0
 
     # PowerSupply uses the base Instrument.__init__ method
+
+    def _eng(self) -> SCPIEngine:
+        if not self.scpi_engine:
+            raise InstrumentConfigurationError(self.config.model, "No SCPI mapping configured for this PSU.")
+        return self.scpi_engine
 
     @validate_call
     def set_voltage(self, channel: int, voltage: float) -> None:
@@ -200,9 +203,17 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         channel_config = self.config.channels[channel - 1]
         channel_config.voltage_range.assert_in_range(voltage, name=f"Voltage for channel {channel}")
 
+        # Enforce safety limit, if any
+        from ..bench import SafetyLimitError
+        if self._voltage_limit is not None and voltage > self._voltage_limit:
+            raise SafetyLimitError(f"{voltage}V exceeds safety limit {self._voltage_limit}V")
+
         # Build and send the SCPI command
-        commands = self.scpi_engine.build("set_voltage", channel=channel, voltage=voltage)
-        self._send_command(commands[0])
+        cmd = self._eng().build("set_voltage", channel=channel, voltage=voltage)[0]
+        self._send_command(cmd)
+        # Cache recent set value for safety checks
+        if channel == 1:
+            self._voltage_value = voltage
 
     @validate_call
     def set_current(self, channel: int, current: float) -> None:
@@ -222,9 +233,16 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
             raise InstrumentParameterError(f"Channel number {channel} is out of range (1-{num_ch}).")
 
         channel_config = self.config.channels[channel - 1] # channel is 1-based
-        channel_config.current_limit_range.assert_in_range(current, name=f"Current for channel {channel}") # Assuming current_limit_range from example
-        commands = self.scpi_engine.build("set_current", channel=channel, current=current)
-        self._send_command(commands[0])
+        channel_config.current_limit_range.assert_in_range(current, name=f"Current for channel {channel}")
+
+        from ..bench import SafetyLimitError
+        if self._current_limit is not None and current > self._current_limit:
+            raise SafetyLimitError(f"{current}A exceeds safety limit {self._current_limit}A")
+
+        cmd = self._eng().build("set_current", channel=channel, current=current)[0]
+        self._send_command(cmd)
+        if channel == 1:
+            self._current_value = current
 
     @validate_call
     def set_slew_rate(self, channel: int, duration_s: float) -> None:
@@ -239,8 +257,8 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
             raise InstrumentParameterError(f"Channel number {channel} is out of range (1-{num_ch}).")
 
         duration_ms = int(duration_s * 1000)
-        commands = self.scpi_engine.build("set_slew_rate", channel=channel, duration_ms=duration_ms)
-        self._send_command(commands[0])
+        cmd = self._eng().build("set_slew_rate", channel=channel, duration_ms=duration_ms)[0]
+        self._send_command(cmd)
 
     @validate_call
     def enable_slew_rate(self, channel: int, state: bool) -> None:
@@ -255,8 +273,8 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
             raise InstrumentParameterError(f"Channel number {channel} is out of range (1-{num_ch}).")
 
         command_name = "enable_slew_rate" if state else "disable_slew_rate"
-        commands = self.scpi_engine.build(command_name, channel=channel)
-        self._send_command(commands[0])
+        cmd = self._eng().build(command_name, channel=channel)[0]
+        self._send_command(cmd)
 
     @validate_call
     def output(self, channel: Union[int, List[int]], state: bool = True) -> None:
@@ -290,8 +308,8 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
 
         # Send command for each channel individually
         for ch_num in channels_to_process:
-            commands = self.scpi_engine.build("set_output", channel=ch_num, state=state)
-            self._send_command(commands[0])
+            cmd = self._eng().build("set_output", channel=ch_num, state=state)[0]
+            self._send_command(cmd)
 
     @validate_call
     def display(self, state: bool) -> None:
@@ -300,11 +318,11 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         Args:
             state: True to turn the display on, False to turn it off.
         """
-        commands = self.scpi_engine.build("set_display", state=state)
-        self._send_command(commands[0])
+        cmd = self._eng().build("set_display", state=state)[0]
+        self._send_command(cmd)
 
     @validate_call
-    def read_voltage(self, channel: int) -> Any:
+    def read_voltage(self, channel: int) -> Union[float, UFloat]:
         """Reads the measured output voltage from a specific channel.
 
         Args:
@@ -319,8 +337,8 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         if not self.config.channels or not (1 <= channel <= len(self.config.channels)):
             num_ch = len(self.config.channels) if self.config.channels else 0
             raise InstrumentParameterError(f"Channel number {channel} is out of range (1-{num_ch}).")
-        commands = self.scpi_engine.build("measure_voltage", channel=channel)
-        reading: float = self.scpi_engine.parse("measure_voltage", self._query(commands[0]))
+        cmd = self._eng().build("measure_voltage", channel=channel)[0]
+        reading = float(self._eng().parse("measure_voltage", self._query(cmd)))
 
         value_to_return: Any = reading
 
@@ -347,7 +365,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         return value_to_return
 
     @validate_call
-    def read_current(self, channel: int) -> Any:
+    def read_current(self, channel: int) -> Union[float, UFloat]:
         """Reads the measured output current from a specific channel.
 
         Args:
@@ -362,8 +380,8 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         if not self.config.channels or not (1 <= channel <= len(self.config.channels)):
             num_ch = len(self.config.channels) if self.config.channels else 0
             raise InstrumentParameterError(f"Channel number {channel} is out of range (1-{num_ch}).")
-        commands = self.scpi_engine.build("measure_current", channel=channel)
-        reading: float = self.scpi_engine.parse("measure_current", self._query(commands[0]))
+        cmd = self._eng().build("measure_current", channel=channel)[0]
+        reading = float(self._eng().parse("measure_current", self._query(cmd)))
 
         value_to_return: Any = reading
 
@@ -409,11 +427,14 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         num_channels = len(self.config.channels)
 
         for channel_num in range(1, num_channels + 1): # Iterate 1-indexed channel numbers
-            voltage_val: float = self.read_voltage(channel_num) # Already uses @validate_call
-            current_val: float = self.read_current(channel_num) # Already uses @validate_call
+            def _nominal(x: Any) -> float:
+                return x.nominal_value if hasattr(x, "nominal_value") else float(x)
+
+            voltage_val = _nominal(self.read_voltage(channel_num))
+            current_val = _nominal(self.read_current(channel_num))
             # Query output state using SCPI engine
-            commands = self.scpi_engine.build("get_output_state", channel=channel_num)
-            state_str: str = self.scpi_engine.parse("get_output_state", self._query(commands[0]))
+            cmd = self._eng().build("get_output_state", channel=channel_num)[0]
+            state_str: str = self._eng().parse("get_output_state", self._query(cmd))
 
             results[channel_num] = PSUChannelConfig(
                 voltage=voltage_val,
@@ -441,6 +462,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
             raise InstrumentParameterError(f"Channel number {ch_num} is out of range (1-{num_ch}).")
         return PSUChannelFacade(self, ch_num)
 
+    @validate_call
     def id(self) -> str:
         """
         Queries the instrument identification string.
@@ -448,15 +470,16 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         Returns:
             str: The instrument identification string.
         """
-        commands = self.scpi_engine.build("identify")
-        return self.scpi_engine.parse("identify", self._query(commands[0]))
+        cmd = self._eng().build("identify")[0]
+        return self._eng().parse("identify", self._query(cmd))
 
+    @validate_call
     def reset(self) -> None:
         """
         Resets the instrument to its factory default settings.
         """
-        commands = self.scpi_engine.build("reset")
-        self._send_command(commands[0])
+        cmd = self._eng().build("reset")[0]
+        self._send_command(cmd)
 
     @property
     def voltage_limit(self) -> Optional[float]:

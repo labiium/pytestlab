@@ -185,7 +185,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
     @staticmethod
     def _adapt_polars(df: pl.DataFrame) -> sqlite3.Binary:
         """Serialize Polars DataFrame using Arrow IPC + compression."""
-        ipc_data = df.write_ipc(None, compat_level=0).getvalue()
+        ipc_data = df.write_ipc(None).getvalue()
         compressed = lzma.compress(ipc_data)
         return sqlite3.Binary(compressed)
 
