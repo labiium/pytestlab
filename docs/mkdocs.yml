@@ -61,7 +61,6 @@ extra:
       footer_contribute: Contribute
       footer_about: About
       footer_getting_started: Getting Started
-      footer_async_vs_sync: Concepts
       footer_simulation: Simulation Mode
       footer_bench: Bench Descriptors
       footer_reference: Reference
