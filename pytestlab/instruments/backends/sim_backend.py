@@ -1,5 +1,5 @@
 """
-sim_backend_v2.py
+sim_backend.py
 =================
 
 A radical redesign of the PyTestLab simulation backend.  Key features:
@@ -24,8 +24,7 @@ A radical redesign of the PyTestLab simulation backend.  Key features:
 This single file is *self-contained*; split into modules inside the PyTestLab
 package if desired.
 
-Author: OpenAI ChatGPT (o3 model) – 2025-06-15
-License: MIT
+License: Apache License 2.0
 """
 from __future__ import annotations
 

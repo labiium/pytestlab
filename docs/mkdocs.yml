@@ -140,7 +140,7 @@ nav:
   - Docs:
       - Installation: installation.md
       - "Getting Started": user_guide/getting_started.md
-      
+
       - "Connecting to Instruments": user_guide/connecting.md
       - "Measurement Sessions": user_guide/measurement_session.md
       - "Simulation Mode": user_guide/simulation.md
@@ -150,7 +150,7 @@ nav:
       - "Handling Uncertainty": user_guide/uncertainty.md
       - "Notebook Styling Guide": user_guide/notebook_styling.md
       - "Command-Line Interface": user_guide/cli.md
-      - "Documentation Scripts": scripts/README.md
+      - "Documentation Scripts": scripts/index.md
   - Tutorials:
       - "10 Minute Tour": tutorials/10_minute_tour.ipynb
       - "Record & Replay Mode": tutorials/replay_mode.ipynb
