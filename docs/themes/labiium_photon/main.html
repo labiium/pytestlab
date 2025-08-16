@@ -806,24 +806,95 @@
 
                     <nav class="nav-primary">
                         <ul class="nav-links">
+                            {# Reorder so Docs, Tutorials, API appear in that priority order #}
+                            {% set ns = namespace(docs=None, tutorials=None, api=None, others=[]) %}
                             {% for nav_item in nav %}
                                 {% if nav_item.title != "Home" %}
-                                    {% if nav_item.children %}
-                                        <li class="nav-item dropdown {% if nav_item.active %}active{% endif %}">
-                                            <a href="#" class="dropdown-toggle">{{ nav_item.title }}</a>
-                                            <ul class="dropdown-menu glass-card">
-                                                {% for child in nav_item.children %}
-                                                    <li class="{% if child.active %}active{% endif %}">
-                                                        <a href="{{ child.url|url }}">{{ child.title }}</a>
-                                                    </li>
-                                                {% endfor %}
-                                            </ul>
-                                        </li>
+                                    {% if nav_item.title == "Docs" %}
+                                        {% set ns.docs = nav_item %}
+                                    {% elif nav_item.title == "Tutorials" %}
+                                        {% set ns.tutorials = nav_item %}
+                                    {% elif nav_item.title == "API" %}
+                                        {% set ns.api = nav_item %}
                                     {% else %}
-                                        <li class="nav-item {% if nav_item.active %}active{% endif %}">
-                                            <a href="{{ nav_item.url|url }}">{{ nav_item.title }}</a>
-                                        </li>
+                                        {% set _ = ns.others.append(nav_item) %}
                                     {% endif %}
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if ns.docs %}
+                                {% if ns.docs.children %}
+                                    <li class="nav-item dropdown {% if ns.docs.active %}active{% endif %}">
+                                        <a href="#" class="dropdown-toggle">{{ ns.docs.title }}</a>
+                                        <ul class="dropdown-menu glass-card">
+                                            {% for child in ns.docs.children %}
+                                                <li class="{% if child.active %}active{% endif %}">
+                                                    <a href="{{ child.url|url }}">{{ child.title }}</a>
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                    </li>
+                                {% else %}
+                                    <li class="nav-item {% if ns.docs.active %}active{% endif %}">
+                                        <a href="{{ ns.docs.url|url }}">{{ ns.docs.title }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endif %}
+
+                            {% if ns.tutorials %}
+                                {% if ns.tutorials.children %}
+                                    <li class="nav-item dropdown {% if ns.tutorials.active %}active{% endif %}">
+                                        <a href="#" class="dropdown-toggle">{{ ns.tutorials.title }}</a>
+                                        <ul class="dropdown-menu glass-card">
+                                            {% for child in ns.tutorials.children %}
+                                                <li class="{% if child.active %}active{% endif %}">
+                                                    <a href="{{ child.url|url }}">{{ child.title }}</a>
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                    </li>
+                                {% else %}
+                                    <li class="nav-item {% if ns.tutorials.active %}active{% endif %}">
+                                        <a href="{{ ns.tutorials.url|url }}">{{ ns.tutorials.title }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endif %}
+
+                            {% if ns.api %}
+                                {% if ns.api.children %}
+                                    <li class="nav-item dropdown {% if ns.api.active %}active{% endif %}">
+                                        <a href="#" class="dropdown-toggle">{{ ns.api.title }}</a>
+                                        <ul class="dropdown-menu glass-card">
+                                            {% for child in ns.api.children %}
+                                                <li class="{% if child.active %}active{% endif %}">
+                                                    <a href="{{ child.url|url }}">{{ child.title }}</a>
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                    </li>
+                                {% else %}
+                                    <li class="nav-item {% if ns.api.active %}active{% endif %}">
+                                        <a href="{{ ns.api.url|url }}">{{ ns.api.title }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endif %}
+
+                            {% for nav_item in ns.others %}
+                                {% if nav_item.children %}
+                                    <li class="nav-item dropdown {% if nav_item.active %}active{% endif %}">
+                                        <a href="#" class="dropdown-toggle">{{ nav_item.title }}</a>
+                                        <ul class="dropdown-menu glass-card">
+                                            {% for child in nav_item.children %}
+                                                <li class="{% if child.active %}active{% endif %}">
+                                                    <a href="{{ child.url|url }}">{{ child.title }}</a>
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                    </li>
+                                {% else %}
+                                    <li class="nav-item {% if nav_item.active %}active{% endif %}">
+                                        <a href="{{ nav_item.url|url }}">{{ nav_item.title }}</a>
+                                    </li>
                                 {% endif %}
                             {% endfor %}
                         </ul>

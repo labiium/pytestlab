@@ -1491,12 +1491,12 @@
                                 >
                             </li>
                             <li class="nav-item">
-                                <a href="{{ 'api/instruments/'|url }}">API</a>
-                            </li>
-                            <li class="nav-item">
                                 <a href="{{ 'tutorials/10_minute_tour/'|url }}"
                                     >Tutorials</a
                                 >
+                            </li>
+                            <li class="nav-item">
+                                <a href="{{ 'api/instruments/'|url }}">API</a>
                             </li>
                             <li class="nav-item">
                                 <a href="{{ 'profiles/gallery/'|url }}"
@@ -1596,10 +1596,10 @@
                         >
                     </h1>
                     <p class="hero-subtitle">
-                        PyTestLab is a modern Python toolbox for
-                        laboratory test-and-measurement automation, data
-                        management, and analysis. Move faster, build smarter,
-                        and trust your results.
+                        PyTestLab is a modern Python toolbox for laboratory
+                        test-and-measurement automation, data management, and
+                        analysis. Move faster, build smarter, and trust your
+                        results.
                     </p>
                     <div class="hero-actions">
                         <a
@@ -1647,8 +1647,8 @@
                         <h3>Fast by Design</h3>
                         <p>
                             Run parallel tests and non-blocking I/O with native
-                            efficient background tasks and I/O. Maximize instrument uptime and slash
-                            test execution times.
+                            efficient background tasks and I/O. Maximize
+                            instrument uptime and slash test execution times.
                         </p>
                     </div>
                     <div class="glass-card feature-card">
@@ -1843,7 +1843,7 @@
                                         >Getting Started</a
                                     >
                                 </li>
-                                
+
                                 <li>
                                     <a href="{{ 'user_guide/simulation/'|url }}"
                                         >Simulation Mode</a
@@ -2385,22 +2385,32 @@ run_sweep()`,
                     let i = 0;
                     const tryNext = () => {
                         if (i >= searchPaths.length) {
-                            console.log("Search index could not be loaded from any path");
+                            console.log(
+                                "Search index could not be loaded from any path",
+                            );
                             return;
                         }
                         const path = searchPaths[i++];
                         console.log("Trying search index path:", path);
                         fetch(path)
                             .then((response) => {
-                                if (!response.ok) throw new Error("HTTP " + response.status);
+                                if (!response.ok)
+                                    throw new Error("HTTP " + response.status);
                                 return response.json();
                             })
                             .then((data) => {
                                 searchIndex = data;
-                                console.log("Search index loaded successfully from:", path);
+                                console.log(
+                                    "Search index loaded successfully from:",
+                                    path,
+                                );
                             })
                             .catch((error) => {
-                                console.log("Failed to load search index from:", path, error);
+                                console.log(
+                                    "Failed to load search index from:",
+                                    path,
+                                    error,
+                                );
                                 tryNext();
                             });
                     };
