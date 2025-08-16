@@ -729,12 +729,6 @@
     border-color: rgba(255, 180, 46, 0.3);
 }
 
-.doc.doc-label.doc-label-async {
-    background: rgba(0, 178, 124, 0.1);
-    color: #00b27c;
-    border-color: rgba(0, 178, 124, 0.3);
-}
-
 /* Content styling */
 .doc.doc-contents {
     padding: var(--spacing-sm, 0.5rem) 0;

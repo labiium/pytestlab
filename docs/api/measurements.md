@@ -30,26 +30,25 @@ This abstraction is ideal for automating multi-instrument experiments, batch mea
 ## Example Usage
 
 ```python
-import asyncio
 from pytestlab.measurements import MeasurementSession
 from pytestlab.instruments import AutoInstrument
 
-async def main():
+def main():
     # Create instrument instances (simulated for this example)
-    dmm = await AutoInstrument.from_config("keysight/EDU34450A", simulate=True)
-    psu = await AutoInstrument.from_config("keysight/EDU36311A", simulate=True)
-    await dmm.connect_backend()
-    await psu.connect_backend()
+    dmm = AutoInstrument.from_config("keysight/EDU34450A", simulate=True)
+    psu = AutoInstrument.from_config("keysight/EDU36311A", simulate=True)
+    dmm.connect_backend()
+    psu.connect_backend()
 
     # Start a measurement session
-    async with MeasurementSession(
+    with MeasurementSession(
         instruments={"dmm": dmm, "psu": psu},
         metadata={"operator": "Alice", "experiment": "Power Supply Test"}
     ) as session:
         # Configure instruments
-        await psu.channel(1).set(voltage=3.3, current_limit=0.5).on()
+        psu.channel(1).set(voltage=3.3, current_limit=0.5).on()
         # Perform measurement
-        voltage = await dmm.measure_voltage_dc()
+        voltage = dmm.measure_voltage_dc()
         # Record result in the session
         session.record("dmm_voltage", voltage)
 
@@ -57,14 +56,14 @@ async def main():
 
     # Session automatically logs results and closes instruments
 
-asyncio.run(main())
+main()
 ```
 
 ---
 
 ## Key Features
 
-- **Async Context Management:** Ensures all resources are properly initialized and cleaned up.
+- **Context Management:** Ensures all resources are properly initialized and cleaned up.
 - **Metadata Tracking:** Attach arbitrary metadata to each session for traceability.
 - **Result Recording:** Store and retrieve results by key for later analysis or database storage.
 - **Integration:** Works seamlessly with PyTestLab's database and experiment modules.

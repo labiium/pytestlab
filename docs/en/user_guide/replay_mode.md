@@ -56,12 +56,10 @@ pytestlab replay run my_measurement.py --session session.yaml
 You can also use replay mode programmatically:
 
 ```python
-import asyncio
 from pytestlab.instruments import AutoInstrument
-from pytestlab.instruments.backends import ReplayBackend, SessionRecordingBackend
-from pytestlab.instruments.backends.visa import VisaBackend
+from pytestlab.instruments.backends import ReplayBackend, SessionRecordingBackend, VisaBackend
 
-async def record_session():
+def record_session():
     # Create real backend
     real_backend = VisaBackend("TCPIP0::192.168.1.100::inst0::INSTR")
     
@@ -74,16 +72,16 @@ async def record_session():
         backend_override=recording_backend
     )
     
-    await psu.connect_backend()
+    psu.connect_backend()
     
     # Perform measurements (will be recorded)
-    await psu.set_voltage(1, 5.0)
-    voltage = await psu.read_voltage(1)
+    psu.set_voltage(1, 5.0)
+    voltage = psu.read_voltage(1)
     print(f"Recorded voltage: {voltage}")
     
-    await psu.close()
+    psu.close()
 
-async def replay_session():
+def replay_session():
     # Create replay backend
     replay_backend = ReplayBackend("session.yaml")
     
@@ -93,18 +91,18 @@ async def replay_session():
         backend_override=replay_backend
     )
     
-    await psu.connect_backend()
+    psu.connect_backend()
     
     # This will replay the exact recorded sequence
-    await psu.set_voltage(1, 5.0)  # Must match recorded command
-    voltage = await psu.read_voltage(1)  # Returns recorded response
+    psu.set_voltage(1, 5.0)  # Must match recorded command
+    voltage = psu.read_voltage(1)  # Returns recorded response
     print(f"Replayed voltage: {voltage}")
     
-    await psu.close()
+    psu.close()
 
 # Record first, then replay
-asyncio.run(record_session())
-asyncio.run(replay_session())
+record_session()
+replay_session()
 ```
 
 ## Session File Format
@@ -169,15 +167,15 @@ The replay backend enforces strict command sequence validation:
 
 ```python
 # During recording
-await psu.set_voltage(1, 5.0)  # Records: "VOLT 5.0, (@1)"
-await psu.set_current(1, 0.1)  # Records: "CURR 0.1, (@1)"
+psu.set_voltage(1, 5.0)  # Records: "VOLT 5.0, (@1)"
+psu.set_current(1, 0.1)  # Records: "CURR 0.1, (@1)"
 
 # During replay - this works
-await psu.set_voltage(1, 5.0)  # ✓ Matches recorded sequence
-await psu.set_current(1, 0.1)  # ✓ Matches recorded sequence
+psu.set_voltage(1, 5.0)  # ✓ Matches recorded sequence
+psu.set_current(1, 0.1)  # ✓ Matches recorded sequence
 
 # During replay - this fails  
-await psu.set_voltage(1, 3.0)  # ✗ ReplayMismatchError!
+psu.set_voltage(1, 3.0)  # ✗ ReplayMismatchError!
 ```
 
 ### ReplayMismatchError
@@ -188,7 +186,7 @@ When a command doesn't match the recorded sequence:
 from pytestlab.instruments.backends.errors import ReplayMismatchError
 
 try:
-    await psu.set_voltage(1, 3.0)  # Expected 5.0 in recording
+    psu.set_voltage(1, 3.0)  # Expected 5.0 in recording
 except ReplayMismatchError as e:
     print(f"Sequence mismatch: {e}")
     # Output: Expected command 'VOLT 5.0, (@1)' but got 'VOLT 3.0, (@1)'
@@ -241,20 +239,20 @@ The replay system works with all PyTestLab backends:
 - **VISA Backend** - Traditional SCPI over VISA
 - **LAMB Backend** - Network-based instrument control  
 - **Simulation Backend** - Can record simulation results for testing
-- **Custom Backends** - Any `AsyncInstrumentIO` implementation
+- **Custom Backends** - Any `InstrumentIO` implementation
 
 ### Integration with Bench System
 
 Replay mode integrates seamlessly with PyTestLab's bench system:
 
 ```python
-async def measurement_with_bench():
+def measurement_with_bench():
     # Using bench descriptor
-    async with await pytestlab.Bench.open("bench.yaml") as bench:
+    with pytestlab.Bench.open("bench.yaml") as bench:
         # All instruments are automatically wrapped for recording
-        psu_voltage = await bench.psu.read_voltage(1)
-        osc_measurement = await bench.oscilloscope.measure_vpp(1)
-        dmm_reading = await bench.dmm.measure_voltage_dc()
+        psu_voltage = bench.psu.read_voltage(1)
+        osc_measurement = bench.oscilloscope.measure_vpp(1)
+        dmm_reading = bench.dmm.measure_voltage_dc()
         
         return {
             'psu': psu_voltage,
@@ -293,7 +291,7 @@ Always include proper error handling in replay scripts:
 from pytestlab.instruments.backends.errors import ReplayMismatchError
 
 try:
-    await run_measurement()
+    run_measurement()
 except ReplayMismatchError as e:
     logger.error(f"Measurement sequence changed: {e}")
     raise

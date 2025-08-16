@@ -43,10 +43,10 @@ from pytestlab.errors import (
 )
 
 try:
-    async with await pytestlab.Bench.open("bench.yaml") as bench:
+    with pytestlab.Bench.open("bench.yaml") as bench:
         # This might raise InstrumentParameterError if 6.0 is out of range,
         # or SafetyLimitError if it exceeds a safety limit.
-        await bench.psu.set_voltage(1, 6.0)
+        bench.psu.set_voltage(1, 6.0)
 except InstrumentConnectionError as e:
     print(f"Failed to connect: {e}")
 except InstrumentParameterError as e:
@@ -59,14 +59,14 @@ except Exception as e:
 
 ---
 
-### Use `async with` for Cleanup
+### Use context managers for Cleanup
 
-The `Bench` and `MeasurementSession` classes are asynchronous context managers. Using them with `async with` ensures all instruments are closed and cleanup hooks are run, even if an error occurs.
+`Bench` and `MeasurementSession` are regular context managers. Using them with `with` ensures all instruments are closed and cleanup hooks are run, even if an error occurs.
 
 ```python
-async def safe_operation():
+def safe_operation():
     try:
-        async with await pytestlab.Bench.open("bench.yaml") as bench:
+        with pytestlab.Bench.open("bench.yaml") as bench:
             # ... your code ...
             pass
     except Exception as e:

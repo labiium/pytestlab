@@ -61,7 +61,7 @@ extra:
       footer_contribute: Contribute
       footer_about: About
       footer_getting_started: Getting Started
-      footer_async_vs_sync: Async vs Sync
+      footer_async_vs_sync: Concepts
       footer_simulation: Simulation Mode
       footer_bench: Bench Descriptors
       footer_reference: Reference
@@ -72,7 +72,7 @@ extra:
       footer_github: GitHub
       footer_changelog: Changelog
       footer_cli: CLI Tools
-      footer_brand_desc: A modern, async-first Python toolbox for laboratory test-and-measurement automation, data management, and analysis.
+      footer_brand_desc: A modern Python toolbox for laboratory test-and-measurement automation, data management, and analysis.
       footer_copyright: All rights reserved.
       nav_docs: Docs
       nav_api: API
@@ -140,7 +140,7 @@ nav:
   - Docs:
       - Installation: installation.md
       - "Getting Started": user_guide/getting_started.md
-      - "Async vs. Sync": user_guide/async_vs_sync.md
+      
       - "Connecting to Instruments": user_guide/connecting.md
       - "Measurement Sessions": user_guide/measurement_session.md
       - "Simulation Mode": user_guide/simulation.md

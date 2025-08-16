@@ -44,7 +44,7 @@ from pytestlab.errors import (
 
 try:
     # ... instrument operations ...
-    await bench.psu.set_voltage(1, 6.0)  # May raise InstrumentParameterError or SafetyLimitError
+    bench.psu.set_voltage(1, 6.0)  # May raise InstrumentParameterError or SafetyLimitError
 except InstrumentConnectionError as e:
     print(f"Failed to connect: {e}")
 except InstrumentParameterError as e:

@@ -41,7 +41,7 @@ When you perform a measurement using a PyTestLab instrument driver, the returned
 import pytestlab
 
 # Assume 'dmm' is an initialized instrument with accuracy specs
-result = await dmm.measure_voltage_dc()
+result = dmm.measure_voltage_dc()
 print(result.values)  # e.g., 5.0012+/-0.0025
 
 # The value is a UFloat, so you can do math and propagate errors:

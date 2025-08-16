@@ -946,7 +946,7 @@
                 <div class="footer-content">
                     <div class="footer-copyright">
                         <p>&copy; {{ build_date_utc.strftime('%Y') }} {{ config.site_author }}. {{ config.extra.t[lang].footer_copyright or 'All rights reserved.' }}</p>
-                        <p>{{ config.extra.t[lang].footer_brand_desc or 'A modern, async-first Python toolbox for laboratory test-and-measurement automation, data management, and analysis.' }}</p>
+                        <p>{{ config.extra.t[lang].footer_brand_desc or 'A modern Python toolbox for laboratory test-and-measurement automation, data management, and analysis.' }}</p>
                     </div>
 
                     <div class="footer-links">
@@ -1195,29 +1195,35 @@
 
                 console.log("Production debug - Search paths:", searchPaths);
 
-                async function loadSearchIndex() {
-                    for (const path of searchPaths) {
-                        try {
-                            console.log("Production debug - Trying search index path:", path);
-                            const response = await fetch(path, {
-                                method: 'GET',
-                                headers: {
-                                    'Accept': 'application/json',
-                                },
-                                cache: 'no-cache'
-                            });
-                            console.log("Production debug - Response status:", response.status, "for path:", path);
-                            if (response.ok) {
-                                const data = await response.json();
-                                searchIndex = data;
-                                console.log("Production debug - Search index loaded successfully from:", path, "docs count:", data?.docs?.length || 0);
-                                return;
-                            }
-                        } catch (error) {
-                            console.log("Production debug - Failed to load search index from:", path, error.message);
+                function loadSearchIndex() {
+                    const tryNext = (idx) => {
+                        if (idx >= searchPaths.length) {
+                            console.error("Production debug - Search index could not be loaded from any path");
+                            return;
                         }
-                    }
-                    console.error("Production debug - Search index could not be loaded from any path");
+                        const path = searchPaths[idx];
+                        console.log("Production debug - Trying search index path:", path);
+                        fetch(path, {
+                            method: 'GET',
+                            headers: { 'Accept': 'application/json' },
+                            cache: 'no-cache'
+                        })
+                        .then((response) => {
+                            console.log("Production debug - Response status:", response.status, "for path:", path);
+                            if (!response.ok) {
+                                throw new Error("HTTP " + response.status);
+                            }
+                            return response.json();
+                        })
+                        .then((data) => {
+                            searchIndex = data;
+                            console.log("Production debug - Search index loaded successfully from:", path, "docs count:", (data && data.docs ? data.docs.length : 0));
+                        })
+                        .catch(() => {
+                            tryNext(idx + 1);
+                        });
+                    };
+                    tryNext(0);
                 }
 
                 loadSearchIndex();

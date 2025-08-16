@@ -21,7 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Bench descriptor and safety limit documentation improvements.
 
 ### Changed
-- Home page and quick start rewritten for clarity and modern async-first focus.
+- Home page and quick start rewritten for clarity and improved onboarding.
 - Installation instructions updated for clarity and VISA backend support.
 - User guide reorganized for better onboarding and discoverability.
 - Custom styles simplified for new theme.
@@ -41,7 +41,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Initial support for uncertainty propagation using `uncertainties` package.
 
 ### Changed
-- Async-first instrument API with facade pattern.
+- Simplified instrument API with facade pattern.
 - Improved error handling and custom exception types.
 
 ### Fixed

@@ -1,6 +1,6 @@
 # Instrument Drivers
 
-This section documents the main instrument driver classes provided by PyTestLab. All drivers support both real and simulated backends, and expose a modern, async-first API.
+This section documents the main instrument driver classes provided by PyTestLab. All drivers support both real and simulated backends, with a simple, readable API.
 
 ---
 
@@ -56,7 +56,7 @@ This section documents the main instrument driver classes provided by PyTestLab.
 All instrument drivers expose "facade" objects for common operations, enabling a fluent, chainable API. For example, you can configure and enable a channel with:
 
 ```python
-await scope.channel(1).setup(scale=0.5, offset=0).enable()
+scope.channel(1).setup(scale=0.5, offset=0).enable()
 ```
 
 See the [10-Minute Tour](../tutorials/10_minute_tour.ipynb) for practical examples.

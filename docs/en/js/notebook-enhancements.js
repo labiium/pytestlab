@@ -83,19 +83,13 @@
     /**
      * Copy text to clipboard using modern API with fallback
      */
-    async copyText(text) {
-      try {
-        if (navigator.clipboard && window.isSecureContext) {
-          await navigator.clipboard.writeText(text);
-          return true;
-        } else {
-          // Fallback for older browsers or non-secure contexts
-          return this.fallbackCopy(text);
-        }
-      } catch (err) {
-        utils.debug("Clipboard API failed, using fallback:", err);
-        return this.fallbackCopy(text);
+    copyText(text) {
+      if (navigator.clipboard && window.isSecureContext && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text)
+          .then(() => true)
+          .catch(() => this.fallbackCopy(text));
       }
+      return Promise.resolve(this.fallbackCopy(text));
     },
 
     /**
@@ -172,7 +166,7 @@
       copyButton.setAttribute("aria-label", "Copy code to clipboard");
       copyButton.setAttribute("title", "Copy code to clipboard");
 
-      copyButton.addEventListener("click", async (e) => {
+      copyButton.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
 
@@ -182,16 +176,17 @@
           return;
         }
 
-        const success = await this.copyText(code);
-        if (success) {
-          this.showCopyFeedback(copyButton, "Copied!", "success");
-          utils.debug(
-            "Code copied to clipboard:",
-            code.substring(0, 50) + "...",
-          );
-        } else {
-          this.showCopyFeedback(copyButton, "Copy failed", "error");
-        }
+        this.copyText(code).then((success) => {
+          if (success) {
+            this.showCopyFeedback(copyButton, "Copied!", "success");
+            utils.debug(
+              "Code copied to clipboard:",
+              code.substring(0, 50) + "...",
+            );
+          } else {
+            this.showCopyFeedback(copyButton, "Copy failed", "error");
+          }
+        });
       });
 
       return copyButton;
@@ -558,7 +553,7 @@
   };
 
   // Utility function to copy all code cells
-  const copyAllCodeCells = async () => {
+  const copyAllCodeCells = () => {
     const codeCells = document.querySelectorAll(
       ".jp-Cell .jp-InputArea, .cell .input_area, .nb-cell .nb-input",
     );
@@ -572,14 +567,15 @@
       .join("\n\n# ---\n\n");
 
     if (allCode) {
-      const success = await copyToClipboard.copyText(allCode);
-      if (success) {
-        // Show global notification
-        showGlobalNotification(
-          "All code cells copied to clipboard!",
-          "success",
-        );
-      }
+      copyToClipboard.copyText(allCode).then((success) => {
+        if (success) {
+          // Show global notification
+          showGlobalNotification(
+            "All code cells copied to clipboard!",
+            "success",
+          );
+        }
+      });
     }
   };
 

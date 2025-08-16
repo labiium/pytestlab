@@ -98,6 +98,5 @@ See the [Working with Benches](bench_descriptors.md) guide for more details.
 ## Next Steps
 
 - [Getting Started Guide](getting_started.md)
-- [Synchronous Design](async_vs_sync.md)
 - [Simulation Guide](simulation.md)
 - [Bench Descriptors](bench_descriptors.md)

@@ -283,22 +283,30 @@ document.addEventListener("DOMContentLoaded", () => {
       window.location.origin + "/search/search_index.json",
     ];
 
-    async function loadSearchIndex() {
-      for (const path of searchPaths) {
-        try {
-          console.log("Trying search index path:", path);
-          const response = await fetch(path);
-          if (response.ok) {
-            const data = await response.json();
+    function loadSearchIndex() {
+      let i = 0;
+      const tryNext = () => {
+        if (i >= searchPaths.length) {
+          console.log("Search index could not be loaded from any path");
+          return;
+        }
+        const path = searchPaths[i++];
+        console.log("Trying search index path:", path);
+        fetch(path)
+          .then((response) => {
+            if (!response.ok) throw new Error("HTTP " + response.status);
+            return response.json();
+          })
+          .then((data) => {
             searchIndex = data;
             console.log("Search index loaded successfully from:", path);
-            return;
-          }
-        } catch (error) {
-          console.log("Failed to load search index from:", path, error);
-        }
-      }
-      console.log("Search index could not be loaded from any path");
+          })
+          .catch((error) => {
+            console.log("Failed to load search index from:", path, error);
+            tryNext();
+          });
+      };
+      tryNext();
     }
 
     loadSearchIndex();

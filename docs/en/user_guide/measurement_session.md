@@ -356,7 +356,6 @@ Returns an `Experiment` object with `.data` (Polars DataFrame).
 
 ## See Also
 
-- [Synchronous Design](async_vs_sync.md)
 - [Working with Benches](bench_descriptors.md)
 - [Connecting to Instruments](connecting.md)
 - [Error Handling](errors.md)

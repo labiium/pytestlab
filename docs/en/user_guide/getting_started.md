@@ -66,7 +66,6 @@ main()
 ## 3. Next Steps
 
 - **Explore the [10-Minute Tour](../tutorials/10_minute_tour.ipynb)** for a hands-on walkthrough.
-- Learn about [PyTestLab's Synchronous Design](async_vs_sync.md).
 - See how to [Connect to real instruments](connecting.md).
 - Browse the [Profile Gallery](../profiles/gallery.md) for supported devices.
 - Read about [Simulation Mode](simulation.md) for hardware-free development.

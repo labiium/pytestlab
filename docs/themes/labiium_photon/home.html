@@ -1596,7 +1596,7 @@
                         >
                     </h1>
                     <p class="hero-subtitle">
-                        PyTestLab is a modern, async-first Python toolbox for
+                        PyTestLab is a modern Python toolbox for
                         laboratory test-and-measurement automation, data
                         management, and analysis. Move faster, build smarter,
                         and trust your results.
@@ -1644,10 +1644,10 @@
                                 <path d="m15.5 12-4 4-4-4" />
                             </svg>
                         </div>
-                        <h3>Async by Design</h3>
+                        <h3>Fast by Design</h3>
                         <p>
                             Run parallel tests and non-blocking I/O with native
-                            `async/await`. Maximize instrument uptime and slash
+                            efficient background tasks and I/O. Maximize instrument uptime and slash
                             test execution times.
                         </p>
                     </div>
@@ -1828,7 +1828,7 @@
                             alt="{{ config.site_name }} Logo"
                         />
                         <p>
-                            A modern, async-first Python toolbox for laboratory
+                            A modern Python toolbox for laboratory
                             test-and-measurement automation, data management,
                             and analysis.
                         </p>
@@ -1843,12 +1843,7 @@
                                         >Getting Started</a
                                     >
                                 </li>
-                                <li>
-                                    <a
-                                        href="{{ 'user_guide/async_vs_sync/'|url }}"
-                                        >Async vs Sync</a
-                                    >
-                                </li>
+                                
                                 <li>
                                     <a href="{{ 'user_guide/simulation/'|url }}"
                                         >Simulation Mode</a
@@ -2381,32 +2376,35 @@ run_sweep()`,
                     "../search/search_index.json",
                 ];
 
-                async function loadSearchIndex() {
-                    for (const path of searchPaths) {
-                        try {
-                            console.log("Trying search index path:", path);
-                            const response = await fetch(path);
-                            if (response.ok) {
-                                const data = await response.json();
-                                searchIndex = data;
-                                console.log(
-                                    "Search index loaded successfully from:",
-                                    path,
-                                    searchIndex,
-                                );
-                                return;
-                            }
-                        } catch (error) {
-                            console.log(
-                                "Failed to load search index from:",
-                                path,
-                                error,
-                            );
+                function loadSearchIndex() {
+                    const searchPaths = [
+                        "/search/search_index.json",
+                        "search/search_index.json",
+                        "../search/search_index.json",
+                    ];
+                    let i = 0;
+                    const tryNext = () => {
+                        if (i >= searchPaths.length) {
+                            console.log("Search index could not be loaded from any path");
+                            return;
                         }
-                    }
-                    console.log(
-                        "Search index could not be loaded from any path",
-                    );
+                        const path = searchPaths[i++];
+                        console.log("Trying search index path:", path);
+                        fetch(path)
+                            .then((response) => {
+                                if (!response.ok) throw new Error("HTTP " + response.status);
+                                return response.json();
+                            })
+                            .then((data) => {
+                                searchIndex = data;
+                                console.log("Search index loaded successfully from:", path);
+                            })
+                            .catch((error) => {
+                                console.log("Failed to load search index from:", path, error);
+                                tryNext();
+                            });
+                    };
+                    tryNext();
                 }
 
                 loadSearchIndex();

@@ -11,7 +11,7 @@
                 <span class="gradient-text-accent">for Modern Science</span>
             </h1>
             <p class="hero-subtitle">
-                PyTestLab is a modern, async-first Python toolbox for laboratory test-and-measurement automation, data management, and analysis. Move faster, build smarter, and trust your results.
+                PyTestLab is a modern Python toolbox for laboratory test-and-measurement automation, data management, and analysis. Move faster, build smarter, and trust your results.
             </p>
             <div class="hero-actions">
                 <a href="{{ 'user_guide/getting_started/'|url }}" class="beam-button">Explore Features</a>
@@ -35,8 +35,8 @@
                         <path d="m15.5 12-4 4-4-4"></path>
                     </svg>
                 </div>
-                <h3>Async by Design</h3>
-                <p>Run parallel tests and non-blocking I/O with native `async/await`. Maximize instrument uptime and slash test execution times.</p>
+                <h3>Fast by Design</h3>
+                <p>Run parallel tests with background tasks and efficient I/O. Maximize instrument uptime and slash test execution times.</p>
             </div>
             <div class="glass-card feature-card">
                 <div class="feature-icon aqua-icon">
@@ -540,27 +540,26 @@ document.addEventListener("DOMContentLoaded", function() {
     // Code snippets for the code showcase
     const codeSnippets = [
         // Step 1
-        `<span class="token keyword">import</span> asyncio
-<span class="token keyword">from</span> pytestlab.instruments <span class="token keyword">import</span> AutoInstrument
+        `<span class="token keyword">from</span> pytestlab.instruments <span class="token keyword">import</span> AutoInstrument
 
 <span class="token comment"># PyTestLab can run without hardware!</span>
-<span class="token keyword">async def</span> <span class="token function">main</span>():
+<span class="token keyword">def</span> <span class="token function">main</span>():
     scope = AutoInstrument.from_config(
         <span class="token string">"keysight/DSOX1204G"</span>, <span class="token parameter">simulate</span>=<span class="token boolean">True</span>
     )
-    <span class="token keyword">await</span> scope.connect_backend()
+    scope.connect_backend()
 
     <span class="token comment"># Use a clean, chainable API</span>
-    <span class="token keyword">await</span> scope.channel(<span class="token number">1</span>).setup(scale=<span class="token number">0.5</span>).enable()
-    <span class="token keyword">await</span> scope.trigger.setup_edge(source=<span class="token string">"CH1"</span>, level=<span class="token number">0.2</span>)
+    scope.channel(<span class="token number">1</span>).setup(scale=<span class="token number">0.5</span>).enable()
+    scope.trigger.setup_edge(source=<span class="token string">"CH1"</span>, level=<span class="token number">0.2</span>)
 
     <span class="token comment"># Get data back as a Polars DataFrame</span>
-    trace = <span class="token keyword">await</span> scope.read_channels(<span class="token number">1</span>)
+    trace = scope.read_channels(<span class="token number">1</span>)
     print(trace.head())
 
-    <span class="token keyword">await</span> scope.close()
+    scope.close()
 
-asyncio.run(main())`,
+main()`,
         // Step 2
         `<span class="token comment"># bench.yaml</span>
 <span class="token yaml-key">bench_name</span>: <span class="token string">"Power-Amp Characterisation"</span>
@@ -577,23 +576,23 @@ asyncio.run(main())`,
     <span class="token yaml-key">profile</span>: <span class="token string">"keysight/34470A"</span>
     <span class="token yaml-key">address</span>: <span class="token string">"USB0::...::INSTR"</span>`,
         // Step 3
-        `<span class="token keyword">import</span> asyncio, pytestlab
+        `<span class="token keyword">import</span> pytestlab
 
-<span class="token keyword">async def</span> <span class="token function">run_bench</span>():
+<span class="token keyword">def</span> <span class="token function">run_bench</span>():
     <span class="token comment"># Context manager handles connections & safety</span>
-    <span class="token keyword">async with</span> <span class="token keyword">await</span> pytestlab.Bench.open(<span class="token string">"bench.yaml"</span>) <span class="token keyword">as</span> bench:
+    <span class="token keyword">with</span> pytestlab.Bench.open(<span class="token string">"bench.yaml"</span>) <span class="token keyword">as</span> bench:
 
         <span class="token comment"># Access instruments by their alias</span>
-        v = <span class="token keyword">await</span> bench.dmm.measure_voltage_dc()
+        v = bench.dmm.measure_voltage_dc()
         print(f<span class="token string">"Measured: {v.values:.4f} {v.units}"</span>)
 
         <span class="token comment"># Safety limits are automatically enforced</span>
         <span class="token keyword">try</span>:
-            <span class="token keyword">await</span> bench.psu.channel(<span class="token number">1</span>).set_voltage(<span class="token number">7.0</span>)
+            bench.psu.channel(<span class="token number">1</span>).set_voltage(<span class="token number">7.0</span>)
         <span class="token keyword">except</span> SafetyLimitError <span class="token keyword">as</span> e:
             print(f<span class="token string">"\\nError: {e}"</span>)
 
-asyncio.run(run_bench())`,
+run_bench()`,
         // Step 4
         `<span class="token keyword">from</span> pytestlab.measurements <span class="token keyword">import</span> MeasurementSession
 

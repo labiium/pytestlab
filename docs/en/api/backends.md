@@ -14,19 +14,19 @@ Backends are typically not used directly by end-users. Instead, they are selecte
 
 ## Available Backends
 
-### `AsyncVisaBackend`
+### `VisaBackend`
 
-Asynchronous backend for VISA-compatible instruments (e.g., GPIB, USB, TCPIP, RS232). Uses [PyVISA](https://pyvisa.readthedocs.io/) under the hood.
+Synchronous backend for VISA-compatible instruments (e.g., GPIB, USB, TCPIP, RS232). Uses [PyVISA](https://pyvisa.readthedocs.io/) under the hood.
 
-::: pytestlab.instruments.backends.async_visa_backend.AsyncVisaBackend
+::: pytestlab.instruments.backends.visa_backend.VisaBackend
 
 ---
 
-### `AsyncLambBackend`
+### `LambBackend`
 
-Backend for instruments accessible via the [Lamb](https://github.com/e-a-olowe/lamb) remote instrument server protocol. Supports async TCP communication with Lamb daemons.
+Backend for instruments accessible via the [Lamb](https://github.com/e-a-olowe/lamb) remote instrument server protocol. Uses synchronous HTTP requests to communicate with Lamb daemons.
 
-::: pytestlab.instruments.backends.lamb.AsyncLambBackend
+::: pytestlab.instruments.backends.lamb.LambBackend
 
 ---
 
@@ -76,7 +76,7 @@ You can override backend selection by specifying `backend_type_hint` when creati
 
 ## Extending Backends
 
-To add support for a new hardware interface, subclass `InstrumentBackendBase` and implement the required async methods (`open`, `close`, `write`, `query`, etc.). See the source code and existing backends for examples.
+To add support for a new hardware interface, implement the `InstrumentIO` protocol (synchronous methods such as `connect`, `disconnect`, `write`, `query`, etc.). See the source code and existing backends for examples.
 
 ---
 
