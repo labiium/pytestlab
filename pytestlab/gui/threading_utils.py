@@ -61,3 +61,4 @@ def widget_callback(fn: Callable[..., Any]) -> Callable[[Any], None]:
 
 # Legacy alias for backward compatibility
 awidget_callback = widget_callback
+
