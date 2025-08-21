@@ -1,12 +1,17 @@
 # pytestlab/config/multimeter_config.py
 
 from enum import Enum
-from typing import List, Optional, Literal, Dict, Any, Union
+from typing import Any
+from typing import Literal
 
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel
+from pydantic import ConfigDict
+from pydantic import Field
+from pydantic import field_validator
 
-from pytestlab.config.instrument_config import InstrumentConfig
 from pytestlab.config.accuracy import AccuracySpec
+from pytestlab.config.instrument_config import InstrumentConfig
+
 try:
     from uncertainties.core import UFloat
 except ImportError:
@@ -31,46 +36,23 @@ class DMMFunction(str, Enum):
         return self.value
 
 
-class AccuracySpec(BaseModel):
-    """Models the accuracy specification for a given measurement range."""
-    percent_reading: float = Field(..., description="Accuracy component as a percentage of the reading.")
-    percent_range: Optional[float] = Field(default=None, description="Accuracy component as a percentage of the range.")
-    counts: Optional[int] = Field(default=None, description="Accuracy component as a fixed number of counts of the least significant digit.")
-
-    def calculate_uncertainty(self, reading: Union[float, UFloat], range_value: float) -> float:
-        """Calculates the total uncertainty (1-sigma) for a given reading and range."""
-        # Ensure reading is a float for calculation
-        nominal_value = reading.n if isinstance(reading, UFloat) else reading
-        uncertainty = 0.0
-
-        if self.percent_reading is not None:
-            uncertainty += (self.percent_reading / 100.0) * abs(nominal_value)
-        if self.percent_range is not None:
-            uncertainty += (self.percent_range / 100.0) * range_value
-
-        # Note: 'counts' implementation requires knowledge of the instrument's resolution/LSD value,
-        # which is complex. This implementation focuses on percentage-based uncertainty.
-        if self.counts is not None:
-            # A proper implementation would require the resolution value.
-            # This is a placeholder for future enhancement.
-            pass
-
-        return uncertainty
+# NOTE: AccuracySpec is imported from pytestlab.config.accuracy (see import above).
+# The previous duplicate local definition has been removed to avoid redefinition (F811).
 
 
 class RangeSpec(BaseModel):
     """Models a single measurement range with its specifications."""
     model_config = ConfigDict(extra='allow')  # Allow other fields like test_current_A
 
-    nominal_V: Optional[float] = None
-    nominal_ohm: Optional[float] = None
-    nominal_A: Optional[float] = None
-    nominal_F: Optional[float] = None
+    nominal_V: float | None = None
+    nominal_ohm: float | None = None
+    nominal_A: float | None = None
+    nominal_F: float | None = None
 
-    accuracy: Optional[AccuracySpec] = None
-    typical_accuracy: Optional[AccuracySpec] = None
-    accuracy_45Hz_10kHz: Optional[AccuracySpec] = None
-    accuracy_45Hz_1kHz: Optional[AccuracySpec] = None
+    accuracy: AccuracySpec | None = None
+    typical_accuracy: AccuracySpec | None = None
+    accuracy_45Hz_10kHz: AccuracySpec | None = None
+    accuracy_45Hz_1kHz: AccuracySpec | None = None
 
     @field_validator('nominal_V', 'nominal_ohm', 'nominal_A', 'nominal_F', mode='before')
     @classmethod
@@ -91,7 +73,7 @@ class RangeSpec(BaseModel):
         raise ValueError("RangeSpec has no nominal value defined.")
 
     @property
-    def default_accuracy(self) -> Optional[AccuracySpec]:
+    def default_accuracy(self) -> AccuracySpec | None:
         """Returns the primary accuracy spec available."""
         return self.accuracy or self.typical_accuracy or self.accuracy_45Hz_10kHz or self.accuracy_45Hz_1kHz
 
@@ -99,29 +81,30 @@ class RangeSpec(BaseModel):
 class FunctionSpec(BaseModel):
     """Models the specifications for a single measurement function."""
     model_config = ConfigDict(extra='allow')
-    ranges: Optional[List[RangeSpec]] = None
+    ranges: list[RangeSpec] | None = None
 
 
 class MeasurementFunctionsSpec(BaseModel):
     """Container for all measurement function specifications from the YAML."""
     model_config = ConfigDict(extra='allow')
-    dc_voltage: Optional[FunctionSpec] = None
-    resistance_4wire: Optional[FunctionSpec] = None
-    dc_current: Optional[FunctionSpec] = None
-    ac_voltage: Optional[FunctionSpec] = None
-    ac_current: Optional[FunctionSpec] = None
-    frequency: Optional[FunctionSpec] = None
-    temperature: Optional[FunctionSpec] = None
-    capacitance: Optional[FunctionSpec] = None
+    dc_voltage: FunctionSpec | None = None
+    resistance_4wire: FunctionSpec | None = None
+    dc_current: FunctionSpec | None = None
+    ac_voltage: FunctionSpec | None = None
+    ac_current: FunctionSpec | None = None
+    frequency: FunctionSpec | None = None
+    temperature: FunctionSpec | None = None
+    capacitance: FunctionSpec | None = None
     # 2-wire resistance is often not explicitly listed but can be inferred or added
-    resistance: Optional[FunctionSpec] = None
+    resistance: FunctionSpec | None = None
 
 
 class MultimeterConfig(InstrumentConfig):
     """Pydantic model for Multimeter configuration, designed to load from a device spec YAML."""
     model_config = ConfigDict(validate_assignment=True, extra='ignore')
 
-    device_type: Literal["multimeter", "DMM"] = Field(
+    # Relaxed to plain str to maintain compatibility with base class (avoids variance issues).
+    device_type: str = Field(
         "multimeter", description="Device type identifier for multimeters."
     )
     # Runtime/Session settings
@@ -139,7 +122,7 @@ class MultimeterConfig(InstrumentConfig):
     )
 
     # Fields mapping directly to the YAML specification file
-    limits: Optional[Dict[str, Any]] = Field(default_factory=dict)
-    measurement_functions: Optional[MeasurementFunctionsSpec] = Field(default_factory=MeasurementFunctionsSpec)
-    math_functions: Optional[List[str]] = Field(default_factory=list)
-    sampling_rates_rps: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    limits: dict[str, Any] | None = Field(default_factory=dict)
+    measurement_functions: MeasurementFunctionsSpec | None = Field(default_factory=MeasurementFunctionsSpec)
+    math_functions: list[str] | None = Field(default_factory=list)
+    sampling_rates_rps: dict[str, Any] | None = Field(default_factory=dict)

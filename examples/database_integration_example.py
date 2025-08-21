@@ -15,18 +15,15 @@ The example shows:
 4. Managing multiple experiments in a single database
 """
 import os
-import shutil
 import time
+from datetime import datetime
+
 import numpy as np
 import polars as pl
-from pathlib import Path
-import matplotlib.pyplot as plt
-from datetime import datetime, timedelta
 
 from pytestlab.bench import Bench
-from pytestlab.measurements.session import MeasurementSession
 from pytestlab.experiments.database import MeasurementDatabase
-
+from pytestlab.measurements.session import MeasurementSession
 
 # Create a temporary database path for this example
 DB_PATH = "example_measurements.db"
@@ -112,7 +109,7 @@ def run_experiment(name, description, base_voltages, collector_range):
                 }
 
             # Run the measurement sweep
-            print(f"🔄 Running measurement sweep...")
+            print("🔄 Running measurement sweep...")
             experiment = session.run(show_progress=True)
 
             print(f"✅ Experiment completed: {len(experiment.data)} data points")
@@ -163,7 +160,7 @@ def analyze_database():
 
     # Display and analyze each experiment
     for i, exp_id in enumerate(experiments):
-        print(f"\n📋 Experiment {i+1}: {exp_id}")
+        print(f"\n📋 Experiment {i + 1}: {exp_id}")
 
         # Retrieve the experiment
         experiment = db.retrieve_experiment(exp_id)

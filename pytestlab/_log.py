@@ -1,9 +1,11 @@
 from __future__ import annotations
+
 import logging
-import sys
 import os
+import sys
 
 _root_logger = logging.getLogger("pytestlab")
+
 
 def setup_logging():
     """
@@ -31,11 +33,13 @@ def setup_logging():
     # Enable propagation so pytest caplog can capture logs
     _root_logger.propagate = True
 
+
 def reinitialize_logging():
     """
     Reinitialize logging configuration, useful for tests that modify environment variables.
     """
     setup_logging()
+
 
 def set_log_level(level: int | str):
     """
@@ -46,9 +50,10 @@ def set_log_level(level: int | str):
         if isinstance(level, str):
             level = level.upper()
         _root_logger.setLevel(level)
-    except ValueError as e:
+    except ValueError:
         # Log the warning and keep the current level
         _root_logger.warning(f"Invalid log level: {level}")
+
 
 def get_logger(name: str) -> logging.Logger:
     """
@@ -57,6 +62,7 @@ def get_logger(name: str) -> logging.Logger:
     if not _root_logger.handlers:
         setup_logging()
     return _root_logger.getChild(name)
+
 
 # Initial setup when module is loaded.
 setup_logging()

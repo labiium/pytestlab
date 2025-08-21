@@ -1,15 +1,17 @@
 from __future__ import annotations
 
-import json
 import hashlib
-from datetime import datetime, timezone
+import json
+from datetime import UTC
+from datetime import datetime
 
 from .._log import get_logger
+from .audit import AuditTrail
 from .signature import Signer
 from .tsa import LinkedTSA
-from .audit import AuditTrail
 
 _LOG = get_logger("compliance.patch")
+
 
 def apply_patches(homedir):
     """Applies monkey patches to core PyTestLab classes for compliance features.
@@ -68,7 +70,7 @@ def apply_patches(homedir):
                         "prov:label": self.measurement_type,
                         "prov:value": payload["values_sha256"],
                         "prov:generatedAtTime": datetime.fromtimestamp(
-                            self.timestamp, timezone.utc
+                            self.timestamp, UTC
                         ).isoformat().replace('+00:00', 'Z'),
                     }
                 }

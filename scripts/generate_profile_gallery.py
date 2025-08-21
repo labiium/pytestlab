@@ -1,11 +1,13 @@
-import yaml
 from pathlib import Path
+
+import yaml
 
 # Define paths relative to the script's location
 SCRIPT_DIR = Path(__file__).parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 PROFILES_DIR = PROJECT_ROOT / "pytestlab" / "profiles"
 GALLERY_MD_PATH = PROJECT_ROOT / "docs" / "profiles" / "gallery.md"
+
 
 def generate_profile_gallery():
     """
@@ -29,7 +31,7 @@ This page lists available instrument profiles.
 
     for profile_file in profile_files:
         try:
-            with open(profile_file, 'r') as f:
+            with open(profile_file) as f:
                 profile_data = yaml.safe_load(f)
 
             # Extract information (handle potential missing keys gracefully)
@@ -46,7 +48,7 @@ This page lists available instrument profiles.
                 data_to_extract_from = profile_data
 
             manufacturer = data_to_extract_from.get('manufacturer', 'N/A')
-            model = data_to_extract_from.get('model', profile_file.stem) # Fallback to filename stem
+            model = data_to_extract_from.get('model', profile_file.stem)  # Fallback to filename stem
             device_type = data_to_extract_from.get('device_type', 'N/A')
             code_owners = data_to_extract_from.get('code_owners', ['N/A'])
             last_updated = data_to_extract_from.get('last_updated', 'N/A')
@@ -84,11 +86,12 @@ This page lists available instrument profiles.
 
     # Write the generated content to the gallery Markdown file
     try:
-        GALLERY_MD_PATH.parent.mkdir(parents=True, exist_ok=True) # Ensure docs/profiles exists
+        GALLERY_MD_PATH.parent.mkdir(parents=True, exist_ok=True)  # Ensure docs/profiles exists
         GALLERY_MD_PATH.write_text(gallery_content)
         print(f"Successfully generated instrument profile gallery at: {GALLERY_MD_PATH}")
-    except IOError as e:
+    except OSError as e:
         print(f"Error writing to {GALLERY_MD_PATH}: {e}")
+
 
 if __name__ == "__main__":
     generate_profile_gallery()

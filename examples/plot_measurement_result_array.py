@@ -1,4 +1,5 @@
 import numpy as np
+
 from pytestlab.experiments import MeasurementResult
 from pytestlab.plotting import PlotSpec
 

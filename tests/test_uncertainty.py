@@ -1,8 +1,12 @@
 from __future__ import annotations
+
 import pytest
-from uncertainties import ufloat, UFloat
+from uncertainties import UFloat
+from uncertainties import ufloat
+
 from pytestlab.config.accuracy import AccuracySpec
 from pytestlab.experiments.results import MeasurementResult
+
 # from pytestlab.instruments import AutoInstrument # If testing end-to-end with a sim instrument
 
 # Dummy config for an instrument that will use uncertainty
@@ -13,8 +17,8 @@ UNC_DMM_CONFIG_DICT = {
     "model": "UncertainDMM",
     "address": "SIM_ADDRESS_UNC_DMM",
     "measurement_accuracy": {
-        "voltage_dc_10V": AccuracySpec(percent_reading=0.001, offset_value=0.005), # 0.1% + 5mV
-        "current_dc_1A": AccuracySpec(offset_value=0.001) # 1mA fixed
+        "voltage_dc_10V": AccuracySpec(percent_reading=0.001, offset_value=0.005),  # 0.1% + 5mV
+        "current_dc_1A": AccuracySpec(offset_value=0.001)  # 1mA fixed
     }
     # Add other mandatory fields for MultimeterConfig
 }
@@ -22,9 +26,9 @@ UNC_DMM_CONFIG_DICT = {
 
 def test_accuracy_spec_calculation():
     """Test the AccuracySpec.calculate_std_dev method."""
-    spec = AccuracySpec(percent_reading=0.01, offset_value=0.1) # 1% reading, 0.1 offset
+    spec = AccuracySpec(percent_reading=0.01, offset_value=0.1)  # 1% reading, 0.1 offset
     reading = 10.0
-    expected_sigma = ((0.01 * 10.0)**2 + 0.1**2)**0.5 # sqrt(0.1^2 + 0.1^2) = sqrt(0.02)
+    expected_sigma = ((0.01 * 10.0)**2 + 0.1**2)**0.5  # sqrt(0.1^2 + 0.1^2) = sqrt(0.02)
     assert spec.calculate_std_dev(reading) == pytest.approx(expected_sigma)
 
     spec_no_percent = AccuracySpec(offset_value=0.05)
@@ -39,9 +43,11 @@ def test_accuracy_spec_calculation():
 
 def test_driver_returns_ufloat_with_sim():
     """Test that a driver method returns ufloat when using sim and accuracy spec."""
-    from unittest.mock import Mock, patch
-    from pytestlab.instruments import AutoInstrument
+    from unittest.mock import Mock
+    from unittest.mock import patch
+
     from pytestlab.config.multimeter_config import MultimeterConfig
+    from pytestlab.instruments import AutoInstrument
 
     # Create a mock config with measurement accuracy
     mock_config = MultimeterConfig(
@@ -77,6 +83,7 @@ def test_driver_returns_ufloat_with_sim():
         expected_sigma = spec.calculate_std_dev(5.0)
         assert result.std_dev == pytest.approx(expected_sigma, rel=1e-6)
 
+
 def test_measurement_result_properties():
     """Test MeasurementResult nominal and sigma properties."""
     val_ufloat = ufloat(10.5, 0.2)
@@ -97,7 +104,7 @@ def test_measurement_result_properties():
         measurement_type="current"
     )
     assert res_float.nominal == 20.0
-    assert res_float.sigma is None # Or 0.0, depending on desired behavior for non-ufloats
+    assert res_float.sigma is None  # Or 0.0, depending on desired behavior for non-ufloats
 
     # Test with numpy array of ufloats (if supported by MeasurementResult)
     # arr_ufloat = np.array([ufloat(1,0.1), ufloat(2,0.2)])
@@ -118,6 +125,7 @@ def test_ufloat_propagation_simple():
     d = a * 2
     assert d.nominal_value == pytest.approx(20)
     assert d.std_dev == pytest.approx(0.1 * 2)
+
 
 # Test for round-trip through DB (Polars serialization) would be more complex
 # and require a Database instance and actual Polars interaction.

@@ -15,12 +15,15 @@ Before running:
   - Adjust the import paths according to your project structure.
 """
 
-import polars as pl
-import numpy as np
 from datetime import datetime
+
+import numpy as np
+import polars as pl
+
 from pytestlab.experiments import Experiment
-from pytestlab.experiments.results import MeasurementResult
 from pytestlab.experiments.database import Database
+from pytestlab.experiments.results import MeasurementResult
+
 
 def main():
     # Create a sample Experiment with detailed notes.
@@ -105,6 +108,7 @@ def main():
     # Close the database connection.
     db.close()
     print("\nDatabase connection closed.")
+
 
 if __name__ == "__main__":
     main()

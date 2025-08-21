@@ -1,9 +1,9 @@
-import os
-from pathlib import Path
 import yaml
-import pytest
+
 from pytestlab.instruments import AutoInstrument
 from pytestlab.instruments.backends.recording_backend import RecordingBackend
+
+
 def test_recording_backend_psu(tmp_path):
     # Set up output path for the simulation profile
     sim_profile_path = tmp_path / "psu_sim.yaml"
@@ -17,7 +17,7 @@ def test_recording_backend_psu(tmp_path):
     psu._backend = recording_backend
 
     # Perform some basic operations
-    idn = psu.id()
+    _ = psu.id()
     psu.set_voltage(1, 1.5)
     psu.set_current(1, 0.1)
     psu.output(1, True)

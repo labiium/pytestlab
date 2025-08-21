@@ -1,17 +1,18 @@
 # examples_ci/simulated_psu_dmm_sweep.py
-#! pytest: marker=ci_example
-import pytest # If using pytest markers
+# ! pytest: marker=ci_example
 import numpy as np
-from pytestlab.instruments import AutoInstrument
+import pytest  # If using pytest markers
+
 # Assuming Pydantic models for config are preferred over dicts now
-from pytestlab.config.power_supply_config import PowerSupplyConfig # Adjust as per actual model
-from pytestlab.config.multimeter_config import MultimeterConfig # Adjust as per actual model
+from pytestlab.config.power_supply_config import PowerSupplyConfig  # Adjust as per actual model
+from pytestlab.instruments import AutoInstrument
 
 # Minimal Pydantic configs for simulation
-PSU_CFG_DATA = {"device_type": "power_supply", "model": "SimPSUCI", "address": "SIM_PSU", "channels": [{"channel_id": 1}]} # Added minimal channel for PSU
+PSU_CFG_DATA = {"device_type": "power_supply", "model": "SimPSUCI", "address": "SIM_PSU", "channels": [{"channel_id": 1}]}  # Added minimal channel for PSU
 
-@pytest.mark.ci_example # Mark test for CI
-def test_simulated_psu_dmm_sweep(simulated_psu_profile, simulated_dmm_profile): # Accept fixtures
+
+@pytest.mark.ci_example  # Mark test for CI
+def test_simulated_psu_dmm_sweep(simulated_psu_profile, simulated_dmm_profile):  # Accept fixtures
     psu_config = PowerSupplyConfig(**PSU_CFG_DATA)
 
     # The DMM now loads its configuration from the temporary profile file
@@ -19,7 +20,7 @@ def test_simulated_psu_dmm_sweep(simulated_psu_profile, simulated_dmm_profile): 
     psu = AutoInstrument.from_config(config_source=psu_config, simulate=True)
     dmm = AutoInstrument.from_config(config_source=simulated_dmm_profile, simulate=True)
 
-    psu.connect_backend() # Explicitly connect if needed
+    psu.connect_backend()  # Explicitly connect if needed
     dmm.connect_backend()
 
     # Using facade if available

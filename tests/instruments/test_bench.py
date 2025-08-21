@@ -14,15 +14,15 @@ Tests use real instruments (PSU and Multimeter) where possible, falling back to 
 instruments when needed.
 """
 
-import pytest
 import os
 import tempfile
 import time
-import yaml
-from pathlib import Path
-from pytestlab.instruments.Multimeter import DMMFunction
 
-from pytestlab.bench import Bench, SafetyLimitError
+import pytest
+
+from pytestlab.bench import Bench
+from pytestlab.bench import SafetyLimitError
+from pytestlab.instruments.Multimeter import DMMFunction
 
 # Test bench YAML configuration for testing with real instruments
 TEST_BENCH_CONFIG = """
@@ -122,6 +122,7 @@ def bench_config_file():
     if os.path.exists(config_path):
         os.unlink(config_path)
 
+
 def check_hardware_available():
     """Check if bench hardware is available for testing."""
     try:
@@ -137,8 +138,8 @@ def check_hardware_available():
 
             # Test actual instrument communication by trying to get IDs
             try:
-                psu_id = bench.psu.id()
-                dmm_id = bench.dmm.id()
+                _ = bench.psu.id()
+                _ = bench.dmm.id()
                 bench.close_all()
                 return True, None
             except Exception as e:
@@ -152,6 +153,7 @@ def check_hardware_available():
                 os.unlink(config_path)
     except Exception as e:
         return False, f"Failed to create test configuration: {str(e)}"
+
 
 # Using real instruments, no need for mocks
 @pytest.mark.requires_real_hw
@@ -177,6 +179,8 @@ def test_bench_initialization(bench_config_file):
     finally:
         # Clean up
         bench.close_all()
+
+
 @pytest.mark.requires_real_hw
 def test_bench_context_manager(bench_config_file):
     """Test bench context manager functionality."""
@@ -193,6 +197,8 @@ def test_bench_context_manager(bench_config_file):
     # The bench should be closed after exiting the context manager
     # We can't directly test this without accessing private attributes,
     # but we can verify that no exceptions were raised.
+
+
 @pytest.mark.requires_real_hw
 def test_bench_instrument_access(bench_config_file):
     """Test accessing instruments through the bench."""
@@ -218,6 +224,8 @@ def test_bench_instrument_access(bench_config_file):
         assert "dmm" in bench.instruments
         assert bench.instruments["psu"] == bench._instrument_instances["psu"]
         assert bench.instruments["dmm"] == bench._instrument_instances["dmm"]
+
+
 @pytest.mark.requires_real_hw
 def test_safety_limits(bench_config_file):
     """Test safety limit enforcement for power supply."""
@@ -250,6 +258,8 @@ def test_safety_limits(bench_config_file):
 
         with pytest.raises(SafetyLimitError):
             bench.psu.set_current(2, 0.6)  # Limit is 0.5A
+
+
 @pytest.mark.requires_real_hw
 def test_psu_functionality(bench_config_file):
     """Test full power supply functionality through the bench."""
@@ -288,6 +298,8 @@ def test_psu_functionality(bench_config_file):
             bench.psu.display(True)
         except Exception:
             pass  # Not all PSUs support display control, or might be simulated
+
+
 @pytest.mark.requires_real_hw
 def test_dmm_functionality(bench_config_file):
     """Test multimeter functionality through the bench."""
@@ -314,6 +326,8 @@ def test_dmm_functionality(bench_config_file):
         assert measurement.units == "V"
         # It returns a UFloat (uncertainties package), not a plain float
         assert hasattr(measurement.values, "nominal_value")
+
+
 @pytest.mark.requires_real_hw
 def test_metadata_access(bench_config_file):
     """Test access to bench metadata."""
@@ -345,6 +359,8 @@ def test_metadata_access(bench_config_file):
 
         # Test version and changelog access
         assert bench.version == "1.0.0"
+
+
 @pytest.mark.requires_real_hw
 def test_automation_hooks(bench_config_file):
     """Test execution of automation hooks."""
@@ -360,6 +376,8 @@ def test_automation_hooks(bench_config_file):
         # The pre-experiment hooks should have run by now
 
     # After exiting the context manager, post-experiment hooks should run
+
+
 @pytest.mark.requires_real_hw
 def test_psu_dmm_integration(bench_config_file):
     """Test integration between PSU and DMM."""
@@ -406,6 +424,8 @@ def test_psu_dmm_integration(bench_config_file):
             # Log the exception before skipping
             print(f"Integration test exception: {e}")
             pytest.skip("Skipping PSU-DMM integration test due to connection issues")
+
+
 def test_invalid_bench_config():
     """Test handling of invalid bench configuration."""
     with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as f:
@@ -415,12 +435,14 @@ def test_invalid_bench_config():
 
     try:
         # Attempting to open bench with invalid config should raise an exception
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError):
             Bench.open(config_path)
     finally:
         # Clean up
         if os.path.exists(config_path):
             os.unlink(config_path)
+
+
 @pytest.mark.requires_real_hw
 def test_getattr_error_handling(bench_config_file):
     """Test error handling when accessing non-existent instrument."""
@@ -433,6 +455,8 @@ def test_getattr_error_handling(bench_config_file):
         with pytest.raises(AttributeError):
             # This instrument doesn't exist in the config
             _ = bench.non_existent_instrument
+
+
 @pytest.mark.requires_real_hw
 def test_dir_includes_instruments(bench_config_file):
     """Test that dir() includes instrument aliases."""
@@ -445,6 +469,8 @@ def test_dir_includes_instruments(bench_config_file):
         dir_output = dir(bench)
         assert "psu" in dir_output
         assert "dmm" in dir_output
+
+
 @pytest.mark.requires_real_hw
 def test_health_check(bench_config_file):
     """Test the health check functionality."""
@@ -465,6 +491,8 @@ def test_health_check(bench_config_file):
         # Just check that the keys exist
         assert isinstance(health_reports, dict)
         # The actual reports might vary depending on instrument support for health checks
+
+
 @pytest.mark.requires_real_hw
 def test_instrument_type_detection(bench_config_file):
     """Test instrument type detection."""
@@ -480,6 +508,8 @@ def test_instrument_type_detection(bench_config_file):
 
         dmm_type = bench._detect_instrument_type(bench._instrument_instances['dmm'])
         assert dmm_type in ["multimeter", "unknown"]
+
+
 def test_automation_error_handling():
     """Test error handling in automation hooks."""
     # Create a temporary config file with continue_on_automation_error set to True
@@ -492,7 +522,7 @@ def test_automation_error_handling():
     try:
         # Test with continue_on_automation_error=True
         with Bench.open(config_path) as bench:
-            assert bench.config.continue_on_automation_error == True
+            assert bench.config.continue_on_automation_error
 
             # This is mostly a check that the flag was properly parsed
             # Actual error handling behavior is tested in bench._execute_output_all_off
@@ -524,7 +554,7 @@ def test_bench_simulation_mode(simulation_bench_config_file):
     """Test bench functionality in simulation mode."""
     with Bench.open(simulation_bench_config_file) as bench:
         # Verify simulation mode is enabled
-        assert bench.config.simulate == True
+        assert bench.config.simulate
 
         # Verify basic bench properties
         assert bench.config.bench_name == "Test Bench for End-to-End Testing"

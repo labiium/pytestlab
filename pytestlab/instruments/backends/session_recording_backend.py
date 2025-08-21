@@ -1,10 +1,10 @@
 # pytestlab/instruments/backends/session_recording_backend.py
 import logging
-import time
-import yaml
 import os
-from typing import List, Dict, Any, Optional, Union
+import time
+from typing import Any
 
+import yaml
 
 from ..instrument import InstrumentIO
 
@@ -17,7 +17,7 @@ class SessionRecordingBackend(InstrumentIO):
     This is used by the `pytestlab replay record` command.
     """
 
-    def __init__(self, original_backend: InstrumentIO, output_file_or_log: Union[str, List[Dict[str, Any]]], profile_key: Optional[str] = None):
+    def __init__(self, original_backend: InstrumentIO, output_file_or_log: str | list[dict[str, Any]], profile_key: str | None = None):
         self.original_backend = original_backend
 
         # Handle both file output and direct log recording
@@ -26,7 +26,7 @@ class SessionRecordingBackend(InstrumentIO):
             self.output_file = None
         else:
             self.output_file = output_file_or_log
-            self._command_log: List[Dict[str, Any]] = []
+            self._command_log: list[dict[str, Any]] = []
 
         self.profile_key = profile_key
         self.start_time = time.monotonic()
@@ -42,7 +42,7 @@ class SessionRecordingBackend(InstrumentIO):
     def disconnect(self) -> None:
         self.original_backend.disconnect()
 
-    def _log_event(self, event_data: Dict[str, Any]):
+    def _log_event(self, event_data: dict[str, Any]):
         """Appends a timestamped event to the command log."""
         event_data["timestamp"] = time.monotonic() - self.start_time
         self._command_log.append(event_data)
@@ -51,7 +51,7 @@ class SessionRecordingBackend(InstrumentIO):
         self._log_event({"type": "write", "command": cmd.strip()})
         self.original_backend.write(cmd)
 
-    def query(self, cmd: str, delay: Optional[float] = None) -> str:
+    def query(self, cmd: str, delay: float | None = None) -> str:
         # Handle the case where the underlying backend doesn't support delay parameter
         try:
             response = self.original_backend.query(cmd, delay=delay)
@@ -66,7 +66,7 @@ class SessionRecordingBackend(InstrumentIO):
         })
         return response
 
-    def query_raw(self, cmd: str, delay: Optional[float] = None) -> bytes:
+    def query_raw(self, cmd: str, delay: float | None = None) -> bytes:
         try:
             response = self.original_backend.query_raw(cmd, delay=delay)
         except TypeError:
@@ -106,7 +106,7 @@ class SessionRecordingBackend(InstrumentIO):
         existing_data = {}
         if os.path.exists(self.output_file):
             try:
-                with open(self.output_file, 'r') as f:
+                with open(self.output_file) as f:
                     existing_data = yaml.safe_load(f) or {}
             except Exception:
                 # If file is corrupted or empty, start fresh
@@ -119,7 +119,7 @@ class SessionRecordingBackend(InstrumentIO):
         try:
             os.makedirs(os.path.dirname(self.output_file), exist_ok=True)
         except (OSError, PermissionError) as e:
-            raise FileNotFoundError(f"Cannot create directory for {self.output_file}: {e}")
+            raise FileNotFoundError(f"Cannot create directory for {self.output_file}: {e}") from e
 
         # Write to file
         with open(self.output_file, 'w') as f:

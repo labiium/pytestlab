@@ -11,7 +11,10 @@ This script demonstrates:
 """
 
 from pathlib import Path
-from pytestlab.bench import Bench, SafetyLimitError
+
+from pytestlab.bench import Bench
+from pytestlab.bench import SafetyLimitError
+
 
 def main():
     """Main example function."""
@@ -105,6 +108,7 @@ def main():
         print(f"❌ Error: {e}")
         import traceback
         traceback.print_exc()
+
 
 if __name__ == "__main__":
     print("🧪 PyTestLab Bench System Example")

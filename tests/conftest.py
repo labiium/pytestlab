@@ -3,15 +3,14 @@ Shared pytest fixtures for the PyTestLab test suite.
 """
 from __future__ import annotations
 
-import builtins
 import types
 from pathlib import Path
 
-import numpy as np
 import pytest
 
 import pytestlab.measurements.session as msession
-from pytestlab.instruments import AutoInstrument, Oscilloscope
+from pytestlab.instruments import AutoInstrument
+from pytestlab.instruments import Oscilloscope
 
 
 class _DummyInstrument:

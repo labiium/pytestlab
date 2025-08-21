@@ -1,7 +1,11 @@
 from __future__ import annotations
-from pydantic import BaseModel, Field, ConfigDict # Added ConfigDict
-from typing import Optional
+
 import math
+
+from pydantic import BaseModel  # Added ConfigDict
+from pydantic import ConfigDict  # Added ConfigDict
+from pydantic import Field  # Added ConfigDict
+
 
 class AccuracySpec(BaseModel):
     """
@@ -12,11 +16,11 @@ class AccuracySpec(BaseModel):
     """
     model_config = ConfigDict(validate_assignment=True, extra='forbid')
 
-    percent_reading: Optional[float] = Field(None, ge=0, description="Accuracy as a percentage of the reading (e.g., 0.0001 for 0.01%)")
-    offset_value: Optional[float] = Field(None, ge=0, description="Fixed offset accuracy in units of the measurement (e.g., 0.005 V)")
+    percent_reading: float | None = Field(None, ge=0, description="Accuracy as a percentage of the reading (e.g., 0.0001 for 0.01%)")
+    offset_value: float | None = Field(None, ge=0, description="Fixed offset accuracy in units of the measurement (e.g., 0.005 V)")
     # Add other common ways accuracy is specified if needed, e.g., percent_range
 
-    def calculate_std_dev(self, reading_value: float, range_value: Optional[float] = None) -> float:
+    def calculate_std_dev(self, reading_value: float, range_value: float | None = None) -> float:
         """
         Calculates the standard deviation (sigma) for a given reading.
         This is a simplified example; real datasheets can be more complex.
@@ -26,7 +30,7 @@ class AccuracySpec(BaseModel):
             # Or handle as per specific instrument/measurement context
             # For now, using absolute value for calculation if negative readings are possible and meaningful
             # reading_value = abs(reading_value)
-            pass # Assuming reading_value is typically positive or magnitude.
+            pass  # Assuming reading_value is typically positive or magnitude.
 
         variance = 0.0
         if self.percent_reading is not None:
@@ -48,10 +52,10 @@ class AccuracySpec(BaseModel):
         #         raise ValueError("range_value must be positive for percent_range calculation.")
         #     variance += (self.percent_range * range_value)**2
 
-        if variance < 0.0: # Should not happen with non-negative inputs and squaring
+        if variance < 0.0:  # Should not happen with non-negative inputs and squaring
              raise ValueError("Calculated variance is negative, check inputs and logic.")
-        if variance == 0.0: # No spec provided, or spec results in zero uncertainty
-            return 0.0 # Or raise an error, or return a very small number if appropriate
+        if variance == 0.0:  # No spec provided, or spec results in zero uncertainty
+            return 0.0  # Or raise an error, or return a very small number if appropriate
         
         return math.sqrt(variance)
 

@@ -18,8 +18,9 @@ This file is completely generic and can be reused in other projects.
 """
 from __future__ import annotations
 
-from typing import Any, Callable
 import threading
+from collections.abc import Callable
+from typing import Any
 
 
 def run_safely(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> None:

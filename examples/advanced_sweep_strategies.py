@@ -16,15 +16,14 @@ Each approach has different advantages:
 - grid_sweep: More flexible parameter control
 - gwass: Adaptively focuses measurements where they matter most
 """
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
-from typing import Callable, Dict, List, Tuple, Any
 import time
 
+import matplotlib.pyplot as plt
+import numpy as np
+
+from pytestlab.experiments.sweep import grid_sweep
+from pytestlab.experiments.sweep import gwass
 from pytestlab.measurements.session import MeasurementSession
-from pytestlab.experiments.sweep import grid_sweep, gwass, monte_carlo_sweep
-from pytestlab.instruments import AutoInstrument
 
 
 # Define a sample function to test - a 2D sinusoidal pattern with peaks

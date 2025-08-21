@@ -1,27 +1,38 @@
 from __future__ import annotations
 
-import time
+import warnings
+from dataclasses import dataclass
+from io import BytesIO
+from typing import TYPE_CHECKING
+from typing import Any
+from typing import Self
+
 import numpy as np
 import polars as pl
-from typing import Any, Dict, List, Optional, Tuple, Type, Union, Self, TYPE_CHECKING
-from dataclasses import dataclass
 from PIL import Image
-from io import BytesIO, StringIO
+from pydantic import validate_call
 from uncertainties import ufloat
 from uncertainties.core import UFloat
-from ..analysis import fft as analysis_fft
-import warnings
 
-from .instrument import Instrument
+from ..analysis import fft as analysis_fft
+from ..common.enums import AcquisitionType
+from ..common.enums import SCPIOnOff
+from ..common.enums import TriggerSlope
+from ..common.enums import WaveformType
+from ..common.health import HealthReport
+from ..common.health import HealthStatus
+
 # from ..config import OscilloscopeConfig, ConfigRequires # OscilloscopeConfig is V2
-from ..config.oscilloscope_config import OscilloscopeConfig # Import the V2 config
+from ..config.oscilloscope_config import OscilloscopeConfig  # Import the V2 config
+from ..errors import InstrumentConfigurationError
+from ..errors import InstrumentDataError
+from ..errors import InstrumentParameterError
 from ..experiments import MeasurementResult
-from ..common.enums import AcquisitionType, SCPIOnOff, TriggerSlope, WaveformType
-from ..common.health import HealthReport, HealthStatus
-from ..errors import InstrumentConfigurationError, InstrumentParameterError, InstrumentDataError
-from pydantic import validate_call
+from .instrument import Instrument
+
 if TYPE_CHECKING:  # for type checkers only; avoids runtime import cycles
     from ..plotting.simple import PlotSpec
+
 
 def _validate_range(val, minval, maxval, name):
     if not (minval <= val <= maxval):
@@ -31,6 +42,7 @@ def _validate_range(val, minval, maxval, name):
             valid_range=(minval, maxval),
             message=f"{name} must be between {minval} and {maxval}.",
         )
+
 
 _ACQ_TYPE_MAP = {
     AcquisitionType.NORMAL: "NORMal",
@@ -43,6 +55,7 @@ _ACQ_MODE_MAP = {
     "REAL_TIME": "RTIMe",
     "SEGMENTED": "SEGMented"
 }
+
 
 class ChannelReadingResult(MeasurementResult):
     """A result class for oscilloscope channel readings (time, voltage, etc).
@@ -61,9 +74,9 @@ class ChannelReadingResult(MeasurementResult):
         return self.values
 
     @property
-    def channels(self) -> List[int]:
+    def channels(self) -> list[int]:
         df = self._ensure_dataframe()
-        chans: List[int] = []
+        chans: list[int] = []
         for name in df.columns:
             if name.startswith("Channel ") and name.endswith(" (V)"):
                 try:
@@ -86,7 +99,7 @@ class ChannelReadingResult(MeasurementResult):
     def _column_for_channel(self, channel: int) -> str:
         return f"Channel {channel} (V)"
 
-    def for_channel(self, channel: int) -> "ChannelReadingResult":
+    def for_channel(self, channel: int) -> ChannelReadingResult:
         df = self._ensure_dataframe()
         col = self._column_for_channel(channel)
         if col not in df.columns:
@@ -114,18 +127,19 @@ class ChannelReadingResult(MeasurementResult):
         # Fall back to default behavior (may raise)
         return super().__getitem__(key)
 
+
 class FFTResult(MeasurementResult):
     """A result class for FFT data from the oscilloscope."""
     pass
+
 
 class FRanalysisResult(MeasurementResult):
     """A result class for frequency response analysis data."""
     pass
 
 
-# Forward declarations for type hints within facade classes
-class Oscilloscope:
-    pass
+# (Removed forward declaration to avoid shadowing real Oscilloscope class)
+
 
 class ScopeChannelFacade:
     """Provides a simplified, chainable interface for a single oscilloscope channel.
@@ -138,12 +152,12 @@ class ScopeChannelFacade:
         _scope: The parent `Oscilloscope` instance.
         _channel: The channel number this facade controls.
     """
-    def __init__(self, scope: 'Oscilloscope', channel_num: int):
+    def __init__(self, scope: Oscilloscope, channel_num: int):
         self._scope = scope
         self._channel = channel_num
 
     @validate_call
-    def setup(self, scale: Optional[float] = None, position: Optional[float] = None, offset: Optional[float] = None, coupling: Optional[str] = None, probe_attenuation: Optional[int] = None, bandwidth_limit: Optional[Union[str, float]] = None) -> Self:
+    def setup(self, scale: float | None = None, position: float | None = None, offset: float | None = None, coupling: str | None = None, probe_attenuation: int | None = None, bandwidth_limit: str | float | None = None) -> Self:
         """Configures multiple settings for the channel in a single call.
 
         This method allows setting the vertical scale, position/offset, coupling,
@@ -207,11 +221,11 @@ class ScopeTriggerFacade:
     Attributes:
         _scope: The parent `Oscilloscope` instance.
     """
-    def __init__(self, scope: 'Oscilloscope'):
+    def __init__(self, scope: Oscilloscope):
         self._scope = scope
 
     @validate_call
-    def setup_edge(self, source: str, level: float, slope: TriggerSlope = TriggerSlope.POSITIVE, coupling: Optional[str] = None, mode: str = "EDGE") -> Self:
+    def setup_edge(self, source: str, level: float, slope: TriggerSlope = TriggerSlope.POSITIVE, coupling: str | None = None, mode: str = "EDGE") -> Self:
         """Configures a standard edge trigger.
 
         Args:
@@ -228,21 +242,21 @@ class ScopeTriggerFacade:
         if source.upper().startswith("CHAN"):
             try:
                 trigger_channel_for_level = int(source[len("CHAN"):])
-            except ValueError:
+            except ValueError as e:
                 raise InstrumentParameterError(
                     parameter="source",
                     value=source,
                     message="Invalid trigger source format for channel.",
-                )
+                ) from e
         elif source.upper().startswith("CH"):
             try:
                 trigger_channel_for_level = int(source[len("CH"):])
-            except ValueError:
+            except ValueError as e:
                 raise InstrumentParameterError(
                     parameter="source",
                     value=source,
                     message="Invalid trigger source format for channel.",
-                )
+                ) from e
 
         self._scope.configure_trigger(
             channel=trigger_channel_for_level,
@@ -256,6 +270,7 @@ class ScopeTriggerFacade:
                 self._scope._send_command(cmd)
         return self
 
+
 class ScopeAcquisitionFacade:
     """Provides a simplified interface for the oscilloscope's acquisition system.
 
@@ -266,7 +281,7 @@ class ScopeAcquisitionFacade:
     Attributes:
         _scope: The parent `Oscilloscope` instance.
     """
-    def __init__(self, scope: 'Oscilloscope'):
+    def __init__(self, scope: Oscilloscope):
         self._scope = scope
 
     @validate_call
@@ -382,15 +397,16 @@ class ScopeAcquisitionFacade:
         return float(self._scope._query(self._scope.scpi_engine.build("acquire_sample_rate")[0]))
 
     @validate_call
-    def get_acquire_setup(self) -> Dict[str, str]:
+    def get_acquire_setup(self) -> dict[str, str]:
         raw_str: str = self._scope._query(self._scope.scpi_engine.build("acquire_setup")[0]).strip()
-        parts: List[str] = [p.strip() for p in raw_str.split(';')]
-        setup_dict: Dict[str, str] = {}
+        parts: list[str] = [p.strip() for p in raw_str.split(';')]
+        setup_dict: dict[str, str] = {}
         for part in parts:
             kv = part.split(maxsplit=1)
             if len(kv) == 2:
                 setup_dict[kv[0]] = kv[1]
         return setup_dict
+
 
 @dataclass
 class Preamble:
@@ -423,6 +439,7 @@ class Preamble:
     yorg: float
     yref: float
 
+
 class Oscilloscope(Instrument[OscilloscopeConfig]):
     """Drives a digital oscilloscope for waveform acquisition and measurement.
 
@@ -443,9 +460,10 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         trigger: A `ScopeTriggerFacade` for configuring trigger settings.
         acquisition: A `ScopeAcquisitionFacade` for acquisition system settings.
     """
-    config: OscilloscopeConfig # Type hint for validated config
+    config: OscilloscopeConfig  # Type hint for validated config
+
     # visa_resource is handled by base Instrument or backend through config.address
-    def __init__(self, config: OscilloscopeConfig, debug_mode: bool = False, simulate: bool = False, **kwargs: Any) -> None: # config is now non-optional
+    def __init__(self, config: OscilloscopeConfig, debug_mode: bool = False, simulate: bool = False, **kwargs: Any) -> None:  # config is now non-optional
         """
         Initialize the Oscilloscope class with the given VISA resource and profile information.
 
@@ -455,7 +473,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         simulate (bool): Enable simulation mode. (Handled by base or backend)
         """
         # The config is already validated by the loader to be OscilloscopeConfig V2
-        super().__init__(config=config, debug_mode=debug_mode, simulate=simulate, **kwargs) # Pass kwargs
+        super().__init__(config=config, debug_mode=debug_mode, simulate=simulate, **kwargs)  # Pass kwargs
         # Initialize facades
         self.trigger = ScopeTriggerFacade(self)
         self.acquisition = ScopeAcquisitionFacade(self)
@@ -487,7 +505,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         return ScopeChannelFacade(self, ch_num)
 
     @classmethod
-    def from_config(cls: Type['Oscilloscope'], config: OscilloscopeConfig, debug_mode: bool = False, **kwargs: Any) -> 'Oscilloscope':
+    def from_config(cls: type[Oscilloscope], config: OscilloscopeConfig, debug_mode: bool = False, **kwargs: Any) -> Oscilloscope:
         # This method aligns with the new __init__ signature.
         return cls(config=config, debug_mode=debug_mode, **kwargs)
 
@@ -668,7 +686,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         self._wait()
 
     @validate_call
-    def get_time_axis(self) -> List[float]:
+    def get_time_axis(self) -> list[float]:
         """
         Gets the time axis of the oscilloscope. (x-axis)
 
@@ -700,7 +718,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         self._wait()
 
     @validate_call
-    def get_channel_axis(self, channel: int) -> List[float]:
+    def get_channel_axis(self, channel: int) -> list[float]:
         """
         Gets the channel axis of the oscilloscope. (y-axis)
 
@@ -720,7 +738,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         return [np.float64(s), np.float64(o)]
 
     @validate_call
-    def configure_trigger(self, channel: int, level: float, source: Optional[str] = None, trigger_type: str = "HIGH", slope: TriggerSlope = TriggerSlope.POSITIVE, mode: str = "EDGE") -> None:
+    def configure_trigger(self, channel: int, level: float, source: str | None = None, trigger_type: str = "HIGH", slope: TriggerSlope = TriggerSlope.POSITIVE, mode: str = "EDGE") -> None:
         """
         Sets the trigger for the oscilloscope.
 
@@ -784,7 +802,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             )
         scpi_slope = slope.value
 
-        if mode.upper() not in [m.upper() for m in self.config.trigger.modes]: # Case-insensitive check
+        if mode.upper() not in [m.upper() for m in self.config.trigger.modes]:  # Case-insensitive check
              self._logger.warning(f"Trigger mode '{mode}' not in configured supported modes: {self.config.trigger.modes}. Passing directly to instrument.")
         scpi_mode = mode
 
@@ -908,10 +926,10 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
     @validate_call
     def read_channels(
         self,
-        *channels: Union[int, List[int], Tuple[int, ...]],
+        *channels: int | list[int] | tuple[int, ...],
 
         run_after: bool = True,
-        timebase: Optional[float] = None,
+        timebase: float | None = None,
         **kwargs
     ) -> ChannelReadingResult:
         """
@@ -926,12 +944,12 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         if 'runAfter' in kwargs:
             warnings.warn("'runAfter' is deprecated, use 'run_after' instead.",
                           DeprecationWarning, stacklevel=2)
-            run_after = kwargs['runAfter']
+            _ = kwargs['runAfter']
 
         if not channels:
             raise InstrumentParameterError(message="No channels specified.")
 
-        if isinstance(channels[0], (list, tuple)) and len(channels) == 1:
+        if isinstance(channels[0], list | tuple) and len(channels) == 1:
             processed_channels = list(channels[0])
         else:
             processed_channels = list(channels)
@@ -959,16 +977,14 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
 
         sampling_rate = float(self.get_sampling_rate())
 
-        time_array: Optional[np.ndarray] = None
+        time_array: np.ndarray | None = None
         columns: dict[str, np.ndarray] = {}
 
-        for idx, ch in enumerate(processed_channels, start=1):
+        for _idx, ch in enumerate(processed_channels, start=1):
             # Select channel as waveform source and fetch its preamble
             for cmd in self.scpi_engine.build('set_wave_source', source=f"CHANnel{ch}"):
                 self._send_command(cmd)
             pre = self._read_preamble()
-
-
 
             raw = self._read_wave_data(f"CHANnel{ch}")
 
@@ -994,11 +1010,11 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
 
     def plot_channels(
         self,
-        *channels: Union[int, List[int], Tuple[int, ...]],
-        points: Optional[int] = None,
+        *channels: int | list[int] | tuple[int, ...],
+        points: int | None = None,
         run_after: bool = True,
-        timebase: Optional[float] = None,
-        spec: "PlotSpec" | None = None,
+        timebase: float | None = None,
+        spec: PlotSpec | None = None,
         **kwargs,
     ):
         """
@@ -1034,7 +1050,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         return np.float64(v)
 
     @validate_call
-    def get_probe_attenuation(self, channel: int) -> str: # Returns string like "10:1"
+    def get_probe_attenuation(self, channel: int) -> str:  # Returns string like "10:1"
         """
         Gets the probe attenuation for a given channel.
 
@@ -1059,7 +1075,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             return f"{num_factor}:1"
         except ValueError:
             self._logger.warning(f"Could not parse probe attenuation factor '{response_str}' as number. Returning raw.")
-            return response_str # Or raise error
+            return response_str  # Or raise error
 
     @validate_call
     def set_probe_attenuation(self, channel: int, scale: int) -> None:
@@ -1079,7 +1095,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             )
 
         channel_model_config = self.config.channels[channel - 1]
-        if scale not in channel_model_config.probe_attenuation: # probe_attenuation is List[int]
+        if scale not in channel_model_config.probe_attenuation:  # probe_attenuation is List[int]
             raise InstrumentParameterError(
                 parameter="scale",
                 value=scale,
@@ -1111,7 +1127,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         rate (str): The desired sample rate. Valid values are 'MAX' and 'AUTO'. Case-insensitive.
         """
         rate_upper: str = rate.upper()
-        valid_values: List[str] = ["MAX", "AUTO"] # These are common SCPI values
+        valid_values: list[str] = ["MAX", "AUTO"]  # These are common SCPI values
         if rate_upper not in valid_values:
             raise InstrumentParameterError(
                 parameter="rate",
@@ -1123,7 +1139,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             self._send_command(cmd)
 
     @validate_call
-    def set_bandwidth_limit(self, channel: int, bandwidth: Union[str, float]) -> None:
+    def set_bandwidth_limit(self, channel: int, bandwidth: str | float) -> None:
         """
         Sets the bandwidth limit for a specified channel.
         Args:
@@ -1141,7 +1157,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             self._send_command(cmd)
 
     @validate_call
-    #@ConfigRequires("function_generator")
+    # @ConfigRequires("function_generator")
     def wave_gen(self, state: bool) -> None:
         """
         Enable or disable the waveform generator of the oscilloscope.
@@ -1157,7 +1173,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             self._send_command(cmd)
 
     @validate_call
-    #@ConfigRequires("function_generator")
+    # @ConfigRequires("function_generator")
     def set_wave_gen_func(self, func_type: WaveformType) -> None:
         """
         Set the waveform function for the oscilloscope's waveform generator.
@@ -1184,7 +1200,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             self._send_command(cmd)
 
     @validate_call
-    ##@ConfigRequires("function_generator")
+    # @ConfigRequires("function_generator")
     def set_wave_gen_freq(self, freq: float) -> None:
         """
         Set the frequency for the waveform generator.
@@ -1203,7 +1219,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             self._send_command(cmd)
 
     @validate_call
-    #@ConfigRequires("function_generator")
+    # @ConfigRequires("function_generator")
     def set_wave_gen_amp(self, amp: float) -> None:
         """
         Set the amplitude for the waveform generator.
@@ -1221,7 +1237,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             self._send_command(cmd)
 
     @validate_call
-    #@ConfigRequires("function_generator")
+    # @ConfigRequires("function_generator")
     def set_wave_gen_offset(self, offset: float) -> None:
         """
         Set the voltage offset for the waveform generator.
@@ -1239,7 +1255,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             self._send_command(cmd)
 
     @validate_call
-    #@ConfigRequires("function_generator")
+    # @ConfigRequires("function_generator")
     def set_wgen_sin(self, amp: float, offset: float, freq: float) -> None:
         """Sets the waveform generator to a sine wave.
 
@@ -1256,10 +1272,9 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         self.set_wave_gen_offset(offset)
         self.set_wave_gen_freq(freq)
 
-
     @validate_call
-    #@ConfigRequires("function_generator")
-    def set_wgen_square(self, v0: float, v1: float, freq: float, duty_cycle: Optional[int] = None, **kwargs) -> None:
+    # @ConfigRequires("function_generator")
+    def set_wgen_square(self, v0: float, v1: float, freq: float, duty_cycle: int | None = None, **kwargs) -> None:
         """Sets the waveform generator to a square wave.
 
         :param v0: The voltage of the low state in volts
@@ -1297,9 +1312,8 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         for cmd in self.scpi_engine.build('wgen_set_square_duty', duty=clamp_duty(duty_cycle)):
             self._send_command(cmd)
 
-
     @validate_call
-    #@ConfigRequires("function_generator")
+    # @ConfigRequires("function_generator")
     def set_wgen_ramp(self, v0: float, v1: float, freq: float, symmetry: int) -> None:
         """Sets the waveform generator to a ramp wave.
 
@@ -1313,6 +1327,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                 self.config.model, "Function generator not configured."
             )
         self.set_wave_gen_func(WaveformType.RAMP)
+
         def clamp_symmetry(number: int) -> int:
             return max(0, min(number, 100))
 
@@ -1325,10 +1340,9 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         for cmd in self.scpi_engine.build('wgen_set_ramp_symmetry', symmetry=clamp_symmetry(symmetry)):
             self._send_command(cmd)
 
-
     @validate_call
-    #@ConfigRequires("function_generator")
-    def set_wgen_pulse(self, v0: float, v1: float, period: float, pulse_width: Optional[float] = None, **kwargs) -> None:
+    # @ConfigRequires("function_generator")
+    def set_wgen_pulse(self, v0: float, v1: float, period: float, pulse_width: float | None = None, **kwargs) -> None:
         """Sets the waveform generator to a pulse wave.
 
         :param v0: The voltage of the low state in volts
@@ -1362,9 +1376,8 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         for cmd in self.scpi_engine.build('wgen_set_pulse_width', width=pulse_width):
             self._send_command(cmd)
 
-
     @validate_call
-    #@ConfigRequires("function_generator")
+    # @ConfigRequires("function_generator")
     def set_wgen_dc(self, offset: float) -> None:
         """Sets the waveform generator to a DC wave.
 
@@ -1377,9 +1390,8 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         self.set_wave_gen_func(WaveformType.DC)
         self.set_wave_gen_offset(offset)
 
-
     @validate_call
-    #@ConfigRequires("function_generator")
+    # @ConfigRequires("function_generator")
     def set_wgen_noise(self, v0: float, v1: float, offset: float) -> None:
         """Sets the waveform generator to a noise wave.
 
@@ -1399,7 +1411,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         self.set_wave_gen_offset(offset)
 
     @validate_call
-    def display_channel(self, channels: Union[int, List[int]], state: bool = True) -> None:
+    def display_channel(self, channels: int | list[int], state: bool = True) -> None:
         """
         Display or hide the specified channel(s) on the oscilloscope.
 
@@ -1407,7 +1419,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         channels (Union[int, List[int]]): A single channel number or a list of channel numbers.
         state (bool): True to display (ON), False to hide (OFF). Default is True.
         """
-        ch_list: List[int]
+        ch_list: list[int]
         if isinstance(channels, int):
             ch_list = [channels]
         elif isinstance(channels, list) and all(isinstance(ch, int) for ch in channels):
@@ -1430,7 +1442,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                 self._send_command(cmd)
 
     @validate_call
-    #@ConfigRequires("fft")
+    # @ConfigRequires("fft")
     def fft_display(self, state: bool = True) -> None:
         """
         Switches on or off the FFT display.
@@ -1445,7 +1457,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         self._logger.debug(f"FFT display {'enabled' if state else 'disabled'}.")
 
     @validate_call
-    #@ConfigRequires("function_generator")
+    # @ConfigRequires("function_generator")
     def function_display(self, state: bool = True) -> None:
         """
         Switches on or off the function display (e.g. Math or WGEN waveform).
@@ -1458,8 +1470,8 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         self._logger.debug(f"Function display {'enabled' if state else 'disabled'}.")
 
     @validate_call
-    #@ConfigRequires("fft")
-    def configure_fft(self, source_channel: int, scale: Optional[float] = None, offset: Optional[float] = None, span: Optional[float] = None,  window_type: str = 'HANNing', units: str = 'DECibel', display: bool = True) -> None:
+    # @ConfigRequires("fft")
+    def configure_fft(self, source_channel: int, scale: float | None = None, offset: float | None = None, span: float | None = None, window_type: str = 'HANNing', units: str = 'DECibel', display: bool = True) -> None:
         """
         Configure the oscilloscope to perform an FFT on the specified channel.
 
@@ -1532,7 +1544,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
 
         self._logger.debug(f"FFT configured for channel {source_channel}.")
 
-    def _convert_binary_block_to_data(self, binary_block: bytes) -> np.ndarray: # Synchronous method for converting binary data
+    def _convert_binary_block_to_data(self, binary_block: bytes) -> np.ndarray:  # Synchronous method for converting binary data
         """
         Converts a SCPI binary block to a NumPy array.
         Assumes format like #<N><LengthBytes><DataBytes>
@@ -1560,7 +1572,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         return data_array
 
     @validate_call
-    def read_fft_data(self, channel: int, window: Optional[str] = 'hann') -> FFTResult:
+    def read_fft_data(self, channel: int, window: str | None = 'hann') -> FFTResult:
         """
         Acquires time-domain data for the specified channel and computes the FFT using
         the analysis submodule.
@@ -1618,7 +1630,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         # 3. Return or further process the results
         return FFTResult(
             instrument=self.config.model,
-            units="Linear", # compute_fft returns linear magnitude
+            units="Linear",  # compute_fft returns linear magnitude
             measurement_type="FFT_computed_python",
             values=pl.DataFrame({
                 "Frequency (Hz)": frequency_array,
@@ -1649,8 +1661,8 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         return Image.open(BytesIO(image_data_bytes))
 
     @validate_call
-    #@ConfigRequires("franalysis")
-    #@ConfigRequires("function_generator")
+    # @ConfigRequires("franalysis")
+    # @ConfigRequires("function_generator")
     def franalysis_sweep(self, input_channel: int, output_channel: int, start_freq: float, stop_freq: float, amplitude: float, points: int = 10, trace: str = "none", load: str = "onemeg", disable_on_complete: bool = True) -> FRanalysisResult:
         """
         Perform a frequency response analysis sweep.

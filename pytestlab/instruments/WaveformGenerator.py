@@ -1,54 +1,49 @@
-from __future__ import annotations
-
-# -*- coding: utf-8 -*-
 """
 Module providing a high-level interface for Keysight EDU33210 Series
 Trueform Arbitrary Waveform Generators.
 """
+from __future__ import annotations
 
 import re
-import time
 import warnings
-from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union, Type, Self
-from pydantic import validate_call # Added validate_call
+from collections.abc import Callable
+from dataclasses import dataclass
+from dataclasses import field
+from typing import Any
+from typing import Self
 
 import numpy as np
+from pydantic import validate_call  # Added validate_call
 
+from ..common.enums import ArbAdvanceMode  # Added Enums
+from ..common.enums import ArbFilterType  # Added Enums
+from ..common.enums import BurstMode  # Added Enums
+from ..common.enums import ModulationSource  # Added Enums
+from ..common.enums import OutputLoadImpedance  # Added Enums
+from ..common.enums import OutputPolarity  # Added Enums
+from ..common.enums import SCPIOnOff  # Added Enums
+from ..common.enums import SweepSpacing  # Added Enums
+from ..common.enums import SyncMode  # Added Enums
+from ..common.enums import TriggerSlope  # Added Enums
+from ..common.enums import TriggerSource  # Added Enums
+from ..common.enums import VoltageUnit  # Added Enums
+from ..common.enums import WaveformType  # Added Enums
+from ..config import WaveformGeneratorConfig  # This is V2 config
+from ..errors import InstrumentCommunicationError
+from ..errors import InstrumentConfigurationError
+from ..errors import InstrumentParameterError
 from .instrument import Instrument
-from ..config import WaveformGeneratorConfig # This is V2 config
-from ..errors import (
-    InstrumentCommunicationError,
-    InstrumentConfigurationError,
-    InstrumentParameterError,
-)
-from ..common.enums import ( # Added Enums
-    SCPIOnOff,
-    WaveformType,
-    OutputLoadImpedance,
-    OutputPolarity,
-    VoltageUnit,
-    TriggerSlope,
-    TriggerSource,
-    SyncMode,
-    ModulationSource,
-    ArbFilterType,
-    ArbAdvanceMode,
-    SweepSpacing,
-    BurstMode,
-)
 
-# Forward declarations for type hints within facade classes
-class WaveformGenerator:
-    pass
+# Forward declaration removed; using forward-referenced type hints via string annotations (PEP 563 / __future__)
+
 
 class WGChannelFacade:
-    def __init__(self, wg: 'WaveformGenerator', channel_num: int):
+    def __init__(self, wg: WaveformGenerator, channel_num: int):
         self._wg = wg
         self._channel = channel_num
 
     @validate_call
-    def setup_sine(self, frequency: float, amplitude: float, offset: float = 0.0, phase: Optional[float] = None) -> Self:
+    def setup_sine(self, frequency: float, amplitude: float, offset: float = 0.0, phase: float | None = None) -> Self:
         self._wg.set_function(self._channel, WaveformType.SINE)
         self._wg.set_frequency(self._channel, frequency)
         self._wg.set_amplitude(self._channel, amplitude)
@@ -58,7 +53,7 @@ class WGChannelFacade:
         return self
 
     @validate_call
-    def setup_square(self, frequency: float, amplitude: float, offset: float = 0.0, duty_cycle: float = 50.0, phase: Optional[float] = None) -> Self:
+    def setup_square(self, frequency: float, amplitude: float, offset: float = 0.0, duty_cycle: float = 50.0, phase: float | None = None) -> Self:
         self._wg.set_function(self._channel, WaveformType.SQUARE, duty_cycle=duty_cycle)
         self._wg.set_frequency(self._channel, frequency)
         self._wg.set_amplitude(self._channel, amplitude)
@@ -68,7 +63,7 @@ class WGChannelFacade:
         return self
 
     @validate_call
-    def setup_ramp(self, frequency: float, amplitude: float, offset: float = 0.0, symmetry: float = 50.0, phase: Optional[float] = None) -> Self:
+    def setup_ramp(self, frequency: float, amplitude: float, offset: float = 0.0, symmetry: float = 50.0, phase: float | None = None) -> Self:
         self._wg.set_function(self._channel, WaveformType.RAMP, symmetry=symmetry)
         self._wg.set_frequency(self._channel, frequency)
         self._wg.set_amplitude(self._channel, amplitude)
@@ -78,7 +73,7 @@ class WGChannelFacade:
         return self
 
     @validate_call
-    def setup_pulse(self, frequency: float, amplitude: float, offset: float = 0.0, width: Optional[float] = None, duty_cycle: Optional[float] = None, transition_both: Optional[float] = None, phase: Optional[float] = None) -> Self:
+    def setup_pulse(self, frequency: float, amplitude: float, offset: float = 0.0, width: float | None = None, duty_cycle: float | None = None, transition_both: float | None = None, phase: float | None = None) -> Self:
         if frequency <= 0:
             raise InstrumentParameterError(parameter="frequency", value=frequency, message="Must be > 0 for pulse setup.")
         period = 1.0 / frequency
@@ -102,7 +97,7 @@ class WGChannelFacade:
         return self
 
     @validate_call
-    def setup_arbitrary(self, arb_name: str, sample_rate: float, amplitude: float, offset: float = 0.0, phase: Optional[float] = None) -> Self:
+    def setup_arbitrary(self, arb_name: str, sample_rate: float, amplitude: float, offset: float = 0.0, phase: float | None = None) -> Self:
         self._wg.set_function(self._channel, WaveformType.ARB)
         self._wg.select_arbitrary_waveform(self._channel, arb_name)
         self._wg.set_arbitrary_waveform_sample_rate(self._channel, sample_rate)
@@ -129,7 +124,7 @@ class WGChannelFacade:
         return self
 
     @validate_call
-    def set_load_impedance(self, impedance: Union[float, OutputLoadImpedance, str]) -> Self:
+    def set_load_impedance(self, impedance: float | OutputLoadImpedance | str) -> Self:
         self._wg.set_output_load_impedance(self._channel, impedance)
         return self
 
@@ -171,12 +166,13 @@ class WaveformConfigResult:
     frequency: float
     amplitude: float
     offset: float
-    phase: Optional[float] = None
-    symmetry: Optional[float] = None
-    duty_cycle: Optional[float] = None
-    output_state: Optional[bool] = None
-    load_impedance: Optional[Union[float, str]] = None
-    voltage_unit: Optional[str] = None
+    phase: float | None = None
+    symmetry: float | None = None
+    duty_cycle: float | None = None
+    output_state: bool | None = None
+    load_impedance: float | str | None = None
+    voltage_unit: str | None = None
+
 
 @dataclass
 class FileSystemInfo:
@@ -195,7 +191,7 @@ class FileSystemInfo:
     """
     bytes_used: int
     bytes_free: int
-    files: List[Dict[str, Any]] = field(default_factory=list)
+    files: list[dict[str, Any]] = field(default_factory=list)
 
 
 # --- Function Parameter Mapping ---
@@ -203,7 +199,7 @@ class FileSystemInfo:
 # Used by set_function to apply function-specific parameters.
 # Maps WaveformType enum members to supported keyword args and SCPI command lambdas.
 # Used by set_function to apply function-specific parameters.
-WAVEFORM_PARAM_COMMANDS: Dict[WaveformType, Dict[str, Callable[[int, Any], str]]] = {
+WAVEFORM_PARAM_COMMANDS: dict[WaveformType, dict[str, Callable[[int, Any], str]]] = {
     WaveformType.PULSE: {
         "duty_cycle": lambda ch, v_float: f"SOUR{ch}:FUNC:PULS:DCYCle {v_float}",
         "period": lambda ch, v_float: f"SOUR{ch}:FUNC:PULS:PERiod {v_float}",
@@ -211,7 +207,7 @@ WAVEFORM_PARAM_COMMANDS: Dict[WaveformType, Dict[str, Callable[[int, Any], str]]
         "transition_both": lambda ch, v_float: f"SOUR{ch}:FUNC:PULS:TRANsition:BOTH {v_float}",
         "transition_leading": lambda ch, v_float: f"SOUR{ch}:FUNC:PULS:TRANsition:LEADing {v_float}",
         "transition_trailing": lambda ch, v_float: f"SOUR{ch}:FUNC:PULS:TRANsition:TRAiling {v_float}",
-        "hold_mode": lambda ch, v_str_hold: f"SOUR{ch}:FUNC:PULS:HOLD {v_str_hold.upper()}", # Expects "WIDT" or "DCYC" string
+        "hold_mode": lambda ch, v_str_hold: f"SOUR{ch}:FUNC:PULS:HOLD {v_str_hold.upper()}",  # Expects "WIDT" or "DCYC" string
     },
     WaveformType.SQUARE: {
         "duty_cycle": lambda ch, v_float: f"SOUR{ch}:FUNC:SQUare:DCYCle {v_float}",
@@ -229,8 +225,8 @@ WAVEFORM_PARAM_COMMANDS: Dict[WaveformType, Dict[str, Callable[[int, Any], str]]
     },
     WaveformType.ARB: {
         "sample_rate": lambda ch, v_float: f"SOUR{ch}:FUNC:ARB:SRATe {v_float}",
-        "filter": lambda ch, arb_filter_enum_val: f"SOUR{ch}:FUNC:ARB:FILTer {arb_filter_enum_val}", # Expects ArbFilterType.value
-        "advance_mode": lambda ch, arb_adv_enum_val: f"SOUR{ch}:FUNC:ARB:ADVance {arb_adv_enum_val}", # Expects ArbAdvanceMode.value
+        "filter": lambda ch, arb_filter_enum_val: f"SOUR{ch}:FUNC:ARB:FILTer {arb_filter_enum_val}",  # Expects ArbFilterType.value
+        "advance_mode": lambda ch, arb_adv_enum_val: f"SOUR{ch}:FUNC:ARB:ADVance {arb_adv_enum_val}",  # Expects ArbAdvanceMode.value
         "frequency": lambda ch, v_float: f"SOUR{ch}:FUNC:ARB:FREQ {v_float}",
         "period": lambda ch, v_float: f"SOUR{ch}:FUNC:ARB:PER {v_float}",
         "ptpeak_voltage": lambda ch, v_float: f"SOUR{ch}:FUNC:ARB:PTP {v_float}",
@@ -244,14 +240,14 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
     Provides a high-level Python interface for controlling Keysight EDU33210
     Series Trueform Arbitrary Waveform Generators via SCPI commands.
     """
-    config: WaveformGeneratorConfig # Type hint for validated config
+    config: WaveformGeneratorConfig  # Type hint for validated config
     model_config = {"arbitrary_types_allowed": True}
 
     def __init__(self, config: WaveformGeneratorConfig, debug_mode: bool = False, **kwargs: Any) -> None:
         """
         Initializes the WaveformGenerator instance.
         """
-        super().__init__(config=config, debug_mode=debug_mode, **kwargs) # Pass kwargs to base
+        super().__init__(config=config, debug_mode=debug_mode, **kwargs)  # Pass kwargs to base
         # self.config is already set by base Instrument's __init__ due to Generic type
 
         # Determine channel count from the length of the channels list in the config
@@ -296,13 +292,12 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
         """
         return self._channel_count
 
-
     @classmethod
     @validate_call
-    def from_config(cls: Type['WaveformGenerator'], config: WaveformGeneratorConfig, debug_mode: bool = False, **kwargs: Any) -> 'WaveformGenerator':
+    def from_config(cls: type[WaveformGenerator], config: WaveformGeneratorConfig, debug_mode: bool = False, **kwargs: Any) -> WaveformGenerator:
         return cls(config=config, debug_mode=debug_mode, **kwargs)
 
-    def _validate_channel(self, channel: Union[int, str]) -> int:
+    def _validate_channel(self, channel: int | str) -> int:
         """
         Validates the provided channel identifier and returns the integer channel number (1-based).
         """
@@ -329,12 +324,12 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
             else:
                 try:
                     ch_num = int(channel)
-                except ValueError:
+                except ValueError as e:
                     raise InstrumentParameterError(
                         parameter="channel",
                         value=channel,
                         message="Invalid channel string format. Use integer, 'CHx', or 'CHANNELx'.",
-                    )
+                    ) from e
         elif isinstance(channel, int):
             ch_num = channel
         else:
@@ -346,7 +341,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
 
         # Validate against the number of channels defined in the config
         # self.config.channels is List[AWGChannelConfig]
-        if not (1 <= ch_num <= self.channel_count): # Use self.channel_count which is derived from len(self.config.channels)
+        if not (1 <= ch_num <= self.channel_count):  # Use self.channel_count which is derived from len(self.config.channels)
             raise InstrumentParameterError(
                 parameter="channel",
                 value=ch_num,
@@ -355,7 +350,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
             )
         return ch_num
 
-    def _get_scpi_function_name(self, user_function_name: Union[str, WaveformType]) -> str:
+    def _get_scpi_function_name(self, user_function_name: str | WaveformType) -> str:
         """
         Translates a user-friendly function name or WaveformType enum to the canonical short SCPI name (e.g., "SIN", "SQU").
         Validates against the instrument's configured built_in waveforms.
@@ -372,11 +367,11 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
 
         scpi_to_check: str
         if isinstance(user_function_name, WaveformType):
-            scpi_to_check = user_function_name.value # This is already the SCPI value like "SIN"
+            scpi_to_check = user_function_name.value  # This is already the SCPI value like "SIN"
         elif isinstance(user_function_name, str):
             lookup_key = user_function_name.strip().upper()
             # Attempt to map common friendly names to their SCPI enum values
-            friendly_to_enum_scpi: Dict[str, str] = {
+            friendly_to_enum_scpi: dict[str, str] = {
                 "SINE": WaveformType.SINE.value, "SINUSOID": WaveformType.SINE.value,
                 "SQUARE": WaveformType.SQUARE.value,
                 "RAMP": WaveformType.RAMP.value,
@@ -387,7 +382,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
                 # "TRIANGLE" and "PRBS" are not in WaveformType enum, so they won't map here.
                 # If user passes "TRIANGLE" or "PRBS" as string, it will be checked against config directly.
             }
-            scpi_to_check = friendly_to_enum_scpi.get(lookup_key, lookup_key) # Fallback to lookup_key if not in map
+            scpi_to_check = friendly_to_enum_scpi.get(lookup_key, lookup_key)  # Fallback to lookup_key if not in map
         else:
             raise InstrumentParameterError(
                 parameter="function_type",
@@ -396,7 +391,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
             )
 
         if scpi_to_check.upper() in supported_scpi_values_from_config:
-            return scpi_to_check.upper() # Return the validated SCPI string
+            return scpi_to_check.upper()  # Return the validated SCPI string
         else:
             # If user_function_name was a string and didn't map via friendly_to_enum_scpi,
             # but its uppercase version is in the supported list (e.g. user passed "TRI" and "TRI" is in built_in)
@@ -410,46 +405,56 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
                 message=f"Waveform function (resolved to SCPI '{scpi_to_check}') is not supported by this instrument configuration.",
             )
 
-
-    def _format_value_min_max_def(self, value: Union[float, int, str, OutputLoadImpedance]) -> str:
+    def _format_value_min_max_def(self, value: float | int | str | OutputLoadImpedance) -> str:
         """
         Formats numeric values or special string/enum keywords for SCPI commands.
         """
         if isinstance(value, OutputLoadImpedance):
             return value.value
+
         if isinstance(value, str):
             val_upper = value.upper().strip()
-            if val_upper in {"MIN", "MINIMUM"}: return OutputLoadImpedance.MINIMUM.value
-            if val_upper in {"MAX", "MAXIMUM"}: return OutputLoadImpedance.MAXIMUM.value
-            if val_upper in {"DEF", "DEFAULT"}: return OutputLoadImpedance.DEFAULT.value
-            if val_upper in {"INF", "INFINITY"}: return OutputLoadImpedance.INFINITY.value
+
+            if val_upper in {"MIN", "MINIMUM"}:
+                return OutputLoadImpedance.MINIMUM.value
+            elif val_upper in {"MAX", "MAXIMUM"}:
+                return OutputLoadImpedance.MAXIMUM.value
+            elif val_upper in {"DEF", "DEFAULT"}:
+                return OutputLoadImpedance.DEFAULT.value
+            elif val_upper in {"INF", "INFINITY"}:
+                return OutputLoadImpedance.INFINITY.value
+
             try:
                 num_val = float(value)
-                return f"{num_val:.12G}"
-            except ValueError:
+            except ValueError as e:  # noqa: B904 (re-raise with context not needed here)
                 raise InstrumentParameterError(
                     parameter="value",
                     value=value,
-                    message="Invalid parameter string. Expected a number, specific keywords (MIN/MAX/DEF/INF), or a valid OutputLoadImpedance enum.",
-                )
-        elif isinstance(value, (int, float)):
+                    message=(
+                        "Invalid parameter string. Expected a number, one of "
+                        "MIN/MAX/DEF/INF, or a valid OutputLoadImpedance enum."
+                    ),
+                ) from e
+            return f"{num_val:.12G}"
+
+        if isinstance(value, int | float):
             return f"{float(value):.12G}"
-        else:
-            raise InstrumentParameterError(
-                parameter="value",
-                value=value,
-                message=f"Invalid parameter type: {type(value)}. Expected number, string, or OutputLoadImpedance enum.",
-            )
+
+        raise InstrumentParameterError(
+            parameter="value",
+            value=value,
+            message=f"Invalid parameter type: {type(value)}. Expected number, string, or OutputLoadImpedance enum.",
+        )
 
     @validate_call
-    def set_function(self, channel: Union[int, str], function_type: Union[WaveformType, str], **kwargs: Any) -> None:
+    def set_function(self, channel: int | str, function_type: WaveformType | str, **kwargs: Any) -> None:
         """
         Sets the primary waveform function and associated parameters for a channel.
         """
         ch = self._validate_channel(channel)
         scpi_func_short = self._get_scpi_function_name(function_type)
 
-        standard_params_set: Dict[str, bool] = {}
+        standard_params_set: dict[str, bool] = {}
         # Assuming FUNC_ARB should be WaveformType.ARB.value
         if 'frequency' in kwargs and scpi_func_short != WaveformType.ARB.value:
             self.set_frequency(ch, kwargs.pop('frequency'))
@@ -475,7 +480,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
         if kwargs:
             # Ensure WAVEFORM_PARAM_COMMANDS keys are WaveformType enum members
             # And scpi_func_short is mapped to its corresponding WaveformType enum member if it's a string
-            func_enum_key: Optional[WaveformType] = None
+            func_enum_key: WaveformType | None = None
             if isinstance(function_type, WaveformType):
                 func_enum_key = function_type
             elif isinstance(function_type, str):
@@ -517,13 +522,13 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
             for param_name, value in kwargs.items():
                 if param_name in param_cmds_for_func:
                     try:
-                        if param_name in ["duty_cycle", "symmetry"] and isinstance(value, (int, float)):
+                        if param_name in ["duty_cycle", "symmetry"] and isinstance(value, int | float):
                             if not (0 <= float(value) <= 100):
                                 self._logger.warning(f"Parameter '{param_name}' value {value}% is outside the "
                                           f"typical 0-100 range. Instrument validation will apply.")
 
                         value_to_format = value
-                        if isinstance(value, (ArbFilterType, ArbAdvanceMode)): # Pass enum value for formatting
+                        if isinstance(value, ArbFilterType | ArbAdvanceMode):  # Pass enum value for formatting
                             value_to_format = value.value
 
                         formatted_value = self._format_value_min_max_def(value_to_format)
@@ -554,17 +559,17 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
                         message=f"Parameter is not supported for function '{function_type}' ({scpi_func_short}). Supported: {list(param_cmds_for_func.keys())}",
                     )
 
-    def get_function(self, channel: Union[int, str]) -> str:
+    def get_function(self, channel: int | str) -> str:
         ch = self._validate_channel(channel)
         scpi_func = (self._query(f"SOUR{ch}:FUNC?")).strip()
         self._logger.debug(f"Channel {ch}: Current function is {scpi_func}")
         return scpi_func
 
     @validate_call
-    def set_frequency(self, channel: Union[int, str], frequency: Union[float, OutputLoadImpedance, str]) -> None:
+    def set_frequency(self, channel: int | str, frequency: float | OutputLoadImpedance | str) -> None:
         ch = self._validate_channel(channel)
         freq_cmd_val = self._format_value_min_max_def(frequency)
-        if isinstance(frequency, (int, float)):
+        if isinstance(frequency, int | float):
             if 0 <= (ch - 1) < len(self.config.channels):
                 channel_config_model = self.config.channels[ch - 1]
                 channel_config_model.frequency.assert_in_range(float(frequency), name=f"Frequency for CH{ch}")
@@ -579,11 +584,13 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
             self._error_check()
 
     @validate_call
-    def get_frequency(self, channel: Union[int, str], query_type: Optional[OutputLoadImpedance] = None) -> float:
+    def get_frequency(self, channel: int | str, query_type: OutputLoadImpedance | None = None) -> float:
         ch = self._validate_channel(channel)
         cmd = f"SOUR{ch}:FREQ?"
         type_str = ""
-        if query_type: cmd += f" {query_type.value}"; type_str = f" ({query_type.name} limit)"
+        if query_type:
+            cmd += f" {query_type.value}"
+            type_str = f" ({query_type.name} limit)"
         try:
             q = self.scpi_engine.build("get_frequency", channel=ch)[0]
             if query_type:
@@ -593,22 +600,22 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
             response = (self._query(cmd)).strip()
         try:
             freq = float(response)
-        except ValueError:
+        except ValueError as e:
             raise InstrumentCommunicationError(
                 instrument=self.config.model,
                 command=cmd,
                 message=f"Failed to parse frequency float from response: '{response}'",
-            )
+            ) from e
         self._logger.debug(f"Channel {ch}: Frequency{type_str} is {freq} Hz")
         return freq
 
     @validate_call
-    def set_amplitude(self, channel: Union[int, str], amplitude: Union[float, OutputLoadImpedance, str]) -> None:
+    def set_amplitude(self, channel: int | str, amplitude: float | OutputLoadImpedance | str) -> None:
         ch = self._validate_channel(channel)
         amp_cmd_val = self._format_value_min_max_def(amplitude)
-        if isinstance(amplitude, (int, float)):
+        if isinstance(amplitude, int | float):
             if 0 <= (ch - 1) < len(self.config.channels):
-                channel_config_model = self.config.channels[ch-1]
+                channel_config_model = self.config.channels[ch - 1]
                 channel_config_model.amplitude.assert_in_range(float(amplitude), name=f"Amplitude for CH{ch}")
         try:
             for cmd in self.scpi_engine.build("set_amplitude", channel=ch, amplitude=amp_cmd_val):
@@ -620,11 +627,13 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
         self._error_check()
 
     @validate_call
-    def get_amplitude(self, channel: Union[int, str], query_type: Optional[OutputLoadImpedance] = None) -> float:
+    def get_amplitude(self, channel: int | str, query_type: OutputLoadImpedance | None = None) -> float:
         ch = self._validate_channel(channel)
         cmd = f"SOUR{ch}:VOLTage?"
         type_str = ""
-        if query_type: cmd += f" {query_type.value}"; type_str = f" ({query_type.name} limit)"
+        if query_type:
+            cmd += f" {query_type.value}"
+            type_str = f" ({query_type.name} limit)"
         try:
             q = self.scpi_engine.build("get_amplitude", channel=ch)[0]
             if query_type:
@@ -634,18 +643,18 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
             response = (self._query(cmd)).strip()
         try:
             amp = float(response)
-        except ValueError:
+        except ValueError as e:
             raise InstrumentCommunicationError(
                 instrument=self.config.model,
                 command=cmd,
                 message=f"Failed to parse amplitude float from response: '{response}'",
-            )
+            ) from e
         unit = self.get_voltage_unit(ch)
         self._logger.debug(f"Channel {ch}: Amplitude{type_str} is {amp} {unit.value}")
         return amp
 
     @validate_call
-    def set_offset(self, channel: Union[int, str], offset: Union[float, OutputLoadImpedance, str]) -> None:
+    def set_offset(self, channel: int | str, offset: float | OutputLoadImpedance | str) -> None:
         ch = self._validate_channel(channel)
         offset_cmd_val = self._format_value_min_max_def(offset)
         try:
@@ -657,11 +666,13 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
         self._error_check()
 
     @validate_call
-    def get_offset(self, channel: Union[int, str], query_type: Optional[OutputLoadImpedance] = None) -> float:
+    def get_offset(self, channel: int | str, query_type: OutputLoadImpedance | None = None) -> float:
         ch = self._validate_channel(channel)
         cmd = f"SOUR{ch}:VOLTage:OFFSet?"
         type_str = ""
-        if query_type: cmd += f" {query_type.value}"; type_str = f" ({query_type.name} limit)"
+        if query_type:
+            cmd += f" {query_type.value}"
+            type_str = f" ({query_type.name} limit)"
         try:
             q = self.scpi_engine.build("get_offset", channel=ch)[0]
             if query_type:
@@ -671,22 +682,22 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
             response = (self._query(cmd)).strip()
         try:
             offs = float(response)
-        except ValueError:
+        except ValueError as e:
             raise InstrumentCommunicationError(
                 instrument=self.config.model,
                 command=cmd,
                 message=f"Failed to parse offset float from response: '{response}'",
-            )
+            ) from e
         self._logger.debug(f"Channel {ch}: Offset{type_str} is {offs} V")
         return offs
 
     @validate_call
-    def set_phase(self, channel: Union[int, str], phase: Union[float, OutputLoadImpedance, str]) -> None:
+    def set_phase(self, channel: int | str, phase: float | OutputLoadImpedance | str) -> None:
         ch = self._validate_channel(channel)
         phase_cmd_val = self._format_value_min_max_def(phase)
-        if isinstance(phase, (int, float)):
+        if isinstance(phase, int | float):
             if 0 <= (ch - 1) < len(self.config.channels):
-                channel_config_model = self.config.channels[ch-1]
+                channel_config_model = self.config.channels[ch - 1]
                 channel_config_model.phase.assert_in_range(float(phase), name=f"Phase for CH{ch}")
         self._send_command(f"SOUR{ch}:PHASe {phase_cmd_val}")
         unit = self.get_angle_unit()
@@ -694,26 +705,28 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
         self._error_check()
 
     @validate_call
-    def get_phase(self, channel: Union[int, str], query_type: Optional[OutputLoadImpedance] = None) -> float:
+    def get_phase(self, channel: int | str, query_type: OutputLoadImpedance | None = None) -> float:
         ch = self._validate_channel(channel)
         cmd = f"SOUR{ch}:PHASe?"
         type_str = ""
-        if query_type: cmd += f" {query_type.value}"; type_str = f" ({query_type.name} limit)"
+        if query_type:
+            cmd += f" {query_type.value}"
+            type_str = f" ({query_type.name} limit)"
         response = (self._query(cmd)).strip()
         try:
             ph = float(response)
-        except ValueError:
+        except ValueError as e:
             raise InstrumentCommunicationError(
                 instrument=self.config.model,
                 command=cmd,
                 message=f"Failed to parse phase float from response: '{response}'",
-            )
+            ) from e
         unit = self.get_angle_unit()
         self._logger.debug(f"Channel {ch}: Phase{type_str} is {ph} {unit}")
         return ph
 
     @validate_call
-    def set_phase_reference(self, channel: Union[int, str]) -> None:
+    def set_phase_reference(self, channel: int | str) -> None:
         ch = self._validate_channel(channel)
         self._send_command(f"SOUR{ch}:PHASe:REFerence")
         self._logger.debug(f"Channel {ch}: Phase reference reset (current phase defined as 0).")
@@ -737,17 +750,17 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
     def get_phase_unlock_error_state(self) -> SCPIOnOff:
         response = (self._query("SOUR1:PHASe:UNLock:ERRor:STATe?")).strip()
         s = response.strip().upper()
-        if s in {"1","ON","TRUE"}:
+        if s in {"1", "ON", "TRUE"}:
             state = SCPIOnOff.ON
-        elif s in {"0","OFF","FALSE"}:
+        elif s in {"0", "OFF", "FALSE"}:
             state = SCPIOnOff.OFF
         else:
             raise InstrumentCommunicationError(self.config.model, "SOUR1:PHASe:UNLock:ERRor:STATe?", f"Unexpected response: {response}")
         self._logger.debug(f"Phase unlock error state is {state.value}")
         return state
 
-    @validate_call # Duplicated @validate_call removed
-    def set_output_state(self, channel: Union[int, str], state: SCPIOnOff) -> None:
+    @validate_call  # Duplicated @validate_call removed
+    def set_output_state(self, channel: int | str, state: SCPIOnOff) -> None:
         ch = self._validate_channel(channel)
         try:
             for cmd in self.scpi_engine.build("set_output_state", channel=ch, state=state.value):
@@ -758,7 +771,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
         self._error_check()
 
     @validate_call
-    def get_output_state(self, channel: Union[int, str]) -> SCPIOnOff:
+    def get_output_state(self, channel: int | str) -> SCPIOnOff:
         ch = self._validate_channel(channel)
         try:
             q = self.scpi_engine.build("get_output_state", channel=ch)[0]
@@ -770,12 +783,12 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
         return state
 
     @validate_call
-    def set_output_load_impedance(self, channel: Union[int, str], impedance: Union[float, OutputLoadImpedance, str]) -> None:
+    def set_output_load_impedance(self, channel: int | str, impedance: float | OutputLoadImpedance | str) -> None:
         ch = self._validate_channel(channel)
         cmd_impedance = self._format_value_min_max_def(impedance)
-        if isinstance(impedance, (int, float)):
+        if isinstance(impedance, int | float):
             if 0 <= (ch - 1) < len(self.config.channels):
-                channel_config_model = self.config.channels[ch-1]
+                channel_config_model = self.config.channels[ch - 1]
                 if hasattr(channel_config_model, 'output') and hasattr(channel_config_model.output, 'load_impedance'):
                     channel_config_model.output.load_impedance.assert_in_range(float(impedance), name=f"Load impedance for CH{ch}")
         self._send_command(f"OUTPut{ch}:LOAD {cmd_impedance}")
@@ -783,87 +796,95 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
         self._error_check()
 
     @validate_call
-    def get_output_load_impedance(self, channel: Union[int, str], query_type: Optional[OutputLoadImpedance] = None) -> Union[float, OutputLoadImpedance]:
+    def get_output_load_impedance(self, channel: int | str, query_type: OutputLoadImpedance | None = None) -> float | OutputLoadImpedance:
         ch = self._validate_channel(channel)
         cmd = f"OUTPut{ch}:LOAD?"
         type_str = ""
-        if query_type: cmd += f" {query_type.value}"; type_str = f" ({query_type.name} limit)"
+        if query_type:
+            cmd += f" {query_type.value}"
+            type_str = f" ({query_type.name} limit)"
         response = (self._query(cmd)).strip()
         self._logger.debug(f"Channel {ch}: Raw impedance response{type_str} is '{response}'")
         try:
             numeric_response = float(response)
-            if abs(numeric_response - 9.9e37) < 1e30: return OutputLoadImpedance.INFINITY
-            else: return numeric_response
-        except ValueError:
-            if response.upper() == OutputLoadImpedance.INFINITY.value.upper(): return OutputLoadImpedance.INFINITY
+            if abs(numeric_response - 9.9e37) < 1e30:
+                return OutputLoadImpedance.INFINITY
+            else:
+                return numeric_response
+        except ValueError as e:
+            if response.upper() == OutputLoadImpedance.INFINITY.value.upper():
+                return OutputLoadImpedance.INFINITY
             for enum_member in OutputLoadImpedance:
-                if response.upper() == enum_member.value.upper(): return enum_member
+                if response.upper() == enum_member.value.upper():
+                    return enum_member
             raise InstrumentCommunicationError(
                 instrument=self.config.model,
                 command=cmd,
                 message=f"Could not parse impedance response: '{response}'",
-            )
+            ) from e
 
     @validate_call
-    def set_output_polarity(self, channel: Union[int, str], polarity: OutputPolarity) -> None:
+    def set_output_polarity(self, channel: int | str, polarity: OutputPolarity) -> None:
         ch = self._validate_channel(channel)
         self._send_command(f"OUTPut{ch}:POLarity {polarity.value}")
         self._logger.debug(f"Channel {ch}: Output polarity set to {polarity.value}")
         self._error_check()
 
     @validate_call
-    def get_output_polarity(self, channel: Union[int, str]) -> OutputPolarity:
+    def get_output_polarity(self, channel: int | str) -> OutputPolarity:
         ch = self._validate_channel(channel)
         response = (self._query(f"OUTPut{ch}:POLarity?")).strip().upper()
         try:
             return OutputPolarity(response)
-        except ValueError:
-            if response == "NORM": return OutputPolarity.NORMAL
-            if response == "INV": return OutputPolarity.INVERTED
+        except ValueError as e:
+            if response == "NORM":
+                return OutputPolarity.NORMAL
+            if response == "INV":
+                return OutputPolarity.INVERTED
             raise InstrumentCommunicationError(
                 instrument=self.config.model,
                 command=f"OUTPut{ch}:POLarity?",
                 message=f"Unexpected polarity response from instrument: {response}",
-            )
+            ) from e
 
     @validate_call
-    def set_voltage_unit(self, channel: Union[int, str], unit: VoltageUnit) -> None:
+    def set_voltage_unit(self, channel: int | str, unit: VoltageUnit) -> None:
         ch = self._validate_channel(channel)
         self._send_command(f"SOUR{ch}:VOLTage:UNIT {unit.value}")
         self._logger.debug(f"Channel {ch}: Voltage unit set to {unit.value}")
         self._error_check()
 
     @validate_call
-    def get_voltage_unit(self, channel: Union[int, str]) -> VoltageUnit:
+    def get_voltage_unit(self, channel: int | str) -> VoltageUnit:
         ch = self._validate_channel(channel)
         response = (self._query(f"SOUR{ch}:VOLTage:UNIT?")).strip().upper()
         try:
             return VoltageUnit(response)
-        except ValueError:
+        except ValueError as e:
             raise InstrumentCommunicationError(
                 instrument=self.config.model,
                 command=f"SOUR{ch}:VOLTage:UNIT?",
                 message=f"Unexpected voltage unit response from instrument: {response}",
-            )
+            ) from e
 
     @validate_call
-    def set_voltage_limits_state(self, channel: Union[int, str], state: SCPIOnOff) -> None:
+    def set_voltage_limits_state(self, channel: int | str, state: SCPIOnOff) -> None:
         ch = self._validate_channel(channel)
         self._send_command(f"SOUR{ch}:VOLTage:LIMit:STATe {state.value}")
         self._logger.debug(f"Channel {ch}: Voltage limits state set to {state.value}")
         self._error_check()
 
     @validate_call
-    def get_voltage_limits_state(self, channel: Union[int, str]) -> SCPIOnOff:
+    def get_voltage_limits_state(self, channel: int | str) -> SCPIOnOff:
         ch = self._validate_channel(channel)
         response = (self._query(f"SOUR{ch}:VOLTage:LIMit:STATe?")).strip()
         s = response.strip().upper()
-        state = SCPIOnOff.ON if s in {"1","ON","TRUE"} else SCPIOnOff.OFF if s in {"0","OFF","FALSE"} else (_ for _ in ()).throw(InstrumentCommunicationError(self.config.model, f"SOUR{ch}:VOLTage:LIMit:STATe?", f"Unexpected response: {response}"))
+        state = SCPIOnOff.ON if s in {"1", "ON", "TRUE"} else SCPIOnOff.OFF if s in {"0", "OFF", "FALSE"} else (_ for _ in ()).throw(InstrumentCommunicationError(self.config.model, f"SOUR{ch}:VOLTage:LIMit:STATe?", f"Unexpected response: {response}"))
         self._logger.debug(f"Channel {ch}: Voltage limits state is {state.value}")
         return state
 
     @validate_call
-    def set_voltage_limit_high(self, channel: Union[int, str], voltage: Union[float, OutputLoadImpedance, str]) -> None:
+    def set_voltage_limit_high(self, channel: int | str, voltage: float | OutputLoadImpedance | str) -> None:
         ch = self._validate_channel(channel)
         cmd_val = self._format_value_min_max_def(voltage)
         self._send_command(f"SOUR{ch}:VOLTage:LIMit:HIGH {cmd_val}")
@@ -871,25 +892,27 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
         self._error_check()
 
     @validate_call
-    def get_voltage_limit_high(self, channel: Union[int, str], query_type: Optional[OutputLoadImpedance] = None) -> float:
+    def get_voltage_limit_high(self, channel: int | str, query_type: OutputLoadImpedance | None = None) -> float:
         ch = self._validate_channel(channel)
         cmd = f"SOUR{ch}:VOLTage:LIMit:HIGH?"
         type_str = ""
-        if query_type: cmd += f" {query_type.value}"; type_str = f" ({query_type.name} possible)"
+        if query_type:
+            cmd += f" {query_type.value}"
+            type_str = f" ({query_type.name} possible)"
         response = (self._query(cmd)).strip()
         try:
             val = float(response)
-        except ValueError:
+        except ValueError as e:
             raise InstrumentCommunicationError(
                 instrument=self.config.model,
                 command=cmd,
                 message=f"Failed to parse high limit float from response: '{response}'",
-            )
+            ) from e
         self._logger.debug(f"Channel {ch}: Voltage high limit{type_str} is {val} V")
         return val
 
     @validate_call
-    def set_voltage_limit_low(self, channel: Union[int, str], voltage: Union[float, OutputLoadImpedance, str]) -> None:
+    def set_voltage_limit_low(self, channel: int | str, voltage: float | OutputLoadImpedance | str) -> None:
         ch = self._validate_channel(channel)
         cmd_val = self._format_value_min_max_def(voltage)
         self._send_command(f"SOUR{ch}:VOLTage:LIMit:LOW {cmd_val}")
@@ -897,36 +920,38 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
         self._error_check()
 
     @validate_call
-    def get_voltage_limit_low(self, channel: Union[int, str], query_type: Optional[OutputLoadImpedance] = None) -> float:
+    def get_voltage_limit_low(self, channel: int | str, query_type: OutputLoadImpedance | None = None) -> float:
         ch = self._validate_channel(channel)
         cmd = f"SOUR{ch}:VOLTage:LIMit:LOW?"
         type_str = ""
-        if query_type: cmd += f" {query_type.value}"; type_str = f" ({query_type.name} possible)"
+        if query_type:
+            cmd += f" {query_type.value}"
+            type_str = f" ({query_type.name} possible)"
         response = (self._query(cmd)).strip()
         try:
             val = float(response)
-        except ValueError:
+        except ValueError as e:
             raise InstrumentCommunicationError(
                 instrument=self.config.model,
                 command=cmd,
                 message=f"Failed to parse low limit float from response: '{response}'",
-            )
+            ) from e
         self._logger.debug(f"Channel {ch}: Voltage low limit{type_str} is {val} V")
         return val
 
     @validate_call
-    def set_voltage_autorange_state(self, channel: Union[int, str], state: SCPIOnOff) -> None:
+    def set_voltage_autorange_state(self, channel: int | str, state: SCPIOnOff) -> None:
         ch = self._validate_channel(channel)
         self._send_command(f"SOUR{ch}:VOLTage:RANGe:AUTO {state.value}")
         self._logger.debug(f"Channel {ch}: Voltage autorange state set to {state.value}")
         self._error_check()
 
     @validate_call
-    def get_voltage_autorange_state(self, channel: Union[int, str]) -> SCPIOnOff:
+    def get_voltage_autorange_state(self, channel: int | str) -> SCPIOnOff:
         ch = self._validate_channel(channel)
         response = (self._query(f"SOUR{ch}:VOLTage:RANGe:AUTO?")).strip()
         s = response.strip().upper()
-        state = SCPIOnOff.ON if s in {"1","ON","TRUE"} else SCPIOnOff.OFF if s in {"0","OFF","FALSE"} else (_ for _ in ()).throw(InstrumentCommunicationError(self.config.model, f"SOUR{ch}:VOLTage:RANGe:AUTO?", f"Unexpected response: {response}"))
+        state = SCPIOnOff.ON if s in {"1", "ON", "TRUE"} else SCPIOnOff.OFF if s in {"0", "OFF", "FALSE"} else (_ for _ in ()).throw(InstrumentCommunicationError(self.config.model, f"SOUR{ch}:VOLTage:RANGe:AUTO?", f"Unexpected response: {response}"))
         self._logger.debug(f"Channel {ch}: Voltage autorange state is {state.value} (Query response: {response})")
         return state
 
@@ -940,54 +965,59 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
     def get_sync_output_state(self) -> SCPIOnOff:
         response = (self._query("OUTPut:SYNC:STATe?")).strip()
         s = response.strip().upper()
-        state = SCPIOnOff.ON if s in {"1","ON","TRUE"} else SCPIOnOff.OFF if s in {"0","OFF","FALSE"} else (_ for _ in ()).throw(InstrumentCommunicationError(self.config.model, "OUTPut:SYNC:STATe?", f"Unexpected response: {response}"))
+        state = SCPIOnOff.ON if s in {"1", "ON", "TRUE"} else SCPIOnOff.OFF if s in {"0", "OFF", "FALSE"} else (_ for _ in ()).throw(InstrumentCommunicationError(self.config.model, "OUTPut:SYNC:STATe?", f"Unexpected response: {response}"))
         self._logger.debug(f"Sync output state is {state.value}")
         return state
 
     @validate_call
-    def set_sync_output_mode(self, channel: Union[int, str], mode: SyncMode) -> None:
+    def set_sync_output_mode(self, channel: int | str, mode: SyncMode) -> None:
         ch = self._validate_channel(channel)
         self._send_command(f"OUTPut{ch}:SYNC:MODE {mode.value}")
         self._logger.debug(f"Channel {ch}: Sync output mode set to {mode.value}")
         self._error_check()
 
     @validate_call
-    def get_sync_output_mode(self, channel: Union[int, str]) -> SyncMode:
+    def get_sync_output_mode(self, channel: int | str) -> SyncMode:
         ch = self._validate_channel(channel)
         response = (self._query(f"OUTPut{ch}:SYNC:MODE?")).strip().upper()
         try:
             return SyncMode(response)
-        except ValueError:
-            if response == "NORM": return SyncMode.NORMAL
-            if response == "CARR": return SyncMode.CARRIER
-            if response == "MARK": return SyncMode.MARKER
+        except ValueError as e:
+            if response == "NORM":
+                return SyncMode.NORMAL
+            if response == "CARR":
+                return SyncMode.CARRIER
+            if response == "MARK":
+                return SyncMode.MARKER
             raise InstrumentCommunicationError(
                 instrument=self.config.model,
                 command=f"OUTPut{ch}:SYNC:MODE?",
                 message=f"Unexpected sync mode response from instrument: {response}",
-            )
+            ) from e
 
     @validate_call
-    def set_sync_output_polarity(self, channel: Union[int, str], polarity: OutputPolarity) -> None:
+    def set_sync_output_polarity(self, channel: int | str, polarity: OutputPolarity) -> None:
         ch = self._validate_channel(channel)
         self._send_command(f"OUTPut{ch}:SYNC:POLarity {polarity.value}")
         self._logger.debug(f"Channel {ch}: Sync output polarity set to {polarity.value}")
         self._error_check()
 
     @validate_call
-    def get_sync_output_polarity(self, channel: Union[int, str]) -> OutputPolarity:
+    def get_sync_output_polarity(self, channel: int | str) -> OutputPolarity:
         ch = self._validate_channel(channel)
         response = (self._query(f"OUTPut{ch}:SYNC:POLarity?")).strip().upper()
         try:
             return OutputPolarity(response)
-        except ValueError:
-            if response == "NORM": return OutputPolarity.NORMAL
-            if response == "INV": return OutputPolarity.INVERTED
+        except ValueError as e:
+            if response == "NORM":
+                return OutputPolarity.NORMAL
+            if response == "INV":
+                return OutputPolarity.INVERTED
             raise InstrumentCommunicationError(
                 instrument=self.config.model,
                 command=f"OUTPut{ch}:SYNC:POLarity?",
                 message=f"Unexpected sync polarity response from instrument: {response}",
-            )
+            ) from e
 
     @validate_call
     def set_sync_output_source(self, source_channel: int) -> None:
@@ -1012,7 +1042,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
             )
 
     @validate_call
-    def select_arbitrary_waveform(self, channel: Union[int, str], arb_name: str) -> None:
+    def select_arbitrary_waveform(self, channel: int | str, arb_name: str) -> None:
         ch = self._validate_channel(channel)
         if not arb_name:
             raise InstrumentParameterError(
@@ -1030,20 +1060,21 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
         self._error_check()
 
     @validate_call
-    def get_selected_arbitrary_waveform_name(self, channel: Union[int, str]) -> str:
+    def get_selected_arbitrary_waveform_name(self, channel: int | str) -> str:
         ch = self._validate_channel(channel)
         response = (self._query(f"SOUR{ch}:FUNC:ARBitrary?")).strip()
-        if response.startswith('"') and response.endswith('"'): response = response[1:-1]
+        if response.startswith('"') and response.endswith('"'):
+            response = response[1:-1]
         self._logger.debug(f"Channel {ch}: Currently selected arbitrary waveform is '{response}'")
         return response
 
     @validate_call
-    def set_arbitrary_waveform_sample_rate(self, channel: Union[int, str], sample_rate: Union[float, OutputLoadImpedance, str]) -> None:
+    def set_arbitrary_waveform_sample_rate(self, channel: int | str, sample_rate: float | OutputLoadImpedance | str) -> None:
         ch = self._validate_channel(channel)
         cmd_val = self._format_value_min_max_def(sample_rate)
-        if isinstance(sample_rate, (int, float)):
+        if isinstance(sample_rate, int | float):
             if 0 <= (ch - 1) < len(self.config.channels):
-                channel_config_model = self.config.channels[ch-1]
+                channel_config_model = self.config.channels[ch - 1]
                 if hasattr(channel_config_model, 'arbitrary') and hasattr(channel_config_model.arbitrary, 'sampling_rate'):
                     channel_config_model.arbitrary.sampling_rate.assert_in_range(float(sample_rate), name=f"Arbitrary sample rate for CH{ch}")
         self._send_command(f"SOUR{ch}:FUNC:ARB:SRATe {cmd_val}")
@@ -1051,37 +1082,39 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
         self._error_check()
 
     @validate_call
-    def get_arbitrary_waveform_sample_rate(self, channel: Union[int, str], query_type: Optional[OutputLoadImpedance] = None) -> float:
+    def get_arbitrary_waveform_sample_rate(self, channel: int | str, query_type: OutputLoadImpedance | None = None) -> float:
         ch = self._validate_channel(channel)
         cmd = f"SOUR{ch}:FUNC:ARB:SRATe?"
         type_str = ""
-        if query_type: cmd += f" {query_type.value}"; type_str = f" ({query_type.name} limit)"
+        if query_type:
+            cmd += f" {query_type.value}"
+            type_str = f" ({query_type.name} limit)"
         response = (self._query(cmd)).strip()
         try:
             sr = float(response)
-        except ValueError:
+        except ValueError as e:
             raise InstrumentCommunicationError(
                 instrument=self.config.model,
                 command=cmd,
                 message=f"Failed to parse sample rate float from response: '{response}'",
-            )
+            ) from e
         self._logger.debug(f"Channel {ch}: Arbitrary waveform sample rate{type_str} is {sr} Sa/s")
         return sr
 
     @validate_call
-    def get_arbitrary_waveform_points(self, channel: Union[int, str]) -> int:
+    def get_arbitrary_waveform_points(self, channel: int | str) -> int:
         ch = self._validate_channel(channel)
         try:
             response = (self._query(f"SOUR{ch}:FUNC:ARB:POINts?")).strip()
             points = int(response)
             self._logger.debug(f"Channel {ch}: Currently selected arbitrary waveform has {points} points")
             return points
-        except ValueError:
+        except ValueError as e:
             raise InstrumentCommunicationError(
                 instrument=self.config.model,
                 command=f"SOUR{ch}:FUNC:ARB:POINts?",
                 message=f"Failed to parse integer points from response: '{response}'",
-            )
+            ) from e
         except InstrumentCommunicationError as e:
             code, msg = self.get_error()
             if code != 0:
@@ -1090,13 +1123,13 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
             else:
                 raise e
 
-    def download_arbitrary_waveform_data(self, channel: Union[int, str], arb_name: str, data_points: Union[List[int], List[float], np.ndarray], data_type: str = "DAC", use_binary: bool = True, is_dual_channel_data: bool = False, dual_data_format: Optional[str] = None) -> None:
+    def download_arbitrary_waveform_data(self, channel: int | str, arb_name: str, data_points: list[int] | list[float] | np.ndarray, data_type: str = "DAC", use_binary: bool = True, is_dual_channel_data: bool = False, dual_data_format: str | None = None) -> None:
         if use_binary:
             self.download_arbitrary_waveform_data_binary(channel, arb_name, data_points, data_type, is_dual_channel_data=is_dual_channel_data, dual_data_format=dual_data_format)
         else:
             self.download_arbitrary_waveform_data_csv(channel, arb_name, data_points, data_type)
 
-    def download_arbitrary_waveform_data_csv(self, channel: Union[int, str], arb_name: str, data_points: Union[List[int], List[float], np.ndarray], data_type: str = "DAC") -> None:
+    def download_arbitrary_waveform_data_csv(self, channel: int | str, arb_name: str, data_points: list[int] | list[float] | np.ndarray, data_type: str = "DAC") -> None:
         ch = self._validate_channel(channel)
         if not re.match(r"^[a-zA-Z0-9_]{1,12}$", arb_name):
             raise InstrumentParameterError(
@@ -1118,7 +1151,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
                 parameter="data_points", message="data_points must be a non-empty 1D sequence."
             )
         if 0 <= (ch - 1) < len(self.config.channels):
-            channel_conf = self.config.channels[ch-1]
+            channel_conf = self.config.channels[ch - 1]
             if hasattr(channel_conf, 'arbitrary') and hasattr(channel_conf.arbitrary, 'max_points') and np_data.size > channel_conf.arbitrary.max_points:
                 self._logger.warning(f"Number of data points ({np_data.size}) exceeds configured max_points ({channel_conf.arbitrary.max_points}) for CH{ch}.")
         formatted_data: str
@@ -1141,7 +1174,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
                 )
             formatted_data = ','.join(map(str, np_data))
             scpi_suffix = ":DAC"
-        else: # NORM
+        else:  # NORM
             if not np.issubdtype(np_data.dtype, np.floating):
                 self._logger.warning("Normalized data not float, converting to float32.")
                 try:
@@ -1165,7 +1198,8 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
             scpi_suffix = ""
         cmd = f"SOUR{ch}:DATA:ARBitrary{scpi_suffix} {arb_name},{formatted_data}"
         max_cmd_len = getattr(self.config, 'max_scpi_command_length', 10000)
-        if len(cmd) > max_cmd_len: self._logger.warning(f"SCPI command length ({len(cmd)}) large. Consider binary transfer.")
+        if len(cmd) > max_cmd_len:
+            self._logger.warning(f"SCPI command length ({len(cmd)}) large. Consider binary transfer.")
         try:
             self._send_command(cmd)
             self._logger.debug(f"Channel {ch}: Downloaded arb '{arb_name}' via CSV ({np_data.size} points, type: {data_type_upper})")
@@ -1206,7 +1240,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
             else:
                 raise e
 
-    def download_arbitrary_waveform_data_binary(self, channel: Union[int, str], arb_name: str, data_points: Union[List[int], List[float], np.ndarray], data_type: str = "DAC", is_dual_channel_data: bool = False, dual_data_format: Optional[str] = None) -> None:
+    def download_arbitrary_waveform_data_binary(self, channel: int | str, arb_name: str, data_points: list[int] | list[float] | np.ndarray, data_type: str = "DAC", is_dual_channel_data: bool = False, dual_data_format: str | None = None) -> None:
         ch = self._validate_channel(channel)
         if not re.match(r"^[a-zA-Z0-9_]{1,12}$", arb_name):
             raise InstrumentParameterError(
@@ -1276,7 +1310,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
                     message=f"DAC data out of range [{dac_min}, {dac_max}].",
                 )
             binary_data = np_data.astype('<h').tobytes()
-        else: # NORM
+        else:  # NORM
             scpi_suffix = ""
             if not np.issubdtype(np_data.dtype, np.floating):
                 self._logger.warning("Warning: Normalized data not float, converting to float32.")
@@ -1342,82 +1376,82 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
             ) from e
 
     @validate_call
-    def clear_volatile_arbitrary_waveforms(self, channel: Union[int, str]) -> None:
+    def clear_volatile_arbitrary_waveforms(self, channel: int | str) -> None:
         ch = self._validate_channel(channel)
         self._send_command(f"SOUR{ch}:DATA:VOLatile:CLEar")
         self._logger.debug(f"Channel {ch}: Cleared volatile arbitrary waveform memory.")
         self._error_check()
 
     @validate_call
-    def get_free_volatile_arbitrary_memory(self, channel: Union[int, str]) -> int:
+    def get_free_volatile_arbitrary_memory(self, channel: int | str) -> int:
         ch = self._validate_channel(channel)
         response = (self._query(f"SOUR{ch}:DATA:VOLatile:FREE?")).strip()
         try:
             free_points = int(response)
-        except ValueError:
+        except ValueError as e:
             raise InstrumentCommunicationError(
                 instrument=self.config.model,
                 command=f"SOUR{ch}:DATA:VOLatile:FREE?",
                 message=f"Unexpected non-integer response: {response}",
-            )
+            ) from e
         self._logger.debug(f"Channel {ch}: Free volatile arbitrary memory: {free_points} points")
         return free_points
 
     @validate_call
-    def get_pulse_duty_cycle(self, channel: Union[int, str]) -> float:
+    def get_pulse_duty_cycle(self, channel: int | str) -> float:
         ch = self._validate_channel(channel)
         response = (self._query(f"SOUR{ch}:FUNC:PULS:DCYCle?")).strip()
         return float(response)
 
     @validate_call
-    def get_pulse_period(self, channel: Union[int, str]) -> float:
+    def get_pulse_period(self, channel: int | str) -> float:
         ch = self._validate_channel(channel)
         response = (self._query(f"SOUR{ch}:FUNC:PULS:PERiod?")).strip()
         return float(response)
 
     @validate_call
-    def get_pulse_width(self, channel: Union[int, str]) -> float:
+    def get_pulse_width(self, channel: int | str) -> float:
         ch = self._validate_channel(channel)
         response = (self._query(f"SOUR{ch}:FUNC:PULS:WIDTh?")).strip()
         return float(response)
 
     @validate_call
-    def get_pulse_transition_leading(self, channel: Union[int, str]) -> float:
+    def get_pulse_transition_leading(self, channel: int | str) -> float:
         ch = self._validate_channel(channel)
         response = (self._query(f"SOUR{ch}:FUNC:PULS:TRANsition:LEADing?")).strip()
         return float(response)
 
     @validate_call
-    def get_pulse_transition_trailing(self, channel: Union[int, str]) -> float:
+    def get_pulse_transition_trailing(self, channel: int | str) -> float:
         ch = self._validate_channel(channel)
         response = (self._query(f"SOUR{ch}:FUNC:PULS:TRANsition:TRAiling?")).strip()
         return float(response)
 
     @validate_call
-    def get_pulse_transition_both(self, channel: Union[int, str]) -> float:
+    def get_pulse_transition_both(self, channel: int | str) -> float:
         warnings.warn("Querying PULS:TRAN:BOTH; specific query may not exist or might return leading edge time.", UserWarning, stacklevel=2)
         return self.get_pulse_transition_leading(channel)
 
     @validate_call
-    def get_pulse_hold_mode(self, channel: Union[int, str]) -> str:
+    def get_pulse_hold_mode(self, channel: int | str) -> str:
         ch = self._validate_channel(channel)
         response = (self._query(f"SOUR{ch}:FUNC:PULS:HOLD?")).strip().upper()
         return response
 
     @validate_call
-    def get_square_duty_cycle(self, channel: Union[int, str]) -> float:
+    def get_square_duty_cycle(self, channel: int | str) -> float:
         ch = self._validate_channel(channel)
         response = (self._query(f"SOUR{ch}:FUNC:SQUare:DCYCle?")).strip()
         return float(response)
 
     @validate_call
-    def get_square_period(self, channel: Union[int, str]) -> float:
+    def get_square_period(self, channel: int | str) -> float:
         ch = self._validate_channel(channel)
         response = (self._query(f"SOUR{ch}:FUNC:SQUare:PERiod?")).strip()
         return float(response)
 
     @validate_call
-    def get_ramp_symmetry(self, channel: Union[int, str]) -> float:
+    def get_ramp_symmetry(self, channel: int | str) -> float:
         ch = self._validate_channel(channel)
         response = (self._query(f"SOUR{ch}:FUNC:RAMP:SYMMetry?")).strip()
         return float(response)
@@ -1428,7 +1462,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
         valid_scpi_units = {"DEGREE", "RADIAN", "SECOND", "DEG", "RAD", "SEC"}
         map_to_scpi_preferred = {"DEG": "DEGREE", "DEGREES": "DEGREE", "RAD": "RADIAN", "RADIANS": "RADIAN", "SEC": "SECOND", "SECONDS": "SECOND"}
         scpi_to_send = map_to_scpi_preferred.get(unit_upper, unit_upper)
-        if scpi_to_send not in valid_scpi_units and unit_upper not in valid_scpi_units :
+        if scpi_to_send not in valid_scpi_units and unit_upper not in valid_scpi_units:
             raise InstrumentParameterError(
                 parameter="unit",
                 value=unit,
@@ -1442,16 +1476,18 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
     @validate_call
     def get_angle_unit(self) -> str:
         response = (self._query("UNIT:ANGLe?")).strip().upper()
-        if response not in ["DEG", "RAD", "SEC"]: self._logger.warning(f"Warning: Unexpected angle unit response '{response}'.")
+        if response not in ["DEG", "RAD", "SEC"]:
+            self._logger.warning(f"Warning: Unexpected angle unit response '{response}'.")
         self._logger.debug(f"Current global angle unit is {response}")
         return response
 
     @validate_call
-    def apply_waveform_settings(self, channel: Union[int, str], function_type: Union[WaveformType, str], frequency: Union[float, OutputLoadImpedance, str] = OutputLoadImpedance.DEFAULT, amplitude: Union[float, OutputLoadImpedance, str] = OutputLoadImpedance.DEFAULT, offset: Union[float, OutputLoadImpedance, str] = OutputLoadImpedance.DEFAULT) -> None:
+    def apply_waveform_settings(self, channel: int | str, function_type: WaveformType | str, frequency: float | OutputLoadImpedance | str = OutputLoadImpedance.DEFAULT, amplitude: float | OutputLoadImpedance | str = OutputLoadImpedance.DEFAULT, offset: float | OutputLoadImpedance | str = OutputLoadImpedance.DEFAULT) -> None:
         ch = self._validate_channel(channel)
         scpi_short_name = self._get_scpi_function_name(function_type)
-        apply_suffix_map: Dict[str, str] = { WaveformType.SINE.value: "SINusoid", WaveformType.SQUARE.value: "SQUare", WaveformType.RAMP.value: "RAMP", WaveformType.PULSE.value: "PULSe", WaveformType.NOISE.value: "NOISe", WaveformType.ARB.value: "ARBitrary", WaveformType.DC.value: "DC",}
-        if scpi_short_name == "TRI" and "TRI" not in apply_suffix_map: apply_suffix_map["TRI"] = "TRIangle"
+        apply_suffix_map: dict[str, str] = {WaveformType.SINE.value: "SINusoid", WaveformType.SQUARE.value: "SQUare", WaveformType.RAMP.value: "RAMP", WaveformType.PULSE.value: "PULSe", WaveformType.NOISE.value: "NOISe", WaveformType.ARB.value: "ARBitrary", WaveformType.DC.value: "DC", }
+        if scpi_short_name == "TRI" and "TRI" not in apply_suffix_map:
+            apply_suffix_map["TRI"] = "TRIangle"
         apply_suffix = apply_suffix_map.get(scpi_short_name)
         if not apply_suffix:
             if scpi_short_name in apply_suffix_map:
@@ -1462,7 +1498,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
                     value=function_type,
                     message=f"Waveform function (SCPI: {scpi_short_name}) not supported by APPLy.",
                 )
-        params: List[str] = [self._format_value_min_max_def(frequency), self._format_value_min_max_def(amplitude), self._format_value_min_max_def(offset)]
+        params: list[str] = [self._format_value_min_max_def(frequency), self._format_value_min_max_def(amplitude), self._format_value_min_max_def(offset)]
         param_str = ",".join(params)
         cmd = f"SOUR{ch}:APPLy:{apply_suffix} {param_str}"
         self._send_command(cmd)
@@ -1470,15 +1506,16 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
         self._error_check()
 
     @validate_call
-    def get_channel_configuration_summary(self, channel: Union[int, str]) -> str:
+    def get_channel_configuration_summary(self, channel: int | str) -> str:
         ch = self._validate_channel(channel)
         response = (self._query(f"SOUR{ch}:APPLy?")).strip()
         self._logger.debug(f"Channel {ch}: Configuration summary (APPLy?) returned: {response}")
-        if response.startswith('"') and response.endswith('"') and response.count('"') == 2 : return response[1:-1]
+        if response.startswith('"') and response.endswith('"') and response.count('"') == 2:
+            return response[1:-1]
         return response
 
     @validate_call
-    def get_complete_config(self, channel: Union[int, str]) -> WaveformConfigResult:
+    def get_complete_config(self, channel: int | str) -> WaveformConfigResult:
         ch_num = self._validate_channel(channel)
         self._logger.debug(f"Getting complete configuration snapshot for channel {ch_num}...")
         func_scpi_str = self.get_function(ch_num)
@@ -1488,21 +1525,21 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
         output_state_enum = self.get_output_state(ch_num)
         output_state_bool = True if output_state_enum == SCPIOnOff.ON else False
         load_impedance_val = self.get_output_load_impedance(ch_num)
-        load_impedance_str: Union[str, float]
+        load_impedance_str: str | float
         if isinstance(load_impedance_val, OutputLoadImpedance) and load_impedance_val == OutputLoadImpedance.INFINITY:
             load_impedance_str = "INFinity"
         else:
             load_impedance_str = float(load_impedance_val)
         voltage_unit_enum = self.get_voltage_unit(ch_num)
         voltage_unit_str = voltage_unit_enum.value
-        phase: Optional[float] = None
+        phase: float | None = None
         if func_scpi_str not in [WaveformType.DC.value, WaveformType.NOISE.value]:
             try:
                 phase = self.get_phase(ch_num)
             except InstrumentCommunicationError as e:
                 self._log(f"Note: Phase query failed for CH{ch_num} (function: {func_scpi_str}): {e}", level="info")
-        symmetry: Optional[float] = None
-        duty_cycle: Optional[float] = None
+        symmetry: float | None = None
+        duty_cycle: float | None = None
         try:
             if func_scpi_str == WaveformType.RAMP.value:
                 symmetry = self.get_ramp_symmetry(ch_num)
@@ -1514,7 +1551,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
             self._log(f"Note: Query failed for function-specific parameter for CH{ch_num} func {func_scpi_str}: {e}", level="info")
         return WaveformConfigResult(channel=ch_num, function=func_scpi_str, frequency=freq, amplitude=ampl, offset=offs, phase=phase, symmetry=symmetry, duty_cycle=duty_cycle, output_state=output_state_bool, load_impedance=load_impedance_str, voltage_unit=voltage_unit_str)
 
-    def enable_modulation(self, channel: Union[int, str], mod_type: str, state: bool) -> None:
+    def enable_modulation(self, channel: int | str, mod_type: str, state: bool) -> None:
         ch = self._validate_channel(channel)
         mod_upper = mod_type.upper().strip()
         valid_mods = {"AM", "FM", "PM", "PWM", "FSK", "BPSK", "SUM"}
@@ -1530,16 +1567,16 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
         self._logger.debug(f"Channel {ch}: {mod_upper} modulation state set to {cmd_state}")
         self._error_check()
 
-    def set_am_depth(self, channel: Union[int, str], depth_percent: Union[float, str]) -> None:
+    def set_am_depth(self, channel: int | str, depth_percent: float | str) -> None:
         ch = self._validate_channel(channel)
         cmd_val = self._format_value_min_max_def(depth_percent)
-        if isinstance(depth_percent, (int, float)) and not (0 <= float(depth_percent) <= 120):
+        if isinstance(depth_percent, int | float) and not (0 <= float(depth_percent) <= 120):
             self._log(f"Warning: AM depth {depth_percent}% is outside typical 0-120 range.", level="warning")
         self._send_command(f"SOUR{ch}:AM:DEPTh {cmd_val}")
         self._logger.debug(f"Channel {ch}: AM depth set to {depth_percent}%")
         self._error_check()
 
-    def set_am_source(self, channel: Union[int, str], source: ModulationSource) -> None:
+    def set_am_source(self, channel: int | str, source: ModulationSource) -> None:
         ch = self._validate_channel(channel)
         cmd_src = source.value
         if cmd_src == f"CH{ch}":
@@ -1558,64 +1595,64 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
         self._logger.debug(f"Channel {ch}: AM source set to {cmd_src}")
         self._error_check()
 
-    def set_fm_deviation(self, channel: Union[int, str], deviation_hz: Union[float, str]) -> None:
+    def set_fm_deviation(self, channel: int | str, deviation_hz: float | str) -> None:
         ch = self._validate_channel(channel)
         cmd_val = self._format_value_min_max_def(deviation_hz)
         self._send_command(f"SOUR{ch}:FM:DEViation {cmd_val}")
         self._logger.debug(f"Channel {ch}: FM deviation set to {deviation_hz} Hz")
         self._error_check()
 
-    def enable_sweep(self, channel: Union[int, str], state: bool) -> None:
+    def enable_sweep(self, channel: int | str, state: bool) -> None:
         ch = self._validate_channel(channel)
         cmd_state = SCPIOnOff.ON.value if state else SCPIOnOff.OFF.value
         self._send_command(f"SOUR{ch}:SWEep:STATe {cmd_state}")
         self._logger.debug(f"Channel {ch}: Sweep state set to {cmd_state}")
         self._error_check()
 
-    def set_sweep_time(self, channel: Union[int, str], sweep_time_sec: Union[float, str]) -> None:
+    def set_sweep_time(self, channel: int | str, sweep_time_sec: float | str) -> None:
         ch = self._validate_channel(channel)
         cmd_val = self._format_value_min_max_def(sweep_time_sec)
         self._send_command(f"SOUR{ch}:SWEep:TIME {cmd_val}")
         self._logger.debug(f"Channel {ch}: Sweep time set to {sweep_time_sec} s")
         self._error_check()
 
-    def set_sweep_start_frequency(self, channel: Union[int, str], freq_hz: Union[float, str]) -> None:
+    def set_sweep_start_frequency(self, channel: int | str, freq_hz: float | str) -> None:
         ch = self._validate_channel(channel)
         cmd_val = self._format_value_min_max_def(freq_hz)
         self._send_command(f"SOUR{ch}:FREQuency:STARt {cmd_val}")
         self._logger.debug(f"Channel {ch}: Sweep start frequency set to {freq_hz} Hz")
         self._error_check()
 
-    def set_sweep_stop_frequency(self, channel: Union[int, str], freq_hz: Union[float, str]) -> None:
+    def set_sweep_stop_frequency(self, channel: int | str, freq_hz: float | str) -> None:
         ch = self._validate_channel(channel)
         cmd_val = self._format_value_min_max_def(freq_hz)
         self._send_command(f"SOUR{ch}:FREQuency:STOP {cmd_val}")
         self._logger.debug(f"Channel {ch}: Sweep stop frequency set to {freq_hz} Hz")
         self._error_check()
 
-    def set_sweep_spacing(self, channel: Union[int, str], spacing: SweepSpacing) -> None:
+    def set_sweep_spacing(self, channel: int | str, spacing: SweepSpacing) -> None:
         ch = self._validate_channel(channel)
         self._send_command(f"SOUR{ch}:SWEep:SPACing {spacing.value}")
         self._logger.debug(f"Channel {ch}: Sweep spacing set to {spacing.value}")
         self._error_check()
 
-    def enable_burst(self, channel: Union[int, str], state: bool) -> None:
+    def enable_burst(self, channel: int | str, state: bool) -> None:
         ch = self._validate_channel(channel)
         cmd_state = SCPIOnOff.ON.value if state else SCPIOnOff.OFF.value
         self._send_command(f"SOUR{ch}:BURSt:STATe {cmd_state}")
         self._logger.debug(f"Channel {ch}: Burst state set to {cmd_state}")
         self._error_check()
 
-    def set_burst_mode(self, channel: Union[int, str], mode: BurstMode) -> None:
+    def set_burst_mode(self, channel: int | str, mode: BurstMode) -> None:
         ch = self._validate_channel(channel)
         self._send_command(f"SOUR{ch}:BURSt:MODE {mode.value}")
         self._logger.debug(f"Channel {ch}: Burst mode set to {mode.value}")
         self._error_check()
 
-    def set_burst_cycles(self, channel: Union[int, str], n_cycles: Union[int, str]) -> None:
+    def set_burst_cycles(self, channel: int | str, n_cycles: int | str) -> None:
         ch = self._validate_channel(channel)
         cmd_val: str
-        log_val: Union[int, str] = n_cycles
+        log_val: int | str = n_cycles
         if isinstance(n_cycles, str):
             nc_upper = n_cycles.upper().strip()
             if nc_upper in {"MIN", "MINIMUM"}:
@@ -1651,26 +1688,26 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
         self._logger.debug(f"Channel {ch}: Burst cycles set to {log_val}")
         self._error_check()
 
-    def set_burst_period(self, channel: Union[int, str], period_sec: Union[float, str]) -> None:
+    def set_burst_period(self, channel: int | str, period_sec: float | str) -> None:
         ch = self._validate_channel(channel)
         cmd_val = self._format_value_min_max_def(period_sec)
         self._send_command(f"SOUR{ch}:BURSt:INTernal:PERiod {cmd_val}")
         self._logger.debug(f"Channel {ch}: Internal burst period set to {period_sec} s")
         self._error_check()
 
-    def set_trigger_source(self, channel: Union[int, str], source: TriggerSource) -> None:
+    def set_trigger_source(self, channel: int | str, source: TriggerSource) -> None:
         ch = self._validate_channel(channel)
         self._send_command(f"TRIGger{ch}:SOURce {source.value}")
         self._logger.debug(f"Channel {ch}: Trigger source set to {source.value}")
         self._error_check()
 
-    def set_trigger_slope(self, channel: Union[int, str], slope: TriggerSlope) -> None:
+    def set_trigger_slope(self, channel: int | str, slope: TriggerSlope) -> None:
         ch = self._validate_channel(channel)
         self._send_command(f"TRIGger{ch}:SLOPe {slope.value}")
         self._logger.debug(f"Channel {ch}: Trigger slope set to {slope.value}")
         self._error_check()
 
-    def trigger_now(self, channel: Optional[Union[int, str]] = None) -> None:
+    def trigger_now(self, channel: int | str | None = None) -> None:
         if channel is not None:
             ch = self._validate_channel(channel)
             self._send_command(f"TRIGger{ch}")
@@ -1745,7 +1782,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
                 raise e
 
     @validate_call
-    def channel(self, ch_num: Union[int,str]) -> WGChannelFacade:
+    def channel(self, ch_num: int | str) -> WGChannelFacade:
         """
         Returns a facade for interacting with a specific channel.
 
@@ -1758,5 +1795,5 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
         Raises:
             InstrumentParameterError: If channel number is invalid.
         """
-        validated_ch_num = self._validate_channel(ch_num) # _validate_channel returns int
+        validated_ch_num = self._validate_channel(ch_num)  # _validate_channel returns int
         return WGChannelFacade(self, validated_ch_num)

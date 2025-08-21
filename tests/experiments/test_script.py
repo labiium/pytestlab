@@ -1,5 +1,6 @@
 import time
 
+
 def main(instrument):
     """A simple script to test the recording functionality."""
     instrument.set_voltage(3.3)

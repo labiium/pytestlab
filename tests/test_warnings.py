@@ -1,8 +1,8 @@
-import pytest
 import tempfile
-import yaml
 from pathlib import Path
-from pytestlab.bench import Bench
+
+import yaml
+
 from pytestlab.instruments.backends.sim_backend import SimBackend
 
 

@@ -53,15 +53,16 @@ The code is only ~180 lines yet covers 95 % of typical bench‐control needs.
 """
 from __future__ import annotations
 
-import inspect
-from dataclasses import dataclass, field
-from typing import Any, Callable, List, Sequence
+from collections.abc import Callable
+from collections.abc import Sequence
+from dataclasses import dataclass
+from dataclasses import field
+from typing import Any
 
 import ipywidgets as w
 from IPython.display import display
 
 from .threading_utils import awidget_callback
-
 
 # --------------------------------------------------------------------------- #
 # Type helpers                                                                #
@@ -86,7 +87,7 @@ class _ControlBase:
     label: str
 
     # concrete subclasses must implement _build_widget()
-    def _build_widget(self, panel: "InstrumentPanel") -> w.Widget:  # noqa: D401
+    def _build_widget(self, panel: InstrumentPanel) -> w.Widget:  # noqa: D401
         raise NotImplementedError
 
 
@@ -102,7 +103,7 @@ class Slider(_ControlBase):
     step: float = 0.01
     readout_fmt: str = ".3f"
 
-    def _build_widget(self, panel: "InstrumentPanel") -> w.Widget:
+    def _build_widget(self, panel: InstrumentPanel) -> w.Widget:
         sld = w.FloatSlider(
             description=self.label,
             min=self.min,
@@ -134,7 +135,7 @@ class Toggle(_ControlBase):
     on_desc: str | None = "ON"
     off_desc: str | None = "OFF"
 
-    def _build_widget(self, panel: "InstrumentPanel") -> w.Widget:
+    def _build_widget(self, panel: InstrumentPanel) -> w.Widget:
         btn = w.ToggleButton(value=False, description=self.off_desc or self.label)
 
         # read initial state
@@ -160,7 +161,7 @@ class Button(_ControlBase):
 
     style: str = "primary"
 
-    def _build_widget(self, panel: "InstrumentPanel") -> w.Widget:
+    def _build_widget(self, panel: InstrumentPanel) -> w.Widget:
         btn = w.Button(description=self.label, button_style=self.style)
 
         def _on_click(_):
@@ -178,7 +179,7 @@ class InstrumentPanel:
     inst: T_Inst
     controls: Sequence[_ControlBase]
     title: str | None = None
-    widgets: List[w.Widget] = field(init=False, default_factory=list)
+    widgets: list[w.Widget] = field(init=False, default_factory=list)
 
     def __post_init__(self):
         # build widgets
@@ -203,7 +204,7 @@ class InstrumentPanel:
     # ------------------------------------------------------------------ #
     def refresh(self):
         """Iterate over **Slider** controls and re-pull their getter."""
-        for ctrl, widget in zip(self.controls, self.widgets):
+        for ctrl, widget in zip(self.controls, self.widgets, strict=False):
             if isinstance(ctrl, Slider):
                 val = _get_value(ctrl.getter(self.inst))
                 widget.value = float(val)

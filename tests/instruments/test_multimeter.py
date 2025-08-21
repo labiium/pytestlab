@@ -26,12 +26,13 @@ Requires:
 import pytest
 from uncertainties.core import UFloat
 
-from pytestlab.instruments import AutoInstrument
 from pytestlab.config.multimeter_config import DMMFunction
+from pytestlab.instruments import AutoInstrument
 
 # ------------------- CONFIGURE THESE FOR YOUR LAB -------------------
 MM_CONFIG_KEY = "keysight/EDU34450A"
 # --------------------------------------------------------------------
+
 
 def check_hardware_available():
     """Check if multimeter hardware is available for testing."""
@@ -39,11 +40,12 @@ def check_hardware_available():
         mm = AutoInstrument.from_config(MM_CONFIG_KEY)
         mm.connect_backend()
         # Try to get IDN to verify connection
-        idn = mm.id()
+        _ = mm.id()
         mm.close()
         return True, None
     except Exception as e:
         return False, str(e)
+
 
 @pytest.mark.requires_real_hw
 def test_multimeter_instrument_identification():
@@ -64,6 +66,7 @@ def test_multimeter_instrument_identification():
     finally:
         mm.close()
 
+
 @pytest.mark.requires_real_hw
 def test_multimeter_dc_voltage_measurement():
     """Test DC voltage measurement with autorange."""
@@ -82,6 +85,7 @@ def test_multimeter_dc_voltage_measurement():
         print("DC Voltage Measurement: PASS")
     finally:
         mm.close()
+
 
 @pytest.mark.requires_real_hw
 def test_multimeter_ac_voltage_measurement():
@@ -103,6 +107,7 @@ def test_multimeter_ac_voltage_measurement():
     finally:
         mm.close()
 
+
 @pytest.mark.requires_real_hw
 def test_multimeter_resistance_measurement():
     """Test 4-wire resistance measurement."""
@@ -121,6 +126,7 @@ def test_multimeter_resistance_measurement():
         print("Resistance Measurement: PASS")
     finally:
         mm.close()
+
 
 @pytest.mark.requires_real_hw
 def test_multimeter_configuration_retrieval():
@@ -144,6 +150,7 @@ def test_multimeter_configuration_retrieval():
     finally:
         mm.close()
 
+
 @pytest.mark.requires_real_hw
 def test_multimeter_error_handling():
     """Test system error checking."""
@@ -162,6 +169,7 @@ def test_multimeter_error_handling():
     finally:
         mm.close()
 
+
 @pytest.mark.requires_real_hw
 def test_multimeter_self_test():
     """Test instrument self-test."""
@@ -179,6 +187,7 @@ def test_multimeter_self_test():
         print("Self-Test: PASS")
     finally:
         mm.close()
+
 
 @pytest.mark.requires_real_hw
 def test_multimeter_full_workflow():
@@ -210,7 +219,7 @@ def test_multimeter_full_workflow():
         for name, measurement in measurements:
             print(f"{name}: {measurement.values} {measurement.units}")
             # Handle both UFloat and float (for overload/open circuit conditions)
-            assert isinstance(measurement.values, (UFloat, float))
+            assert isinstance(measurement.values, UFloat | float)
             assert measurement.units in ["V", "Ω", "A"]
 
         # Check no errors accumulated

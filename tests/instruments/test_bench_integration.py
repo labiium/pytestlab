@@ -5,18 +5,18 @@ This script tests the full integration between the Bench, MeasurementSession,
 and MeasurementDatabase classes.
 """
 
-import pytest
 import os
 import tempfile
 import time
-import yaml
 from pathlib import Path
+
 import polars as pl
+import pytest
 
 from pytestlab.bench import Bench
-from pytestlab.measurements.session import MeasurementSession
 from pytestlab.experiments.database import MeasurementDatabase
 from pytestlab.instruments.Multimeter import DMMFunction
+from pytestlab.measurements.session import MeasurementSession
 
 # Test bench YAML configuration with a database path
 TEST_BENCH_CONFIG_WITH_DB = """
@@ -70,6 +70,7 @@ def db_path():
     if os.path.exists(db_path):
         os.unlink(db_path)
 
+
 def check_hardware_available():
     """Check if bench hardware is available for testing."""
     try:
@@ -85,8 +86,8 @@ def check_hardware_available():
 
             # Test actual instrument communication by trying to get IDs
             try:
-                psu_id = bench.psu.id()
-                dmm_id = bench.dmm.id()
+                _ = bench.psu.id()
+                _ = bench.dmm.id()
                 bench.close_all()
                 return True, None
             except Exception as e:
@@ -112,6 +113,8 @@ def bench_config_file_with_db(db_path):
     yield config_path
     if os.path.exists(config_path):
         os.unlink(config_path)
+
+
 @pytest.mark.requires_real_hw
 def test_bench_session_database_integration(bench_config_file_with_db, db_path):
     """Test the full integration of Bench, MeasurementSession, and MeasurementDatabase."""

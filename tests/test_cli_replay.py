@@ -2,17 +2,16 @@
 Integration tests for the replay system CLI commands.
 """
 
-import pytest
 import tempfile
-import yaml
-import shutil
-import time
 from pathlib import Path
 from unittest.mock import patch
-import click.exceptions
 
-from pytestlab.cli import replay_record, replay_run
-from pytestlab.bench import Bench
+import click.exceptions
+import pytest
+import yaml
+
+from pytestlab.cli import replay_record
+from pytestlab.cli import replay_run
 from pytestlab.errors import ReplayMismatchError
 
 
@@ -167,8 +166,6 @@ class TestReplayRecord:
                 def __init__(self):
                     self.psu = MockInstrument({'*IDN?': 'Keysight Technologies,EDU36311A,Test'})
 
-
-
             # Mock Bench.open
             with patch('pytestlab.bench.Bench.open', return_value=MockBench()):
                 # Test that the function can be called without errors
@@ -180,6 +177,7 @@ class TestReplayRecord:
 
         finally:
             Path(output_file).unlink(missing_ok=True)
+
     def test_replay_record_argument_validation(self):
         """Test replay record command argument validation."""
         # Test missing script file
@@ -240,8 +238,6 @@ if __name__ == "__main__":
                     psu_backend = ReplayBackend(session_file, 'psu')
                     self.psu = MockReplayInstrument(psu_backend)
 
-
-
             # Test that the ReplayBackend can be set up correctly with session data
             # This verifies the core replay functionality works
             from pytestlab.instruments.backends.replay_backend import ReplayBackend
@@ -260,6 +256,7 @@ if __name__ == "__main__":
 
         finally:
             Path(exact_script_file).unlink(missing_ok=True)
+
     def test_replay_run_mismatch_detection(self, temp_session_file):
         """Test that replay detects command mismatches."""
         # Create a script that deviates from the recorded session
@@ -303,6 +300,7 @@ def main(bench):
 
         finally:
             Path(mismatch_script_file).unlink(missing_ok=True)
+
     def test_replay_run_invalid_session(self):
         """Test replay run with invalid session file."""
         script_file = tempfile.mktemp(suffix='.py')
@@ -323,11 +321,12 @@ class TestReplayCLIIntegration:
     def test_cli_commands_available(self):
         """Test that CLI commands are properly integrated."""
         # Import the CLI module to ensure replay commands are registered
-        from pytestlab.cli import app, replay_app
+        from pytestlab.cli import replay_app
 
         # Verify replay_app is added to main app
         # This tests the CLI structure without actually running commands
         assert replay_app is not None
+
     def test_record_and_replay_integration(self, temp_bench_file):
         """Test the full record -> replay cycle."""
         # Create a comprehensive test script
@@ -390,7 +389,9 @@ if __name__ == "__main__":
 
             # Test 2: Verify CLI argument structure
             from pytestlab.instruments.backends.replay_backend import ReplayBackend
-            from pytestlab.instruments.backends.session_recording_backend import SessionRecordingBackend
+            from pytestlab.instruments.backends.session_recording_backend import (
+                SessionRecordingBackend,
+            )
 
             # These should be importable and constructible with proper arguments
             assert ReplayBackend is not None
@@ -399,6 +400,7 @@ if __name__ == "__main__":
         finally:
             for file_path in [script_file, session_file]:
                 Path(file_path).unlink(missing_ok=True)
+
     def test_error_handling_in_cli(self):
         """Test error handling in CLI commands."""
         # Test various error conditions that CLI should handle gracefully
@@ -437,6 +439,8 @@ if __name__ == "__main__":
                 yaml.safe_load(open(malformed_session))
         finally:
             Path(malformed_session).unlink(missing_ok=True)
+
+
 def test_replay_backend_with_cli_workflow():
     """Test ReplayBackend works correctly in CLI-like workflow."""
     # Create session data that simulates a full measurement workflow

@@ -3,10 +3,12 @@
 Simple test script to verify the ReplayBackend functionality.
 """
 
-import yaml
 from pathlib import Path
-from pytestlab.instruments.backends.replay_backend import ReplayBackend
+
+import yaml
+
 from pytestlab.errors import ReplayMismatchError
+from pytestlab.instruments.backends.replay_backend import ReplayBackend
 
 
 def test_replay_backend():
@@ -48,7 +50,7 @@ def test_replay_backend():
 
     except Exception as e:
         print(f"✗ Error in successful replay test: {e}")
-        assert False, f"Error in successful replay test: {e}"
+        raise AssertionError(f"Error in successful replay test: {e}")
 
     # Test mismatch detection
     try:
@@ -62,7 +64,7 @@ def test_replay_backend():
         try:
             backend2.query("WRONG:CMD?")
             print("✗ Mismatch detection failed - should have raised ReplayMismatchError")
-            assert False, "Mismatch detection failed - should have raised ReplayMismatchError"
+            raise AssertionError("Mismatch detection failed - should have raised ReplayMismatchError")
         except ReplayMismatchError as e:
             print(f"✓ Correctly caught mismatch: {e}")
 
@@ -70,7 +72,7 @@ def test_replay_backend():
 
     except Exception as e:
         print(f"✗ Error in mismatch test: {e}")
-        assert False, f"Error in mismatch test: {e}"
+        raise AssertionError(f"Error in mismatch test: {e}")
 
 
 def test_session_files():
@@ -102,7 +104,7 @@ def test_session_files():
             yaml.dump(session_data, f)
 
         # Read back and create backends
-        with open(session_file, "r") as f:
+        with open(session_file) as f:
             loaded_data = yaml.safe_load(f)
 
         # Test PSU backend
@@ -123,7 +125,7 @@ def test_session_files():
 
     except Exception as e:
         print(f"✗ Session file test failed: {e}")
-        assert False, f"Session file test failed: {e}"
+        raise AssertionError(f"Session file test failed: {e}")
     finally:
         if session_file.exists():
             session_file.unlink()

@@ -7,6 +7,7 @@ instrument control code with method chaining and synchronous operation.
 """
 
 import time
+
 from pytestlab.instruments import AutoInstrument
 
 

@@ -20,8 +20,8 @@ This module intentionally avoids any heavy abstraction—just enough structure
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Sequence, Iterable, Union, List
 
 import polars as pl
 
@@ -33,7 +33,7 @@ except Exception:  # pragma: no cover
 
 
 # Public Types ----------------------------------------------------------------
-Number = Union[int, float]
+Number = int | float
 
 
 @dataclass
@@ -53,7 +53,7 @@ class PlotSpec:
     kind: str = "line"
     title: str | None = None
     x: str | None = None
-    y: Union[str, Sequence[str], None] = None
+    y: str | Sequence[str] | None = None
     xlabel: str | None = None
     ylabel: str | None = None
     legend: bool = True
@@ -73,11 +73,11 @@ def _require_backend():
     return _plt
 
 
-def _auto_numeric_columns(df: pl.DataFrame) -> List[str]:
+def _auto_numeric_columns(df: pl.DataFrame) -> list[str]:
     """
     Return a list of numeric column names in the given Polars DataFrame.
     """
-    cols: List[str] = []
+    cols: list[str] = []
     for name, dtype in zip(df.columns, df.dtypes, strict=True):
         # Polars dtypes have predicate helpers (is_numeric) - fallback safe check.
         is_num = getattr(dtype, "is_numeric", lambda: False)()
@@ -102,7 +102,7 @@ def _select_x_column(df: pl.DataFrame, explicit: str | None) -> str:
     return df.columns[0]
 
 
-def _select_y_columns(df: pl.DataFrame, x_col: str, y_spec: Union[str, Sequence[str], None]) -> List[str]:
+def _select_y_columns(df: pl.DataFrame, x_col: str, y_spec: str | Sequence[str] | None) -> list[str]:
     """
     Determine y-series list based on user spec or auto numeric selection.
     """

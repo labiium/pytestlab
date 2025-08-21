@@ -12,9 +12,10 @@ The example performs a transistor characterization using a bench configuration
 loaded from YAML, and executes a parameter sweep with the session.
 """
 import os
-import numpy as np
 import time
 from pathlib import Path
+
+import numpy as np
 
 from pytestlab.bench import Bench
 from pytestlab.measurements.session import MeasurementSession

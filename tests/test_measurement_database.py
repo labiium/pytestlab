@@ -37,7 +37,7 @@ def test_store_and_retrieve_measurement(tmp_db_file):
 def test_overwrite_policy(tmp_db_file, simple_experiment):
     with MeasurementDatabase(tmp_db_file) as db:
         # first insert
-        key = db.store_experiment("MYKEY", simple_experiment)
+        db.store_experiment("MYKEY", simple_experiment)
         # second insert with same key but overwrite disabled should raise
         with pytest.raises(ValueError):
             db.store_experiment("MYKEY", simple_experiment, overwrite=False)

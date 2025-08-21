@@ -7,16 +7,6 @@ and a convenience, thread-safe API.
 """
 from __future__ import annotations
 
-# --- DUMMY DatabaseBackup for mkdocstrings compatibility ---
-class DatabaseBackup:
-    """
-    Dummy DatabaseBackup class for documentation compatibility.
-    This is not used in runtime code, but allows mkdocstrings to resolve
-    'pytestlab.experiments.DatabaseBackup' for API docs.
-    """
-    pass
-
-
 import contextlib
 import datetime as dt
 import hashlib
@@ -25,16 +15,24 @@ import pickle
 import sqlite3
 import threading
 import time
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 import numpy as np
 import polars as pl
-from tqdm.auto import tqdm
 
 from .experiments import Experiment
 from .results import MeasurementResult
+
+
+# --- DUMMY DatabaseBackup for mkdocstrings compatibility ---
+class DatabaseBackup:
+    """
+    Dummy DatabaseBackup class for documentation compatibility.
+    This is not used in runtime code, but allows mkdocstrings to resolve
+    'pytestlab.experiments.DatabaseBackup' for API docs.
+    """
+    pass
 
 __all__ = ["Database", "MeasurementDatabase"]
 
@@ -64,7 +62,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
         ...     results = db.search_experiments("voltage sweep")
     """
 
-    def __init__(self, db_path: Union[str, Path]) -> None:
+    def __init__(self, db_path: str | Path) -> None:
         """
         Initialize database connection and create tables.
 
@@ -73,7 +71,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
         """
         self.db_path = Path(str(db_path)).with_suffix(".db")
         self._conn_lock = threading.Lock()
-        self._conn: Optional[sqlite3.Connection] = None
+        self._conn: sqlite3.Connection | None = None
 
         # Register custom adapters for NumPy/Polars
         sqlite3.register_adapter(np.ndarray, self._adapt_numpy)
@@ -88,7 +86,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
         self._ensure_tables()
 
     # Context manager support
-    def __enter__(self) -> "MeasurementDatabase":
+    def __enter__(self) -> MeasurementDatabase:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -148,17 +146,17 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
                 decompressed = lzma.decompress(blob)
                 # Try to read as a pickled numpy array
                 return pickle.loads(decompressed)
-            except Exception as e:
+            except Exception:
                 # If that fails, try polars DataFrame
                 try:
                     return pl.read_ipc(decompressed)
-                except:
+                except Exception:
                     pass
 
         try:
             metadata_len = int.from_bytes(blob[:4], "little")
-            metadata = pickle.loads(blob[4:4+metadata_len])
-            data_bytes = blob[4+metadata_len:]
+            metadata = pickle.loads(blob[4:4 + metadata_len])
+            data_bytes = blob[4 + metadata_len:]
 
             if metadata.get("compressed", False):
                 data_bytes = lzma.decompress(data_bytes)
@@ -169,14 +167,14 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
             try:
                 # Try direct unpickling (old format)
                 return pickle.loads(blob)
-            except:
+            except Exception:
                 # Try one more approach - direct decompression if it's just compressed data
                 try:
                     if blob[:7] == b'\xfd\x37\x7a\x58\x5a\x00\x00':
                         decompressed = lzma.decompress(blob)
                         # Try as simple numpy array
                         return np.frombuffer(decompressed, dtype=np.float64)
-                except:
+                except Exception:
                     pass
 
                 # If all else fails, raise original error
@@ -203,7 +201,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
                 # If that fails, try to unpickle the decompressed data
                 try:
                     return pickle.loads(decompressed)
-                except:
+                except Exception:
                     pass
 
         try:
@@ -214,11 +212,11 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
             try:
                 # Try direct unpickling (old format)
                 return pickle.loads(blob)
-            except:
+            except Exception:
                 # If that fails, try to read as raw Arrow IPC (uncompressed)
                 try:
                     return pl.read_ipc(blob)
-                except:
+                except Exception:
                     # One last attempt - try to create a DataFrame from a numpy array
                     try:
                         arr = MeasurementDatabase._convert_numpy(blob)
@@ -229,7 +227,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
                                 # Create a column for each dimension
                                 data = {f"column_{i}": arr[:, i] for i in range(arr.shape[1])}
                                 return pl.DataFrame(data)
-                    except:
+                    except Exception:
                         pass
 
                     # If all else fails, raise original error
@@ -368,7 +366,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
     # Experiment operations
     def store_experiment(
         self,
-        codename: Optional[str],
+        codename: str | None,
         experiment: Experiment,
         *,
         overwrite: bool = True,
@@ -467,7 +465,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
 
         return experiment
 
-    def list_experiments(self, limit: Optional[int] = None) -> List[str]:
+    def list_experiments(self, limit: int | None = None) -> list[str]:
         """List all experiment codenames, newest first."""
         conn = self._get_connection()
         query = "SELECT codename FROM experiments ORDER BY created_at DESC"
@@ -477,7 +475,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
         cursor = conn.execute(query)
         return [row[0] for row in cursor.fetchall()]
 
-    def search_experiments(self, query: str, limit: int = 50) -> List[Dict[str, Any]]:
+    def search_experiments(self, query: str, limit: int = 50) -> list[dict[str, Any]]:
         """
         Full-text search across experiments.
 
@@ -512,7 +510,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
     # Measurement operations
     def store_measurement(
         self,
-        codename: Optional[str],
+        codename: str | None,
         measurement: MeasurementResult,
         *,
         overwrite: bool = True,
@@ -600,9 +598,9 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
 
     def list_measurements(
         self,
-        instrument: Optional[str] = None,
-        limit: Optional[int] = None
-    ) -> List[str]:
+        instrument: str | None = None,
+        limit: int | None = None
+    ) -> list[str]:
         """
         List measurement codenames, optionally filtered by instrument.
 
@@ -634,7 +632,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
         cursor = conn.execute(query, params)
         return [row[0] for row in cursor.fetchall()]
 
-    def search_measurements(self, query: str, limit: int = 50) -> List[Dict[str, Any]]:
+    def search_measurements(self, query: str, limit: int = 50) -> list[dict[str, Any]]:
         """
         Full-text search across measurements.
 
@@ -695,7 +693,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
 
         return results
 
-    def get_stats(self) -> Dict[str, int]:
+    def get_stats(self) -> dict[str, int]:
         """Get database statistics."""
         conn = self._get_connection()
 
@@ -719,6 +717,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
             f"  Measurements: {stats['measurements']}\n"
             f"  Instruments: {stats['instruments']}"
         )
+
 
 # Legacy compatibility alias
 Database = MeasurementDatabase

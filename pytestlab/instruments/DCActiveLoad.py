@@ -1,23 +1,29 @@
-from __future__ import annotations
-
 """
 Instrument driver for a DC Active Load. Provides methods to set the operating mode,
 program the load value, enable/disable the output, and query measurements (current, voltage, power)
 from the Keysight EL30000 Series bench DC electronic loads.
 """
 
+from __future__ import annotations
+
+from typing import Any
+from typing import Literal
+
 import numpy as np
-from typing import Optional, Union, Dict, Any, Literal, List
 from uncertainties import ufloat
 from uncertainties.core import UFloat
 
-
-from .instrument import Instrument, InstrumentIO
-from ..errors import InstrumentParameterError, InstrumentCommunicationError
-from ..config.dc_active_load_config import DCActiveLoadConfig, ModeSpec, ReadbackAccuracySpec
+from ..common.health import HealthReport
+from ..common.health import HealthStatus
+from ..config.dc_active_load_config import DCActiveLoadConfig
+from ..config.dc_active_load_config import ModeSpec
+from ..config.dc_active_load_config import ReadbackAccuracySpec
 from ..config.instrument_config import InstrumentConfig
+from ..errors import InstrumentCommunicationError
+from ..errors import InstrumentParameterError
 from ..experiments import MeasurementResult
-from ..common.health import HealthReport, HealthStatus
+from .instrument import Instrument
+from .instrument import InstrumentIO
 
 
 class DCActiveLoad(Instrument):
@@ -37,7 +43,7 @@ class DCActiveLoad(Instrument):
     - Configuring and controlling transient and battery test modes.
     """
     config: DCActiveLoadConfig  # Type hint for the specific config
-    current_mode: Optional[str] = None
+    current_mode: str | None = None
 
     def __init__(self, config: DCActiveLoadConfig, backend: InstrumentIO, **kwargs: Any) -> None:
         super().__init__(config, backend, **kwargs)
@@ -46,10 +52,10 @@ class DCActiveLoad(Instrument):
     @classmethod
     def from_config(
         cls,
-        config: "InstrumentConfig",
+        config: InstrumentConfig,
         backend: InstrumentIO,
         **kwargs: Any
-    ) -> "DCActiveLoad":  # type: ignore[override]
+    ) -> DCActiveLoad:  # type: ignore[override]
         """
         Factory method for DCActiveLoad that requires a backend argument.
         Ensures config is a DCActiveLoadConfig.
@@ -57,8 +63,6 @@ class DCActiveLoad(Instrument):
         if not isinstance(config, DCActiveLoadConfig):
             config = DCActiveLoadConfig(**dict(config))
         return cls(config=config, backend=backend, **kwargs)
-
-
 
     def set_mode(self, mode: str) -> None:
         """Sets the operating mode of the electronic load.
@@ -160,7 +164,7 @@ class DCActiveLoad(Instrument):
             self._send_command(cmd)
         self._logger.info(f"Input short on channel {channel} turned {'ON' if state else 'OFF'}.")
 
-    def set_slew_rate(self, rate: Union[float, str], channel: int = 1) -> None:
+    def set_slew_rate(self, rate: float | str, channel: int = 1) -> None:
         """Sets the slew rate for the current operating mode.
 
         Args:
@@ -175,7 +179,7 @@ class DCActiveLoad(Instrument):
             self._send_command(cmd)
         self._logger.info(f"Slew rate for mode {self.current_mode} on channel {channel} set to {rate}.")
 
-    def set_range(self, value: Union[float, str], channel: int = 1) -> None:
+    def set_range(self, value: float | str, channel: int = 1) -> None:
         """Sets the operating range for the current mode.
 
         Args:
@@ -188,9 +192,9 @@ class DCActiveLoad(Instrument):
             self._send_command(cmd)
         self._logger.info(f"Range for mode {self.current_mode} on channel {channel} set for value {value}.")
 
-    def _get_readback_spec(self, mode: str, unit: str) -> Optional[ReadbackAccuracySpec]:
+    def _get_readback_spec(self, mode: str, unit: str) -> ReadbackAccuracySpec | None:
         """Helper to find the correct readback accuracy spec from the config."""
-        mode_map_to_config: Dict[str, ModeSpec] = {
+        mode_map_to_config: dict[str, ModeSpec] = {
             "CC": self.config.operating_modes.constant_current_CC,
             "CV": self.config.operating_modes.constant_voltage_CV,
             "CP": self.config.operating_modes.constant_power_CP,
@@ -238,7 +242,7 @@ class DCActiveLoad(Instrument):
         q = self.scpi_engine.build("measure", quantity=measurement_type, channel=channel)[0]
         reading = float(self.scpi_engine.parse("measure", self._query(q)))
 
-        value_to_return: Union[float, UFloat] = reading
+        value_to_return: float | UFloat = reading
 
         # Find and apply accuracy spec if mode is set
         if self.current_mode:
@@ -262,7 +266,7 @@ class DCActiveLoad(Instrument):
                     value_to_return = float(value_to_return.nominal_value)
         except ImportError:
             pass
-        if not isinstance(value_to_return, (float, UFloat)):
+        if not isinstance(value_to_return, float | UFloat):
             value_to_return = float(value_to_return)
 
         return MeasurementResult(
@@ -345,12 +349,12 @@ class DCActiveLoad(Instrument):
     # --- Data Acquisition Methods ---
     def fetch_scope_data(self, measurement: Literal["current", "voltage", "power"], channel: int = 1) -> np.ndarray:
         """Fetches the captured waveform (scope) data as a NumPy array."""
-        scpi_map = {"current": "CURRent", "voltage": "VOLTage", "power": "POWer"}
+        # Removed unused scpi_map (mapping was unused).
         raw_block = self._query_raw(self.scpi_engine.build("fetch_array", quantity=measurement, channel=channel)[0])
         data_bytes = self.scpi_engine.parse("fetch_array", raw_block)
         return np.frombuffer(data_bytes, dtype=np.float32)
 
-    def fetch_datalogger_data(self, num_points: int, channel: int = 1) -> List[float]:
+    def fetch_datalogger_data(self, num_points: int, channel: int = 1) -> list[float]:
         """Fetches the specified number of logged data points."""
         q = self.scpi_engine.build("fetch_datalogger", points=num_points, channel=channel)[0]
         resp = self._query(q)

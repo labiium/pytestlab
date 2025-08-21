@@ -4,19 +4,18 @@ Comprehensive test script for the upgraded pytestlab bench system.
 This script tests all major features of the new extended bench configuration.
 """
 
-import os
 import sys
 import traceback
-import pytest
 from pathlib import Path
+
+import pytest
 
 # Add the current directory to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pytestlab import Bench
-from pytestlab.bench import SafetyLimitError
 from pytestlab.config.bench_loader import load_bench_yaml
-from pytestlab.config.bench_config import BenchConfigExtended
+
 
 def test_bench_configuration_loading():
     """Test loading the extended bench configuration."""
@@ -44,6 +43,7 @@ def test_bench_configuration_loading():
         print(f"❌ Failed to load bench configuration: {e}")
         traceback.print_exc()
         pytest.fail(f"Failed to load bench configuration: {e}")
+
 
 def test_bench_opening():
     """Test opening the bench with full initialization."""
@@ -77,6 +77,7 @@ def test_bench_opening():
         traceback.print_exc()
         pytest.fail(f"Failed to open bench: {e}")
 
+
 def test_instrument_access():
     """Test accessing instruments through the bench."""
     print("\n🔍 Testing instrument access...")
@@ -99,6 +100,7 @@ def test_instrument_access():
         print(f"❌ Failed to access instruments: {e}")
         traceback.print_exc()
         pytest.fail(f"Failed to access instruments: {e}")
+
 
 def test_safety_limits():
     """Test safety limit enforcement."""
@@ -135,6 +137,7 @@ def test_safety_limits():
         traceback.print_exc()
         pytest.fail(f"Failed to test safety limits: {e}")
 
+
 def test_automation_hooks():
     """Test automation hook execution."""
     print("\n🔄 Testing automation hooks...")
@@ -143,7 +146,7 @@ def test_automation_hooks():
 
     try:
         # The bench opening process includes running pre-experiment hooks
-        with Bench.open(config_file) as bench:
+        with Bench.open(config_file):
             print("✅ Pre-experiment hooks executed during bench opening")
 
             # Post-experiment hooks will be executed during cleanup
@@ -155,6 +158,7 @@ def test_automation_hooks():
         print(f"❌ Failed to test automation hooks: {e}")
         traceback.print_exc()
         pytest.fail(f"Failed to test automation hooks: {e}")
+
 
 def test_traceability_and_measurement_plan():
     """Test traceability and measurement plan access."""
@@ -179,7 +183,7 @@ def test_traceability_and_measurement_plan():
             if bench.measurement_plan:
                 print("✅ Measurement plan available:")
                 for i, step in enumerate(bench.measurement_plan):
-                    print(f"   Step {i+1}: {step.name} ({step.instrument})")
+                    print(f"   Step {i + 1}: {step.name} ({step.instrument})")
 
         assert True
 
@@ -187,6 +191,7 @@ def test_traceability_and_measurement_plan():
         print(f"❌ Failed to test traceability/measurement plan: {e}")
         traceback.print_exc()
         pytest.fail(f"Failed to test traceability/measurement plan: {e}")
+
 
 def main():
     """Run all tests."""
@@ -240,6 +245,7 @@ def main():
     print("✅ Traceability and measurement plans accessible")
 
     return True
+
 
 if __name__ == "__main__":
     success = main()

@@ -29,15 +29,16 @@ Requires:
 """
 
 import pytest
-import numpy as np
 from uncertainties import UFloat
 
-from pytestlab.instruments import AutoInstrument, DCActiveLoad
 from pytestlab.errors import InstrumentParameterError
+from pytestlab.instruments import AutoInstrument
+from pytestlab.instruments import DCActiveLoad
 
 # ------------------- CONFIGURE THIS FOR YOUR LAB -------------------
 DC_LOAD_CONFIG_KEY = "keysight/EL33133A"  # <-- Set your profile key or path here
 # --------------------------------------------------------------------
+
 
 def check_hardware_available():
     """Check if DC load hardware is available for testing."""
@@ -45,7 +46,7 @@ def check_hardware_available():
         dcl = AutoInstrument.from_config(DC_LOAD_CONFIG_KEY)
         dcl.connect_backend()
         # Try to get IDN to verify connection
-        idn = dcl.id()
+        _ = dcl.id()
         dcl.close()
         return True, None
     except Exception as e:
@@ -168,6 +169,7 @@ def test_dc_load_full_real():
     dcl.close()
     print("DC Load closed.")
 
+
 @pytest.mark.requires_real_hw
 def test_dc_load_advanced_features_real():
    """
@@ -183,8 +185,8 @@ def test_dc_load_advanced_features_real():
    print("\n--- Testing Advanced Transient Control ---")
    dcl.set_mode("CC")
    dcl.configure_transient_mode('CONTinuous')
-   dcl.set_transient_frequency(1000) # 1 kHz
-   dcl.set_transient_duty_cycle(75.0) # 75%
+   dcl.set_transient_frequency(1000)  # 1 kHz
+   dcl.set_transient_duty_cycle(75.0)  # 75%
    # Verification would require an oscilloscope, but we check that commands run
    print("Advanced transient control commands executed.")
 

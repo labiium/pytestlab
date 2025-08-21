@@ -1,13 +1,18 @@
 from __future__ import annotations
 
-from datetime import datetime # Already imported, but good for clarity
 import time
+from collections.abc import Iterator
+from typing import TYPE_CHECKING
+from typing import Any
+from typing import overload
+
 import numpy as np
 import polars as pl
-# import matplotlib.pyplot as plt # Commented out as it's not used
-from typing import Any, Union, List as TypingList, Iterator, Optional, Dict # Added Optional and Dict
-from uncertainties import ufloat # ufloat factory
-from uncertainties.core import UFloat, Variable # Variable is an alias for UFloat
+from uncertainties.core import UFloat
+
+if TYPE_CHECKING:
+    from ..plotting import PlotSpec
+
 
 # NOTE:
 #   The real implementation is *replaced at runtime* by the compliance layer.
@@ -15,7 +20,7 @@ from uncertainties.core import UFloat, Variable # Variable is an alias for UFloa
 #   definition when users import MeasurementResult directly.
 class MeasurementResult:  # noqa: D101
     """A class to represent a collection of measurement values.
-    
+
     Attributes:
         values (Union[np.ndarray, pl.DataFrame, np.float64, TypingList[Any], UFloat]): The measurement data.
         units (str): The units of the measurements.
@@ -23,15 +28,26 @@ class MeasurementResult:  # noqa: D101
         measurement_type (str): The type of measurement.
         timestamp (float): Timestamp of when the result was created.
     """
-    def __init__(self, values: Union[np.ndarray, pl.DataFrame, np.float64, TypingList[Any], UFloat],
+    @overload
+    def __init__(self, values: float, instrument: str, units: str, measurement_type: str, timestamp: float | None = ..., envelope: dict[str, Any] | None = ..., sampling_rate: float | None = ..., **kwargs: Any) -> None: ...
+    @overload
+    def __init__(self, values: np.ndarray | pl.DataFrame | np.float64 | list[Any] | UFloat,
                  instrument: str,
                  units: str,
                  measurement_type: str,
-                 timestamp: Optional[float] = None, # Allow optional timestamp override
-                 envelope: Optional[Dict[str, Any]] = None, # Add envelope as an explicit argument
-                 sampling_rate: Optional[float] = None, # Add sampling_rate for FFT
-                 **kwargs: Any) -> None: # Added **kwargs and type hint
-        self.values: Union[np.ndarray, pl.DataFrame, np.float64, TypingList[Any], UFloat] = values
+                 timestamp: float | None = ..., envelope: dict[str, Any] | None = ..., sampling_rate: float | None = ..., **kwargs: Any) -> None: ...
+    def __init__(self, values: np.ndarray | pl.DataFrame | np.float64 | list[Any] | UFloat | float,
+                 instrument: str,
+                 units: str,
+                 measurement_type: str,
+                 timestamp: float | None = None,  # Allow optional timestamp override
+                 envelope: dict[str, Any] | None = None,  # Add envelope as an explicit argument
+                 sampling_rate: float | None = None,  # Add sampling_rate for FFT
+                 **kwargs: Any) -> None:  # Added **kwargs and type hint
+        if isinstance(values, float) and not isinstance(values, np.floating):
+            # Normalize plain Python float to numpy float64 for internal consistency
+            values = np.float64(values)
+        self.values: np.ndarray | pl.DataFrame | np.float64 | list[Any] | UFloat = values  # type: ignore[assignment]
         self.units: str = units
         self.instrument: str = instrument
         self.measurement_type: str = measurement_type
@@ -42,17 +58,17 @@ class MeasurementResult:  # noqa: D101
         else:
             # Default: minimal valid envelope (empty dict, or customize as needed)
             self.envelope = {}
-        
+
         # Store sampling rate for FFT calculations
         self.sampling_rate = sampling_rate
-        
+
         # Store any additional kwargs as attributes
         for key, value in kwargs.items():
             setattr(self, key, value)
 
     def __str__(self) -> str:
         """String representation of the measurement result.
-        
+
         For backward compatibility with tests, returns a newline-separated list for arrays.
         For other types, uses a more descriptive representation.
         """
@@ -70,28 +86,28 @@ class MeasurementResult:  # noqa: D101
             return f"NumPy Array (shape: {self.values.shape}, dtype: {self.values.dtype}) {self.units}"
         elif isinstance(self.values, list):
             # For lists, special handling for backward compatibility
-            if all(isinstance(x, (int, float)) for x in self.values):
+            if all(isinstance(x, int | float) for x in self.values):
                 return '\n'.join([f"{val} {self.units}" for val in self.values])
             # For lists with mixed types or nested lists, show first few items if long
             if len(self.values) > 5:
                 return f"List (first 5 of {len(self.values)}): {self.values[:5]}... {self.units}"
             return f"List: {self.values} {self.units}"
-        
+
         # Fallback for other types
         return f"Values: {str(self.values)[:100]}... Type: {type(self.values)} {self.units}"
-    
+
     def __repr__(self) -> str:
         """Detailed representation of the measurement result.
-        
+
         For backward compatibility with tests, this matches __str__ behavior.
         In typical libraries, repr would show construction details instead.
         """
         return self.__str__()
 
     # Add this method to convert MeasurementResult to a dict for Polars DataFrame
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert MeasurementResult to a dict for DataFrame conversion.
-        
+
         This allows MeasurementResult objects to be directly used in Experiment.add_trial.
         """
         if isinstance(self.values, pl.DataFrame):
@@ -100,10 +116,10 @@ class MeasurementResult:  # noqa: D101
             for col in self.values.columns:
                 result[col] = self.values[col].to_list()
             return result
-        elif isinstance(self.values, (np.ndarray, list)):
+        elif isinstance(self.values, np.ndarray | list):
             # Convert array or list to a dict with a 'values' key
             return {'values': self.values}
-        elif isinstance(self.values, (np.float64, UFloat)):
+        elif isinstance(self.values, np.float64 | UFloat):
             # Convert scalar value to a dict with a 'value' key
             return {'value': self.values}
         else:
@@ -114,18 +130,26 @@ class MeasurementResult:  # noqa: D101
     def keys(self):
         """Return the keys for dict-like behavior."""
         return self.to_dict().keys()
-    
+
     def __getitem__(self, key):
-        """Allow dictionary-style access."""
+        """Allow dictionary-style access or integer indexing into values."""
+        if isinstance(key, int):
+            if isinstance(self.values, np.ndarray | list):
+                return self.values[key]
+            if isinstance(self.values, pl.DataFrame):
+                return self.values[key]
+            if isinstance(self.values, (np.float64 | UFloat)) and key == 0:
+                return self.values
+            raise IndexError(f"Index {key} out of range or type {type(self.values)} not directly indexable.")
         return self.to_dict()[key]
-    
+
     def items(self):
         """Return items for dict-like behavior."""
         return self.to_dict().items()
 
     def save(self, path: str) -> None:
         """Saves the measurement data to a file.
-        
+
         If the data is a numpy array, it will be saved as a .npy file.
         If the data is a Polars DataFrame, it will be saved as a .parquet file.
         Other list-like data will be converted to numpy array and saved as .npy.
@@ -135,7 +159,7 @@ class MeasurementResult:  # noqa: D101
         default_ext = ".npy"
         if isinstance(self.values, pl.DataFrame):
             default_ext = ".parquet"
-        
+
         if not path.endswith(('.npy', '.parquet')):
             path += default_ext
             print(f"Warning: File extension not specified. Saving as {path}")
@@ -150,7 +174,7 @@ class MeasurementResult:  # noqa: D101
             if not path.endswith(".npy"):
                 print(f"Warning: Saving UFloat to non-npy file '{path}'. Consider using .npy.")
             np.save(path, np.array([self.values.nominal_value, self.values.std_dev]))
-        elif isinstance(self.values, (list, np.float64)): # Convert list or float64 to ndarray
+        elif isinstance(self.values, list | np.float64):  # Convert list or float64 to ndarray
             if not path.endswith(".npy"):
                 print(f"Warning: Saving {type(self.values).__name__} to non-npy file '{path}'. Consider using .npy.")
             np.save(path, np.array(self.values))
@@ -159,7 +183,7 @@ class MeasurementResult:  # noqa: D101
         print(f"Measurement saved to {path}")
 
     @property
-    def nominal(self) -> float | np.ndarray | pl.DataFrame:
+    def nominal(self) -> float | np.ndarray | pl.DataFrame:  # return type explicitly includes built-in float
         if isinstance(self.values, UFloat):
             return self.values.nominal_value
         # Handle np.ndarray of UFloats if that's a possibility
@@ -168,28 +192,19 @@ class MeasurementResult:  # noqa: D101
             return np.array([x.nominal_value for x in self.values.flat]).reshape(self.values.shape)
         # Handle Polars DataFrame with UFloat columns (see Polars serialization)
         # For now, assume if it's a DataFrame, it might already be split or handled by Polars part
-        return self.values # type: ignore
+        return self.values  # type: ignore
 
     @property
-    def sigma(self) -> Optional[float | np.ndarray | pl.DataFrame]:
+    def sigma(self) -> float | np.ndarray | pl.DataFrame | None:  # return type explicitly includes built-in float
         if isinstance(self.values, UFloat):
             return self.values.std_dev
         elif isinstance(self.values, np.ndarray) and self.values.size > 0 and \
              isinstance(self.values.flat[0], UFloat):
             return np.array([x.std_dev for x in self.values.flat]).reshape(self.values.shape)
-        return None # Or handle DataFrame case
+        return None  # Or handle DataFrame case
 
-    def __repr__(self) -> str:
-        """
-        For backward compatibility with tests:
-        - 1D arrays return a newline-separated list of values with units (like __str__)
-        - Other types use a detailed representation
-        """
-        if isinstance(self.values, np.ndarray) and self.values.ndim == 1:
-            return '\n'.join([f"{val} {self.units}" for val in self.values])
-        return (f"MeasurementResult(instrument='{self.instrument}', type='{self.measurement_type}', "
-                f"units='{self.units}', values_type='{type(self.values).__name__}', timestamp={self.timestamp})")
-    
+    # Removed duplicate __repr__ (original definition earlier retained)
+
     def add(self, value: Any) -> None:
         """Adds a new value to the collection. Behavior depends on self.values type."""
         if isinstance(self.values, np.ndarray):
@@ -199,11 +214,11 @@ class MeasurementResult:  # noqa: D101
             self.values.append(value)
         elif isinstance(self.values, np.float64):
             # Convert to list or ndarray if adding to a single float
-            self.values = np.array([self.values, value]) # type: ignore
+            self.values = np.array([self.values, value])  # type: ignore
             print("Warning: Added value to np.float64, converted 'values' to np.ndarray.")
         elif isinstance(self.values, UFloat):
             # If current value is UFloat, adding another value implies creating a list/array of UFloats
-            self.values = [self.values, value] # type: ignore
+            self.values = [self.values, value]  # type: ignore
             print("Warning: Added value to UFloat, converted 'values' to a list. Consider using a list of UFloats initially.")
         elif isinstance(self.values, pl.DataFrame):
             # Appending to Polars DataFrame is complex; typically done by creating a new DF and vstacking.
@@ -212,25 +227,25 @@ class MeasurementResult:  # noqa: D101
         else:
             raise TypeError(f"Cannot 'add' to type {type(self.values)}")
 
-
-    def set_values(self, values: Union[np.ndarray, pl.DataFrame, np.float64, TypingList[Any], UFloat]) -> None:
+    def set_values(self, values: np.ndarray | pl.DataFrame | np.float64 | list[Any] | UFloat | float) -> None:
         """Sets the MeasurementValues in the collection."""
-        self.values = values
+        if isinstance(values, float) and not isinstance(values, np.floating):
+            values = np.float64(values)
+        self.values = values  # type: ignore[assignment]
 
     def get(self, index: int) -> Any:
         """Gets the MeasurementValue at a specified index. Assumes indexable values."""
-        if isinstance(self.values, (np.ndarray, list)):
+        if isinstance(self.values, np.ndarray | list):
             return self.values[index]
         elif isinstance(self.values, pl.DataFrame):
             # For DataFrame, 'get' by index might mean row.
             # This returns a new DataFrame with one row.
             return self.values[index]
-        elif isinstance(self.values, (np.float64, UFloat)) and index == 0:
+        elif isinstance(self.values, (np.float64 | UFloat)) and index == 0:
             return self.values
         raise IndexError(f"Index {index} out of range or type {type(self.values)} not directly indexable by single int.")
 
-
-    def get_all(self) -> Union[np.ndarray, pl.DataFrame, np.float64, TypingList[Any], UFloat]:
+    def get_all(self) -> np.ndarray | pl.DataFrame | np.float64 | list[Any] | UFloat:
         """Returns all the MeasurementValues in the collection."""
         return self.values
 
@@ -238,16 +253,16 @@ class MeasurementResult:  # noqa: D101
         """Clears all the MeasurementValues from the collection, resetting to an empty/default state."""
         if isinstance(self.values, np.ndarray):
             self.values = np.array([])
-        elif isinstance(self.values, (np.float64, UFloat)): # Reset UFloat to a default float or ufloat(0,0)
-            self.values = np.float64(0.0) # Or ufloat(0,0) if preferred default for UFloat
+        elif isinstance(self.values, (np.float64 | UFloat)):  # Reset UFloat to a default float or ufloat(0,0)
+            self.values = np.float64(0.0)  # Or ufloat(0,0) if preferred default for UFloat
         elif isinstance(self.values, pl.DataFrame):
             self.values = pl.DataFrame()
         elif isinstance(self.values, list):
             self.values = []
-        else: # Fallback for unknown types, attempt to set to a default float64
+        else:  # Fallback for unknown types, attempt to set to a default float64
             print(f"Warning: Clearing unknown type {type(self.values)}, setting to np.float64(0.0).")
             self.values = np.float64(0.0)
-    
+
     def _to_numpy(self) -> np.ndarray:
         """
         Converts the measurement values to a numpy array if possible.
@@ -267,7 +282,7 @@ class MeasurementResult:  # noqa: D101
             return np.array([self.values.nominal_value, self.values.std_dev])
         elif isinstance(self.values, list):
             if self.values and isinstance(self.values[0], UFloat):
-                return np.array([[x.nominal_value, x.std_dev] for x in self.values]) # type: ignore
+                return np.array([[x.nominal_value, x.std_dev] for x in self.values])  # type: ignore
             return np.array(self.values)
         elif isinstance(self.values, np.float64):
             return np.array(self.values)
@@ -275,34 +290,25 @@ class MeasurementResult:  # noqa: D101
             raise TypeError(f"Cannot convert type {type(self.values)} to NumPy array.")
 
     def __len__(self) -> int:
-        if isinstance(self.values, (np.ndarray, list)):
+        if isinstance(self.values, np.ndarray | list):
             return len(self.values)
-        elif isinstance(self.values, (np.float64, UFloat)):
+        elif isinstance(self.values, np.float64 | UFloat):
             return 1
         elif isinstance(self.values, pl.DataFrame):
-            return self.values.height # Number of rows
-        return 0 # Default for unknown types
+            return self.values.height  # Number of rows
+        return 0  # Default for unknown types
 
-    def __getitem__(self, index: int) -> Any:
-        """Allows indexing into the 'values' attribute."""
-        if isinstance(self.values, (np.ndarray, list)):
-            return self.values[index]
-        elif isinstance(self.values, pl.DataFrame):
-            return self.values[index] # Returns a row as a new DataFrame
-        elif isinstance(self.values, (np.float64, UFloat)) and index == 0:
-            return self.values
-        raise IndexError(f"Index {index} not applicable for type {type(self.values)}")
+    # Removed duplicate __getitem__ (logic merged into earlier __getitem__)
 
     def __iter__(self) -> Iterator[Any]:
         """Allows iteration over the 'values' attribute."""
-        if isinstance(self.values, (np.ndarray, list)):
+        if isinstance(self.values, np.ndarray | list):
             return iter(self.values)
         elif isinstance(self.values, pl.DataFrame):
             return iter(self.values.iter_rows())
-        elif isinstance(self.values, (np.float64, UFloat)):
+        elif isinstance(self.values, np.float64 | UFloat):
             return iter([self.values])
         raise TypeError(f"Iteration not supported for type {type(self.values)}")
-
 
     def __delitem__(self, index: int) -> None:
         """Allows deleting an item from 'values' if it's a list or ndarray."""
@@ -313,39 +319,39 @@ class MeasurementResult:  # noqa: D101
         else:
             raise TypeError(f"Deletion by index not supported for type {type(self.values)}")
 
-    def perform_fft(self) -> 'MeasurementResult':
+    def perform_fft(self) -> MeasurementResult:
         """Perform Fast Fourier Transform on the measurement data.
-        
+
         Requires:
         - self.values to be a numpy array of time-domain data
         - self.sampling_rate to be set (in Hz)
-        
+
         Returns:
             A new MeasurementResult containing the FFT data, with frequency in Hz
             and magnitude in the same units as the original data.
         """
         if self.sampling_rate is None:
             raise ValueError("Sampling rate must be set to perform FFT")
-        
+
         if not isinstance(self.values, np.ndarray):
             raise TypeError(f"FFT requires numpy array, got {type(self.values)}")
-        
+
         # Ensure we're working with a 1D array
         values = self.values.flatten() if self.values.ndim > 1 else self.values
-        
+
         # Perform FFT
         fft_values = np.fft.rfft(values)
         fft_magnitude = np.abs(fft_values)
-        
+
         # Create frequency axis
-        freqs = np.fft.rfftfreq(len(values), 1/self.sampling_rate)
-        
+        freqs = np.fft.rfftfreq(len(values), 1 / self.sampling_rate)
+
         # Create result with frequency and magnitude
         result_df = pl.DataFrame({
             "frequency": freqs,
             "magnitude": fft_magnitude
         })
-        
+
         return MeasurementResult(
             values=result_df,
             instrument=self.instrument,
@@ -358,7 +364,7 @@ class MeasurementResult:  # noqa: D101
 
     # ------------------------------------------------------------------
     # Plotting convenience
-    def plot(self, spec: "PlotSpec" | None = None, **kwargs):
+    def plot(self, spec: PlotSpec | None = None, **kwargs):
         """
         Plot this measurement result.
 
@@ -373,9 +379,12 @@ class MeasurementResult:  # noqa: D101
         Returns:
             A matplotlib Figure object.
         """
-        from ..plotting import PlotSpec, plot_dataframe, plot_ndarray  # noqa: WPS433
         import numpy as np  # local import
         import polars as pl  # local import
+
+        from ..plotting import PlotSpec  # noqa: E402
+        from ..plotting import plot_dataframe  # noqa: E402
+        from ..plotting import plot_ndarray  # noqa: E402
 
         pspec = spec or (PlotSpec(**kwargs) if kwargs else PlotSpec())
 

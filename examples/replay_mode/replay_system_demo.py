@@ -10,10 +10,11 @@ from pathlib import Path
 # Add the pytestlab package to path for direct import
 sys.path.insert(0, str(Path(__file__).parent))
 
+import yaml
+
+from pytestlab.errors import ReplayMismatchError
 from pytestlab.instruments import AutoInstrument
 from pytestlab.instruments.backends.replay_backend import ReplayBackend
-from pytestlab.errors import ReplayMismatchError
-import yaml
 
 
 def demonstrate_successful_replay():
@@ -24,7 +25,7 @@ def demonstrate_successful_replay():
 
     # Load the session file
     session_file = Path("real_instrument_session.yaml")
-    with open(session_file, "r") as f:
+    with open(session_file) as f:
         session_data = yaml.safe_load(f)
 
     # Create replay backend for PSU (first few commands only)
@@ -61,11 +62,11 @@ def demonstrate_successful_replay():
 
         print("\n🎉 SUCCESS: All commands replayed exactly as recorded!")
 
-    except ReplayMismatchError as e:
-        print(f"ℹ️  Reached end of replay log (expected for demo)")
+    except ReplayMismatchError:
+        print("ℹ️  Reached end of replay log (expected for demo)")
     except Exception as e:
         if "ended, but received unexpected command" in str(e):
-            print(f"ℹ️  Reached end of replay log (expected for demo)")
+            print("ℹ️  Reached end of replay log (expected for demo)")
         else:
             print(f"❌ Error: {e}")
     finally:
@@ -80,7 +81,7 @@ def demonstrate_mismatch_detection():
 
     # Load the session file
     session_file = Path("real_instrument_session.yaml")
-    with open(session_file, "r") as f:
+    with open(session_file) as f:
         session_data = yaml.safe_load(f)
 
     # Create replay backend for PSU
@@ -112,12 +113,12 @@ def demonstrate_mismatch_detection():
         print("❌ ERROR: This should not have succeeded!")
 
     except ReplayMismatchError as e:
-        print(f"✅ EXPECTED: Replay mismatch detected correctly!")
+        print("✅ EXPECTED: Replay mismatch detected correctly!")
         print(f"   Details: {str(e)[:100]}...")
     except Exception as e:
         if "Replay mismatch" in str(e):
-            print(f"✅ EXPECTED: Replay mismatch detected correctly!")
-            print(f"   The script tried to set 2.0V but recording expected 1.0V")
+            print("✅ EXPECTED: Replay mismatch detected correctly!")
+            print("   The script tried to set 2.0V but recording expected 1.0V")
         else:
             print(f"❌ Unexpected error: {e}")
     finally:

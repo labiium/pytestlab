@@ -1,9 +1,12 @@
-import unittest
-import polars as pl
-from pytestlab.experiments import Experiment, ExperimentParameter
-import numpy as np
-import tempfile
 import os
+import tempfile
+import unittest
+
+import polars as pl
+
+from pytestlab.experiments import Experiment
+from pytestlab.experiments import ExperimentParameter
+
 
 class TestExperiment(unittest.TestCase):
     def setUp(self):
@@ -102,6 +105,7 @@ class TestExperiment(unittest.TestCase):
             experiment.save_parquet(tmp.name)
             self.assertTrue(os.path.exists(tmp.name))
         os.remove(tmp.name)
+
 
 if __name__ == "__main__":
     unittest.main()

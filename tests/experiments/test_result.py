@@ -1,6 +1,9 @@
 import unittest
+
 import numpy as np
+
 from pytestlab.experiments import MeasurementResult  # Adjust the import path as needed
+
 
 class TestMeasurementResult(unittest.TestCase):
 
@@ -14,7 +17,6 @@ class TestMeasurementResult(unittest.TestCase):
         self.measurement_type = "Test Type"
         self.sampling_rate = 1.0  # Hz
 
-
     def test_initialization_with_array(self):
         result = MeasurementResult(self.values_array, self.instrument, self.units, self.measurement_type)
         self.assertTrue(np.array_equal(result.values, self.values_array))
@@ -27,7 +29,6 @@ class TestMeasurementResult(unittest.TestCase):
         result = MeasurementResult(self.values_float64, self.instrument, self.units, self.measurement_type)
         self.assertEqual(result.values, self.values_float64)
 
-
     def test_str_with_array(self):
         result = MeasurementResult(self.values_array, self.instrument, self.units, self.measurement_type)
         expected_str = '\n'.join([f"{val} {self.units}" for val in self.values_array])
@@ -37,7 +38,6 @@ class TestMeasurementResult(unittest.TestCase):
         result = MeasurementResult(self.values_array, self.instrument, self.units, self.measurement_type)
         expected_str = '\n'.join([f"{val} {self.units}" for val in self.values_array])
         self.assertEqual(repr(result), expected_str)
-
 
     def test_add_value_to_array(self):
         result = MeasurementResult(self.values_array, self.instrument, self.units, self.measurement_type)
@@ -53,7 +53,6 @@ class TestMeasurementResult(unittest.TestCase):
     def test_len_with_array(self):
         result = MeasurementResult(self.values_array, self.instrument, self.units, self.measurement_type)
         self.assertEqual(len(result), len(self.values_array))
-
 
     def test_perform_fft(self):
         time_signal = np.array([np.sin(2 * np.pi * 1 * t) for t in range(100)])

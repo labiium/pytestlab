@@ -18,12 +18,11 @@ The MeasurementSession class automatically:
 - Creates an Experiment object with the data
 """
 import time
-import numpy as np
+
 import matplotlib.pyplot as plt
-from typing import Dict, Any
+import numpy as np
 
 from pytestlab.measurements.session import MeasurementSession
-from pytestlab.instruments import AutoInstrument
 
 
 def run_transistor_iv_sweep():
@@ -60,14 +59,14 @@ def run_transistor_iv_sweep():
             notes="Ambient temperature"
         )
 
-        print(f"Parameters defined: I_base, V_ce, temperature")
+        print("Parameters defined: I_base, V_ce, temperature")
         total_combinations = 5 * 11 * 3  # 165 combinations
         print(f"Total parameter combinations: {total_combinations}")
 
         # Get instruments (in simulation mode)
-        psu1 = session.instrument("psu_base", "keysight/EDU36311A", simulate=True)
-        psu2 = session.instrument("psu_collector", "keysight/EDU36311A", simulate=True)
-        dmm = session.instrument("dmm", "keysight/EDU34450A", simulate=True)
+        session.instrument("psu_base", "keysight/EDU36311A", simulate=True)
+        session.instrument("psu_collector", "keysight/EDU36311A", simulate=True)
+        session.instrument("dmm", "keysight/EDU34450A", simulate=True)
 
         # Define a measurement function using the @session.acquire decorator
         @session.acquire
@@ -75,7 +74,7 @@ def run_transistor_iv_sweep():
                                            psu_base, psu_collector, dmm):
             """Measure transistor collector current with the given parameters."""
             # In a real scenario, we might also control a temperature chamber here
-            print(f"Setting: I_base={I_base*1e6:.2f}µA, V_ce={V_ce:.1f}V, T={temperature}°C")
+            print(f"Setting: I_base={I_base * 1e6:.2f}µA, V_ce={V_ce:.1f}V, T={temperature}°C")
 
             # 1. Set up the base current with psu_base
             # We use V=I_base*R where R is a fixed resistor value (simulated)
@@ -100,7 +99,6 @@ def run_transistor_iv_sweep():
             # 5. Measure collector current
             # In simulation mode this will return random values
             # In a real setup, the DMM would measure the actual current
-            measurement = dmm.measure_current_dc()
 
             # Simulate a realistic transistor response in simulation mode
             # For NPN transistor: Ic ≈ β × Ib × (1 - exp(-V_ce / V_thermal))
@@ -161,7 +159,7 @@ def analyze_results(experiment):
     for i_base in sorted(df["I_base"].unique()):
         data = df[(df["temperature"] == 25) & (df["I_base"] == i_base)]
         plt.plot(data["V_ce"], data["I_collector"] * 1000,
-                 marker='o', label=f'Ib={i_base*1e6:.1f}µA')
+                 marker='o', label=f'Ib={i_base * 1e6:.1f}µA')
 
     plt.title("Transistor IV Curves at 25°C")
     plt.xlabel("Collector-Emitter Voltage (V)")
@@ -177,7 +175,7 @@ def analyze_results(experiment):
         plt.plot(data["V_ce"], data["I_collector"] * 1000,
                  marker='o', label=f'T={temp}°C')
 
-    plt.title(f"Temperature Effect (Ib={max_i_base*1e6:.1f}µA)")
+    plt.title(f"Temperature Effect (Ib={max_i_base * 1e6:.1f}µA)")
     plt.xlabel("Collector-Emitter Voltage (V)")
     plt.ylabel("Collector Current (mA)")
     plt.grid(True)

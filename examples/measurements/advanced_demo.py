@@ -11,8 +11,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from pytestlab.measurements import Measurement
 from pytestlab.experiments.database import MeasurementDatabase
+from pytestlab.measurements import Measurement
+from pytestlab.measurements import session as _ms
+
 
 # ─── Fake HW for demo (remove in real lab) ───────────────────────────
 class DummyPSU:
@@ -20,17 +22,22 @@ class DummyPSU:
     def output(self, *_): ...
     def close(self): ...
 
+
 class DummyDMM:
-    def measure(self, **_) -> "DummyRes":  # noqa: D401
+    def measure(self, **_) -> DummyRes:  # noqa: D401
         return DummyRes()
+
     def close(self): ...
+
 
 class DummyRes:
     @property
     def values(self):  # noqa: D401
         return np.random.random()
 
-from pytestlab.measurements import session as _ms  # pylint: disable=wrong-import-order
+
+# _ms imported above for monkey-patching below
+
 _ms.AutoInstrument.from_config = lambda *a, **k: DummyPSU() if "PSU" in a[0] else DummyDMM()  # type: ignore  # monkey-patch
 
 # ─── Real demo code starts here ──────────────────────────────────────

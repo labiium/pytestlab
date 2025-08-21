@@ -2,13 +2,14 @@
 Tests for ReplayBackend functionality.
 """
 
-import pytest
 import tempfile
-import yaml
 from pathlib import Path
 
-from pytestlab.instruments.backends.replay_backend import ReplayBackend
+import pytest
+import yaml
+
 from pytestlab.errors import ReplayMismatchError
+from pytestlab.instruments.backends.replay_backend import ReplayBackend
 
 
 @pytest.fixture
@@ -76,6 +77,7 @@ class TestReplayBackend:
         assert backend.session_data == sample_session_data
         assert backend._log_index == 0
         assert len(backend._command_log) == 4
+
     def test_successful_query_sequence(self, replay_backend):
         """Test successful query command sequence replay."""
         # First query - *IDN?
@@ -85,6 +87,7 @@ class TestReplayBackend:
         # Second query - :SYSTem:ERRor?
         result = replay_backend.query(':SYSTem:ERRor?')
         assert result == '+0,"No error"'
+
     def test_successful_write_command(self, replay_backend):
         """Test successful write command replay."""
         # Skip to write command
@@ -93,6 +96,7 @@ class TestReplayBackend:
 
         # Write command should succeed without exception
         replay_backend.write('CURR 0.1, (@1)')
+
     def test_query_command_mismatch(self, replay_backend):
         """Test ReplayMismatchError on wrong query command."""
         with pytest.raises(ReplayMismatchError) as exc_info:
@@ -103,6 +107,7 @@ class TestReplayBackend:
         assert error.expected_command == '*IDN?'
         assert error.actual_command == '*TST?'
         assert error.log_index == 0
+
     def test_write_command_mismatch(self, replay_backend):
         """Test ReplayMismatchError on wrong write command."""
         # Skip to write command
@@ -114,6 +119,7 @@ class TestReplayBackend:
 
         error = exc_info.value
         assert "Expected command 'CURR 0.1, (@1)', but got 'VOLT 1.0, (@1)'" in str(error)
+
     def test_query_type_mismatch(self, replay_backend):
         """Test ReplayMismatchError when query used instead of write."""
         # Skip to write command position
@@ -125,6 +131,7 @@ class TestReplayBackend:
 
         error = exc_info.value
         assert "Expected command type 'write', but got 'query'" in str(error)
+
     def test_write_type_mismatch(self, replay_backend):
         """Test ReplayMismatchError when write used instead of query."""
         with pytest.raises(ReplayMismatchError) as exc_info:
@@ -132,6 +139,7 @@ class TestReplayBackend:
 
         error = exc_info.value
         assert "Expected command type 'query', but got 'write'" in str(error)
+
     def test_commands_exhausted(self, replay_backend):
         """Test ReplayMismatchError when all commands are exhausted."""
         # Execute all commands in sequence
@@ -146,16 +154,19 @@ class TestReplayBackend:
 
         error = exc_info.value
         assert "No more commands in replay log" in str(error)
+
     def test_missing_profile_key(self, temp_session_file):
         """Test error when profile key doesn't exist in session."""
         with pytest.raises(KeyError) as exc_info:
             ReplayBackend(temp_session_file, 'nonexistent_instrument')
 
         assert "'nonexistent_instrument' not found in session data" in str(exc_info.value)
+
     def test_invalid_session_file(self):
         """Test error when session file doesn't exist."""
         with pytest.raises(FileNotFoundError):
             ReplayBackend('/nonexistent/file.yaml', 'psu')
+
     def test_thread_safety_behavior(self, replay_backend):
         """Test thread safety of operations."""
         # This test ensures thread safety in multi-threaded environments
@@ -168,6 +179,7 @@ class TestReplayBackend:
         # Second query should fail due to sequence progression
         with pytest.raises(ReplayMismatchError):
             concurrent_query()
+
     def test_complete_successful_sequence(self, replay_backend):
         """Test complete successful replay sequence."""
         # Execute all commands in correct order
@@ -184,6 +196,8 @@ class TestReplayBackend:
 
         # Verify all commands consumed
         assert replay_backend._log_index == len(replay_backend._command_log)
+
+
 def test_replay_mismatch_error_attributes():
     """Test ReplayMismatchError custom attributes."""
     error = ReplayMismatchError(
@@ -221,6 +235,7 @@ class TestReplayBackendEdgeCases:
 
         yield temp_file
         Path(temp_file).unlink(missing_ok=True)
+
     def test_empty_command_log(self, empty_log_session_file):
         """Test behavior with empty command log."""
         backend = ReplayBackend(empty_log_session_file, 'psu')
@@ -255,6 +270,7 @@ class TestReplayBackendEdgeCases:
 
         yield temp_file
         Path(temp_file).unlink(missing_ok=True)
+
     def test_malformed_log_entries(self, malformed_session_file):
         """Test handling of malformed log entries."""
         backend = ReplayBackend(malformed_session_file, 'psu')

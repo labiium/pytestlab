@@ -1,16 +1,20 @@
 from __future__ import annotations
 
-import importlib # Changed from 'from importlib import import_module' for consistency
+import importlib  # Changed from 'from importlib import import_module' for consistency
 import inspect
+import typing  # For get_origin, get_args
 from pathlib import Path
-from typing import Any, Type, Literal, Union # Added Literal, Union
-import typing # For get_origin, get_args
+from typing import Any  # Added Literal, Union
+from typing import Literal  # Added Literal, Union
+from typing import Union  # Added Literal, Union
+
 import yaml
-from pydantic import BaseModel, ValidationError
-from pydantic_core import PydanticUndefined
+from pydantic import ValidationError
 from pydantic.fields import FieldInfo
+from pydantic_core import PydanticUndefined
 
 from .instrument_config import InstrumentConfig
+
 
 # --- DUMMY ConfigLoader for mkdocstrings compatibility ---
 class ConfigLoader:
@@ -22,14 +26,13 @@ class ConfigLoader:
     pass
 
 
-
 # Global cache for discovered models to avoid re-discovering on every call
-_MODEL_REGISTRY_CACHE: dict[str, Type[InstrumentConfig]] | None = None
+_MODEL_REGISTRY_CACHE: dict[str, type[InstrumentConfig]] | None = None
 
 
-def _discover_models() -> dict[str, Type[InstrumentConfig]]:
+def _discover_models() -> dict[str, type[InstrumentConfig]]:
     pkg = importlib.import_module("pytestlab.config")
-    registry: dict[str, Type[InstrumentConfig]] = {}
+    registry: dict[str, type[InstrumentConfig]] = {}
 
     for name, member in inspect.getmembers(pkg):
         if name.startswith("_"):
@@ -72,7 +75,7 @@ def _discover_models() -> dict[str, Type[InstrumentConfig]]:
     return registry
 
 
-def get_model_registry() -> dict[str, Type[InstrumentConfig]]:
+def get_model_registry() -> dict[str, type[InstrumentConfig]]:
     global _MODEL_REGISTRY_CACHE
     if _MODEL_REGISTRY_CACHE is None:
         _MODEL_REGISTRY_CACHE = _discover_models()

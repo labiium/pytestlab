@@ -14,9 +14,14 @@ import inspect
 import itertools
 import threading
 import time
+from collections.abc import Callable
+from collections.abc import Iterable
+from collections.abc import Mapping
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING
+from typing import Any
 
 import numpy as np
 import polars as pl
@@ -28,8 +33,11 @@ from ..instruments import AutoInstrument
 
 __all__ = ["MeasurementSession", "Measurement"]
 
-T_Value = Union[float, int, str, np.ndarray, Sequence[Any]]
-T_ParamIterable = Union[Iterable[T_Value], Callable[[], Iterable[T_Value]]]
+if TYPE_CHECKING:
+    from ..plotting import PlotSpec
+
+T_Value = float | int | str | np.ndarray | Sequence[Any]
+T_ParamIterable = Iterable[T_Value] | Callable[[], Iterable[T_Value]]
 T_MeasFunc = Callable[..., Mapping[str, Any]]
 T_TaskFunc = Callable[..., None]
 
@@ -37,7 +45,7 @@ T_TaskFunc = Callable[..., None]
 @dataclass
 class _Parameter:
     name: str
-    values: List[T_Value]
+    values: list[T_Value]
     unit: str | None = None
     notes: str = ""
 
@@ -59,22 +67,22 @@ class MeasurementSession(contextlib.AbstractContextManager):
     # Construction ------------------------------------------------------
     def __init__(
         self,
-        name: Optional[str] = None,
+        name: str | None = None,
         description: str = "",
         tz: str = "UTC",
         *,
-        bench: Optional[Bench] = None,
+        bench: Bench | None = None,
     ) -> None:
         self.name = name or "Untitled"
         self.description = description
         self.tz = tz
         self.created_at = datetime.now().astimezone().isoformat()
-        self._parameters: Dict[str, _Parameter] = {}
-        self._instruments: Dict[str, _InstrumentRecord] = {}
-        self._meas_funcs: List[Tuple[str, T_MeasFunc]] = []
-        self._tasks: List[Tuple[str, T_TaskFunc]] = []
-        self._data_rows: List[Any] = []
-        self._experiment: Optional[Experiment] = None
+        self._parameters: dict[str, _Parameter] = {}
+        self._instruments: dict[str, _InstrumentRecord] = {}
+        self._meas_funcs: list[tuple[str, T_MeasFunc]] = []
+        self._tasks: list[tuple[str, T_TaskFunc]] = []
+        self._data_rows: list[Any] = []
+        self._experiment: Experiment | None = None
         self._has_run = False
         self._bench = bench
 
@@ -98,7 +106,7 @@ class MeasurementSession(contextlib.AbstractContextManager):
                 )
 
     # Context management ------------------------------------------------
-    def __enter__(self) -> "MeasurementSession":  # noqa: D401
+    def __enter__(self) -> MeasurementSession:  # noqa: D401
         """Synchronous context manager entry."""
         return self
 
@@ -131,7 +139,7 @@ class MeasurementSession(contextlib.AbstractContextManager):
     def parameter(self, name: str, values: T_ParamIterable, /, *, unit: str | None = None, notes: str = "") -> None:
         if name in self._parameters:
             raise ValueError(f"Parameter '{name}' already exists.")
-        if callable(values) and not isinstance(values, (list, tuple, np.ndarray)):
+        if callable(values) and not isinstance(values, list | tuple | np.ndarray):
             values = list(values())
         else:
             values = list(values)
@@ -162,7 +170,7 @@ class MeasurementSession(contextlib.AbstractContextManager):
     # ─── Execution ────────────────────────────────────────────────────
     def run(
         self,
-        duration: Optional[float] = None,
+        duration: float | None = None,
         interval: float = 0.1,
         show_progress: bool = True,
     ) -> Experiment:
@@ -197,7 +205,7 @@ class MeasurementSession(contextlib.AbstractContextManager):
 
         for idx, combo in iterator:
             param_ctx = dict(zip(names, combo, strict=True))
-            row: Dict[str, Any] = {**param_ctx, "timestamp": time.time()}
+            row: dict[str, Any] = {**param_ctx, "timestamp": time.time()}
 
             for meas_name, func in self._meas_funcs:
                 sig = inspect.signature(func)
@@ -225,7 +233,7 @@ class MeasurementSession(contextlib.AbstractContextManager):
         return self._experiment
 
     def _run_parallel(
-        self, duration: Optional[float], interval: float, show_progress: bool
+        self, duration: float | None, interval: float, show_progress: bool
     ) -> Experiment:
         """Executes registered background tasks and acquisition loops concurrently."""
         if not self._meas_funcs:
@@ -254,7 +262,12 @@ class MeasurementSession(contextlib.AbstractContextManager):
                 kwargs["stop_event"] = stop_event
 
             # Create a wrapper that handles the stop_event
-            def task_wrapper(func=task_func, kw=kwargs):
+            def task_wrapper(func=task_func, kw=kwargs, _task_name=task_name):
+                """
+                Wrapper to execute a background task, safely binding the loop
+                variable 'task_name' via default argument (_task_name) to avoid
+                late binding in closures.
+                """
                 try:
                     if "stop_event" in inspect.signature(func).parameters:
                         func(**kw)
@@ -270,7 +283,7 @@ class MeasurementSession(contextlib.AbstractContextManager):
                                 raise
                 except Exception as e:
                     if not stop_event.is_set():
-                        print(f"Background task '{task_name}' failed: {e}")
+                        print(f"Background task '{_task_name}' failed: {e}")
 
             thread = threading.Thread(target=task_wrapper, name=task_name)
             thread.daemon = True
@@ -286,11 +299,12 @@ class MeasurementSession(contextlib.AbstractContextManager):
         )
 
         while time.monotonic() - start_time < duration:
-            row: Dict[str, Any] = {"timestamp": time.time()}
+            row: dict[str, Any] = {"timestamp": time.time()}
             for meas_name, func in self._meas_funcs:
                 sig = inspect.signature(func)
                 kwargs = {alias: rec.instance for alias, rec in self._instruments.items() if alias in sig.parameters}
-                if "ctx" in sig.parameters: kwargs["ctx"] = row
+                if "ctx" in sig.parameters:
+                    kwargs["ctx"] = row
                 res = func(**kwargs)
                 if not isinstance(res, Mapping):
                     raise TypeError(f"Measurement '{meas_name}' returned {type(res)}, expected Mapping.")
@@ -350,7 +364,7 @@ class MeasurementSession(contextlib.AbstractContextManager):
         return html
 
     # Plotting convenience ------------------------------------------------
-    def plot(self, spec: "PlotSpec" | None = None, **kwargs):
+    def plot(self, spec: PlotSpec | None = None, **kwargs):
         """
         Plot the current session data (if any). Typically called after run().
 
@@ -361,7 +375,8 @@ class MeasurementSession(contextlib.AbstractContextManager):
         Returns:
             A matplotlib Figure object.
         """
-        from ..plotting import PlotSpec, plot_dataframe  # local import to keep plotting optional
+        from ..plotting import PlotSpec  # local import to keep plotting optional
+        from ..plotting import plot_dataframe  # local import to keep plotting optional
 
         df = self.data
         if df.is_empty():

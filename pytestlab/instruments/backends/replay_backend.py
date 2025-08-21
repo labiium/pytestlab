@@ -1,8 +1,9 @@
 # pytestlab/instruments/backends/replay_backend.py
 import logging
-import yaml
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
+
+import yaml
 
 from ...errors import ReplayMismatchError
 from ..instrument import InstrumentIO
@@ -19,7 +20,7 @@ class ReplayBackend(InstrumentIO):
     ReplayMismatchError.
     """
 
-    def __init__(self, session_file: Union[str, Path, List[Dict[str, Any]]], profile_key: str):
+    def __init__(self, session_file: str | Path | list[dict[str, Any]], profile_key: str):
         """
         Initialize ReplayBackend with session file and profile key.
 
@@ -41,10 +42,10 @@ class ReplayBackend(InstrumentIO):
 
             # Load session data from file
             try:
-                with open(session_file, 'r') as f:
+                with open(session_file) as f:
                     self.session_data = yaml.safe_load(f)
-            except FileNotFoundError:
-                raise FileNotFoundError(f"Session file not found: {session_file}")
+            except FileNotFoundError as e:
+                raise FileNotFoundError(f"Session file not found: {session_file}") from e
 
             # Validate profile key exists
             if profile_key not in self.session_data:
@@ -63,12 +64,12 @@ class ReplayBackend(InstrumentIO):
         return self._log_index
 
     @property
-    def _log(self) -> List[Dict[str, Any]]:
+    def _log(self) -> list[dict[str, Any]]:
         """Return the command log for test compatibility."""
         return self._command_log
 
     @classmethod
-    def from_session_file(cls, session_file: Union[str, Path], profile_key: str) -> 'ReplayBackend':
+    def from_session_file(cls, session_file: str | Path, profile_key: str) -> 'ReplayBackend':
         """Create a ReplayBackend from a session file."""
         return cls(session_file, profile_key)
 
@@ -78,7 +79,7 @@ class ReplayBackend(InstrumentIO):
     def disconnect(self) -> None:
         LOGGER.debug("ReplayBackend for '%s': Disconnected.", self._model_name)
 
-    def _get_next_log_entry(self, expected_type: str, cmd: str) -> Dict[str, Any]:
+    def _get_next_log_entry(self, expected_type: str, cmd: str) -> dict[str, Any]:
         """Get the next log entry and validate it matches expectations."""
         if self._log_index >= len(self._command_log):
             raise ReplayMismatchError(
@@ -96,9 +97,9 @@ class ReplayBackend(InstrumentIO):
         if entry_type != expected_type:
             # Create error message that satisfies different test expectations
             if entry_type == "write" and expected_type == "query":
-                type_error_msg = f"Expected command type 'write', but got 'query'"
+                type_error_msg = "Expected command type 'write', but got 'query'"
             elif entry_type == "query" and expected_type == "write":
-                type_error_msg = f"Expected command type 'query', but got 'write'"
+                type_error_msg = "Expected command type 'query', but got 'write'"
             else:
                 type_error_msg = f"Expected command type '{entry_type}', but got '{expected_type}'"
 
@@ -137,12 +138,12 @@ class ReplayBackend(InstrumentIO):
         """Execute a write command."""
         self._get_next_log_entry("write", cmd)
 
-    def query(self, cmd: str, delay: Optional[float] = None) -> str:
+    def query(self, cmd: str, delay: float | None = None) -> str:
         """Execute a query command and return the response."""
         entry = self._get_next_log_entry("query", cmd)
         return entry.get("response", "")
 
-    def query_raw(self, cmd: str, delay: Optional[float] = None) -> bytes:
+    def query_raw(self, cmd: str, delay: float | None = None) -> bytes:
         """Execute a raw query command and return bytes response."""
         entry = self._get_next_log_entry("query_raw", cmd)
         # Assuming the response is stored as a string that needs encoding

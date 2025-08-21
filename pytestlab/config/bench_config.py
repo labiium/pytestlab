@@ -1,80 +1,96 @@
 from __future__ import annotations
-from typing import Optional, Dict, List, Any
-from pydantic import BaseModel, ConfigDict, model_validator, RootModel
+
+from typing import Any
+
+from pydantic import BaseModel
+from pydantic import ConfigDict
+from pydantic import RootModel
+from pydantic import model_validator
+
 
 class ExperimentSection(BaseModel):
     title: str
     description: str
-    operator: Optional[str] = None
-    date: Optional[str] = None
-    notes: Optional[str] = None
-    database_path: Optional[str] = None
+    operator: str | None = None
+    date: str | None = None
+    notes: str | None = None
+    database_path: str | None = None
+
 
 class SafetyLimitChannel(BaseModel):
-    voltage: Optional[Dict[str, float]] = None  # e.g., {"max": 5.5}
-    current: Optional[Dict[str, float]] = None  # e.g., {"max": 2.2}
+    voltage: dict[str, float] | None = None  # e.g., {"max": 5.5}
+    current: dict[str, float] | None = None  # e.g., {"max": 2.2}
+
 
 class SafetyLimits(BaseModel):
-    channels: Optional[Dict[int, SafetyLimitChannel]] = None
-    bandwidth_limit: Optional[float] = None
+    channels: dict[int, SafetyLimitChannel] | None = None
+    bandwidth_limit: float | None = None
+
 
 class InstrumentEntry(BaseModel):
     profile: str
-    address: Optional[str] = None
-    serial_number: Optional[str] = None  # <-- Added for bench.yaml support
-    safety_limits: Optional[SafetyLimits] = None
-    backend: Optional[Dict[str, Any]] = None
-    simulate: Optional[bool] = None
+    address: str | None = None
+    serial_number: str | None = None  # <-- Added for bench.yaml support
+    safety_limits: SafetyLimits | None = None
+    backend: dict[str, Any] | None = None
+    simulate: bool | None = None
+
 
 class AutomationHooks(BaseModel):
-    pre_experiment: Optional[List[str]] = None
-    post_experiment: Optional[List[str]] = None
+    pre_experiment: list[str] | None = None
+    post_experiment: list[str] | None = None
 
-class TraceabilityCalibration(RootModel[Dict[str, str]]):
-    root: Dict[str, str]
+
+class TraceabilityCalibration(RootModel[dict[str, str]]):
+    root: dict[str, str]
+
 
 class TraceabilityEnvironment(BaseModel):
-    temperature: Optional[float] = None
-    humidity: Optional[float] = None
+    temperature: float | None = None
+    humidity: float | None = None
+
 
 class TraceabilityDUT(BaseModel):
-    serial_number: Optional[str] = None
-    description: Optional[str] = None
+    serial_number: str | None = None
+    description: str | None = None
+
 
 class Traceability(BaseModel):
-    calibration: Optional[Dict[str, str]] = None
-    environment: Optional[TraceabilityEnvironment] = None
-    dut: Optional[TraceabilityDUT] = None
+    calibration: dict[str, str] | None = None
+    environment: TraceabilityEnvironment | None = None
+    dut: TraceabilityDUT | None = None
+
 
 class MeasurementPlanEntry(BaseModel):
     name: str
     instrument: str
-    channel: Optional[int] = None
-    probe_location: Optional[str] = None
-    settings: Optional[Dict[str, Any]] = None
-    notes: Optional[str] = None
+    channel: int | None = None
+    probe_location: str | None = None
+    settings: dict[str, Any] | None = None
+    notes: str | None = None
+
 
 class BenchConfigExtended(BaseModel):
     model_config = ConfigDict(extra='forbid')
     bench_name: str
-    experiment: Optional[ExperimentSection] = None
-    instruments: Dict[str, InstrumentEntry]
-    custom_validations: Optional[List[str]] = None
-    automation: Optional[AutomationHooks] = None
-    traceability: Optional[Traceability] = None
-    measurement_plan: Optional[List[MeasurementPlanEntry]] = None
-    version: Optional[str] = None
-    last_modified: Optional[str] = None
-    changelog: Optional[str] = None
+    experiment: ExperimentSection | None = None
+    instruments: dict[str, InstrumentEntry]
+    custom_validations: list[str] | None = None
+    automation: AutomationHooks | None = None
+    traceability: Traceability | None = None
+    measurement_plan: list[MeasurementPlanEntry] | None = None
+    version: str | None = None
+    last_modified: str | None = None
+    changelog: str | None = None
 
-    backend_defaults: Optional[Dict[str, Any]] = None
-    simulate: Optional[bool] = False
-    description: Optional[str] = None
-    continue_on_automation_error: Optional[bool] = False
-    continue_on_instrument_error: Optional[bool] = False
+    backend_defaults: dict[str, Any] | None = None
+    simulate: bool | None = False
+    description: str | None = None
+    continue_on_automation_error: bool | None = False
+    continue_on_instrument_error: bool | None = False
 
     @model_validator(mode="after")
-    def check_instruments(self) -> "BenchConfigExtended":
+    def check_instruments(self) -> BenchConfigExtended:
         if not self.instruments:
             raise ValueError("At least one instrument must be defined in 'instruments'.")
         return self

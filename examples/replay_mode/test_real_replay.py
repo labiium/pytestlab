@@ -4,13 +4,15 @@ Real instrument test for PyTestLab replay functionality.
 Uses PSU and Oscilloscope with LAMB backend for recording and replay.
 """
 
-import yaml
-import pytest
-from pathlib import Path
-from pytestlab.instruments import AutoInstrument
-from pytestlab.instruments.backends.session_recording_backend import SessionRecordingBackend
-from pytestlab.instruments.backends.replay_backend import ReplayBackend
 import time
+from pathlib import Path
+
+import pytest
+import yaml
+
+from pytestlab.instruments import AutoInstrument
+from pytestlab.instruments.backends.replay_backend import ReplayBackend
+from pytestlab.instruments.backends.session_recording_backend import SessionRecordingBackend
 
 
 @pytest.fixture
@@ -123,7 +125,7 @@ def test_real_instruments_recording():
                 psu.close()
             if osc is not None:
                 osc.close()
-        except:
+        except Exception:
             pass
 
 
@@ -136,7 +138,7 @@ def test_replay_session(session_file: Path):
 
     try:
         # Load session data
-        with open(session_file, "r") as f:
+        with open(session_file) as f:
             session_data = yaml.safe_load(f)
 
         # Create replay backends
@@ -220,7 +222,7 @@ def perform_measurement_sequence(psu, osc):
         print("PSU output enabled")
 
         for i, voltage in enumerate(voltages):
-            print(f"Step {i+1}: Setting {voltage}V")
+            print(f"Step {i + 1}: Setting {voltage}V")
 
             # Set voltage
             psu.set_voltage(1, voltage)
@@ -264,7 +266,7 @@ def test_mismatch_detection(session_file: Path):
 
     try:
         # Load session data
-        with open(session_file, "r") as f:
+        with open(session_file) as f:
             session_data = yaml.safe_load(f)
 
         # Create replay backend
@@ -276,7 +278,7 @@ def test_mismatch_detection(session_file: Path):
         print(f"PSU ID: {psu_id}")
 
         # Now try wrong command - this should fail
-        with pytest.raises(Exception):
+        with pytest.raises(__import__("pytestlab.errors").errors.ReplayMismatchError):
             # This should raise an exception due to command mismatch
             psu_backend.query("WRONG:COMMAND?")
 

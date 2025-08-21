@@ -3,12 +3,14 @@
 PyTestLab Migration Examples
 """
 
+import time
+
 import numpy as np
+
 import pytestlab
+from pytestlab.exceptions import SafetyLimitError
 from pytestlab.instruments import AutoInstrument
 from pytestlab.measurements import MeasurementSession
-from pytestlab.exceptions import SafetyLimitError
-import time
 
 
 def basic_instrument_usage():
@@ -217,7 +219,7 @@ def measurement_with_data_processing():
             output_fft = np.fft.fft(output_signal)
 
             # Find response at stimulus frequency
-            freq_bins = np.fft.fftfreq(len(input_signal), d=1/scope.sample_rate)
+            freq_bins = np.fft.fftfreq(len(input_signal), d=1 / scope.sample_rate)
             freq_idx = np.argmin(np.abs(freq_bins - frequency))
 
             amplitude = np.abs(output_fft[freq_idx]) / np.abs(input_fft[freq_idx])
@@ -240,7 +242,6 @@ def measurement_with_data_processing():
 
 
 # Test functions for pytest
-import pytest
 
 
 def test_basic_connection():
@@ -277,13 +278,13 @@ def performance_comparison_test():
     with pytestlab.Bench.open("examples/bench_config.yaml") as bench:
         # Perform 100 quick measurements
         voltages = []
-        for i in range(100):
+        for _ in range(100):
             voltage = bench.dmm.measure_voltage_dc()
             voltages.append(voltage.values)
 
     elapsed = time.time() - start_time
     print(f"100 measurements completed in {elapsed:.2f} seconds")
-    print(f"Average measurement time: {elapsed/100*1000:.1f} ms")
+    print(f"Average measurement time: {elapsed / 100 * 1000:.1f} ms")
 
 
 def batch_operations_example():

@@ -1,5 +1,4 @@
 from pytestlab.instruments import AutoInstrument
-from pytestlab.plotting import PlotSpec
 
 
 def main():

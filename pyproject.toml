@@ -26,6 +26,7 @@ dependencies = [
     "aiofiles",
     "typer",
     "Pillow",
+    "ruff>=0.12.9",
 ]
 
 [tool.hatch.version]
@@ -91,16 +92,7 @@ show_error_codes = true
 
 [tool.ruff]
 line-length = 100
-select = [
-    "E",
-    "F",
-    "I",
-    "UP",
-    "B",
-] # Common selections: E/W (pycodestyle), F (Pyflakes), I (isort), UP (pyupgrade), B (flake8-bugbear)
-ignore = [
-    "E501",
-] # Ignore line too long if line-length is managed by formatter or selectively
+# (Deprecated keys removed: use [tool.ruff.lint] for rule selection and ignores)
 
 [tool.ruff.lint] # Specific lint settings
 select = [

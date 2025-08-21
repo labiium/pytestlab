@@ -1,6 +1,8 @@
 import time
+
 from pytestlab.instruments import AutoInstrument
 from pytestlab.instruments import PowerSupply
+
 
 def main():
     """A simple script to test the simulation functionality."""
@@ -17,6 +19,7 @@ def main():
     print(f"Received IDN: {idn}")
     psu.output(1, False)
     psu.close()
+
 
 if __name__ == "__main__":
     main()

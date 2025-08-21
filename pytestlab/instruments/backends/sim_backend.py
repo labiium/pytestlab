@@ -28,25 +28,24 @@ License: Apache License 2.0
 """
 from __future__ import annotations
 
-import contextlib
 import copy
-import importlib
-import inspect
 import logging
 import math
 import os
 import random
 import re
 import statistics
-import sys
 import time
-import warnings
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
+from re import Pattern
 from types import MappingProxyType
-from typing import Any, Callable, Dict, List, MutableMapping, Optional, Pattern, Tuple
-from ..instrument import InstrumentIO
+from typing import Any
+
 import yaml
+
+from ..instrument import InstrumentIO
 
 ###############################################################################
 # Logging setup
@@ -101,7 +100,7 @@ class dotdict(dict):
 # Sandbox support – very conservative!
 ###############################################################################
 
-_ALLOWED_GLOBALS: Dict[str, Any] = MappingProxyType(
+_ALLOWED_GLOBALS: dict[str, Any] = MappingProxyType(
     {
         # mathematics
         "math": math,
@@ -130,7 +129,7 @@ _ALLOWED_GLOBALS: Dict[str, Any] = MappingProxyType(
 )
 
 
-def safe_eval(expr: str, /, state: dotdict, groups: Tuple[str, ...] = (), initial_state: Dict[str, Any] = None) -> Any:
+def safe_eval(expr: str, /, state: dotdict, groups: tuple[str, ...] = (), initial_state: dict[str, Any] = None) -> Any:
     """
     Evaluate *expr* inside a hardened namespace.
 
@@ -140,7 +139,7 @@ def safe_eval(expr: str, /, state: dotdict, groups: Tuple[str, ...] = (), initia
     >>> safe_eval("state.voltage * 2", state)
     10.0
     """
-    local_ns: Dict[str, Any] = {"state": state}
+    local_ns: dict[str, Any] = {"state": state}
     if initial_state:
         local_ns["initial_state"] = initial_state
     for i, g in enumerate(groups, 1):
@@ -172,7 +171,7 @@ def safe_eval(expr: str, /, state: dotdict, groups: Tuple[str, ...] = (), initia
 ###############################################################################
 
 
-def _load_yaml(path: Path) -> Dict[str, Any]:
+def _load_yaml(path: Path) -> dict[str, Any]:
     print(f"[DEBUG] Loading YAML profile: {path}")
     if not path.exists():
         raise ProfileError(f"Profile file {path} does not exist")
@@ -185,7 +184,7 @@ def _load_yaml(path: Path) -> Dict[str, Any]:
     return data
 
 
-def _merge_dict(a: Dict[str, Any], b: Dict[str, Any]) -> Dict[str, Any]:
+def _merge_dict(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
     """
     Recursively merge dict *b* into *a*, returning a *new* object.
 
@@ -221,8 +220,8 @@ class _PatternRule:
     def __init__(
         self,
         pattern: Pattern[str],
-        template: str | Dict[str, Any],
-        actions: Dict[str, Any] | None,
+        template: str | dict[str, Any],
+        actions: dict[str, Any] | None,
     ):
         self.pattern = pattern
         self.template = template
@@ -260,10 +259,10 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
         self._profile = self._load_profile()
         self._initial_state = copy.deepcopy(self._profile["simulation"].get("initial_state", {}))
         self._state: dotdict = dotdict(copy.deepcopy(self._initial_state))
-        self._error_queue: List[Tuple[int, str]] = []
+        self._error_queue: list[tuple[int, str]] = []
         # dispatcher
-        self._exact_map: Dict[str, Any] = {}
-        self._pattern_rules: List[_PatternRule] = []
+        self._exact_map: dict[str, Any] = {}
+        self._pattern_rules: list[_PatternRule] = []
         self._build_dispatch_tables()
         logger.info("SimBackend initialised for %s", self.model)
 
@@ -311,7 +310,7 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
 
     # ................ profile loading ................ #
 
-    def _load_profile(self) -> Dict[str, Any]:
+    def _load_profile(self) -> dict[str, Any]:
         main = _load_yaml(self.profile_path)
         # Only try to find a user override if the profile is under the package profiles dir
         try:
@@ -333,8 +332,8 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
     # ................ dispatcher build ............... #
 
     def _build_dispatch_tables(self) -> None:
-        sim: Dict[str, Any] = self._profile["simulation"]
-        scpi_map: Dict[str, Any] = sim.get("scpi", {})
+        sim: dict[str, Any] = self._profile["simulation"]
+        scpi_map: dict[str, Any] = sim.get("scpi", {})
         for raw, val in scpi_map.items():
             # Special handling for standard SCPI commands that start with *
             if raw.startswith("*") and not any(ch in raw[1:] for ch in "*[](){}+|^$"):
@@ -365,7 +364,7 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
         self._pattern_rules.sort(key=lambda r: r.pattern.pattern.count("*"), reverse=True)
 
         # errors
-        self._error_specs: List[Dict[str, Any]] = sim.get("errors", [])
+        self._error_specs: list[dict[str, Any]] = sim.get("errors", [])
 
     # ................ command execution ............... #
 
@@ -405,9 +404,9 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
 
     def _execute_entry(
         self,
-        entry: str | Dict[str, Any] | List[str],
+        entry: str | dict[str, Any] | list[str],
         orig_cmd: str,
-        groups: Tuple[str, ...],
+        groups: tuple[str, ...],
     ) -> str:
         """
         Dispatch *entry* which may be:
@@ -516,7 +515,7 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
 
     # ................ substitution ..................... #
 
-    def _substitute(self, template: str | int | float | bool, groups: Tuple[str, ...]) -> Any:
+    def _substitute(self, template: str | int | float | bool, groups: tuple[str, ...]) -> Any:
         """Substitute template variables and evaluate Python expressions."""
         # Handle non-string values directly
         if not isinstance(template, str):
@@ -598,7 +597,7 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
     def _evaluate_error_rules(
         self,
         cmd: str,
-        groups: Tuple[str, ...],
+        groups: tuple[str, ...],
     ) -> None:
         for rule in self._error_specs:
             patt = rule["scpi"]
@@ -615,6 +614,7 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
 # CLI helpers – OPTIONAL
 ###############################################################################
 
+
 def edit_user_profile(profile_path: str | os.PathLike) -> None:  # pragma: no cover
     """
     Convenience wrapper: copy profile to user override path then open with
@@ -625,7 +625,9 @@ def edit_user_profile(profile_path: str | os.PathLike) -> None:  # pragma: no co
     dst.parent.mkdir(parents=True, exist_ok=True)
     if not dst.exists():
         dst.write_bytes(src.read_bytes())
-    import subprocess, shlex, os
+    import os
+    import shlex
+    import subprocess
 
     editor = os.environ.get("VISUAL") or os.environ.get("EDITOR") or "nano"
     subprocess.call(shlex.split(f"{editor} {dst}"))

@@ -2,11 +2,12 @@
 Tests for SessionRecordingBackend functionality
 """
 
-import time
-import pytest
 import tempfile
-import yaml
+import time
 from pathlib import Path
+
+import pytest
+import yaml
 
 from pytestlab.instruments.backends.session_recording_backend import SessionRecordingBackend
 
@@ -69,6 +70,7 @@ class TestSessionRecordingBackend:
         assert backend.output_file == temp_output_file
         assert backend.profile_key == 'psu'
         assert backend._command_log == []
+
     def test_query_recording(self, recording_backend, temp_output_file):
         """Test query command recording."""
         # Execute a query
@@ -84,6 +86,7 @@ class TestSessionRecordingBackend:
         assert log_entry['command'] == '*IDN?'
         assert log_entry['response'] == 'Keysight Technologies,EDU36311A,CN61130056,K-01.08.03-01.00-01.08-02.00'
         assert 'timestamp' in log_entry
+
     def test_write_recording(self, recording_backend):
         """Test write command recording."""
         # Execute a write
@@ -96,6 +99,7 @@ class TestSessionRecordingBackend:
         assert log_entry['command'] == 'CURR 0.1, (@1)'
         assert 'response' not in log_entry  # Write commands don't have responses
         assert 'timestamp' in log_entry
+
     def test_mixed_command_sequence(self, recording_backend):
         """Test recording a sequence of mixed commands."""
         # Execute sequence
@@ -140,6 +144,7 @@ class TestSessionRecordingBackend:
         assert entries[4]['type'] == 'write'
         assert entries[4]['command'] == 'OUTP:STAT ON, (@1)'
         assert 'response' not in entries[4]
+
     def test_session_file_creation(self, recording_backend, temp_output_file):
         """Test that session file is created with correct format."""
         # Record some commands
@@ -153,7 +158,7 @@ class TestSessionRecordingBackend:
         # Verify file exists and has correct content
         assert Path(temp_output_file).exists()
 
-        with open(temp_output_file, 'r') as f:
+        with open(temp_output_file) as f:
             session_data = yaml.safe_load(f)
 
         # Check structure
@@ -172,6 +177,7 @@ class TestSessionRecordingBackend:
         assert log[1]['command'] == 'CURR 0.1, (@1)'
         assert log[2]['type'] == 'query'
         assert log[2]['command'] == ':SYSTem:ERRor?'
+
     def test_timestamp_ordering(self, recording_backend):
         """Test that timestamps are monotonically increasing."""
         # Record commands with small delays
@@ -186,7 +192,8 @@ class TestSessionRecordingBackend:
 
         # Should be monotonically increasing
         for i in range(1, len(timestamps)):
-            assert timestamps[i] > timestamps[i-1], f"Timestamp {i} ({timestamps[i]}) should be > timestamp {i-1} ({timestamps[i-1]})"
+            assert timestamps[i] > timestamps[i - 1], f"Timestamp {i} ({timestamps[i]}) should be > timestamp {i - 1} ({timestamps[i - 1]})"
+
     def test_backend_error_propagation(self, temp_output_file):
         """Test that backend errors are properly propagated."""
         # Create a backend that raises exceptions
@@ -214,6 +221,7 @@ class TestSessionRecordingBackend:
         # Test successful commands still work
         result = recording_backend.query('GOOD_CMD')
         assert result == "OK"
+
     def test_multiple_profile_keys(self, mock_backend, temp_output_file):
         """Test recording multiple instruments to same session file."""
         # Create two recording backends for different instruments
@@ -231,7 +239,7 @@ class TestSessionRecordingBackend:
         osc_backend.save_session('keysight/DSOX1204G')
 
         # Verify both instruments are in the session file
-        with open(temp_output_file, 'r') as f:
+        with open(temp_output_file) as f:
             session_data = yaml.safe_load(f)
 
         assert 'psu' in session_data
@@ -250,12 +258,13 @@ class TestSessionRecordingBackendEdgeCases:
         recording_backend.save_session('test/profile')
 
         # Verify file structure
-        with open(temp_output_file, 'r') as f:
+        with open(temp_output_file) as f:
             session_data = yaml.safe_load(f)
 
         assert 'psu' in session_data
         assert session_data['psu']['profile'] == 'test/profile'
         assert session_data['psu']['log'] == []
+
     def test_invalid_output_file_path(self, mock_backend):
         """Test error handling for invalid output file path."""
         invalid_path = '/nonexistent/directory/output.yaml'
@@ -267,6 +276,7 @@ class TestSessionRecordingBackendEdgeCases:
         # But saving should fail gracefully
         with pytest.raises(FileNotFoundError, match="Cannot create directory"):
             backend.save_session('test/profile')
+
     def test_sequential_recording(self, recording_backend):
         """Test sequential command recording."""
         def record_commands(start_index):
@@ -285,6 +295,8 @@ class TestSessionRecordingBackendEdgeCases:
         timestamps = [entry['timestamp'] for entry in recording_backend._command_log]
         sorted_timestamps = sorted(timestamps)
         assert timestamps == sorted_timestamps, "Timestamps should be monotonically increasing"
+
+
 def test_session_recording_backend_integration():
     """Integration test with more realistic backend behavior."""
 
@@ -352,7 +364,7 @@ def test_session_recording_backend_integration():
         for voltage in [1.0, 2.0, 3.0]:
             recording_backend.write(f'VOLT {voltage}, (@1)')
             measured_v = recording_backend.query('MEAS:VOLT? (@1)')
-            measured_i = recording_backend.query('MEAS:CURR? (@1)')
+            recording_backend.query('MEAS:CURR? (@1)')
 
             # Verify measurements match set values
             assert f'{voltage:.8E}' in measured_v
@@ -364,7 +376,7 @@ def test_session_recording_backend_integration():
         recording_backend.save_session('test/realistic_psu')
 
         # Verify saved session
-        with open(temp_file, 'r') as f:
+        with open(temp_file) as f:
             session_data = yaml.safe_load(f)
 
         # Should have recorded all commands

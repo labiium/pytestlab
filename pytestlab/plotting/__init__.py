@@ -29,7 +29,9 @@ Future extension roadmap (Phase 2+):
 This module simply re-exports the public API from simple.py.
 """
 
-from .simple import PlotSpec, plot_dataframe, plot_ndarray
+from .simple import PlotSpec
+from .simple import plot_dataframe
+from .simple import plot_ndarray
 
 # Optional: attach monkey-patched .plot conveniences lazily when module is imported.
 # We avoid importing heavy modules here; the call-sites import plotting helpers locally.

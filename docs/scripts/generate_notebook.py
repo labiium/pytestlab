@@ -23,7 +23,6 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Union
 
 
 class NotebookGenerator:
@@ -67,7 +66,7 @@ class NotebookGenerator:
         self.notebook_version = "4.5"
         self.python_version = "3.9+"
 
-    def create_metadata(self, notebook_type: str, title: str, author: str = "LABIIUM") -> Dict:
+    def create_metadata(self, notebook_type: str, title: str, author: str = "LABIIUM") -> dict:
         """
         Create comprehensive notebook metadata.
 
@@ -121,7 +120,7 @@ class NotebookGenerator:
             }
         }
 
-    def create_title_cell(self, notebook_type: str, title: str, description: Optional[str] = None) -> Dict:
+    def create_title_cell(self, notebook_type: str, title: str, description: str | None = None) -> dict:
         """
         Create a professional title cell with PyTestLab branding.
 
@@ -177,7 +176,7 @@ This notebook demonstrates PyTestLab's capabilities in a professional, reproduci
             "source": markdown_content.split('\n')
         }
 
-    def create_setup_cell(self, imports: Optional[List[str]] = None) -> Dict:
+    def create_setup_cell(self, imports: list[str] | None = None) -> dict:
         """
         Create a standardized setup cell with common imports.
 
@@ -232,7 +231,7 @@ This notebook demonstrates PyTestLab's capabilities in a professional, reproduci
             "source": standard_imports
         }
 
-    def create_section_cell(self, section_number: int, title: str, description: str = "") -> Dict:
+    def create_section_cell(self, section_number: int, title: str, description: str = "") -> dict:
         """
         Create a section header cell with consistent formatting.
 
@@ -259,8 +258,8 @@ This notebook demonstrates PyTestLab's capabilities in a professional, reproduci
             "source": markdown_content.split('\n')
         }
 
-    def create_code_cell(self, code: Union[str, List[str]], description: str = "",
-                        execution_count: Optional[int] = None, outputs: Optional[List] = None) -> Dict:
+    def create_code_cell(self, code: str | list[str], description: str = "",
+                        execution_count: int | None = None, outputs: list | None = None) -> dict:
         """
         Create a code cell with optional description and outputs.
 
@@ -291,8 +290,8 @@ This notebook demonstrates PyTestLab's capabilities in a professional, reproduci
             "source": code_lines
         }
 
-    def create_markdown_cell(self, content: Union[str, List[str]],
-                           cell_type: str = "content") -> Dict:
+    def create_markdown_cell(self, content: str | list[str],
+                           cell_type: str = "content") -> dict:
         """
         Create a markdown cell with content.
 
@@ -316,7 +315,7 @@ This notebook demonstrates PyTestLab's capabilities in a professional, reproduci
             "source": content_lines
         }
 
-    def create_conclusion_cell(self, notebook_type: str) -> Dict:
+    def create_conclusion_cell(self, notebook_type: str) -> dict:
         """
         Create a professional conclusion cell with next steps.
 
@@ -374,9 +373,9 @@ Congratulations! You've successfully completed this PyTestLab notebook.
         }
 
     def generate_notebook(self, notebook_type: str, title: str, output_path: Path,
-                         sections: Optional[List[Dict]] = None,
+                         sections: list[dict] | None = None,
                          author: str = "LABIIUM",
-                         additional_imports: Optional[List[str]] = None) -> Dict:
+                         additional_imports: list[str] | None = None) -> dict:
         """
         Generate a complete professional notebook.
 
@@ -463,7 +462,7 @@ Congratulations! You've successfully completed this PyTestLab notebook.
 
         return notebook
 
-    def save_notebook(self, notebook: Dict, output_path: Path) -> None:
+    def save_notebook(self, notebook: dict, output_path: Path) -> None:
         """
         Save notebook to file with proper formatting.
 
@@ -549,7 +548,7 @@ Examples:
         generator.save_notebook(notebook, args.output)
 
         print("\n🎉 Notebook generation completed successfully!")
-        print(f"💡 You can now open the notebook in Jupyter Lab/Notebook or VS Code")
+        print("💡 You can now open the notebook in Jupyter Lab/Notebook or VS Code")
 
     except Exception as e:
         print(f"❌ Error generating notebook: {e}", file=sys.stderr)

@@ -1,9 +1,14 @@
-import unittest
 import os
+import unittest
+from datetime import datetime
+
 import numpy as np
 import polars as pl
-from datetime import datetime
-from pytestlab.experiments import Database, MeasurementResult, Experiment
+
+from pytestlab.experiments import Database
+from pytestlab.experiments import Experiment
+from pytestlab.experiments import MeasurementResult
+
 
 class TestDatabase(unittest.TestCase):
     def setUp(self):
@@ -83,6 +88,7 @@ class TestDatabase(unittest.TestCase):
         stats = self.db.get_stats()
         self.assertGreaterEqual(stats["experiments"], 1)
         self.db.vacuum()  # Should not raise
+
 
 if __name__ == "__main__":
     unittest.main()

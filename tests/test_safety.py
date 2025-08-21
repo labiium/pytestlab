@@ -1,12 +1,14 @@
 # pytestlab/tests/test_safety.py
 
-import pytest
-import yaml
 import tempfile
 from pathlib import Path
-from pytestlab.instruments import PowerSupply
+
+import pytest
+import yaml
+
 from pytestlab.bench import SafetyLimitError
 from pytestlab.config.loader import load_profile
+from pytestlab.instruments import PowerSupply
 
 
 @pytest.fixture

@@ -14,21 +14,29 @@ or
 
 __version__ = "0.2.3"  # Update this line to change the version
 
-from importlib import metadata as _metadata
-import logging # Required for set_log_level
-from ._log import get_logger, set_log_level, reinitialize_logging
+# (logging import removed; no longer needed after cleanup)
 
-
-
-# ─── Public re-exports from existing sub-packages ──────────────────────────
-from .config import *
-from .experiments import *
-from .instruments import *
-from .errors import *
+from ._log import get_logger
+from ._log import reinitialize_logging
+from ._log import set_log_level
 from .bench import Bench
+from .config import MultimeterConfig
+from .config import OscilloscopeConfig
+from .config import PowerSupplyConfig
+from .config import WaveformGeneratorConfig
+from .errors import InstrumentConfigurationError
+from .errors import InstrumentParameterError
+from .experiments import Experiment
+from .experiments import MeasurementResult
+from .instruments import AutoInstrument
+from .instruments import Multimeter
+from .instruments import Oscilloscope
+from .instruments import PowerSupply
+from .instruments import WaveformGenerator
+from .measurements.session import Measurement  # noqa: E402
+from .measurements.session import MeasurementSession  # noqa: E402
 
-# ─── New high-level builder ────────────────────────────────────────────────
-from .measurements.session import Measurement, MeasurementSession  # noqa: E402  pylint: disable=wrong-import-position
+# (Removed unused module-level logger; logging handled via set_log_level/get_logger)
 
 __all__ = [
     # Config
@@ -42,12 +50,10 @@ __all__ = [
     "PowerSupply",
     "WaveformGenerator",
     "AutoInstrument",
-    "InstrumentManager",
     # Experiments
     "Experiment",
     "MeasurementResult",
     # Errors
-    "InstrumentError",
     "InstrumentConfigurationError",
     "InstrumentParameterError",
     # Bench System
@@ -55,7 +61,10 @@ __all__ = [
     # New measurement system
     "Measurement",
     "MeasurementSession",
-    "set_log_level"
+    # Logging helpers
+    "set_log_level",
+    "get_logger",
+    "reinitialize_logging",
 ]
 
 # Version is defined statically above, but we can still try to get it from metadata
@@ -66,4 +75,5 @@ __all__ = [
 
 # needs to be imported after the MeasurementResult class is defined
 from . import compliance
+
 compliance.initialize()

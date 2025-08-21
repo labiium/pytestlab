@@ -15,7 +15,9 @@ Example scenarios:
 """
 
 import time
+
 import numpy as np
+
 from pytestlab.measurements import MeasurementSession
 
 
@@ -25,8 +27,8 @@ def basic_parallel_example():
 
     with MeasurementSession("PSU Ramp + Voltage Monitoring") as session:
         # Setup instruments
-        psu = session.instrument("psu", "keysight/E36311A", simulate=True)
-        dmm = session.instrument("dmm", "keysight/34470A", simulate=True)
+        session.instrument("psu", "keysight/E36311A", simulate=True)
+        session.instrument("dmm", "keysight/34470A", simulate=True)
 
         # Background task: Ramp PSU voltage continuously
         @session.task
@@ -69,9 +71,9 @@ def complex_parallel_example():
 
     with MeasurementSession("Multi-Task Power Analysis") as session:
         # Setup instruments
-        psu = session.instrument("psu", "keysight/E36311A", simulate=True)
-        load = session.instrument("load", "keysight/EL34143A", simulate=True)
-        scope = session.instrument("scope", "keysight/DSOX1204G", simulate=True)
+        session.instrument("psu", "keysight/E36311A", simulate=True)
+        session.instrument("load", "keysight/EL34143A", simulate=True)
+        session.instrument("scope", "keysight/DSOX1204G", simulate=True)
 
         # Task 1: PSU voltage stepping
         @session.task
@@ -185,8 +187,8 @@ def stress_test_example():
     print("\n=== Stress Test Example ===")
 
     with MeasurementSession("High-Speed Stress Test") as session:
-        psu = session.instrument("psu", "keysight/E36311A", simulate=True)
-        dmm = session.instrument("dmm", "keysight/34470A", simulate=True)
+        session.instrument("psu", "keysight/E36311A", simulate=True)
+        session.instrument("dmm", "keysight/34470A", simulate=True)
 
         # Rapid PSU switching
         @session.task

@@ -19,23 +19,23 @@ Requires:
 Edit the bench YAML path as needed for your setup.
 """
 
-import numpy as np
-import polars as pl
-import matplotlib.pyplot as plt
 import time
 from pathlib import Path
 
+import matplotlib.pyplot as plt
+import numpy as np
+import polars as pl
+
 from pytestlab.bench import Bench
+from pytestlab.experiments.sweep import ParameterSpace
+from pytestlab.experiments.sweep import grid_sweep
+from pytestlab.experiments.sweep import gwass
+from pytestlab.experiments.sweep import monte_carlo_sweep
 from pytestlab.measurements.session import MeasurementSession
-from pytestlab.experiments.sweep import (
-    grid_sweep,
-    monte_carlo_sweep,
-    gwass,
-    ParameterSpace
-)
 
 # Path to your bench YAML file
 BENCH_YAML = Path(__file__).parent / "session_bench.yaml"
+
 
 def visualize_results(results_dict):
     """
@@ -62,6 +62,7 @@ def visualize_results(results_dict):
     plt.tight_layout()
     plt.savefig("bench_sweep_comparison.png", dpi=150)
     print("Visualization saved to 'bench_sweep_comparison.png'")
+
 
 def main():
     print("=== Bench + MeasurementSession + Sweep Example ===")
@@ -145,6 +146,7 @@ def main():
         })
 
         print("All sweeps complete.")
+
 
 if __name__ == "__main__":
     main()

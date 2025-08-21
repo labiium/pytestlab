@@ -1,6 +1,5 @@
-import pytest
 import polars as pl
-
+import pytest
 
 matplotlib = pytest.importorskip("matplotlib")
 matplotlib.use("Agg", force=True)
@@ -8,7 +7,8 @@ plt = pytest.importorskip("matplotlib.pyplot")
 
 
 def test_plot_dataframe_basic():
-    from pytestlab.plotting import PlotSpec, plot_dataframe
+    from pytestlab.plotting import PlotSpec
+    from pytestlab.plotting import plot_dataframe
 
     df = pl.DataFrame({
         "Time (s)": [0.0, 0.1, 0.2, 0.3],
@@ -25,7 +25,9 @@ def test_plot_dataframe_basic():
 
 def test_plot_ndarray_time_axis():
     import numpy as np
-    from pytestlab.plotting import PlotSpec, plot_ndarray
+
+    from pytestlab.plotting import PlotSpec
+    from pytestlab.plotting import plot_ndarray
 
     arr = np.linspace(0, 1, 1000)
     fig = plot_ndarray(arr, PlotSpec(title="Array"), sampling_rate=100.0, units="V")

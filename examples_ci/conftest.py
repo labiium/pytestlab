@@ -1,7 +1,9 @@
 # examples_ci/conftest.py
+from pathlib import Path
+
 import pytest
 import yaml
-from pathlib import Path
+
 
 @pytest.fixture
 def simulated_dmm_profile(tmp_path: Path) -> str:
@@ -23,6 +25,7 @@ def simulated_dmm_profile(tmp_path: Path) -> str:
     with open(profile_path, "w") as f:
         yaml.dump(profile_content, f)
     return str(profile_path)
+
 
 @pytest.fixture  
 def simulated_psu_profile(tmp_path: Path) -> str:

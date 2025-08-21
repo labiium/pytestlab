@@ -4,8 +4,9 @@ Example measurement script for PyTestLab replay demonstration.
 This script performs a comprehensive measurement using PSU and oscilloscope.
 """
 
-import numpy as np
 import time
+
+import numpy as np
 
 
 def main(bench):
@@ -59,7 +60,7 @@ def main(bench):
         print("PSU output enabled")
 
         for i, voltage in enumerate(voltages):
-            print(f"Step {i+1}/{len(voltages)}: Setting {voltage}V")
+            print(f"Step {i + 1}/{len(voltages)}: Setting {voltage}V")
 
             # Set PSU voltage
             psu.set_voltage(1, voltage)
@@ -114,9 +115,9 @@ def main(bench):
         print("PSU output disabled and voltage reset to 0V")
 
     # Analysis and reporting
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("MEASUREMENT SUMMARY")
-    print("="*60)
+    print("=" * 60)
 
     for result in measurements:
         voltage_error = abs(result['actual_voltage'] - result['set_voltage'])
@@ -132,7 +133,7 @@ def main(bench):
     avg_error = np.mean(voltage_errors)
     max_error = max(voltage_errors)
 
-    print(f"\nVoltage Accuracy Statistics:")
+    print("\nVoltage Accuracy Statistics:")
     print(f"  Average error: {avg_error:.3f}V")
     print(f"  Maximum error: {max_error:.3f}V")
     print(f"  RMS error: {np.sqrt(np.mean([e**2 for e in voltage_errors])):.3f}V")
@@ -140,7 +141,7 @@ def main(bench):
     # Power consumption analysis
     powers = [m['actual_voltage'] * m['actual_current'] for m in measurements if m['set_voltage'] > 0]
     if powers:
-        print(f"\nPower Consumption:")
+        print("\nPower Consumption:")
         print(f"  Average power: {np.mean(powers):.3f}W")
         print(f"  Peak power: {max(powers):.3f}W")
 
@@ -159,7 +160,7 @@ def stress_test_sequence(bench):
     try:
         # Rapid voltage changes
         psu.output(1, True)
-        for i in range(10):
+        for _i in range(10):
             psu.set_voltage(1, 3.0)
             time.sleep(0.1)
             psu.set_voltage(1, 1.0)

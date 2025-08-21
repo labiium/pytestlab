@@ -1,7 +1,10 @@
 from __future__ import annotations
-from .instrument import Instrument
-from ..config.virtual_instrument_config import VirtualInstrumentConfig
+
 import numpy as np
+
+from ..config.virtual_instrument_config import VirtualInstrumentConfig
+from .instrument import Instrument
+
 
 class VirtualInstrument(Instrument[VirtualInstrumentConfig]):
     """A virtual instrument designed for testing simulation features."""

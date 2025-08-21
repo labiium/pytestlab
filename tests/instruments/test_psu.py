@@ -22,23 +22,28 @@ Requires:
     pytestlab
 """
 
-import pytest
 import time
+
+import pytest
+
 from pytestlab.instruments import AutoInstrument
 
 # ------------------- CONFIGURE THESE FOR YOUR LAB -------------------
 PSU_CONFIG_KEY = "keysight/EDU36311A"
 # --------------------------------------------------------------------
 
+
 def check_hardware_available():
     """Check if power supply hardware is available for testing."""
     try:
         psu = AutoInstrument.from_config(PSU_CONFIG_KEY)
         # Try to get IDN to verify connection
-        idn = psu.id()
+        _ = psu.id()
         return True, None
     except Exception as e:
         return False, str(e)
+
+
 @pytest.mark.requires_real_hw
 def test_keysight_edu36311a_psu_sanity():
     """Test complete power supply functionality with hardware availability check."""
@@ -53,7 +58,7 @@ def test_keysight_edu36311a_psu_sanity():
     # --- Instrument Identification ---
     idn = psu.id()
     assert isinstance(idn, str)
-    assert "EDU36311A" in idn  # Adjust as needed for your instrument
+    assert "EDU36311A" in idn
 
     # --- Get Initial Configuration ---
     initial_config = psu.get_configuration()
@@ -82,14 +87,14 @@ def test_keysight_edu36311a_psu_sanity():
 
     # --- Get Current Configuration ---
     updated_config = psu.get_configuration()
-    for channel, config in updated_config.items():
+    for _channel, config in updated_config.items():
         assert config.state == "ON"
 
     # --- Enable Output for Multiple Channels at Once ---
     psu.output([1, 2, 3], False)
     time.sleep(0.5)
     config_after_off = psu.get_configuration()
-    for channel, config in config_after_off.items():
+    for _channel, config in config_after_off.items():
         assert config.state == "OFF"
 
     # --- Display Control ---
@@ -104,6 +109,7 @@ def test_keysight_edu36311a_psu_sanity():
     assert all(hasattr(cfg, "voltage") and hasattr(cfg, "current") and hasattr(cfg, "state") for cfg in final_config.values())
 
     # Optionally, add more assertions as needed for your use case
+
 
 @pytest.mark.requires_real_hw
 def test_psu_individual_functions():
@@ -137,6 +143,7 @@ def test_psu_individual_functions():
     time.sleep(0.1)
     psu.output(1, False)
 
+
 @pytest.mark.requires_real_hw
 def test_psu_error_handling():
     """Test PSU error handling with invalid parameters."""
@@ -147,9 +154,9 @@ def test_psu_error_handling():
     psu = AutoInstrument.from_config(PSU_CONFIG_KEY)
 
     # Test invalid channel number (assuming 3 channels max)
-    with pytest.raises(Exception):
+    with pytest.raises(__import__("pytestlab.errors").errors.InstrumentParameterError):
         psu.set_voltage(99, 1.0)
 
     # Test invalid voltage (negative)
-    with pytest.raises(Exception):
+    with pytest.raises(__import__("pytestlab.errors").errors.InstrumentParameterError):
         psu.set_voltage(1, -10.0)

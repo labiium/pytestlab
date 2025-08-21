@@ -1,6 +1,6 @@
-from typing import Any, TypeVar, Generic, Optional # Added Optional
 from ..config.power_meter_config import PowerMeterConfig
 from .instrument import Instrument
+
 
 class PowerMeter(Instrument[PowerMeterConfig]):
     """Drives a Power Meter instrument for power measurements.
@@ -13,9 +13,9 @@ class PowerMeter(Instrument[PowerMeterConfig]):
     def configure_sensor(
         self,
         channel: int = 1,
-        freq: Optional[float] = None,
-        averaging_count: Optional[int] = None,
-        units: Optional[str] = None
+        freq: float | None = None,
+        averaging_count: int | None = None,
+        units: str | None = None
     ) -> None:
         """Configures the settings for a specific power sensor channel.
 

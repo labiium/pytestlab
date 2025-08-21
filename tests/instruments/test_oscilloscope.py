@@ -30,17 +30,19 @@ Requires:
     pytestlab
 """
 
-import pytest
 import numpy as np
 import polars as pl
+import pytest
 from PIL import Image
 
+from pytestlab.common.enums import AcquisitionType
+from pytestlab.common.enums import TriggerSlope
 from pytestlab.instruments import AutoInstrument
-from pytestlab.common.enums import TriggerSlope, AcquisitionType
 
 # ------------------- CONFIGURE THESE FOR YOUR LAB -------------------
 OSC_CONFIG_KEY = "keysight/DSOX1204G"                 # <-- Set your profile key or path here
 # --------------------------------------------------------------------
+
 
 def check_hardware_available():
     """Check if oscilloscope hardware is available for testing."""
@@ -48,11 +50,12 @@ def check_hardware_available():
         osc = AutoInstrument.from_config(OSC_CONFIG_KEY)
         osc.connect_backend()
         # Try to get IDN to verify connection
-        idn = osc.id()
+        _ = osc.id()
         osc.close()
         return True, None
     except Exception as e:
         return False, str(e)
+
 
 @pytest.mark.requires_real_hw
 def test_oscilloscope_full_real():
@@ -86,7 +89,7 @@ def test_oscilloscope_full_real():
         assert np.isclose(offset, 0.0, atol=1e-6)
 
         # Set and get probe attenuation
-        probe_atten = osc.config.channels[ch-1].probe_attenuation[0]
+        probe_atten = osc.config.channels[ch - 1].probe_attenuation[0]
         osc.set_probe_attenuation(ch, probe_atten)
         probe_att_str = osc.get_probe_attenuation(ch)
         assert probe_att_str.startswith(str(probe_atten))
@@ -135,10 +138,10 @@ def test_oscilloscope_full_real():
     # --- Vpp and RMS measurement ---
     vpp = osc.measure_voltage_peak_to_peak(1)
     print(f"Vpp: {vpp.values} V")
-    assert isinstance(vpp.values, (float, np.floating))
+    assert isinstance(vpp.values, float | np.floating)
     rms = osc.measure_rms_voltage(1)
     print(f"RMS: {rms.values} V")
-    assert isinstance(rms.values, (float, np.floating))
+    assert isinstance(rms.values, float | np.floating)
 
     # --- FFT ---
     if osc.config.fft:
@@ -168,6 +171,7 @@ def test_oscilloscope_full_real():
     # --- Close ---
     osc.close()
     print("Oscilloscope closed.")
+
 
 @pytest.mark.requires_real_hw
 def test_oscilloscope_facades_real():
@@ -208,6 +212,7 @@ def test_oscilloscope_facades_real():
 
     osc.close()
 
+
 @pytest.mark.requires_real_hw
 def test_oscilloscope_error_cases_real():
     """
@@ -220,18 +225,19 @@ def test_oscilloscope_error_cases_real():
     osc = AutoInstrument.from_config(
         OSC_CONFIG_KEY
     )
+    from pytestlab.errors import InstrumentParameterError
     osc.connect_backend()
 
     # Invalid channel number
-    with pytest.raises(Exception):
+    with pytest.raises(InstrumentParameterError):
         osc.read_channels(99)
 
     # Invalid probe attenuation
-    with pytest.raises(Exception):
+    with pytest.raises(InstrumentParameterError):
         osc.set_probe_attenuation(1, 999)
 
     # Invalid timebase (negative)
-    with pytest.raises(Exception):
+    with pytest.raises(InstrumentParameterError):
         osc.set_time_axis(-1.0, 0.0)
 
     osc.close()

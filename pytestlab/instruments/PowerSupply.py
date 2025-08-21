@@ -1,15 +1,18 @@
 from __future__ import annotations
 
-from typing import List, Optional, Union, Self, Any, Dict
-from pydantic import validate_call # Added validate_call
+from typing import Any
+from typing import Self
 
-from .instrument import Instrument
-from .scpi_engine import SCPIEngine
-from ..errors import InstrumentConfigurationError, InstrumentParameterError
-from ..config import PowerSupplyConfig # V2 model
-from ..common.enums import SCPIOnOff # Added SCPIOnOff
+from pydantic import validate_call  # Added validate_call
 from uncertainties import ufloat
 from uncertainties.core import UFloat
+
+from ..common.enums import SCPIOnOff  # Added SCPIOnOff
+from ..config import PowerSupplyConfig  # V2 model
+from ..errors import InstrumentConfigurationError
+from ..errors import InstrumentParameterError
+from .instrument import Instrument
+from .scpi_engine import SCPIEngine
 
 
 class PSUChannelFacade:
@@ -23,12 +26,12 @@ class PSUChannelFacade:
         _psu: The parent `PowerSupply` instance.
         _channel: The channel number (1-based) this facade controls.
     """
-    def __init__(self, psu: 'PowerSupply', channel_num: int):
+    def __init__(self, psu: PowerSupply, channel_num: int):
         self._psu = psu
         self._channel = channel_num
 
     @validate_call
-    def set(self, voltage: Optional[float] = None, current_limit: Optional[float] = None) -> Self:
+    def set(self, voltage: float | None = None, current_limit: float | None = None) -> Self:
         """Sets the voltage and/or current limit for this channel.
 
         Args:
@@ -45,7 +48,7 @@ class PSUChannelFacade:
         return self
 
     @validate_call
-    def slew(self, duration_s: Optional[float] = None, enabled: bool = True) -> Self:
+    def slew(self, duration_s: float | None = None, enabled: bool = True) -> Self:
         """Configures the slew rate (ramp time) for this channel.
 
         Args:
@@ -61,8 +64,6 @@ class PSUChannelFacade:
         self._psu.enable_slew_rate(self._channel, enabled)
         return self
 
-
-
     @validate_call
     def on(self) -> Self:
         """Enables the output of this channel."""
@@ -75,11 +76,11 @@ class PSUChannelFacade:
         self._psu.output(self._channel, False)
         return self
 
-    def get_voltage(self) -> float:
+    def get_voltage(self) -> float | UFloat:
         """Reads the measured voltage from this channel."""
         return self._psu.read_voltage(self._channel)
 
-    def get_current(self) -> float:
+    def get_current(self) -> float | UFloat:
         """Reads the measured current from this channel."""
         return self._psu.read_current(self._channel)
 
@@ -114,7 +115,7 @@ class PSUChannelConfig:
         current: The measured current of the channel.
         state: The output state of the channel ("ON" or "OFF").
     """
-    def __init__(self, voltage: float, current: float, state: Union[int, str]) -> None:
+    def __init__(self, voltage: float | UFloat, current: float | UFloat, state: int | str) -> None:
         """Initializes the PSUChannelConfig.
 
         Args:
@@ -122,9 +123,10 @@ class PSUChannelConfig:
             current: The current value for the channel.
             state: The state of the channel (e.g., 0, 1, "ON", "OFF").
         """
-        self.voltage: float = voltage
-        self.current: float = current
-        self.state: str # Store state as string "ON" or "OFF" for consistency
+        # Allow UFloat or float for channel telemetry
+        self.voltage: float | UFloat = voltage  # type: ignore[assignment]
+        self.current: float | UFloat = current  # type: ignore[assignment]
+        self.state: str  # Store state as string "ON" or "OFF" for consistency
         if isinstance(state, str):
             # Normalize state from various string inputs like "1", "0", "ON", "OFF"
             state_upper = state.upper().strip()
@@ -134,14 +136,14 @@ class PSUChannelConfig:
                 self.state = SCPIOnOff.OFF.value
             else:
                 raise ValueError(f"Invalid string state value: {state}")
-        elif isinstance(state, (int, float)): # float for query results that might be like 1.0
+        elif isinstance(state, int | float):  # float for query results that might be like 1.0
              self.state = SCPIOnOff.ON.value if int(state) == 1 else SCPIOnOff.OFF.value
         else:
             raise ValueError(f"Invalid state value type: {type(state)}, value: {state}")
 
-
     def __repr__(self) -> str:
         return f"PSUChannelConfig(voltage={self.voltage!r}, current={self.current!r}, state='{self.state}')"
+
 
 class PowerSupply(Instrument[PowerSupplyConfig]):
     """Drives a multi-channel Power Supply Unit (PSU).
@@ -232,7 +234,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
             num_ch = len(self.config.channels) if self.config.channels else 0
             raise InstrumentParameterError(f"Channel number {channel} is out of range (1-{num_ch}).")
 
-        channel_config = self.config.channels[channel - 1] # channel is 1-based
+        channel_config = self.config.channels[channel - 1]  # channel is 1-based
         channel_config.current_limit_range.assert_in_range(current, name=f"Current for channel {channel}")
 
         from ..bench import SafetyLimitError
@@ -277,7 +279,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         self._send_command(cmd)
 
     @validate_call
-    def output(self, channel: Union[int, List[int]], state: bool = True) -> None:
+    def output(self, channel: int | list[int], state: bool = True) -> None:
         """Enables or disables the output for one or more channels.
 
         Args:
@@ -288,7 +290,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
             InstrumentParameterError: If any channel number is invalid.
             ValueError: If the `channel` argument is not an int or a list of ints.
         """
-        channels_to_process: List[int]
+        channels_to_process: list[int]
         if isinstance(channel, int):
             channels_to_process = [channel]
         elif isinstance(channel, list):
@@ -322,7 +324,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         self._send_command(cmd)
 
     @validate_call
-    def read_voltage(self, channel: int) -> Union[float, UFloat]:
+    def read_voltage(self, channel: int) -> float | UFloat:
         """Reads the measured output voltage from a specific channel.
 
         Args:
@@ -352,7 +354,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
                 if sigma > 0:
                     try:
                         value_to_return = ufloat(reading, sigma)
-                    except:
+                    except Exception:
                         value_to_return = reading
                     self._logger.debug(f"Applied accuracy spec '{mode_key}', value: {value_to_return}")
                 else:
@@ -365,7 +367,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         return value_to_return
 
     @validate_call
-    def read_current(self, channel: int) -> Union[float, UFloat]:
+    def read_current(self, channel: int) -> float | UFloat:
         """Reads the measured output current from a specific channel.
 
         Args:
@@ -395,7 +397,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
                 if sigma > 0:
                     try:
                         value_to_return = ufloat(reading, sigma)
-                    except:
+                    except Exception:
                         value_to_return = reading
                     self._logger.debug(f"Applied accuracy spec '{mode_key}', value: {value_to_return}")
                 else:
@@ -408,7 +410,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         return value_to_return
 
     @validate_call
-    def get_configuration(self) -> Dict[int, PSUChannelConfig]:
+    def get_configuration(self) -> dict[int, PSUChannelConfig]:
         """Reads the live state of all configured PSU channels.
 
         This method iterates through all channels defined in the configuration,
@@ -419,14 +421,14 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
             A dictionary where keys are channel numbers (1-based) and values are
             `PSUChannelConfig` objects representing the state of each channel.
         """
-        results: Dict[int, PSUChannelConfig] = {}
+        results: dict[int, PSUChannelConfig] = {}
         if not self.config.channels:
             self._logger.warning("No channels defined in the PowerSupplyConfig. Cannot get configuration.")
             return results
 
         num_channels = len(self.config.channels)
 
-        for channel_num in range(1, num_channels + 1): # Iterate 1-indexed channel numbers
+        for channel_num in range(1, num_channels + 1):  # Iterate 1-indexed channel numbers
             def _nominal(x: Any) -> float:
                 return x.nominal_value if hasattr(x, "nominal_value") else float(x)
 
@@ -482,7 +484,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         self._send_command(cmd)
 
     @property
-    def voltage_limit(self) -> Optional[float]:
+    def voltage_limit(self) -> float | None:
         """Get the current voltage safety limit."""
         return self._voltage_limit
 
@@ -503,7 +505,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         self._voltage_limit = value
 
     @property
-    def current_limit(self) -> Optional[float]:
+    def current_limit(self) -> float | None:
         """Get the current safety limit."""
         return self._current_limit
 

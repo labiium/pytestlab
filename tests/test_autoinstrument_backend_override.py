@@ -2,10 +2,11 @@
 Tests for AutoInstrument backend_override functionality.
 """
 
-import pytest
 import tempfile
-import yaml
 from pathlib import Path
+
+import pytest
+import yaml
 
 from pytestlab.instruments.AutoInstrument import AutoInstrument
 from pytestlab.instruments.backends.replay_backend import ReplayBackend
@@ -232,6 +233,7 @@ class TestAutoInstrumentBackendOverride:
 
         finally:
             Path(profile_file).unlink(missing_ok=True)
+
     def test_instrument_methods_with_backend_override(self, temp_profile_file):
         """Test that instrument methods work with backend override."""
         config = {
@@ -253,6 +255,7 @@ class TestAutoInstrumentBackendOverride:
         # Test write method
         instrument._backend.write('CURR 0.1')
         assert 'CURR 0.1' in mock_backend.writes
+
     def test_replay_backend_integration(self, temp_profile_file, temp_session_file):
         """Test complete integration with ReplayBackend."""
         config = {
@@ -337,6 +340,7 @@ class TestBackendOverrideEdgeCases:
         assert instrument1._backend is shared_backend
         assert instrument2._backend is shared_backend
         assert instrument1._backend is instrument2._backend
+
     def test_backend_override_state_isolation(self, temp_profile_file):
         """Test that different backend instances maintain separate state."""
         config = {
@@ -363,6 +367,8 @@ class TestBackendOverrideEdgeCases:
         assert backend2.queries == ['CMD2']
         assert backend1.writes == ['WRITE1']
         assert backend2.writes == ['WRITE2']
+
+
 def test_backend_override_with_session_recording():
     """Test backend override with SessionRecordingBackend."""
     from pytestlab.instruments.backends.session_recording_backend import SessionRecordingBackend

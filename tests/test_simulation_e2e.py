@@ -1,12 +1,14 @@
+import importlib.util
 import os
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+
 import pytest
+
 from pytestlab.instruments import AutoInstrument
-from pytestlab.instruments.VirtualInstrument import VirtualInstrument
-import importlib.util
+
 
 @pytest.fixture
 def temp_dir():
@@ -14,6 +16,8 @@ def temp_dir():
     temp_dir = tempfile.mkdtemp()
     yield Path(temp_dir)
     shutil.rmtree(temp_dir)
+
+
 def test_simulation_e2e(temp_dir):
     """
     An end-to-end test of the simulation recording and playback features.
@@ -146,7 +150,6 @@ def main(instrument):
 
     # 2. Programmatically call the `pytestlab sim-profile record` command
     recorded_profile_path = temp_dir / "recorded_virtual_instrument.yaml"
-    import subprocess
     process = subprocess.Popen([
         "pytestlab",
         "sim-profile",
@@ -164,8 +167,6 @@ def main(instrument):
 
     assert process.returncode == 0, f"CLI command failed: {stderr.decode()}"
     assert recorded_profile_path.exists()
-
-
 
     # 3. Load the newly generated profile into a new `VirtualInstrument` instance.
     instrument = AutoInstrument.from_config(

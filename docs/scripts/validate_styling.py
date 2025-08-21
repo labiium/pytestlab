@@ -24,7 +24,6 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 
 class NotebookStylingValidator:
@@ -216,7 +215,7 @@ class NotebookStylingValidator:
 
         for notebook_path in notebook_files[:3]:  # Test first 3 notebooks
             try:
-                with open(notebook_path, 'r', encoding='utf-8') as f:
+                with open(notebook_path, encoding='utf-8') as f:
                     notebook = json.load(f)
 
                 # Check basic structure
@@ -454,9 +453,9 @@ class NotebookStylingValidator:
 
         # Print summary
         total_tests = self.passed_tests + self.failed_tests
-        self.log("\n" + "="*50, "INFO")
+        self.log("\n" + "=" * 50, "INFO")
         self.log("VALIDATION SUMMARY", "INFO")
-        self.log("="*50, "INFO")
+        self.log("=" * 50, "INFO")
         self.log(f"Tests run: {total_tests}", "INFO")
         self.log(f"Passed: {self.passed_tests}", "SUCCESS")
         self.log(f"Failed: {self.failed_tests}", "ERROR" if self.failed_tests > 0 else "INFO")

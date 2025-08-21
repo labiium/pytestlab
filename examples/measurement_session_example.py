@@ -12,9 +12,10 @@ This example demonstrates the basic usage of MeasurementSession class:
 This example runs in simulation mode.
 """
 import time
+
 import numpy as np
+
 from pytestlab.measurements.session import MeasurementSession
-from pytestlab.instruments import AutoInstrument
 
 
 def main():
@@ -31,8 +32,8 @@ def main():
         session.parameter("delay", [0.1, 0.5], unit="s", notes="Settling time")
 
         # Get instruments (in simulation mode)
-        psu = session.instrument("psu", "keysight/EDU36311A", simulate=True)
-        dmm = session.instrument("dmm", "keysight/EDU34450A", simulate=True)
+        session.instrument("psu", "keysight/EDU36311A", simulate=True)
+        session.instrument("dmm", "keysight/EDU34450A", simulate=True)
 
         # Define a measurement function
         @session.acquire

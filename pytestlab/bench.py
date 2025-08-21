@@ -1,27 +1,35 @@
 import logging
-from pathlib import Path
-from typing import Union, Dict, Any, Optional, List
 import subprocess
 import sys
 import warnings
-from .config.bench_loader import load_bench_yaml, build_validation_context, run_custom_validations
-from .config.bench_config import BenchConfigExtended, InstrumentEntry
+from pathlib import Path
+from typing import Any
+
+from .common.health import HealthReport
+from .common.health import HealthStatus
+from .config.bench_config import BenchConfigExtended
+from .config.bench_config import InstrumentEntry
+from .config.bench_loader import build_validation_context
+from .config.bench_loader import load_bench_yaml
+from .config.bench_loader import run_custom_validations
+from .experiments.database import MeasurementDatabase
+from .experiments.experiments import Experiment
 from .instruments import AutoInstrument
 from .instruments.instrument import Instrument
-from .common.health import HealthReport, HealthStatus
-from .experiments.experiments import Experiment
-from .experiments.database import MeasurementDatabase
 
 # Configure logging
 logger = logging.getLogger("pytestlab.bench")
+
 
 class SafetyLimitError(Exception):
     """Raised when an operation violates safety limits."""
     pass
 
+
 class InstrumentMacroError(Exception):
     """Raised when an automation macro fails to execute."""
     pass
+
 
 class SafeInstrumentWrapper:
     """Wraps an instrument to enforce safety limits defined in the bench config.
@@ -41,7 +49,7 @@ class SafeInstrumentWrapper:
         self,
         instrument: Instrument,
         safety_limits: Any,
-        instrument_type: Optional[str] = None
+        instrument_type: str | None = None
     ):
         self._inst = instrument
         self._safety_limits = safety_limits
@@ -159,6 +167,7 @@ class SafeInstrumentWrapper:
             return orig_method(value, *a, **k)
         return safe_set_load
 
+
 class Bench:
     """Manages a collection of test instruments as a single entity.
 
@@ -173,14 +182,14 @@ class Bench:
     """
     def __init__(self, config: BenchConfigExtended):
         self.config = config
-        self._instrument_instances: Dict[str, Instrument] = {}
-        self._instrument_wrappers: Dict[str, Any] = {}
-        self._channel_config: Dict[str, List[int]] = {}  # Stores channel config for each instrument
-        self._experiment: Optional[Experiment] = None
-        self._db: Optional[MeasurementDatabase] = None
+        self._instrument_instances: dict[str, Instrument] = {}
+        self._instrument_wrappers: dict[str, Any] = {}
+        self._channel_config: dict[str, list[int]] = {}  # Stores channel config for each instrument
+        self._experiment: Experiment | None = None
+        self._db: MeasurementDatabase | None = None
 
     @classmethod
-    def open(cls, filepath: Union[str, Path]) -> "Bench":
+    def open(cls, filepath: str | Path) -> "Bench":
         """Loads, validates, and initializes a bench from a YAML configuration file.
 
         This class method acts as the main factory for creating a `Bench` instance.
@@ -236,7 +245,11 @@ class Bench:
 
                 # Continue with other instruments even if one fails
                 if getattr(self.config, 'continue_on_instrument_error', False):
-                    warnings.warn(f"Failed to initialize instrument '{alias}'. Continuing with other instruments.", UserWarning)
+                    warnings.warn(
+                        f"Failed to initialize instrument '{alias}'. Continuing with other instruments.",
+                        UserWarning,
+                        stacklevel=2,
+                    )
                 else:
                     raise
 
@@ -485,7 +498,7 @@ class Bench:
                 for err in errors:
                     logger.error(f"Instrument close error: {str(err)}")
 
-    def health_check(self) -> Dict[str, HealthReport]:
+    def health_check(self) -> dict[str, HealthReport]:
         """Run health checks on all instruments that support it.
 
         Returns:
@@ -518,8 +531,6 @@ class Bench:
         """Synchronous context manager exit."""
         self.close_all()
 
-
-
     def __getattr__(self, name: str) -> Instrument:
         """Access instruments by alias."""
         if name in self._instrument_wrappers:
@@ -533,7 +544,7 @@ class Bench:
         return list(super().__dir__()) + list(self._instrument_instances.keys())
 
     @property
-    def instruments(self) -> Dict[str, Instrument]:
+    def instruments(self) -> dict[str, Instrument]:
         """Provides programmatic access to all instrument instances.
 
         Returns:
@@ -543,12 +554,12 @@ class Bench:
         return self._instrument_instances
 
     @property
-    def experiment(self) -> Optional[Experiment]:
+    def experiment(self) -> Experiment | None:
         """Access the managed Experiment object."""
         return self._experiment
 
     @property
-    def db(self) -> Optional[MeasurementDatabase]:
+    def db(self) -> MeasurementDatabase | None:
         """Access the managed MeasurementDatabase object."""
         return self._db
 
@@ -562,14 +573,14 @@ class Bench:
             )
             logger.info(f"Initialized experiment '{self.config.experiment.title}'")
 
-    def initialize_database(self, db_path: Optional[Union[str, Path]] = None):
+    def initialize_database(self, db_path: str | Path | None = None):
         """Initialize the database if a path is provided in the config or arguments."""
         db_path = db_path or (self.config.experiment.database_path if self.config.experiment else None)
         if db_path:
             self._db = MeasurementDatabase(db_path)
             logger.info(f"Connected to database at '{db_path}'")
 
-    def save_experiment(self, notes: str = "") -> Optional[str]:
+    def save_experiment(self, notes: str = "") -> str | None:
         """Save the current experiment to the database.
 
         Args:

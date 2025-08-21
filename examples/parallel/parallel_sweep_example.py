@@ -17,10 +17,13 @@ This entire process is managed declaratively using the MeasurementSession builde
 """
 
 import time
-import numpy as np
 from pathlib import Path
 
-from pytestlab import Bench, Measurement
+import numpy as np
+
+from pytestlab import Bench
+from pytestlab import Measurement
+
 
 def main():
     """Main function to set up and run the parallel measurement."""
@@ -69,7 +72,7 @@ def main():
             def load_pulse(load):
                 """Applies a 1A pulse load with a 50% duty cycle."""
                 print("-> DC Load Pulse Task: Started")
-                load.set_mode("CC") # Constant Current mode
+                load.set_mode("CC")  # Constant Current mode
                 load.enable_input(True)
                 try:
                     while True:
@@ -87,13 +90,13 @@ def main():
             def measure_ripple(scope):
                 """Acquires a waveform and calculates its Vpp as ripple."""
                 scope._send_command(":SINGle")
-                time.sleep(0.05) # Allow time for acquisition
+                time.sleep(0.05)  # Allow time for acquisition
                 waveform_result = scope.read_channels(1)
                 vpp_result = scope.measure_voltage_peak_to_peak(1)
 
                 return {
                     "vpp_ripple": vpp_result.values,
-                    "waveform_data": waveform_result.values # Store the full waveform
+                    "waveform_data": waveform_result.values  # Store the full waveform
                 }
 
             # Run the session in parallel mode for 5 seconds,

@@ -21,14 +21,14 @@ class RecordingBackend:
     def write(self, command: str, *args, **kwargs):
         """Write a command to the instrument and log it."""
         self.log.append({"type": "write", "command": command.strip()})
-        if hasattr(self.backend, 'write') and callable(getattr(self.backend, 'write')):
+        if hasattr(self.backend, 'write') and callable(self.backend.write):
             result = self.backend.write(command, *args, **kwargs)
             return result
         raise NotImplementedError("Backend does not support write method.")
 
     def query(self, command: str, *args, **kwargs):
         """Query to the instrument, log it, and return the response."""
-        if hasattr(self.backend, 'query') and callable(getattr(self.backend, 'query')):
+        if hasattr(self.backend, 'query') and callable(self.backend.query):
             response = self.backend.query(command, *args, **kwargs)
             self.log.append({
                 "type": "query",
@@ -40,7 +40,7 @@ class RecordingBackend:
 
     def query_raw(self, command: str, *args, **kwargs):
         """Query to the instrument, log it, and return the response."""
-        if hasattr(self.backend, 'query_raw') and callable(getattr(self.backend, 'query_raw')):
+        if hasattr(self.backend, 'query_raw') and callable(self.backend.query_raw):
             response = self.backend.query_raw(command, *args, **kwargs)
             self.log.append({
                 "type": "query_raw",
@@ -58,7 +58,7 @@ class RecordingBackend:
 
     def close(self):
         """Close the backend and write the simulation profile."""
-        if hasattr(self.backend, 'close') and callable(getattr(self.backend, 'close')):
+        if hasattr(self.backend, 'close') and callable(self.backend.close):
             self.backend.close()
         print("DEBUG: Calling generate_profile from RecordingBackend.close()")
         self.generate_profile()

@@ -10,8 +10,11 @@ Key modules:
 - builder: Declarative panel builder with Slider, Toggle, and Button controls
 """
 
+from .builder import Button
+from .builder import InstrumentPanel
+from .builder import Slider
+from .builder import Toggle
 from .threading_utils import awidget_callback
-from .builder import InstrumentPanel, Slider, Toggle, Button
 
 __all__ = [
     "awidget_callback",

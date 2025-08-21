@@ -1,25 +1,26 @@
-from typing import Any, TypeVar, Generic, Optional, List, Tuple # Removed Complex
 from ..config.vna_config import VNAConfig
 from .instrument import Instrument
 
+
 # Placeholder for S-parameter data
 class SParameterData:
-    def __init__(self, frequencies: List[float], s_params: List[List[complex]], param_names: List[str]):
-        self.frequencies = frequencies # List of frequencies
+    def __init__(self, frequencies: list[float], s_params: list[list[complex]], param_names: list[str]):
+        self.frequencies = frequencies  # List of frequencies
         self.s_params = s_params       # List of lists, each inner list contains complex S-param values for a given S-parameter type
-        self.param_names = param_names # List of S-parameter names, e.g., ["S11", "S21"]
+        self.param_names = param_names  # List of S-parameter names, e.g., ["S11", "S21"]
+
 
 class VectorNetworkAnalyser(Instrument[VNAConfig]):
     model_config = {"arbitrary_types_allowed": True}
 
     def configure_s_parameter_sweep(
         self, 
-        s_params: Optional[List[str]] = None, # e.g. ["S11", "S21"]
-        start_freq: Optional[float] = None, 
-        stop_freq: Optional[float] = None, 
-        num_points: Optional[int] = None,
-        if_bandwidth: Optional[float] = None,
-        power_level: Optional[float] = None
+        s_params: list[str] | None = None,  # e.g. ["S11", "S21"]
+        start_freq: float | None = None, 
+        stop_freq: float | None = None, 
+        num_points: int | None = None,
+        if_bandwidth: float | None = None,
+        power_level: float | None = None
     ) -> None:
         if s_params is not None:
             # SCPI command to select S-parameters might be like: CALC:PAR:DEF "S11"
@@ -27,19 +28,19 @@ class VectorNetworkAnalyser(Instrument[VNAConfig]):
             self.config.s_parameters = s_params
             self._logger.info(f"VNA S-parameters set to: {s_params}")
         if start_freq is not None:
-            self._send_command(f"SENS:FREQ:STAR {start_freq}") # Example SCPI
+            self._send_command(f"SENS:FREQ:STAR {start_freq}")  # Example SCPI
             self.config.start_frequency = start_freq
         if stop_freq is not None:
-            self._send_command(f"SENS:FREQ:STOP {stop_freq}") # Example SCPI
+            self._send_command(f"SENS:FREQ:STOP {stop_freq}")  # Example SCPI
             self.config.stop_frequency = stop_freq
         if num_points is not None:
-            self._send_command(f"SENS:SWE:POIN {num_points}") # Example SCPI
+            self._send_command(f"SENS:SWE:POIN {num_points}")  # Example SCPI
             self.config.num_points = num_points
         if if_bandwidth is not None:
-            self._send_command(f"SENS:BWID {if_bandwidth}") # Example SCPI for IF bandwidth
+            self._send_command(f"SENS:BWID {if_bandwidth}")  # Example SCPI for IF bandwidth
             self.config.if_bandwidth = if_bandwidth
         if power_level is not None:
-            self._send_command(f"SOUR:POW {power_level}") # Example SCPI for power
+            self._send_command(f"SOUR:POW {power_level}")  # Example SCPI for power
             self.config.power_level = power_level
         self._logger.info("VNA measurement configured (simulated).")
 
@@ -54,10 +55,10 @@ class VectorNetworkAnalyser(Instrument[VNAConfig]):
         start_f = self.config.start_frequency or 1e9
         stop_f = self.config.stop_frequency or 2e9
         
-        frequencies = [start_f + i * (stop_f - start_f) / (num_points -1 if num_points > 1 else 1) for i in range(num_points)]
+        frequencies = [start_f + i * (stop_f - start_f) / (num_points - 1 if num_points > 1 else 1) for i in range(num_points)]
         
         s_params_to_measure = self.config.s_parameters or ["S11"]
-        sim_s_params_data: List[List[complex]] = []
+        sim_s_params_data: list[list[complex]] = []
 
         for _ in s_params_to_measure:
             # Dummy data: e.g., S11 a simple reflection, S21 a simple transmission

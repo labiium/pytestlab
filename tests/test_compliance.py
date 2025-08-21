@@ -1,9 +1,11 @@
 # tests/test_compliance.py
 
-import pytest
 import tempfile
 from pathlib import Path
-from pytestlab.compliance.signature import Signer, Envelope
+
+import pytest
+
+from pytestlab.compliance.signature import Signer
 
 
 class MockInstrument:
@@ -169,7 +171,7 @@ def test_hsm_private_key_exists(temp_signer_dir):
     assert private_key_path.exists()
 
     # Verify it's a PEM file
-    with open(private_key_path, 'r') as f:
+    with open(private_key_path) as f:
         content = f.read()
         assert content.startswith('-----BEGIN PRIVATE KEY-----')
         assert content.endswith('-----END PRIVATE KEY-----\n')

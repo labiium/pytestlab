@@ -1,7 +1,11 @@
 # tests/instruments/sim/conftest.py
-import pytest
 from pathlib import Path
-from pytestlab.instruments import AutoInstrument, Oscilloscope
+
+import pytest
+
+from pytestlab.instruments import AutoInstrument
+from pytestlab.instruments import Oscilloscope
+
 
 @pytest.fixture(scope="module")
 def sim_scope() -> Oscilloscope:

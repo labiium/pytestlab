@@ -51,7 +51,7 @@ def main(bench):
         psu.output(1, True)
 
         for i, voltage in enumerate(voltages):
-            print(f"Step {i+1}/{len(voltages)}: Setting {voltage}V")
+            print(f"Step {i + 1}/{len(voltages)}: Setting {voltage}V")
 
             # Set PSU voltage
             psu.set_voltage(1, voltage)
@@ -88,6 +88,7 @@ def main(bench):
         print(f"  Step {result['step']}: {result['set_voltage']}V → PSU: {result['measured_voltage']:.3f}V (error: {psu_error:.3f}V), Current: {result['measured_current']:.3f}A, OSC VPP: {result['osc_vpp']:.3f}V")
 
     return measurements
+
 
 if __name__ == "__main__":
     print("This script is designed to be run via PyTestLab replay commands.")

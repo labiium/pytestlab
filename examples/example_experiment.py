@@ -14,7 +14,9 @@ Note:
 """
 
 import polars as pl
+
 from pytestlab.experiments import Experiment  # Adjust this import based on your project structure
+
 
 def main():
     # Create an experiment instance.
@@ -65,6 +67,7 @@ def main():
     # Export data to disk.
     # exp.save_arrow("experiment_data.arrow")
     exp.save_parquet("experiment_data.parquet")
+
 
 if __name__ == "__main__":
     main()

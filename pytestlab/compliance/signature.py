@@ -1,11 +1,19 @@
 from __future__ import annotations
-import base64, hashlib, json, pathlib
-from datetime import datetime, timezone
-from typing import TypedDict, Any
 
-from cryptography.hazmat.primitives.asymmetric import ec, utils
-from cryptography.hazmat.primitives import hashes, serialization
+import base64
+import hashlib
+import json
+import pathlib
+from datetime import UTC
+from datetime import datetime
+from typing import Any
+from typing import TypedDict
+
 from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.asymmetric import utils
 
 
 class Envelope(TypedDict):
@@ -102,7 +110,7 @@ class Signer:
             "sig": base64.b64encode(sig).decode(),
             "pub": self._pub_b,
             "alg": "ECDSA-P256-SHA256",
-            "ts": datetime.now(timezone.utc).isoformat(),
+            "ts": datetime.now(UTC).isoformat(),
         }
 
     # ------------------------------------------------------------------ #

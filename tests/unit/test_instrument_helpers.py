@@ -1,5 +1,5 @@
-import pytest
 import numpy as np
+import pytest
 
 # Attempt to import the target function.
 # This path might need adjustment based on the actual location and structure.
@@ -19,7 +19,7 @@ except ImportError:
             raise ValueError("Invalid SCPI binary block format: missing '#' prefix.")
 
         header_len_digit = int(data_bytes[1:2].decode('ascii'))
-        data_len_str = data_bytes[2:2+header_len_digit].decode('ascii')
+        data_len_str = data_bytes[2:2 + header_len_digit].decode('ascii')
         data_len = int(data_len_str)
         data_start = 2 + header_len_digit
         data_end = data_start + data_len
@@ -41,6 +41,7 @@ except ImportError:
         return np.frombuffer(data, dtype=dt)
 
 # Test cases for _read_to_np
+
 
 @pytest.mark.parametrize("header, data, expected_array, dtype, is_big_endian", [
     # Correct SCPI binary block format
@@ -86,11 +87,11 @@ def test_read_to_np_correct_formats(header, data, expected_array, dtype, is_big_
         else:
             assert result_array_nl.dtype == dtype
     except TypeError as e:
-        if "require_nl_term" in str(e): # Parameter not supported by placeholder/actual
-            pass # Silently pass if the param is not in the function signature
+        if "require_nl_term" in str(e):  # Parameter not supported by placeholder/actual
+            pass  # Silently pass if the param is not in the function signature
         else:
             raise
-    except NotImplementedError: # If placeholder is active
+    except NotImplementedError:  # If placeholder is active
         pytest.skip("Skipping NL test as _read_to_np is not fully implemented/imported.")
 
 
@@ -112,14 +113,14 @@ def test_read_to_np_correct_formats(header, data, expected_array, dtype, is_big_
     # (b"#10abc", np.int8, False, ValueError), # This might be valid, depends on strictness
 
     # Invalid dtype scenarios (e.g., itemsize doesn't divide data length)
-    (b"#13abc", np.int16, False, ValueError), # 3 bytes data, int16 (2 bytes) - length mismatch
+    (b"#13abc", np.int16, False, ValueError),  # 3 bytes data, int16 (2 bytes) - length mismatch
 ])
 def test_read_to_np_malformed_inputs(malformed_bytes, dtype, is_big_endian, error_type):
     """Tests _read_to_np with various malformed inputs, expecting errors."""
     with pytest.raises(error_type):
         try:
             _read_to_np(malformed_bytes, dtype=dtype, is_big_endian=is_big_endian)
-        except NotImplementedError: # If placeholder is active
+        except NotImplementedError:  # If placeholder is active
              pytest.skip("Skipping malformed test as _read_to_np is not fully implemented/imported.")
 
 
@@ -139,7 +140,7 @@ def test_read_to_np_empty_data_explicit():
         np.testing.assert_array_equal(result_array_f32, expected_array_f32)
         assert result_array_f32.dtype == np.float32
 
-    except NotImplementedError: # If placeholder is active
+    except NotImplementedError:  # If placeholder is active
         pytest.skip("Skipping empty data test as _read_to_np is not fully implemented/imported.")
 
 # Note: The actual behavior for "data length mismatch" where header length is

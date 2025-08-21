@@ -1,4 +1,3 @@
-import warnings
 
 class InstrumentConnectionError(Exception):
     """Exception raised for SCPI instrument connection errors."""
@@ -63,6 +62,7 @@ class InstrumentParameterError(ValueError):
         full_message += f". {message}"
         super().__init__(full_message)
 
+
 class InstrumentNotFoundError(Exception):
     """For instrument not found errors."""
 
@@ -82,7 +82,7 @@ class InstrumentConfigurationError(Exception):
             super().__init__(f"Invalid instrument configuration. {message}")
 
 
-## WARNINGS
+# WARNINGS
 
 class CommunicationError(Warning):
     """For SCPI communication warnings."""

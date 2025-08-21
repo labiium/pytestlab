@@ -13,18 +13,14 @@ Three different approaches are demonstrated:
 3. Gradient-weighted adaptive sampling (GWASS) for efficiency
 """
 import time
-import numpy as np
-import matplotlib.pyplot as plt
-from datetime import datetime
 
+import matplotlib.pyplot as plt
+import numpy as np
+
+from pytestlab.experiments.sweep import ParameterSpace
+from pytestlab.experiments.sweep import grid_sweep
+from pytestlab.experiments.sweep import gwass
 from pytestlab.measurements.session import MeasurementSession
-from pytestlab.experiments.sweep import (
-    grid_sweep,
-    gwass,
-    monte_carlo_sweep,
-    ParameterSpace
-)
-from pytestlab.instruments import AutoInstrument
 
 
 def example_1_built_in_sweep():
@@ -57,9 +53,9 @@ def example_1_built_in_sweep():
         )
 
         # Set up simulated instruments
-        psu_base = session.instrument("psu_base", "keysight/EDU36311A", simulate=True)
-        psu_collector = session.instrument("psu_collector", "keysight/EDU36311A", simulate=True)
-        dmm = session.instrument("dmm", "keysight/EDU34450A", simulate=True)
+        session.instrument("psu_base", "keysight/EDU36311A", simulate=True)
+        session.instrument("psu_collector", "keysight/EDU36311A", simulate=True)
+        session.instrument("dmm", "keysight/EDU34450A", simulate=True)
 
         # Define measurement function with session.acquire
         @session.acquire
@@ -142,9 +138,9 @@ def example_2_grid_sweep():
         )
 
         # Set up simulated instruments
-        psu_base = session.instrument("psu_base", "keysight/EDU36311A", simulate=True)
-        psu_collector = session.instrument("psu_collector", "keysight/EDU36311A", simulate=True)
-        dmm = session.instrument("dmm", "keysight/EDU34450A", simulate=True)
+        session.instrument("psu_base", "keysight/EDU36311A", simulate=True)
+        session.instrument("psu_collector", "keysight/EDU36311A", simulate=True)
+        session.instrument("dmm", "keysight/EDU34450A", simulate=True)
 
         # Create a wrapper around the sync measurement function
         # Use grid_sweep_decorator with "auto" parameter extraction
@@ -182,7 +178,7 @@ def example_2_grid_sweep():
             return Ic
 
         # Execute the grid sweep and time it
-        print(f"Running grid_sweep with auto parameter extraction...")
+        print("Running grid_sweep with auto parameter extraction...")
         start_time = time.time()
         results = measure_transistor(session)  # Pass session to extract parameters
         elapsed = time.time() - start_time
@@ -224,9 +220,9 @@ def example_3_gwass_sweep():
         )
 
         # Set up simulated instruments
-        psu_base = session.instrument("psu_base", "keysight/EDU36311A", simulate=True)
-        psu_collector = session.instrument("psu_collector", "keysight/EDU36311A", simulate=True)
-        dmm = session.instrument("dmm", "keysight/EDU34450A", simulate=True)
+        session.instrument("psu_base", "keysight/EDU36311A", simulate=True)
+        session.instrument("psu_collector", "keysight/EDU36311A", simulate=True)
+        session.instrument("dmm", "keysight/EDU34450A", simulate=True)
 
         # Directly specify parameter ranges as a dictionary
         param_ranges = {
@@ -253,7 +249,7 @@ def example_3_gwass_sweep():
             if collector_voltage < 0.7:
                 Ic = beta * Ib * (collector_voltage / 0.7)**2
             else:
-                Ic = beta * Ib * (1 - 0.3*np.exp(-(collector_voltage-0.7) / Vt))
+                Ic = beta * Ib * (1 - 0.3 * np.exp(-(collector_voltage - 0.7) / Vt))
 
             Ic *= (0.95 + 0.1 * np.random.random())  # Add slight randomness
 
@@ -264,7 +260,7 @@ def example_3_gwass_sweep():
             return Ic
 
         # Execute the GWASS sweep and time it
-        print(f"Running GWASS with auto parameter extraction...")
+        print("Running GWASS with auto parameter extraction...")
         print(f"Using only 30 points instead of the full {5 * 6} grid")
         start_time = time.time()
         results = measure_transistor(session)  # Pass session to extract parameters

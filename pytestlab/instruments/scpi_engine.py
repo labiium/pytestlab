@@ -54,8 +54,10 @@ from __future__ import annotations
 
 import numbers
 import string
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Mapping, Optional
+from collections.abc import Mapping
+from dataclasses import dataclass
+from dataclasses import field
+from typing import Any
 
 __all__ = [
     "SCPIEngine",
@@ -92,9 +94,9 @@ class _Validator:
     """Runtime representation of a parameter validator."""
 
     kind: str  # "range" │ "enum"
-    min_val: Optional[float] = None
-    max_val: Optional[float] = None
-    enum_map: Optional[Dict[str, Any]] = None
+    min_val: float | None = None
+    max_val: float | None = None
+    enum_map: dict[str, Any] | None = None
 
     # ------------------------------------------------------------------ #
     def validate(self, name: str, value: Any) -> Any:
@@ -137,14 +139,14 @@ class _ResponseSpec:
     """Description of how a query responds."""
 
     type: str = "raw"
-    units: Optional[str] = None
+    units: str | None = None
     delimiter: str = ","
-    fields: List[str] = field(default_factory=list)
-    extras: Dict[str, Any] = field(default_factory=dict)
+    fields: list[str] = field(default_factory=list)
+    extras: dict[str, Any] = field(default_factory=dict)
 
 
 _ParserFunc = Any  # runtime, avoid circular typing
-_PARSER_REGISTRY: Dict[str, _ParserFunc] = {}
+_PARSER_REGISTRY: dict[str, _ParserFunc] = {}
 
 
 def _register_parser(name: str):
@@ -207,7 +209,7 @@ def _parse_csv_dict(data: str | bytes, spec: _ResponseSpec):
             f"csv_dict: expected {len(spec.fields)} fields ({spec.fields}), "
             f"got {len(parts)} in response '{data}'."
         )
-    return dict(zip(spec.fields, parts))
+    return dict(zip(spec.fields, parts, strict=False))
 
 
 @_register_parser("binblock")
@@ -238,10 +240,10 @@ def _parse_binblock(data: str | bytes, spec: _ResponseSpec):
 
 @dataclass(slots=True)
 class _CommandSpec:
-    sequence: List[str]
-    defaults: Dict[str, Any] = field(default_factory=dict)
-    validators: Dict[str, _Validator] = field(default_factory=dict)
-    response: Optional[_ResponseSpec] = None
+    sequence: list[str]
+    defaults: dict[str, Any] = field(default_factory=dict)
+    validators: dict[str, _Validator] = field(default_factory=dict)
+    response: _ResponseSpec | None = None
 
 
 # ------------------------------------------------------------------------------
@@ -298,7 +300,7 @@ class SCPIEngine:
         ):
             raise SCPIEngineError("'commands'/'queries' must map to objects")
 
-        self._specs: Dict[str, _CommandSpec] = {}
+        self._specs: dict[str, _CommandSpec] = {}
         for name, raw in {**commands_block, **queries_block}.items():
             if name in self._specs:
                 raise SCPIEngineError(f"Duplicate SCPI name '{name}'")
@@ -307,7 +309,7 @@ class SCPIEngine:
     # ------------------------------------------------------------------ #
     # Public helpers
     # ------------------------------------------------------------------ #
-    def build(self, cmd_name: str, **params: Any) -> List[str]:
+    def build(self, cmd_name: str, **params: Any) -> list[str]:
         """
         Return the fully-formatted SCPI message list for ``cmd_name``.
 
@@ -341,7 +343,7 @@ class SCPIEngine:
         except KeyError as e:  # pragma: no cover (should not happen)
             raise ValidationError(
                 f"Placeholder {e.args[0]!r} not supplied for '{cmd_name}'."
-            )
+            ) from e
 
     # ------------------------------------------------------------------ #
     def parse(self, cmd_name: str, raw_response: str | bytes) -> Any:
@@ -375,13 +377,13 @@ class SCPIEngine:
     # Private helpers
     # ------------------------------------------------------------------ #
     @staticmethod
-    def _find_missing_placeholders(templates: List[str], params: Mapping[str, Any]) -> List[str]:
+    def _find_missing_placeholders(templates: list[str], params: Mapping[str, Any]) -> list[str]:
         formatter = string.Formatter()
         missing: set[str] = set()
         for tmpl in templates:
-            for _, field, *_ in formatter.parse(tmpl):
-                if field and field not in params:
-                    missing.add(field)
+            for _, field_name, *_ in formatter.parse(tmpl):
+                if field_name and field_name not in params:
+                    missing.add(field_name)
         return sorted(missing)
 
     # ------------------------------------------------------------------ #
@@ -417,7 +419,7 @@ class SCPIEngine:
         defaults = dict(mapping.get("defaults", {}))
 
         # ---- validators -------------------------------------------- #
-        validators: Dict[str, _Validator] = {}
+        validators: dict[str, _Validator] = {}
         for p, rng in mapping.get("validators", {}).items():
             if not isinstance(rng, Mapping) or "min" not in rng or "max" not in rng:
                 raise SCPIEngineError(f"Validator for '{p}' needs 'min'/'max'")

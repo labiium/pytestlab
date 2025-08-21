@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-import httpx
-from typing import Optional, Dict, Any, TYPE_CHECKING
 import logging
+from typing import TYPE_CHECKING
 
-from ...errors import InstrumentConnectionError, InstrumentCommunicationError
+import httpx
+
+from ...errors import InstrumentCommunicationError
+from ...errors import InstrumentConnectionError
 
 # if TYPE_CHECKING:
 from ..instrument import InstrumentIO
@@ -24,11 +26,11 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
     """
     def __init__(
         self,
-        address: Optional[str] = None,
+        address: str | None = None,
         url: str = "http://lamb-server:8000",
-        timeout_ms: Optional[int] = 10000,
-        model_name: Optional[str] = None,
-        serial_number: Optional[str] = None,
+        timeout_ms: int | None = 10000,
+        model_name: str | None = None,
+        serial_number: str | None = None,
     ):
         """
         Args:
@@ -39,11 +41,11 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
             serial_number: Serial number for auto-connect.
         """
         self.base_url: str = url.rstrip('/')
-        self.instrument_address: Optional[str] = address  # visa_string
-        self.model_name: Optional[str] = model_name
-        self.serial_number: Optional[str] = serial_number
+        self.instrument_address: str | None = address  # visa_string
+        self.model_name: str | None = model_name
+        self.serial_number: str | None = serial_number
         self._timeout_sec: float = (timeout_ms / 1000.0) if timeout_ms and timeout_ms > 0 else 5.0
-        self._client: Optional[httpx.Client] = None
+        self._client: httpx.Client | None = None
         self._auto_connect_performed: bool = False
 
         lamb_logger.info(
@@ -126,7 +128,7 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
                 f"Network error during Lamb write: {e}"
             ) from e
 
-    def query(self, cmd: str, delay: Optional[float] = None) -> str:
+    def query(self, cmd: str, delay: float | None = None) -> str:
         self._ensure_connected()
         lamb_logger.debug(f"QUERY to '{self.instrument_address}': {cmd}")
         try:
@@ -148,7 +150,7 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
                 f"Network error during Lamb query: {e}"
             ) from e
 
-    def query_raw(self, cmd: str, delay: Optional[float] = None) -> bytes:
+    def query_raw(self, cmd: str, delay: float | None = None) -> bytes:
         self._ensure_connected()
         lamb_logger.debug(f"QUERY_RAW to '{self.instrument_address}': {cmd}")
         try:
@@ -181,6 +183,7 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
 
     def get_timeout(self) -> int:
         return int(self._timeout_sec * 1000)
+
 
 # Static type checking helper
 if TYPE_CHECKING:

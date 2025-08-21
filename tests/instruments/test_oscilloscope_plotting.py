@@ -1,6 +1,5 @@
 import pytest
 
-
 matplotlib = pytest.importorskip("matplotlib")
 matplotlib.use("Agg", force=True)
 
@@ -8,6 +7,7 @@ matplotlib.use("Agg", force=True)
 def test_channel_reading_result_split_and_plot(monkeypatch):
     import numpy as np
     import polars as pl
+
     from pytestlab.instruments.Oscilloscope import ChannelReadingResult
     from pytestlab.plotting import PlotSpec
 

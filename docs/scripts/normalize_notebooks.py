@@ -26,7 +26,6 @@ import argparse
 import shutil
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
 
 try:
     import nbformat
@@ -71,9 +70,10 @@ class NotebookNormalizer:
             A unique cell ID string
         """
         # Generate a UUID4 and take the first 8 characters for readability
+        import uuid
         return str(uuid.uuid4())[:8]
 
-    def normalize_cell(self, cell: Dict, nbformat_version: int = 4) -> bool:
+    def normalize_cell(self, cell: dict, nbformat_version: int = 4) -> bool:
         """
         Normalize a single cell by adding missing ID if needed.
 
@@ -93,7 +93,7 @@ class NotebookNormalizer:
             return True
         return False
 
-    def generate_meaningful_id(self, cell: Dict) -> str:
+    def generate_meaningful_id(self, cell: dict) -> str:
         """
         Generate a meaningful ID based on cell content.
 
@@ -141,7 +141,7 @@ class NotebookNormalizer:
         else:
             return f"{cell_type}-{self.generate_cell_id()}"
 
-    def get_cell_source(self, cell: Dict) -> str:
+    def get_cell_source(self, cell: dict) -> str:
         """
         Extract source text from a cell, handling different formats.
 
@@ -378,7 +378,7 @@ Examples:
 
         # Print summary
         if not args.validate:
-            print(f"\n📊 Summary:")
+            print("\n📊 Summary:")
             print(f"  Processed: {normalizer.processed_count} notebook(s)")
             print(f"  Modified: {normalizer.modified_count} notebook(s)")
 

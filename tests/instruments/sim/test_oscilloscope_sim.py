@@ -1,11 +1,13 @@
 # tests/instruments/sim/test_oscilloscope_sim.py
-import pytest
 import polars as pl
-from pytestlab.instruments import Oscilloscope
+import pytest
+
 from pytestlab.common.enums import TriggerSlope
 from pytestlab.errors import InstrumentCommunicationError
+from pytestlab.instruments import Oscilloscope
 
 # Test file for oscilloscope simulation
+
 
 def test_idn_and_reset(sim_scope: Oscilloscope):
     """Verify *IDN? and *RST commands."""
@@ -23,7 +25,8 @@ def test_idn_and_reset(sim_scope: Oscilloscope):
 
     # 4. Verify the value has returned to its initial state from the YAML
     reset_scale = sim_scope.get_time_axis()
-    assert reset_scale[0] == 1.0e-3 # Default from initial_state in YAML
+    assert reset_scale[0] == 1.0e-3  # Default from initial_state in YAML
+
 
 def test_timebase_control(sim_scope: Oscilloscope):
     """Verify setting and getting timebase scale and position."""
@@ -33,6 +36,7 @@ def test_timebase_control(sim_scope: Oscilloscope):
 
     assert scale == 2.5e-3
     assert position == -1e-3
+
 
 def test_channel_facade(sim_scope: Oscilloscope):
     """Verify the chained channel facade methods."""
@@ -48,6 +52,7 @@ def test_channel_facade(sim_scope: Oscilloscope):
     ch2_display_state = sim_scope._query(cmd)
     assert ch2_display_state == "1"
 
+
 def test_trigger_facade(sim_scope: Oscilloscope):
     """Verify the trigger facade methods."""
     sim_scope.trigger.setup_edge(source="CH4", level=1.23, slope=TriggerSlope.NEGATIVE)
@@ -61,14 +66,15 @@ def test_trigger_facade(sim_scope: Oscilloscope):
     assert float(level) == 1.23
     assert slope == "NEG"
 
+
 def test_waveform_acquisition(sim_scope: Oscilloscope):
     """Verify that read_channels returns a correctly structured result."""
     sim_scope.get_sampling_rate = lambda: 1.0e9
-    result = sim_scope.read_channels(1, 3) # Read channels 1 and 3
+    result = sim_scope.read_channels(1, 3)  # Read channels 1 and 3
 
     assert isinstance(result.values, pl.DataFrame)
-    assert result.values.shape[0] == 1024 # Points from YAML
-    assert result.values.shape[1] == 3 # Time + CH1 + CH3
+    assert result.values.shape[0] == 1024  # Points from YAML
+    assert result.values.shape[1] == 3  # Time + CH1 + CH3
     assert result.values.columns == ["Time (s)", "Channel 1 (V)", "Channel 3 (V)"]
 
     # Check dtypes
@@ -76,9 +82,10 @@ def test_waveform_acquisition(sim_scope: Oscilloscope):
     assert result.values["Channel 1 (V)"].dtype == pl.Float64
     assert result.values["Channel 3 (V)"].dtype == pl.Float64
 
+
 def test_error_generation(sim_scope: Oscilloscope):
     """Verify that the simulator generates an error based on the YAML rule."""
-    sim_scope.clear_status() # Ensure error queue is empty
+    sim_scope.clear_status()  # Ensure error queue is empty
 
     # This action should trigger the error rule in the YAML profile
     with pytest.raises(InstrumentCommunicationError) as exc_info:

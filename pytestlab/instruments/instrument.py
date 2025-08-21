@@ -1,21 +1,32 @@
 from __future__ import annotations
-from .._log import get_logger
 
-from typing import Optional, Tuple, Any, Callable, Type, List as TypingList, Dict, Protocol, TypeVar, Generic
-from abc import abstractmethod
+import time
+from collections.abc import Callable
+from typing import Any
+from typing import Generic
+from typing import Protocol
+from typing import TypeVar
+
 import numpy as np
+
+from .._log import get_logger
+from ..common.health import HealthReport  # Adjusted import
+from ..common.health import HealthStatus  # Adjusted import
+from ..config import InstrumentConfig  # Assuming InstrumentConfig is the base Pydantic model
+from ..errors import InstrumentCommunicationError
+from ..errors import InstrumentConfigurationError
+
 # polars.List is a DataType, not for type hinting Python lists.
 # from polars import List
-from ..errors import InstrumentConnectionError, InstrumentCommunicationError, InstrumentConfigurationError, InstrumentDataError
-from ..config import InstrumentConfig # Assuming InstrumentConfig is the base Pydantic model
-from ..common.health import HealthReport, HealthStatus # Adjusted import
+from ..errors import InstrumentConnectionError
+from ..errors import InstrumentDataError
 from .scpi_engine import SCPIEngine
-import time
 
 # Forward reference for ConfigType if InstrumentConfig is not fully defined/imported yet,
 # or if it's defined in a way that causes circular dependencies.
 # For this refactor, we assume InstrumentConfig is available.
 ConfigType = TypeVar('ConfigType', bound='InstrumentConfig')
+
 
 class InstrumentIO(Protocol):
     """Defines the interface for a synchronous instrument communication backend.
@@ -27,18 +38,23 @@ class InstrumentIO(Protocol):
     def connect(self) -> None:
         """Establishes the connection to the instrument."""
         ...
+
     def disconnect(self) -> None:
         """Terminates the connection to the instrument."""
         ...
+
     def write(self, cmd: str) -> None:
         """Sends a command to the instrument."""
         ...
-    def query(self, cmd: str, delay: Optional[float] = None) -> str:
+
+    def query(self, cmd: str, delay: float | None = None) -> str:
         """Sends a command and reads a string response."""
         ...
-    def query_raw(self, cmd: str, delay: Optional[float] = None) -> bytes:
+
+    def query_raw(self, cmd: str, delay: float | None = None) -> bytes:
         """Sends a command and reads a raw byte response."""
         ...
+
     def close(self) -> None:
         """Closes the instrument session, often an alias for disconnect."""
         ...
@@ -46,9 +62,11 @@ class InstrumentIO(Protocol):
     def set_timeout(self, timeout_ms: int) -> None:
         """Sets the communication timeout in milliseconds."""
         ...
+
     def get_timeout(self) -> int:
         """Gets the communication timeout in milliseconds."""
         ...
+
 
 class Instrument(Generic[ConfigType]):
     """Base class for all instrument drivers.
@@ -77,8 +95,8 @@ class Instrument(Generic[ConfigType]):
     # Class-level annotations for instance variables
     config: ConfigType
     _backend: InstrumentIO
-    _command_log: TypingList[Dict[str, Any]]
-    _logger: Any # Actual type would be logging.Logger, using Any if Logger type not imported
+    _command_log: list[dict[str, Any]]
+    _logger: Any  # Actual type would be logging.Logger, using Any if Logger type not imported
 
     def __init__(self, config: ConfigType, backend: InstrumentIO, **kwargs: Any) -> None:
         """
@@ -89,7 +107,7 @@ class Instrument(Generic[ConfigType]):
             backend (InstrumentIO): The communication backend instance.
             **kwargs: Additional keyword arguments.
         """
-        if not isinstance(config, InstrumentConfig): # Check against the bound base
+        if not isinstance(config, InstrumentConfig):  # Check against the bound base
             raise InstrumentConfigurationError(
                 self.__class__.__name__,
                 f"A valid InstrumentConfig-compatible object must be provided, but got {type(config).__name__}.",
@@ -107,7 +125,7 @@ class Instrument(Generic[ConfigType]):
         self.scpi_engine = SCPIEngine(scpi_section)
 
     @classmethod
-    def from_config(cls: Type[Instrument], config: InstrumentConfig, debug_mode: bool = False) -> Instrument:
+    def from_config(cls: type[Instrument], config: InstrumentConfig, debug_mode: bool = False) -> Instrument:
         if not isinstance(config, InstrumentConfig):
             raise InstrumentConfigurationError(
                 cls.__name__, "from_config expects an InstrumentConfig object."
@@ -117,7 +135,6 @@ class Instrument(Generic[ConfigType]):
         raise NotImplementedError(
             "from_config needs to be updated for backend instantiation."
         )
-
 
     def connect_backend(self) -> None:
         """Establishes the connection to the instrument via the backend.
@@ -135,7 +152,7 @@ class Instrument(Generic[ConfigType]):
             self._logger.info(f"Instrument '{logger_name}': Backend connected.")
         except Exception as e:
             self._logger.error(f"Instrument '{logger_name}': Failed to connect backend: {e}")
-            if hasattr(self._backend, 'disconnect'): # Check if disconnect is available
+            if hasattr(self._backend, 'disconnect'):  # Check if disconnect is available
                 try:
                     self._backend.disconnect()
                 except Exception as disc_e:
@@ -235,7 +252,7 @@ class Instrument(Generic[ConfigType]):
                 message=f"Failed to send command: {e}",
             ) from e
 
-    def _query(self, query: str, delay: Optional[float] = None, skip_check: bool = False) -> str:
+    def _query(self, query: str, delay: float | None = None, skip_check: bool = False) -> str:
         """Sends a query to the instrument and returns a string response.
 
         This is a low-level method for interacting with the instrument when a
@@ -271,7 +288,7 @@ class Instrument(Generic[ConfigType]):
                 message=f"Failed to query instrument: {e}",
             ) from e
 
-    def _query_raw(self, query: str, delay: Optional[float] = None) -> bytes:
+    def _query_raw(self, query: str, delay: float | None = None) -> bytes:
         """Sends a query and returns a raw binary response.
 
         This method is used for queries that return binary data, such as waveform
@@ -318,7 +335,7 @@ class Instrument(Generic[ConfigType]):
         Blocks until all previous commands have been processed by the instrument using *OPC?.
         """
         try:
-            self._backend.query("*OPC?") # delay=None by default for _backend.query
+            self._backend.query("*OPC?")  # delay=None by default for _backend.query
             self._logger.debug("Waiting for instrument to finish processing commands (*OPC? successful).")
             self._command_log.append({"command": "*OPC?", "success": True, "type": "wait", "timestamp": time.time()})
         except Exception as e:
@@ -339,7 +356,7 @@ class Instrument(Generic[ConfigType]):
         attempts = 0
         while result == 0 and attempts < max_attempts:
             try:
-                esr_response = self._backend.query("*ESR?") # Use self._backend
+                esr_response = self._backend.query("*ESR?")  # Use self._backend
                 result = int(esr_response.strip())
             except Exception as e:
                 self._logger.debug(f"Error querying *ESR? during _wait_event: {e}")
@@ -351,12 +368,11 @@ class Instrument(Generic[ConfigType]):
             time.sleep(0.1)
             attempts += 1
 
-        if attempts >= max_attempts and result == 0 :
+        if attempts >= max_attempts and result == 0:
             self._logger.debug("Warning: _wait_event timed out polling *ESR?. ESR did not become non-zero.")
         else:
             self._logger.debug(f"Instrument event occurred or ESR became non-zero (ESR: {result}).")
         self._command_log.append({"command": "*ESR? poll", "success": True, "type": "wait_event", "timestamp": time.time(), "final_esr": result})
-
 
     def _history(self) -> None:
         """
@@ -366,7 +382,7 @@ class Instrument(Generic[ConfigType]):
         for i, entry in enumerate(self._command_log):
             ts_val = entry.get('timestamp', 'N/A')
             ts_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(ts_val)) if isinstance(ts_val, float) else "Invalid Timestamp"
-            print(f"{i+1}. [{ts_str}] Type: {entry.get('type', 'N/A')}, Success: {entry.get('success', 'N/A')}, Command: {entry.get('command', 'N/A')}")
+            print(f"{i + 1}. [{ts_str}] Type: {entry.get('type', 'N/A')}, Success: {entry.get('success', 'N/A')}, Command: {entry.get('command', 'N/A')}")
             if 'response' in entry:
                 print(f"   Response: {entry['response']}")
         print("--- End of History ---")
@@ -377,7 +393,7 @@ class Instrument(Generic[ConfigType]):
         Raises InstrumentCommunicationError if an error is found.
         """
         try:
-            error_response = self._backend.query(":SYSTem:ERRor?") # delay=None by default
+            error_response = self._backend.query(":SYSTem:ERRor?")  # delay=None by default
             error_response = error_response.strip()
 
             # Parse the error response
@@ -385,13 +401,12 @@ class Instrument(Generic[ConfigType]):
                 code_str, msg_part = error_response.split(',', 1)
                 code = int(code_str)
                 message = msg_part.strip().strip('"')
-            except (ValueError, IndexError):
-                # If we can't parse, assume it's an error
+            except (ValueError, IndexError) as e:
                 raise InstrumentCommunicationError(
                     instrument=self.config.model,
                     command=":SYSTem:ERRor?",
                     message=f"Could not parse error response: '{error_response}'",
-                )
+                ) from e
 
             # Check if there's an actual error (non-zero code)
             if code != 0:
@@ -422,7 +437,7 @@ class Instrument(Generic[ConfigType]):
         try:
             model_name_for_logger = self.config.model if hasattr(self.config, 'model') else self.__class__.__name__
             self._logger.info(f"Instrument '{model_name_for_logger}': Closing connection.")
-            self._backend.close() # Changed to use close
+            self._backend.close()  # Changed to use close
             self._logger.info(f"Instrument '{model_name_for_logger}': Connection closed.")
         except Exception as e:
             model_name_for_logger = self.config.model if hasattr(self.config, 'model') else self.__class__.__name__
@@ -447,12 +462,12 @@ class Instrument(Generic[ConfigType]):
         try:
              result_str = self._query("*TST?")
              code = int(result_str.strip())
-        except ValueError:
+        except ValueError as e:
             raise InstrumentCommunicationError(
                 instrument=self.config.model,
                 command="*TST?",
                 message=f"Unexpected non-integer response: '{result_str}'",
-            )
+            ) from e
         except InstrumentCommunicationError as e:
             raise InstrumentCommunicationError(
                 instrument=self.config.model,
@@ -506,16 +521,16 @@ class Instrument(Generic[ConfigType]):
         self._send_command("*CLS", skip_check=True)
         self._logger.debug("Status registers and error queue cleared (*CLS).")
 
-    def get_all_errors(self) -> TypingList[Tuple[int, str]]:
+    def get_all_errors(self) -> list[tuple[int, str]]:
         """
         Reads and clears all errors currently present in the instrument's error queue.
         """
-        errors: TypingList[Tuple[int, str]] = []
+        errors: list[tuple[int, str]] = []
         for i in range(self.MAX_ERRORS_TO_READ):
             try:
                 code, message = self.get_error()
             except InstrumentCommunicationError as e:
-                self._logger.debug(f"Communication error while reading error queue (iteration {i+1}): {e}")
+                self._logger.debug(f"Communication error while reading error queue (iteration {i + 1}): {e}")
                 if errors:
                      self._logger.debug(f"Returning errors read before communication failure: {errors}")
                 return errors
@@ -536,7 +551,7 @@ class Instrument(Generic[ConfigType]):
              self._logger.debug(f"Retrieved {len(errors)} error(s) from queue: {errors}")
         return errors
 
-    def get_error(self) -> Tuple[int, str]:
+    def get_error(self) -> tuple[int, str]:
         """
         Reads and clears the oldest error from the instrument's error queue.
         """
@@ -557,7 +572,7 @@ class Instrument(Generic[ConfigType]):
              self._logger.debug(f"Instrument Error Query: Code={code}, Message='{message}'")
         return code, message
 
-    def wait_for_operation_complete(self, query_instrument: bool = True, timeout: float = 10.0) -> Optional[str]:
+    def wait_for_operation_complete(self, query_instrument: bool = True, timeout: float = 10.0) -> str | None:
         """
         Waits for the instrument to finish all pending overlapping commands.
         The 'timeout' parameter's effect depends on the backend's query timeout settings.
@@ -573,7 +588,7 @@ class Instrument(Generic[ConfigType]):
             try:
                 # The timeout parameter of this method is not directly passed to _query here.
                 # _query's delay parameter is for a different purpose.
-                response = self._query("*OPC?") # This now uses self._backend.query
+                response = self._query("*OPC?")  # This now uses self._backend.query
                 self._logger.debug("Operation complete query (*OPC?) returned.")
                 if response.strip() != "1":
                     self._logger.debug(f"Warning: *OPC? returned '{response}' instead of expected '1'.")
@@ -587,7 +602,7 @@ class Instrument(Generic[ConfigType]):
                 ) from e
             # 'finally' block for restoring timeout removed.
         else:
-            self._send_command("*OPC") # This now uses self._backend.write
+            self._send_command("*OPC")  # This now uses self._backend.write
             self._logger.debug("Operation complete command (*OPC) sent (non-blocking). Status polling required.")
             return None
 
@@ -624,7 +639,7 @@ class Instrument(Generic[ConfigType]):
                  report.status = HealthStatus.OK
             elif report.warnings and not report.errors:
                  report.status = HealthStatus.WARNING
-            else: # if errors are present
+            else:  # if errors are present
                  report.status = HealthStatus.ERROR
 
         except Exception as e:

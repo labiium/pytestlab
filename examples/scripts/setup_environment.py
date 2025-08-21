@@ -4,8 +4,9 @@ Setup environment script for bench automation.
 This script is called as a pre-experiment hook.
 """
 
-import os
 import datetime
+import os
+
 
 def main():
     print("🔧 Setting up experiment environment...")
@@ -20,6 +21,7 @@ def main():
         f.write(f"{timestamp}: Experiment environment setup complete\n")
     
     print("✅ Environment setup complete")
+
 
 if __name__ == "__main__":
     main()
