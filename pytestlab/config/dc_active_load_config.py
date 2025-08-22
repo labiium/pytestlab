@@ -109,7 +109,7 @@ class DCActiveLoadConfig(InstrumentConfig):
 
     model_config = ConfigDict(validate_assignment=True, extra="forbid")
 
-    device_type: Literal["bench_dc_electronic_load", "dc_active_load"]  # type: ignore[assignment]
+    device_type: Literal["bench_dc_electronic_load", "dc_active_load"]
     general_specifications: dict[str, Any]
     features: list[dict[str, Any]]
     operating_modes: OperatingModesSpec

@@ -366,7 +366,10 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
             return row[0]
 
         cursor = conn.execute("INSERT INTO instruments (name) VALUES (?)", (instrument_name,))
-        return cursor.lastrowid
+        rowid = cursor.lastrowid
+        if rowid is None:
+            raise RuntimeError("Failed to obtain lastrowid after INSERT")
+        return int(rowid)
 
     # Experiment operations
     def store_experiment(

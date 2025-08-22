@@ -27,7 +27,7 @@ import polars as pl
 
 # Optional backend import -----------------------------------------------------
 try:
-    import matplotlib.pyplot as _plt  # type: ignore
+    import matplotlib.pyplot as _plt
 except Exception:  # pragma: no cover
     _plt = None  # Will trigger graceful failure in _require_backend()
 
@@ -222,10 +222,10 @@ def plot_ndarray(
         raise ValueError("plot_ndarray only supports 1D arrays in Phase 1.")
 
     if sampling_rate and sampling_rate > 0:
-        x = np.arange(a.size) / sampling_rate
+        x = np.arange(a.size, dtype=float) / float(sampling_rate)
         x_label = "Time (s)"
     else:
-        x = np.arange(a.size)
+        x = np.arange(a.size, dtype=float)
         x_label = "Index"
 
     fig, ax = plt.subplots()
