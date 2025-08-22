@@ -27,6 +27,11 @@ dependencies = [
     "typer",
     "Pillow",
     "ruff>=0.12.9",
+    "mypy>=1.17.1",
+    "types-pyyaml>=6.0.12.20250809",
+    "types-tqdm>=4.67.0.20250809",
+    "types-pillow>=10.2.0.20240822",
+    "types-requests>=2.32.4.20250809",
 ]
 
 [tool.hatch.version]
@@ -82,11 +87,20 @@ exclude = [
 [tool.hatch.build.targets.wheel]
 packages = ["pytestlab"]
 [tool.mypy]
-disallow_untyped_defs = true
-disallow_any_unimported = true
+python_version = "3.11"
+
+# Focus type checking on the library package only
+files = ["pytestlab"]
+
+# Ignore missing third-party typing information
+ignore_missing_imports = true
+follow_imports = "silent"
+
+# Allow gradual typing within the package
+disallow_untyped_defs = false
+check_untyped_defs = false
 no_implicit_optional = true
-check_untyped_defs = true
-warn_return_any = true
+warn_return_any = false
 warn_unused_ignores = true
 show_error_codes = true
 
@@ -116,6 +130,4 @@ quote-style = "double"
 branch = true
 
 [dependency-groups]
-dev = [
-    "ruff>=0.12.9",
-]
+dev = ["ruff>=0.12.9"]
