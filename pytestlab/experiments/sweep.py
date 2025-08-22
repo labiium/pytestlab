@@ -64,7 +64,7 @@ class ParameterSpace:
         self.ranges = ranges
         self.names = names or []
         self.constraint = constraint
-        self._session = None
+        self._session: MeasurementSession | None = None
 
         # Validate ranges and names
         if isinstance(ranges, list) and names and len(ranges) != len(names):
@@ -99,10 +99,14 @@ class ParameterSpace:
         for name, param in session._parameters.items():
             param_names.append(name)
             values = param.values
-
-            # Calculate range from values
-            min_val = min(values)
-            max_val = max(values)
+            # Calculate numeric range from values; ignore non-numeric entries
+            numeric_values = [float(v) for v in values if isinstance(v, int | float)]
+            if numeric_values:
+                min_val = min(numeric_values)
+                max_val = max(numeric_values)
+            else:
+                min_val = 0.0
+                max_val = 0.0
             param_ranges.append((min_val, max_val))
 
         space.names = param_names
@@ -110,7 +114,9 @@ class ParameterSpace:
 
         return space
 
-    def get_parameters(self) -> tuple[list[str], list[tuple[float, float]]] | tuple[list[str], str]:
+    def get_parameters(
+        self,
+    ) -> tuple[list[str], list[tuple[float, float]] | str | dict[str, tuple[float, float]]]:
         """
         Get parameter information.
 
@@ -358,7 +364,7 @@ def _gwass_impl(
         grad_magnitude_np = np.abs(gradients_list)  # gradients_list is already an ndarray here
     else:
         # Ensure gradients_list is treated as a list of ndarrays for sum
-        grad_magnitude_np = np.sqrt(sum([g**2 for g in gradients_list]))  # type: ignore
+        grad_magnitude_np = np.sqrt(sum([g**2 for g in gradients_list]))
 
     cell_shape_list: list[int] = [s - 1 for s in shape_list]  # Renamed
     if any(

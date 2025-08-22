@@ -8,6 +8,8 @@ import sys
 import types  # For creating a simple namespace for the replay bench
 from pathlib import Path
 from typing import Annotated
+from typing import Any
+from typing import cast
 
 import rich  # For pretty printing
 import typer
@@ -29,6 +31,7 @@ from pytestlab.instruments import AutoInstrument
 from pytestlab.instruments.backends.recording_backend import RecordingBackend
 from pytestlab.instruments.backends.replay_backend import ReplayBackend
 from pytestlab.instruments.backends.session_recording_backend import SessionRecordingBackend
+from pytestlab.instruments.instrument import InstrumentIO
 
 
 def version_callback(value: bool):
@@ -229,7 +232,7 @@ def sim_profile_record(
         recording_backend = RecordingBackend(
             instrument._backend, str(final_output_path), base_profile=base_profile
         )
-        instrument._backend = recording_backend  # type: ignore[attr-defined]
+        instrument._backend = cast(InstrumentIO, recording_backend)
 
         rich.print("[bold green]Connection successful. Recording started.[/bold green]")
 
@@ -659,7 +662,7 @@ def replay_record(
         rich.print("\n[bold]Wrapping instrument backends for recording:[/bold]")
         for alias, instrument in bench.instruments.items():
             profile_key = bench.config.instruments[alias].profile
-            session_log = []
+            session_log: list[dict[str, Any]] = []
             recorded_data[alias] = {"profile": profile_key, "log": session_log}
             instrument._backend = SessionRecordingBackend(instrument._backend, session_log)
             rich.print(f"  - Wrapped '{alias}'")
@@ -727,9 +730,9 @@ def replay_run(
         for alias in instrument_aliases:
             data = session_data[alias]
             profile_key = data["profile"]
-            session_log = data["log"]
+            session_log: list[dict[str, Any]] = data["log"]
 
-            replay_backend = ReplayBackend(session_log, model_name=alias)  # type: ignore[arg-type]
+            replay_backend = ReplayBackend(session_log, profile_key=alias)
 
             instrument = AutoInstrument.from_config(
                 config_source=profile_key, backend_override=replay_backend
@@ -888,7 +891,7 @@ def list_command(
 
     elif resource == "benches":
         rich.print("[bold cyan]Searching for bench configurations:[/bold cyan]")
-        bench_files = []
+        bench_files: list[Path] = []
         search_paths = [
             Path.cwd(),
             Path.cwd() / "examples",

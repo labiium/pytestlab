@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 from typing import Self
+from typing import cast
 
 from pydantic import validate_call  # Added validate_call
 from uncertainties import ufloat
@@ -128,8 +129,8 @@ class PSUChannelConfig:
             state: The state of the channel (e.g., 0, 1, "ON", "OFF").
         """
         # Allow UFloat or float for channel telemetry
-        self.voltage: float | UFloat = voltage  # type: ignore[assignment]
-        self.current: float | UFloat = current  # type: ignore[assignment]
+        self.voltage: float | UFloat = cast(float | UFloat, voltage)
+        self.current: float | UFloat = cast(float | UFloat, current)
         self.state: str  # Store state as string "ON" or "OFF" for consistency
         if isinstance(state, str):
             # Normalize state from various string inputs like "1", "0", "ON", "OFF"
@@ -168,14 +169,16 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
 
     model_config = {"arbitrary_types_allowed": True}
     config: PowerSupplyConfig
+    _voltage_limit: float | None
+    _current_limit: float | None
+    _voltage_value: float
+    _current_value: float
 
     def __init__(self, config: PowerSupplyConfig, **kwargs: Any):
         super().__init__(config=config, **kwargs)
         # Initialize SCPI engine from the config if available (reusing base if present)
         if getattr(self, "scpi_engine", None) is None:
-            self.scpi_engine = (
-                SCPIEngine(config.scpi, variant=config.scpi_variant) if config.scpi else None
-            )
+            self.scpi_engine = SCPIEngine(config.scpi or {}, variant=config.scpi_variant)
 
         # Initialize safety limit properties
         self._voltage_limit = None

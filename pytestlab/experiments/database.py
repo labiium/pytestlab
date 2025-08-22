@@ -640,6 +640,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
         """
         conn = self._get_connection()
 
+        params: tuple[str, ...]
         if instrument:
             query = """
                 SELECT m.codename

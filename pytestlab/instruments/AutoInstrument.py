@@ -85,7 +85,7 @@ class AutoInstrument:
         """
         instrument_class = cls._instrument_mapping.get(instrument_type.lower())
         if instrument_class:
-            return instrument_class(*args, **kwargs)  # type: ignore
+            return instrument_class(*args, **kwargs)
         else:
             raise InstrumentConfigurationError(
                 instrument_type, f"Unknown instrument type: {instrument_type}"
@@ -308,6 +308,7 @@ class AutoInstrument:
 
         # Step 1: Add the backend_override check at the beginning
         backend_instance: InstrumentIO
+        config_model: PydanticInstrumentConfig
 
         if backend_override:
             backend_instance = backend_override
@@ -329,7 +330,6 @@ class AutoInstrument:
                 config_model = load_profile(config_source)
         else:
             # Step 1: Load configuration data from the provided source
-            config_model: PydanticInstrumentConfig
             if isinstance(config_source, PydanticInstrumentConfig):
                 config_model = config_source
                 config_data = config_model.model_dump(mode="python")
@@ -408,7 +408,7 @@ class AutoInstrument:
 
             # Override the serial number in the config if one is provided as an argument
             if serial_number is not None and hasattr(config_model, "serial_number"):
-                config_model.serial_number = serial_number  # type: ignore
+                config_model.serial_number = serial_number
 
             # Step 2: Determine the final simulation mode based on a clear priority
             final_simulation_mode: bool
@@ -459,10 +459,9 @@ class AutoInstrument:
                 # Assuming 'communication.timeout_ms' or 'communication_timeout_ms' might exist
                 # Prefer 'communication_timeout_ms' as per previous logic if 'communication' object isn't standard
                 timeout_from_config = getattr(config_model, "communication_timeout_ms", None)
-                if hasattr(config_model, "communication") and hasattr(
-                    config_model.communication, "timeout_ms"
-                ):  # type: ignore
-                    timeout_from_config = config_model.communication.timeout_ms  # type: ignore
+                comm = getattr(config_model, "communication", None)
+                if comm is not None:
+                    timeout_from_config = getattr(comm, "timeout_ms", timeout_from_config)
 
                 if isinstance(timeout_from_config, int) and timeout_from_config > 0:
                     actual_timeout = timeout_from_config

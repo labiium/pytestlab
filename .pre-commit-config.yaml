@@ -16,7 +16,11 @@ repos:
     rev: v1.10.1
     hooks:
       - id: mypy
-        stages: [push]
-        exclude: ^examples_ci/
-        # additional_dependencies: [...] # Add if mypy needs specific plugins not in main deps
-        # e.g., additional_dependencies: [numpy-stubs, pydantic] if not in main deps for mypy
+        stages: [pre-push]
+        pass_filenames: false
+        exclude: ^(examples_ci/|tests/)
+        additional_dependencies:
+          - types-PyYAML
+          - types-requests
+          - types-Pillow
+          - types-tqdm

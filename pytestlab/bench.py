@@ -12,9 +12,9 @@ from .config.bench_config import InstrumentEntry
 from .config.bench_loader import build_validation_context
 from .config.bench_loader import load_bench_yaml
 from .config.bench_loader import run_custom_validations
+from .experiments import Experiment
 from .experiments.database import MeasurementDatabase
-from .experiments.experiments import Experiment
-from .instruments import AutoInstrument
+from .instruments.AutoInstrument import AutoInstrument
 from .instruments.instrument import Instrument
 
 # Configure logging

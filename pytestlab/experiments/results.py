@@ -4,6 +4,7 @@ import time
 from collections.abc import Iterator
 from typing import TYPE_CHECKING
 from typing import Any
+from typing import cast
 from typing import overload
 
 import numpy as np
@@ -67,7 +68,9 @@ class MeasurementResult:  # noqa: D101
         if isinstance(values, float) and not isinstance(values, np.floating):
             # Normalize plain Python float to numpy float64 for internal consistency
             values = np.float64(values)
-        self.values: np.ndarray | pl.DataFrame | np.float64 | list[Any] | UFloat = values  # type: ignore[assignment]
+        self.values: np.ndarray | pl.DataFrame | np.float64 | list[Any] | UFloat = cast(
+            np.ndarray | pl.DataFrame | np.float64 | list[Any] | UFloat, values
+        )
         self.units: str = units
         self.instrument: str = instrument
         self.measurement_type: str = measurement_type
@@ -227,7 +230,11 @@ class MeasurementResult:  # noqa: D101
             return np.array([x.nominal_value for x in self.values.flat]).reshape(self.values.shape)
         # Handle Polars DataFrame with UFloat columns (see Polars serialization)
         # For now, assume if it's a DataFrame, it might already be split or handled by Polars part
-        return self.values  # type: ignore
+        if isinstance(self.values, pl.DataFrame | np.ndarray):
+            return self.values
+        if isinstance(self.values, np.float64):
+            return float(self.values)
+        raise TypeError(f"Unsupported type for nominal: {type(self.values)}")
 
     @property
     def sigma(
@@ -254,11 +261,11 @@ class MeasurementResult:  # noqa: D101
             self.values.append(value)
         elif isinstance(self.values, np.float64):
             # Convert to list or ndarray if adding to a single float
-            self.values = np.array([self.values, value])  # type: ignore
+            self.values = np.array([self.values, value])
             print("Warning: Added value to np.float64, converted 'values' to np.ndarray.")
         elif isinstance(self.values, UFloat):
             # If current value is UFloat, adding another value implies creating a list/array of UFloats
-            self.values = [self.values, value]  # type: ignore
+            self.values = [self.values, value]
             print(
                 "Warning: Added value to UFloat, converted 'values' to a list. Consider using a list of UFloats initially."
             )
@@ -277,7 +284,7 @@ class MeasurementResult:  # noqa: D101
         """Sets the MeasurementValues in the collection."""
         if isinstance(values, float) and not isinstance(values, np.floating):
             values = np.float64(values)
-        self.values = values  # type: ignore[assignment]
+        self.values = cast(np.ndarray | pl.DataFrame | np.float64 | list[Any] | UFloat, values)
 
     def get(self, index: int) -> Any:
         """Gets the MeasurementValue at a specified index. Assumes indexable values."""
@@ -336,7 +343,8 @@ class MeasurementResult:  # noqa: D101
             return np.array([self.values.nominal_value, self.values.std_dev])
         elif isinstance(self.values, list):
             if self.values and isinstance(self.values[0], UFloat):
-                return np.array([[x.nominal_value, x.std_dev] for x in self.values])  # type: ignore
+                vals = cast(list[UFloat], self.values)
+                return np.array([[x.nominal_value, x.std_dev] for x in vals])
             return np.array(self.values)
         elif isinstance(self.values, np.float64):
             return np.array(self.values)

@@ -6,6 +6,7 @@ from io import BytesIO
 from typing import TYPE_CHECKING
 from typing import Any
 from typing import Self
+from typing import cast
 
 import numpy as np
 import polars as pl
@@ -116,7 +117,7 @@ class ChannelReadingResult(MeasurementResult):
             sampling_rate=getattr(self, "sampling_rate", None),
         )
 
-    def __getitem__(self, key):  # type: ignore[override]
+    def __getitem__(self, key):
         # Integer channel indexing: results[1] → CH1 + time
         if isinstance(key, int):
             return self.for_channel(key)
@@ -1044,13 +1045,27 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         if not channels:
             raise InstrumentParameterError(message="No channels specified.")
 
-        if isinstance(channels[0], list | tuple) and len(channels) == 1:
-            processed_channels = list(channels[0])
+        processed_channels: list[int] = []
+        if len(channels) == 1 and isinstance(channels[0], list | tuple):
+            seq = cast(tuple[int, ...] | list[int], channels[0])
+            for c in seq:
+                if not isinstance(c, int):
+                    raise InstrumentParameterError(message="Channel numbers must be integers.")
+                processed_channels.append(c)
         else:
-            processed_channels = list(channels)
-
-        if not all(isinstance(ch, int) for ch in processed_channels):
-            raise InstrumentParameterError(message="Channel numbers must be integers.")
+            for item in channels:
+                if isinstance(item, list | tuple):
+                    seq2 = cast(tuple[int, ...] | list[int], item)
+                    for x in seq2:
+                        if not isinstance(x, int):
+                            raise InstrumentParameterError(
+                                message="Channel numbers must be integers."
+                            )
+                        processed_channels.append(x)
+                else:
+                    if not isinstance(item, int):
+                        raise InstrumentParameterError(message="Channel numbers must be integers.")
+                    processed_channels.append(item)
 
         for ch in processed_channels:
             if not (1 <= ch <= len(self.config.channels)):
@@ -1733,7 +1748,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         # 1. Acquire raw time-domain waveform data
         waveform_data: ChannelReadingResult = self.read_channels(channel)
 
-        if waveform_data.values is None or waveform_data.values.is_empty():
+        if not isinstance(waveform_data.values, pl.DataFrame) or waveform_data.values.is_empty():
             self._logger.warning(
                 f"No waveform data acquired for channel {channel}. Cannot compute FFT."
             )

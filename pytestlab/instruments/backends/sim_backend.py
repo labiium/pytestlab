@@ -38,6 +38,7 @@ import re
 import statistics
 import time
 from collections.abc import Callable
+from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
 from re import Pattern
@@ -90,16 +91,21 @@ class dotdict(dict):
     *Never* expose this outside the sandbox.
     """
 
-    __getattr__ = dict.__getitem__
-    __setattr__ = dict.__setitem__
-    __delattr__ = dict.__delitem__
+    def __getattr__(self, name: str) -> Any:
+        return self[name]
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        self[name] = value
+
+    def __delattr__(self, name: str) -> None:
+        del self[name]
 
 
 ###############################################################################
 # Sandbox support – very conservative!
 ###############################################################################
 
-_ALLOWED_GLOBALS: dict[str, Any] = MappingProxyType(
+_ALLOWED_GLOBALS: Mapping[str, Any] = MappingProxyType(
     {
         # mathematics
         "math": math,
@@ -129,7 +135,11 @@ _ALLOWED_GLOBALS: dict[str, Any] = MappingProxyType(
 
 
 def safe_eval(
-    expr: str, /, state: dotdict, groups: tuple[str, ...] = (), initial_state: dict[str, Any] = None
+    expr: str,
+    /,
+    state: dotdict,
+    groups: tuple[str, ...] = (),
+    initial_state: dict[str, Any] | None = None,
 ) -> Any:
     """
     Evaluate *expr* inside a hardened namespace.
@@ -284,8 +294,12 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
         if delay:
             time.sleep(delay)
         response = self._handle_command(cmd, expect_response=True)
-        logger.debug("%s QUERY ‹%s› → %s", self.model, cmd.strip(), response)
-        return response
+        if isinstance(response, bytes):
+            resp_str = response.decode("utf-8", errors="ignore")
+        else:
+            resp_str = response
+        logger.debug("%s QUERY ‹%s› → %s", self.model, cmd.strip(), resp_str)
+        return resp_str
 
     def query_raw(self, cmd: str, delay: float | None = None) -> bytes:
         resp = self.query(cmd, delay)
@@ -422,7 +436,7 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
         * **dict** — keys ``set``, ``get``, ``delay`` etc.
         * **list** — list of string commands to execute sequentially.
         """
-        response = ""
+        response: Any = ""
         # list form - execute each command sequentially
         if isinstance(entry, list):
             for cmd in entry:
@@ -431,24 +445,27 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
                     parts = cmd.split("=", 1)
                     if len(parts) == 2:
                         key = parts[0].strip()[4:]  # Remove "set." prefix
-                        value = parts[1].strip()
+                        raw_value = parts[1].strip()
+                        parsed_value: Any = raw_value
                         # Parse value - remove quotes and convert types
-                        if value.startswith(("'", '"')) and value.endswith(("'", '"')):
-                            value = value[1:-1]  # Remove quotes
-                        elif value in ("True", "False"):
-                            value = value == "True"
-                        elif value.isdigit() or (value.startswith("-") and value[1:].isdigit()):
-                            value = int(value)
-                        elif "." in value:
+                        if raw_value.startswith(("'", '"')) and raw_value.endswith(("'", '"')):
+                            parsed_value = raw_value[1:-1]  # Remove quotes
+                        elif raw_value in ("True", "False"):
+                            parsed_value = raw_value == "True"
+                        elif raw_value.isdigit() or (
+                            raw_value.startswith("-") and raw_value[1:].isdigit()
+                        ):
+                            parsed_value = int(raw_value)
+                        elif "." in raw_value:
                             try:
-                                value = float(value)
+                                parsed_value = float(raw_value)
                             except ValueError:
                                 pass
 
                         if "." in key:
-                            self._set_nested_state_value(key, value)
+                            self._set_nested_state_value(key, parsed_value)
                         else:
-                            self._state[key] = value
+                            self._state[key] = parsed_value
         # mapping form
         elif isinstance(entry, dict):
             # delay first – simulate instrument busy
@@ -519,6 +536,12 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
         # post: evaluate error rules
         self._evaluate_error_rules(orig_cmd, groups)
 
+        # Ensure textual response for query path
+        if isinstance(response, bytes):
+            try:
+                response = response.decode()
+            except Exception:
+                response = response.decode("utf-8", errors="ignore")
         return response
 
     # ................ substitution ..................... #

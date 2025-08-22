@@ -36,7 +36,7 @@ class VisaBackend:  # Intentionally not inheriting from InstrumentIO at runtime 
         try:
             # Type ignore for open_resource as pyvisa's stubs might not be perfectly aligned
             # with all resource types, but MessageBasedResource is common.
-            resource = self.rm.open_resource(self.address)  # type: ignore
+            resource = self.rm.open_resource(self.address)
             if not isinstance(resource, pyvisa.resources.MessageBasedResource):
                 raise InstrumentConnectionError(
                     f"Resource at {self.address} is not a MessageBasedResource. Type: {type(resource).__name__}"

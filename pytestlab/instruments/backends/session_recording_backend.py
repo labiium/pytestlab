@@ -24,6 +24,9 @@ class SessionRecordingBackend(InstrumentIO):
         profile_key: str | None = None,
     ):
         self.original_backend = original_backend
+        # Predefine attributes for consistent typing
+        self._command_log: list[dict[str, Any]] = []
+        self.output_file: str | None = None
 
         # Handle both file output and direct log recording
         if isinstance(output_file_or_log, list):
@@ -31,13 +34,13 @@ class SessionRecordingBackend(InstrumentIO):
             self.output_file = None
         else:
             self.output_file = output_file_or_log
-            self._command_log: list[dict[str, Any]] = []
+            self._command_log = []
 
         self.profile_key = profile_key
         self.start_time = time.monotonic()
 
     @property
-    def backend(self):
+    def backend(self) -> InstrumentIO:
         """Alias for original_backend for compatibility."""
         return self.original_backend
 
@@ -95,7 +98,7 @@ class SessionRecordingBackend(InstrumentIO):
         session_data = {instrument_key: {"profile": profile_key, "log": self._command_log}}
 
         # Load existing session data if file exists
-        existing_data = {}
+        existing_data: dict[str, Any] = {}
         if os.path.exists(self.output_file):
             try:
                 with open(self.output_file) as f:

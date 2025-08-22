@@ -24,24 +24,25 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from typing import Any
 from typing import Literal
+from typing import TypeAlias
 
 import numpy as np
 import polars as pl
 from tqdm.auto import tqdm
 
-from ..bench import Bench
 from ..experiments import Experiment
-from ..instruments import AutoInstrument
 
 __all__ = ["MeasurementSession", "Measurement"]
 
 if TYPE_CHECKING:
+    from ..bench import Bench
     from ..plotting import PlotSpec
 
-T_Value = float | int | str | np.ndarray | Sequence[Any]
-T_ParamIterable = Iterable[T_Value] | Callable[[], Iterable[T_Value]]
-T_MeasFunc = Callable[..., Mapping[str, Any]]
-T_TaskFunc = Callable[..., None]
+
+T_Value: TypeAlias = float | int | str | np.ndarray | Sequence[Any]
+T_ParamIterable: TypeAlias = Iterable[T_Value] | Callable[[], Iterable[T_Value]]
+T_MeasFunc: TypeAlias = Callable[..., Mapping[str, Any]]
+T_TaskFunc: TypeAlias = Callable[..., None]
 
 
 @dataclass
@@ -133,7 +134,9 @@ class MeasurementSession(contextlib.AbstractContextManager):
                 f"Instrument '{alias}' not found on the bench. "
                 "When using a bench, all instruments must be defined in the bench configuration."
             )
-        inst = AutoInstrument.from_config(config_key, **kw)
+        from ..instruments import AutoInstrument as _AutoInstrument
+
+        inst = _AutoInstrument.from_config(config_key, **kw)
         self._instruments[alias] = _InstrumentRecord(alias, config_key, inst)
         return inst
 
