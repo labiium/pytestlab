@@ -114,3 +114,8 @@ quote-style = "double"
 
 [tool.coverage.run]
 branch = true
+
+[dependency-groups]
+dev = [
+    "ruff>=0.12.9",
+]

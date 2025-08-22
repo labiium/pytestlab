@@ -128,13 +128,13 @@ pytestlab sim-profile diff keysight/EDU36311A
 
 ## Other Useful Commands
 
-- `pytestlab --version`  
+- `pytestlab --version`
   Print the installed version of PyTestLab.
 
-- `pytestlab profile list`  
+- `pytestlab profile list`
   List all available instrument profiles.
 
-- `pytestlab bench validate`  
+- `pytestlab bench validate`
   Validate your bench configuration before running experiments.
 
 ---

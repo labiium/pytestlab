@@ -4,9 +4,11 @@ from .instrument import Instrument
 
 # Placeholder for S-parameter data
 class SParameterData:
-    def __init__(self, frequencies: list[float], s_params: list[list[complex]], param_names: list[str]):
+    def __init__(
+        self, frequencies: list[float], s_params: list[list[complex]], param_names: list[str]
+    ):
         self.frequencies = frequencies  # List of frequencies
-        self.s_params = s_params       # List of lists, each inner list contains complex S-param values for a given S-parameter type
+        self.s_params = s_params  # List of lists, each inner list contains complex S-param values for a given S-parameter type
         self.param_names = param_names  # List of S-parameter names, e.g., ["S11", "S21"]
 
 
@@ -14,13 +16,13 @@ class VectorNetworkAnalyser(Instrument[VNAConfig]):
     model_config = {"arbitrary_types_allowed": True}
 
     def configure_s_parameter_sweep(
-        self, 
+        self,
         s_params: list[str] | None = None,  # e.g. ["S11", "S21"]
-        start_freq: float | None = None, 
-        stop_freq: float | None = None, 
+        start_freq: float | None = None,
+        stop_freq: float | None = None,
         num_points: int | None = None,
         if_bandwidth: float | None = None,
-        power_level: float | None = None
+        power_level: float | None = None,
     ) -> None:
         if s_params is not None:
             # SCPI command to select S-parameters might be like: CALC:PAR:DEF "S11"
@@ -49,14 +51,19 @@ class VectorNetworkAnalyser(Instrument[VNAConfig]):
         # the S-parameter, then querying data (e.g., in Real, Imaginary or LogMag, Phase format).
         # raw_data_str = self._query(f"CALC:DATA? SDAT") # Example SCPI for S-parameter data
         # For simulation, SimBackend needs to be taught to respond.
-        self._logger.warning("get_s_parameter_data for VNA is a placeholder and returns dummy data.")
-        
+        self._logger.warning(
+            "get_s_parameter_data for VNA is a placeholder and returns dummy data."
+        )
+
         num_points = self.config.num_points or 101
         start_f = self.config.start_frequency or 1e9
         stop_f = self.config.stop_frequency or 2e9
-        
-        frequencies = [start_f + i * (stop_f - start_f) / (num_points - 1 if num_points > 1 else 1) for i in range(num_points)]
-        
+
+        frequencies = [
+            start_f + i * (stop_f - start_f) / (num_points - 1 if num_points > 1 else 1)
+            for i in range(num_points)
+        ]
+
         s_params_to_measure = self.config.s_parameters or ["S11"]
         sim_s_params_data: list[list[complex]] = []
 
@@ -65,9 +72,11 @@ class VectorNetworkAnalyser(Instrument[VNAConfig]):
             param_data = []
             for i in range(num_points):
                 # Create some varying complex numbers
-                real_part = -0.1 * i / num_points 
+                real_part = -0.1 * i / num_points
                 imag_part = -0.05 * (1 - i / num_points)
                 param_data.append(complex(real_part, imag_part))
             sim_s_params_data.append(param_data)
-            
-        return SParameterData(frequencies=frequencies, s_params=sim_s_params_data, param_names=s_params_to_measure)
+
+        return SParameterData(
+            frequencies=frequencies, s_params=sim_s_params_data, param_names=s_params_to_measure
+        )

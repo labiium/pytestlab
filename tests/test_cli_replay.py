@@ -19,21 +19,21 @@ from pytestlab.errors import ReplayMismatchError
 def sample_bench_config():
     """Sample bench configuration for testing."""
     return {
-        'psu': {
-            'profile': 'keysight/EDU36311A',
-            'address': 'USB0::0x2A8D::0x3102::CN61130056::INSTR'
+        "psu": {
+            "profile": "keysight/EDU36311A",
+            "address": "USB0::0x2A8D::0x3102::CN61130056::INSTR",
         },
-        'osc': {
-            'profile': 'keysight/DSOX1204G',
-            'address': 'USB0::0x0957::0x179B::CN63197144::INSTR'
-        }
+        "osc": {
+            "profile": "keysight/DSOX1204G",
+            "address": "USB0::0x0957::0x179B::CN63197144::INSTR",
+        },
     }
 
 
 @pytest.fixture
 def temp_bench_file(sample_bench_config):
     """Create temporary bench configuration file."""
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
         yaml.dump(sample_bench_config, f)
         bench_file = f.name
 
@@ -46,37 +46,25 @@ def temp_bench_file(sample_bench_config):
 def sample_session_data():
     """Sample session data for replay testing."""
     return {
-        'psu': {
-            'profile': 'keysight/EDU36311A',
-            'log': [
+        "psu": {
+            "profile": "keysight/EDU36311A",
+            "log": [
                 {
-                    'type': 'query',
-                    'command': '*IDN?',
-                    'response': 'Keysight Technologies,EDU36311A,CN61130056,K-01.08.03-01.00-01.08-02.00',
-                    'timestamp': 0.029
+                    "type": "query",
+                    "command": "*IDN?",
+                    "response": "Keysight Technologies,EDU36311A,CN61130056,K-01.08.03-01.00-01.08-02.00",
+                    "timestamp": 0.029,
                 },
+                {"type": "write", "command": "CURR 0.1, (@1)", "timestamp": 0.713},
+                {"type": "write", "command": "OUTP:STAT ON, (@1)", "timestamp": 0.761},
+                {"type": "write", "command": "VOLT 1.0, (@1)", "timestamp": 0.810},
                 {
-                    'type': 'write',
-                    'command': 'CURR 0.1, (@1)',
-                    'timestamp': 0.713
+                    "type": "query",
+                    "command": "MEAS:VOLT? (@1)",
+                    "response": "+9.99749200E-01",
+                    "timestamp": 1.615,
                 },
-                {
-                    'type': 'write',
-                    'command': 'OUTP:STAT ON, (@1)',
-                    'timestamp': 0.761
-                },
-                {
-                    'type': 'write',
-                    'command': 'VOLT 1.0, (@1)',
-                    'timestamp': 0.810
-                },
-                {
-                    'type': 'query',
-                    'command': 'MEAS:VOLT? (@1)',
-                    'response': '+9.99749200E-01',
-                    'timestamp': 1.615
-                }
-            ]
+            ],
         }
     }
 
@@ -84,7 +72,7 @@ def sample_session_data():
 @pytest.fixture
 def temp_session_file(sample_session_data):
     """Create temporary session file."""
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
         yaml.dump(sample_session_data, f)
         session_file = f.name
 
@@ -124,7 +112,7 @@ if __name__ == "__main__":
     print("Use with pytestlab replay commands")
 '''
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
         f.write(script_content)
         script_file = f.name
 
@@ -135,9 +123,10 @@ if __name__ == "__main__":
 
 class TestReplayRecord:
     """Test cases for replay record command."""
+
     def test_replay_record_basic(self, temp_bench_file, simple_test_script):
         """Test basic replay record functionality."""
-        output_file = tempfile.mktemp(suffix='.yaml')
+        output_file = tempfile.mktemp(suffix=".yaml")
 
         try:
             # Mock the Bench.open to return a mock bench
@@ -147,27 +136,27 @@ class TestReplayRecord:
                     self.commands = []
 
                 def id(self):
-                    return self.responses.get('*IDN?', 'Mock Instrument')
+                    return self.responses.get("*IDN?", "Mock Instrument")
 
                 def set_current(self, channel, current):
-                    self.commands.append(f'CURR {current}, (@{channel})')
+                    self.commands.append(f"CURR {current}, (@{channel})")
 
                 def output(self, channel, state):
-                    state_str = 'ON' if state else 'OFF'
-                    self.commands.append(f'OUTP:STAT {state_str}, (@{channel})')
+                    state_str = "ON" if state else "OFF"
+                    self.commands.append(f"OUTP:STAT {state_str}, (@{channel})")
 
                 def set_voltage(self, channel, voltage):
-                    self.commands.append(f'VOLT {voltage}, (@{channel})')
+                    self.commands.append(f"VOLT {voltage}, (@{channel})")
 
                 def read_voltage(self, channel):
                     return 0.999749
 
             class MockBench:
                 def __init__(self):
-                    self.psu = MockInstrument({'*IDN?': 'Keysight Technologies,EDU36311A,Test'})
+                    self.psu = MockInstrument({"*IDN?": "Keysight Technologies,EDU36311A,Test"})
 
             # Mock Bench.open
-            with patch('pytestlab.bench.Bench.open', return_value=MockBench()):
+            with patch("pytestlab.bench.Bench.open", return_value=MockBench()):
                 # Test that the function can be called without errors
                 # Note: Full integration testing would require actual instrument backends
                 # Here we test the command structure and argument parsing
@@ -182,21 +171,22 @@ class TestReplayRecord:
         """Test replay record command argument validation."""
         # Test missing script file
         with pytest.raises(click.exceptions.Exit):
-            replay_record('/nonexistent/script.py', '/nonexistent/bench.yaml', 'output.yaml')
+            replay_record("/nonexistent/script.py", "/nonexistent/bench.yaml", "output.yaml")
 
         # Test missing bench file
-        script_file = tempfile.mktemp(suffix='.py')
+        script_file = tempfile.mktemp(suffix=".py")
         Path(script_file).touch()
 
         try:
             with pytest.raises(click.exceptions.Exit):
-                replay_record(script_file, '/nonexistent/bench.yaml', 'output.yaml')
+                replay_record(script_file, "/nonexistent/bench.yaml", "output.yaml")
         finally:
             Path(script_file).unlink(missing_ok=True)
 
 
 class TestReplayRun:
     """Test cases for replay run command."""
+
     def test_replay_run_successful(self, simple_test_script, temp_session_file):
         """Test successful replay run."""
         # This test verifies the replay mechanism works with proper session data
@@ -222,8 +212,8 @@ if __name__ == "__main__":
     print("Use with pytestlab replay commands")
 '''
 
-        exact_script_file = tempfile.mktemp(suffix='.py')
-        with open(exact_script_file, 'w') as f:
+        exact_script_file = tempfile.mktemp(suffix=".py")
+        with open(exact_script_file, "w") as f:
             f.write(exact_script_content)
 
         try:
@@ -235,24 +225,26 @@ if __name__ == "__main__":
             class MockReplayBench:
                 def __init__(self, session_file):
                     from pytestlab.instruments.backends.replay_backend import ReplayBackend
-                    psu_backend = ReplayBackend(session_file, 'psu')
+
+                    psu_backend = ReplayBackend(session_file, "psu")
                     self.psu = MockReplayInstrument(psu_backend)
 
             # Test that the ReplayBackend can be set up correctly with session data
             # This verifies the core replay functionality works
             from pytestlab.instruments.backends.replay_backend import ReplayBackend
-            backend = ReplayBackend(temp_session_file, 'psu')
+
+            backend = ReplayBackend(temp_session_file, "psu")
 
             # Verify it can replay the exact sequence from the session
-            idn = backend.query('*IDN?')
-            assert idn == 'Keysight Technologies,EDU36311A,CN61130056,K-01.08.03-01.00-01.08-02.00'
+            idn = backend.query("*IDN?")
+            assert idn == "Keysight Technologies,EDU36311A,CN61130056,K-01.08.03-01.00-01.08-02.00"
 
-            backend.write('CURR 0.1, (@1)')
-            backend.write('OUTP:STAT ON, (@1)')
-            backend.write('VOLT 1.0, (@1)')
+            backend.write("CURR 0.1, (@1)")
+            backend.write("OUTP:STAT ON, (@1)")
+            backend.write("VOLT 1.0, (@1)")
 
-            voltage = backend.query('MEAS:VOLT? (@1)')
-            assert voltage == '+9.99749200E-01'
+            voltage = backend.query("MEAS:VOLT? (@1)")
+            assert voltage == "+9.99749200E-01"
 
         finally:
             Path(exact_script_file).unlink(missing_ok=True)
@@ -276,23 +268,25 @@ def main(bench):
     return {}
 '''
 
-        mismatch_script_file = tempfile.mktemp(suffix='.py')
-        with open(mismatch_script_file, 'w') as f:
+        mismatch_script_file = tempfile.mktemp(suffix=".py")
+        with open(mismatch_script_file, "w") as f:
             f.write(mismatch_script_content)
 
         try:
             from pytestlab.instruments.backends.replay_backend import ReplayBackend
 
             # Test ReplayBackend directly to verify mismatch detection
-            backend = ReplayBackend(temp_session_file, 'psu')
+            backend = ReplayBackend(temp_session_file, "psu")
 
             # First command should succeed
-            result = backend.query('*IDN?')
-            assert result == 'Keysight Technologies,EDU36311A,CN61130056,K-01.08.03-01.00-01.08-02.00'
+            result = backend.query("*IDN?")
+            assert (
+                result == "Keysight Technologies,EDU36311A,CN61130056,K-01.08.03-01.00-01.08-02.00"
+            )
 
             # Second command should fail (mismatch)
             with pytest.raises(ReplayMismatchError) as exc_info:
-                backend.write('VOLT 2.0, (@1)')
+                backend.write("VOLT 2.0, (@1)")
 
             error = exc_info.value
             assert "Expected: type='write', cmd='CURR 0.1, (@1)'" in str(error)
@@ -303,13 +297,13 @@ def main(bench):
 
     def test_replay_run_invalid_session(self):
         """Test replay run with invalid session file."""
-        script_file = tempfile.mktemp(suffix='.py')
+        script_file = tempfile.mktemp(suffix=".py")
         Path(script_file).touch()
 
         try:
             # Test missing session file
             with pytest.raises(click.exceptions.Exit):
-                replay_run(script_file, '/nonexistent/session.yaml')
+                replay_run(script_file, "/nonexistent/session.yaml")
 
         finally:
             Path(script_file).unlink(missing_ok=True)
@@ -374,18 +368,18 @@ if __name__ == "__main__":
     print("Use with pytestlab replay commands")
 '''
 
-        script_file = tempfile.mktemp(suffix='.py')
-        session_file = tempfile.mktemp(suffix='.yaml')
+        script_file = tempfile.mktemp(suffix=".py")
+        session_file = tempfile.mktemp(suffix=".yaml")
 
         try:
-            with open(script_file, 'w') as f:
+            with open(script_file, "w") as f:
                 f.write(comprehensive_script)
 
             # Test the workflow components independently
             # (Full integration would require actual instruments)
 
             # Test 1: Verify script syntax is valid
-            compile(comprehensive_script, script_file, 'exec')
+            compile(comprehensive_script, script_file, "exec")
 
             # Test 2: Verify CLI argument structure
             from pytestlab.instruments.backends.replay_backend import ReplayBackend
@@ -406,9 +400,9 @@ if __name__ == "__main__":
         # Test various error conditions that CLI should handle gracefully
 
         # Test 1: Invalid Python script
-        invalid_script = tempfile.mktemp(suffix='.py')
-        with open(invalid_script, 'w') as f:
-            f.write('invalid python syntax <<<')
+        invalid_script = tempfile.mktemp(suffix=".py")
+        with open(invalid_script, "w") as f:
+            f.write("invalid python syntax <<<")
 
         try:
             # CLI should handle syntax errors gracefully
@@ -418,8 +412,8 @@ if __name__ == "__main__":
             Path(invalid_script).unlink(missing_ok=True)
 
         # Test 2: Script without main() function
-        no_main_script = tempfile.mktemp(suffix='.py')
-        with open(no_main_script, 'w') as f:
+        no_main_script = tempfile.mktemp(suffix=".py")
+        with open(no_main_script, "w") as f:
             f.write('print("No main function")')
 
         try:
@@ -429,9 +423,9 @@ if __name__ == "__main__":
             Path(no_main_script).unlink(missing_ok=True)
 
         # Test 3: Malformed session file
-        malformed_session = tempfile.mktemp(suffix='.yaml')
-        with open(malformed_session, 'w') as f:
-            f.write('invalid: yaml: content: [')
+        malformed_session = tempfile.mktemp(suffix=".yaml")
+        with open(malformed_session, "w") as f:
+            f.write("invalid: yaml: content: [")
 
         try:
             # CLI should handle YAML parsing errors
@@ -445,76 +439,113 @@ def test_replay_backend_with_cli_workflow():
     """Test ReplayBackend works correctly in CLI-like workflow."""
     # Create session data that simulates a full measurement workflow
     workflow_session = {
-        'psu': {
-            'profile': 'keysight/EDU36311A',
-            'log': [
+        "psu": {
+            "profile": "keysight/EDU36311A",
+            "log": [
                 # Initialization
-                {'type': 'query', 'command': '*IDN?', 'response': 'Keysight,EDU36311A,Test', 'timestamp': 0.1},
-                {'type': 'query', 'command': ':SYSTem:ERRor?', 'response': '+0,"No error"', 'timestamp': 0.15},
-
+                {
+                    "type": "query",
+                    "command": "*IDN?",
+                    "response": "Keysight,EDU36311A,Test",
+                    "timestamp": 0.1,
+                },
+                {
+                    "type": "query",
+                    "command": ":SYSTem:ERRor?",
+                    "response": '+0,"No error"',
+                    "timestamp": 0.15,
+                },
                 # Setup
-                {'type': 'write', 'command': 'CURR 0.1, (@1)', 'timestamp': 0.2},
-                {'type': 'query', 'command': ':SYSTem:ERRor?', 'response': '+0,"No error"', 'timestamp': 0.25},
-                {'type': 'write', 'command': 'OUTP:STAT ON, (@1)', 'timestamp': 0.3},
-                {'type': 'query', 'command': ':SYSTem:ERRor?', 'response': '+0,"No error"', 'timestamp': 0.35},
-
+                {"type": "write", "command": "CURR 0.1, (@1)", "timestamp": 0.2},
+                {
+                    "type": "query",
+                    "command": ":SYSTem:ERRor?",
+                    "response": '+0,"No error"',
+                    "timestamp": 0.25,
+                },
+                {"type": "write", "command": "OUTP:STAT ON, (@1)", "timestamp": 0.3},
+                {
+                    "type": "query",
+                    "command": ":SYSTem:ERRor?",
+                    "response": '+0,"No error"',
+                    "timestamp": 0.35,
+                },
                 # Measurement sequence
-                {'type': 'write', 'command': 'VOLT 1.0, (@1)', 'timestamp': 0.4},
-                {'type': 'query', 'command': 'MEAS:VOLT? (@1)', 'response': '+1.00123000E+00', 'timestamp': 0.5},
-                {'type': 'query', 'command': 'MEAS:CURR? (@1)', 'response': '+5.12300000E-02', 'timestamp': 0.6},
-
-                {'type': 'write', 'command': 'VOLT 2.0, (@1)', 'timestamp': 0.7},
-                {'type': 'query', 'command': 'MEAS:VOLT? (@1)', 'response': '+2.00045600E+00', 'timestamp': 0.8},
-                {'type': 'query', 'command': 'MEAS:CURR? (@1)', 'response': '+1.02340000E-01', 'timestamp': 0.9},
-
+                {"type": "write", "command": "VOLT 1.0, (@1)", "timestamp": 0.4},
+                {
+                    "type": "query",
+                    "command": "MEAS:VOLT? (@1)",
+                    "response": "+1.00123000E+00",
+                    "timestamp": 0.5,
+                },
+                {
+                    "type": "query",
+                    "command": "MEAS:CURR? (@1)",
+                    "response": "+5.12300000E-02",
+                    "timestamp": 0.6,
+                },
+                {"type": "write", "command": "VOLT 2.0, (@1)", "timestamp": 0.7},
+                {
+                    "type": "query",
+                    "command": "MEAS:VOLT? (@1)",
+                    "response": "+2.00045600E+00",
+                    "timestamp": 0.8,
+                },
+                {
+                    "type": "query",
+                    "command": "MEAS:CURR? (@1)",
+                    "response": "+1.02340000E-01",
+                    "timestamp": 0.9,
+                },
                 # Cleanup
-                {'type': 'write', 'command': 'OUTP:STAT OFF, (@1)', 'timestamp': 1.0},
-                {'type': 'write', 'command': 'VOLT 0.0, (@1)', 'timestamp': 1.1},
-            ]
+                {"type": "write", "command": "OUTP:STAT OFF, (@1)", "timestamp": 1.0},
+                {"type": "write", "command": "VOLT 0.0, (@1)", "timestamp": 1.1},
+            ],
         }
     }
 
     # Create temporary session file
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
         yaml.dump(workflow_session, f)
         session_file = f.name
 
     try:
         from pytestlab.instruments.backends.replay_backend import ReplayBackend
-        backend = ReplayBackend(session_file, 'psu')
+
+        backend = ReplayBackend(session_file, "psu")
 
         # Simulate the exact workflow from the session
         # Initialization
-        idn = backend.query('*IDN?')
-        assert idn == 'Keysight,EDU36311A,Test'
+        idn = backend.query("*IDN?")
+        assert idn == "Keysight,EDU36311A,Test"
 
-        error = backend.query(':SYSTem:ERRor?')
+        error = backend.query(":SYSTem:ERRor?")
         assert error == '+0,"No error"'
 
         # Setup
-        backend.write('CURR 0.1, (@1)')
-        backend.query(':SYSTem:ERRor?')
-        backend.write('OUTP:STAT ON, (@1)')
-        backend.query(':SYSTem:ERRor?')
+        backend.write("CURR 0.1, (@1)")
+        backend.query(":SYSTem:ERRor?")
+        backend.write("OUTP:STAT ON, (@1)")
+        backend.query(":SYSTem:ERRor?")
 
         # Measurement sequence
-        backend.write('VOLT 1.0, (@1)')
-        v1 = backend.query('MEAS:VOLT? (@1)')
-        i1 = backend.query('MEAS:CURR? (@1)')
+        backend.write("VOLT 1.0, (@1)")
+        v1 = backend.query("MEAS:VOLT? (@1)")
+        i1 = backend.query("MEAS:CURR? (@1)")
 
-        assert v1 == '+1.00123000E+00'
-        assert i1 == '+5.12300000E-02'
+        assert v1 == "+1.00123000E+00"
+        assert i1 == "+5.12300000E-02"
 
-        backend.write('VOLT 2.0, (@1)')
-        v2 = backend.query('MEAS:VOLT? (@1)')
-        i2 = backend.query('MEAS:CURR? (@1)')
+        backend.write("VOLT 2.0, (@1)")
+        v2 = backend.query("MEAS:VOLT? (@1)")
+        i2 = backend.query("MEAS:CURR? (@1)")
 
-        assert v2 == '+2.00045600E+00'
-        assert i2 == '+1.02340000E-01'
+        assert v2 == "+2.00045600E+00"
+        assert i2 == "+1.02340000E-01"
 
         # Cleanup
-        backend.write('OUTP:STAT OFF, (@1)')
-        backend.write('VOLT 0.0, (@1)')
+        backend.write("OUTP:STAT OFF, (@1)")
+        backend.write("VOLT 0.0, (@1)")
 
         # Verify all commands consumed
         assert backend._step == len(backend._log)

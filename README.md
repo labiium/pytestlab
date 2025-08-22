@@ -374,22 +374,22 @@ with MeasurementSession("Voltage Response Test") as session:
     # Define sweep parameters
     session.parameter("voltage", np.linspace(0, 5, 10), unit="V")
     session.parameter("delay", [0.1, 0.5], unit="s")
-    
+
     # Setup instruments
     psu = session.instrument("psu", "keysight/EDU36311A", simulate=True)
     dmm = session.instrument("dmm", "keysight/34470A", simulate=True)
-    
+
     # Define measurement function
     @session.acquire
     def measure_response(voltage, delay, psu, dmm):
         psu.channel(1).set_voltage(voltage).on()
         time.sleep(delay)
-        
+
         result = dmm.measure_voltage_dc()
         psu.channel(1).off()
-        
+
         return {"measured_voltage": result.values}
-    
+
     # Execute sweep
     experiment = session.run(show_progress=True)
     print(f"Collected {len(experiment.data)} measurements")
@@ -405,13 +405,13 @@ with Bench.open("lab_bench.yaml") as bench:
     with MeasurementSession(bench=bench) as session:
         # Session inherits instruments and experiment context from bench
         session.parameter("frequency", np.logspace(3, 6, 50), unit="Hz")
-        
+
         @session.acquire
         def frequency_response(frequency, psu, scope, fgen):
             fgen.channel(1).setup_sine(frequency=frequency, amplitude=1.0)
             scope.trigger.single()
             return {"amplitude": scope.measure_amplitude(1)}
-        
+
         experiment = session.run()
         # Data automatically saved to bench database
 ```
@@ -427,7 +427,7 @@ Execute background operations simultaneously with data acquisition using `@sessi
 with MeasurementSession("Power Ramp Analysis") as session:
     psu = session.instrument("psu", "keysight/E36311A", simulate=True)
     dmm = session.instrument("dmm", "keysight/34470A", simulate=True)
-    
+
     # Background task: Continuously ramp voltage
     @session.task
     def voltage_ramp(psu, stop_event):
@@ -437,19 +437,19 @@ with MeasurementSession("Power Ramp Analysis") as session:
                 if stop_event.is_set(): break
                 psu.channel(1).set_voltage(v)
                 time.sleep(0.2)
-            
-            # Ramp down 5V to 1V over 4 seconds  
+
+            # Ramp down 5V to 1V over 4 seconds
             for v in np.linspace(5.0, 1.0, 20):
                 if stop_event.is_set(): break
                 psu.channel(1).set_voltage(v)
                 time.sleep(0.2)
-    
+
     # Acquisition: Monitor voltage every 100ms
     @session.acquire
     def monitor_voltage(dmm):
         voltage = dmm.measure_voltage_dc()
         return {"measured_voltage": voltage.values}
-    
+
     # Run for 30 seconds with 100ms acquisition interval
     experiment = session.run(duration=30.0, interval=0.1)
     print(f"Captured {len(experiment.data)} voltage points during ramp")
@@ -461,7 +461,7 @@ with MeasurementSession("Complex Power Analysis") as session:
     psu = session.instrument("psu", "keysight/E36311A", simulate=True)
     load = session.instrument("load", "keysight/EL34143A", simulate=True)
     scope = session.instrument("scope", "keysight/DSOX1204G", simulate=True)
-    
+
     # Task 1: Voltage stepping
     @session.task
     def voltage_steps(psu, stop_event):
@@ -471,9 +471,9 @@ with MeasurementSession("Complex Power Analysis") as session:
                 if stop_event.is_set(): break
                 psu.channel(1).set_voltage(v)
                 time.sleep(2.0)
-    
+
     # Task 2: Load pulsing
-    @session.task  
+    @session.task
     def load_pulsing(load, stop_event):
         load.set_mode("CC")
         while not stop_event.is_set():
@@ -482,7 +482,7 @@ with MeasurementSession("Complex Power Analysis") as session:
             if stop_event.is_set(): break
             load.set_current(0.1)
             time.sleep(1.0)
-    
+
     # Task 3: Scope triggering
     @session.task
     def scope_triggering(scope, stop_event):
@@ -491,27 +491,27 @@ with MeasurementSession("Complex Power Analysis") as session:
         while not stop_event.is_set():
             scope.trigger.single()
             time.sleep(0.5)
-    
+
     # Acquisition: Monitor all parameters
     @session.acquire
     def power_monitoring(psu, scope):
         voltage = psu.channel(1).get_voltage()
         current = psu.channel(1).get_current()
         power = voltage * current
-        
+
         try:
             scope_data = scope.read_channels(1)
             scope_samples = len(scope_data)
         except:
             scope_samples = 0
-            
+
         return {
             "supply_voltage": voltage,
-            "supply_current": current, 
+            "supply_current": current,
             "power_consumption": power,
             "scope_samples": scope_samples
         }
-    
+
     # Run all tasks in parallel for 20 seconds
     experiment = session.run(duration=20.0, interval=0.3)
 ```
@@ -531,16 +531,16 @@ with MeasurementDatabase("lab_measurements") as db:
     # Store experiment
     experiment_id = db.store_experiment(None, experiment)  # Auto-generated ID
     print(f"Stored experiment: {experiment_id}")
-    
+
     # List all experiments
     experiments = db.list_experiments()
     print(f"Database contains {len(experiments)} experiments")
-    
+
     # Search experiments by description
     results = db.search_experiments("voltage sweep")
     for result in results:
         print(f"Found: {result['title']} - {result['description']}")
-    
+
     # Retrieve specific experiment
     exp = db.retrieve_experiment(experiment_id)
     print(f"Retrieved data: {len(exp.data)} measurements")
@@ -555,7 +555,7 @@ experiment:
   title: "Device Characterization"
   database_path: "station_measurements.db"
   operator: "Lab Station A"
-  
+
 instruments:
   psu:
     profile: "keysight/E36311A"
@@ -565,13 +565,13 @@ instruments:
 with Bench.open("bench.yaml") as bench:
     # Database automatically initialized from bench config
     print(f"Database: {bench.db.db_path}")
-    
+
     with MeasurementSession(bench=bench) as session:
         # ... perform measurements ...
         experiment = session.run()
         # Experiment automatically saved to bench database
-        
-    # Query database  
+
+    # Query database
     recent_experiments = bench.db.list_experiments()
     print(f"Recent experiments: {len(recent_experiments)}")
 ```
@@ -582,15 +582,15 @@ with MeasurementDatabase("advanced_lab") as db:
     # Full-text search across descriptions and notes
     power_tests = db.search_experiments("power consumption efficiency")
     thermal_tests = db.search_experiments("temperature cycling")
-    
+
     # Database statistics
     stats = db.get_stats()
     print(f"Total experiments: {stats['experiments']}")
     print(f"Total measurements: {stats['measurements']}")
-    
+
     # Cross-experiment analysis
     all_experiments = [db.retrieve_experiment(eid) for eid in db.list_experiments()]
-    
+
     # Combine data from multiple experiments
     combined_data = pl.concat([exp.data for exp in all_experiments])
     print(f"Combined dataset: {len(combined_data)} total measurements")
@@ -636,20 +636,20 @@ with open(f"{Path.home()}/.pytestlab/audit.sqlite", 'r') as audit_db:
     # Audit entries include:
     # - Actor (who performed the action)
     # - Action (what was done)
-    # - Timestamp (when it occurred)  
+    # - Timestamp (when it occurred)
     # - Envelope (cryptographic proof)
     print("All measurement operations are automatically audited")
 ```
 
-### Database Compliance Integration  
+### Database Compliance Integration
 ```python
 with MeasurementDatabase("compliant_lab") as db:
     # Store measurement with automatic envelope persistence
     measurement_id = db.store_measurement(None, signed_result)
-    
+
     # Retrieve measurement with envelope verification
     retrieved = db.retrieve_measurement(measurement_id)
-    
+
     # Envelopes are stored in separate table for integrity
     # Query: SELECT * FROM measurement_envelopes WHERE codename = ?
     print("Compliance envelopes automatically persisted")

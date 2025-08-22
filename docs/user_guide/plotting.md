@@ -78,5 +78,3 @@ ch1.plot(title="Channel 1")
 - The plotting backend is optional; if matplotlib is missing, a clear error suggests installing `pytestlab[plot]`.
 - Default x-axis detection prefers `"Time (s)"` when present.
 - For 1D arrays, `MeasurementResult.plot` uses `sampling_rate` to generate a time axis; otherwise uses index.
-
-

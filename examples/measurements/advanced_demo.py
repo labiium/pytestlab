@@ -7,6 +7,7 @@ advanced_demo.py – End-to-end showcase
 * Auto-generated experiment code on DB insert
 * Rich DataFrame with scalar + vector columns
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -52,6 +53,7 @@ with Measurement("Demo sweep", "auto-generated DB key") as m:
     def read_current(V_BIAS):
         psu.set_voltage(1, V_BIAS)
         return {"I_D": float(dmm.measure().values)}
+
 
 exp = m.run()
 

@@ -9,15 +9,9 @@ from pytestlab.instruments.backends.sim_backend import SimBackend
 def test_sim_backend_initialization():
     """Verify that a simulated instrument can be initialized without warnings."""
     # Create a minimal profile file for SimBackend
-    profile_data = {
-        'simulation': {
-            'scpi': {
-                '*IDN?': 'Test,Instrument,123,1.0'
-            }
-        }
-    }
+    profile_data = {"simulation": {"scpi": {"*IDN?": "Test,Instrument,123,1.0"}}}
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
         yaml.dump(profile_data, f)
         profile_path = f.name
 

@@ -40,7 +40,7 @@ from pytestlab.common.enums import TriggerSlope
 from pytestlab.instruments import AutoInstrument
 
 # ------------------- CONFIGURE THESE FOR YOUR LAB -------------------
-OSC_CONFIG_KEY = "keysight/DSOX1204G"                 # <-- Set your profile key or path here
+OSC_CONFIG_KEY = "keysight/DSOX1204G"  # <-- Set your profile key or path here
 # --------------------------------------------------------------------
 
 
@@ -67,9 +67,7 @@ def test_oscilloscope_full_real():
         pytest.skip(f"Oscilloscope hardware not available: {error_msg}")
 
     # Instantiate the oscilloscope (real hardware)
-    osc = AutoInstrument.from_config(
-        OSC_CONFIG_KEY
-    )
+    osc = AutoInstrument.from_config(OSC_CONFIG_KEY)
     osc.connect_backend()
 
     # --- IDN ---
@@ -145,7 +143,11 @@ def test_oscilloscope_full_real():
 
     # --- FFT ---
     if osc.config.fft:
-        osc.configure_fft(source_channel=1, window_type=osc.config.fft.window_types[0], units=osc.config.fft.units[0])
+        osc.configure_fft(
+            source_channel=1,
+            window_type=osc.config.fft.window_types[0],
+            units=osc.config.fft.units[0],
+        )
         fft_result = osc.read_fft_data(1)
         assert isinstance(fft_result.values, pl.DataFrame)
         assert "Frequency (Hz)" in fft_result.values.columns
@@ -182,14 +184,12 @@ def test_oscilloscope_facades_real():
     if not is_available:
         pytest.skip(f"Oscilloscope hardware not available: {error_msg}")
 
-    osc = AutoInstrument.from_config(
-        OSC_CONFIG_KEY
-    )
+    osc = AutoInstrument.from_config(OSC_CONFIG_KEY)
     osc.connect_backend()
 
     # Channel facade
     ch1 = osc.channel(1)
-    ch1.setup(scale=0.5, position=0.0, coupling='DC')
+    ch1.setup(scale=0.5, position=0.0, coupling="DC")
     ch1.enable()
     ch1.disable()
     ch1.enable()
@@ -222,10 +222,9 @@ def test_oscilloscope_error_cases_real():
     if not is_available:
         pytest.skip(f"Oscilloscope hardware not available: {error_msg}")
 
-    osc = AutoInstrument.from_config(
-        OSC_CONFIG_KEY
-    )
+    osc = AutoInstrument.from_config(OSC_CONFIG_KEY)
     from pytestlab.errors import InstrumentParameterError
+
     osc.connect_backend()
 
     # Invalid channel number

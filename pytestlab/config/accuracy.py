@@ -14,10 +14,15 @@ class AccuracySpec(BaseModel):
     sqrt((percent_reading * reading)^2 + (offset_value)^2)
     or other forms depending on how specs are given (e.g., % of range).
     """
-    model_config = ConfigDict(validate_assignment=True, extra='forbid')
 
-    percent_reading: float | None = Field(None, ge=0, description="Accuracy as a percentage of the reading (e.g., 0.0001 for 0.01%)")
-    offset_value: float | None = Field(None, ge=0, description="Fixed offset accuracy in units of the measurement (e.g., 0.005 V)")
+    model_config = ConfigDict(validate_assignment=True, extra="forbid")
+
+    percent_reading: float | None = Field(
+        None, ge=0, description="Accuracy as a percentage of the reading (e.g., 0.0001 for 0.01%)"
+    )
+    offset_value: float | None = Field(
+        None, ge=0, description="Fixed offset accuracy in units of the measurement (e.g., 0.005 V)"
+    )
     # Add other common ways accuracy is specified if needed, e.g., percent_range
 
     def calculate_std_dev(self, reading_value: float, range_value: float | None = None) -> float:
@@ -36,13 +41,13 @@ class AccuracySpec(BaseModel):
         if self.percent_reading is not None:
             if self.percent_reading < 0:
                 raise ValueError("percent_reading must be non-negative.")
-            variance += (self.percent_reading * reading_value)**2
-        
+            variance += (self.percent_reading * reading_value) ** 2
+
         if self.offset_value is not None:
             if self.offset_value < 0:
                 raise ValueError("offset_value must be non-negative.")
             variance += self.offset_value**2
-        
+
         # Example for percent_range if it were added:
         # percent_range: Optional[float] = Field(None, ge=0, description="Accuracy as a percentage of the range")
         # if self.percent_range is not None and range_value is not None:
@@ -53,11 +58,12 @@ class AccuracySpec(BaseModel):
         #     variance += (self.percent_range * range_value)**2
 
         if variance < 0.0:  # Should not happen with non-negative inputs and squaring
-             raise ValueError("Calculated variance is negative, check inputs and logic.")
+            raise ValueError("Calculated variance is negative, check inputs and logic.")
         if variance == 0.0:  # No spec provided, or spec results in zero uncertainty
             return 0.0  # Or raise an error, or return a very small number if appropriate
-        
+
         return math.sqrt(variance)
+
 
 # Example of how it might be structured in the main instrument config:
 # class SomeInstrumentConfig(InstrumentConfig):

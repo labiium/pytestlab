@@ -46,7 +46,7 @@ scpi:
       defaults: { channel: 1 }
       enums:
         state:
-          { on: "ON", off: "OFF", true: "ON", false: "OFF", 1: "ON", 0: "OFF" }
+          { on: "ON", off: "OFF", true: "ON", false: "OFF", "1": "ON", "0": "OFF" }
       validators:
         channel: { min: 1, max: 2 }
 

@@ -15,7 +15,7 @@ class PowerMeter(Instrument[PowerMeterConfig]):
         channel: int = 1,
         freq: float | None = None,
         averaging_count: int | None = None,
-        units: str | None = None
+        units: str | None = None,
     ) -> None:
         """Configures the settings for a specific power sensor channel.
 
@@ -44,11 +44,13 @@ class PowerMeter(Instrument[PowerMeterConfig]):
         # Set the units for the power measurement.
         if units is not None:
             # Validate that the requested units are supported by the config model.
-            if units in PowerMeterConfig.model_fields['power_units'].annotation.__args__:
+            if units in PowerMeterConfig.model_fields["power_units"].annotation.__args__:
                 self._send_command(f"UNIT:POW {units.upper()}")
                 self.config.power_units = units  # type: ignore
             else:
-                self._logger.warning(f"Invalid power units '{units}' specified. Using config default '{self.config.power_units}'.")
+                self._logger.warning(
+                    f"Invalid power units '{units}' specified. Using config default '{self.config.power_units}'."
+                )
 
         self._logger.info(f"Power meter sensor channel {channel} configured.")
 
@@ -68,7 +70,9 @@ class PowerMeter(Instrument[PowerMeterConfig]):
         # In a real implementation, you would query the instrument.
         # Example: raw_power_str = self._query(f"FETC{channel}?")
         # The SimBackend would need to be configured to provide realistic responses.
-        self._logger.warning(f"read_power for PowerMeter channel {channel} is a placeholder and returns dummy data.")
+        self._logger.warning(
+            f"read_power for PowerMeter channel {channel} is a placeholder and returns dummy data."
+        )
 
         # Simulate a power reading based on the configured units.
         sim_power = -10.0  # Default dummy power in dBm

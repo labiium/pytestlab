@@ -29,11 +29,12 @@ class Envelope(TypedDict):
         alg: The signing algorithm used (e.g., "ECDSA-P256-SHA256").
         ts: The ISO 8601 timestamp of when the signature was created.
     """
+
     sha: str
     sig: str
     pub: str
     alg: str
-    ts:  str
+    ts: str
 
 
 class Signer:
@@ -69,10 +70,14 @@ class Signer:
                 fh.read(), password=None, backend=default_backend()
             )
         # Derive and store the corresponding public key in PEM format.
-        self._pub_b = self._priv.public_key().public_bytes(
-            serialization.Encoding.PEM,
-            serialization.PublicFormat.SubjectPublicKeyInfo,
-        ).decode()
+        self._pub_b = (
+            self._priv.public_key()
+            .public_bytes(
+                serialization.Encoding.PEM,
+                serialization.PublicFormat.SubjectPublicKeyInfo,
+            )
+            .decode()
+        )
 
     # ------------------------------------------------------------------ #
     def _generate(self) -> None:
@@ -139,9 +144,7 @@ class Signer:
         if hashlib.sha256(raw).hexdigest() != env["sha"]:
             return False
         # Load the public key from the envelope.
-        pub = serialization.load_pem_public_key(
-            env["pub"].encode(), backend=default_backend()
-        )
+        pub = serialization.load_pem_public_key(env["pub"].encode(), backend=default_backend())
         try:
             # 2. Verify the cryptographic signature.
             pub.verify(

@@ -143,12 +143,12 @@ scpi:
       template: 'INPut:STATe {state}, (@{channel})'
       defaults: { channel: 1 }
       enums:
-        state: { on: 'ON', off: 'OFF', true: 'ON', false: 'OFF', 1: 'ON', 0: 'OFF' }
+        state: { on: 'ON', off: 'OFF', true: 'ON', false: 'OFF', '1': 'ON', '0': 'OFF' }
     input_short_state:
       template: 'INPut:SHORt:STATe {state}, (@{channel})'
       defaults: { channel: 1 }
       enums:
-        state: { on: 'ON', off: 'OFF', true: 'ON', false: 'OFF', 1: 'ON', 0: 'OFF' }
+        state: { on: 'ON', off: 'OFF', true: 'ON', false: 'OFF', '1': 'ON', '0': 'OFF' }
     mode_set_slew:
       template: '{sub}:{cmd} {rate}, (@{channel})'
       defaults: { channel: 1 }
@@ -187,12 +187,12 @@ scpi:
       template: 'BATTery:ENABle {state}, (@{channel})'
       defaults: { channel: 1 }
       enums:
-        state: { on: 'ON', off: 'OFF', true: 'ON', false: 'OFF', 1: 'ON', 0: 'OFF' }
+        state: { on: 'ON', off: 'OFF', true: 'ON', false: 'OFF', '1': 'ON', '0': 'OFF' }
     battery_cutoff_voltage_state:
       template: 'BATTery:CUTOff:VOLTage:STATe {state}, (@{channel})'
       defaults: { channel: 1 }
       enums:
-        state: { on: 'ON', off: 'OFF', true: 'ON', false: 'OFF', 1: 'ON', 0: 'OFF' }
+        state: { on: 'ON', off: 'OFF', true: 'ON', false: 'OFF', '1': 'ON', '0': 'OFF' }
     battery_cutoff_voltage:
       template: 'BATTery:CUTOff:VOLTage {voltage}, (@{channel})'
       defaults: { channel: 1 }
@@ -200,7 +200,7 @@ scpi:
       template: 'BATTery:CUTOff:CAPacity:STATe {state}, (@{channel})'
       defaults: { channel: 1 }
       enums:
-        state: { on: 'ON', off: 'OFF', true: 'ON', false: 'OFF', 1: 'ON', 0: 'OFF' }
+        state: { on: 'ON', off: 'OFF', true: 'ON', false: 'OFF', '1': 'ON', '0': 'OFF' }
     battery_cutoff_capacity:
       template: 'BATTery:CUTOff:CAPacity {capacity}, (@{channel})'
       defaults: { channel: 1 }
@@ -208,7 +208,7 @@ scpi:
       template: 'BATTery:CUTOff:TIMer:STATe {state}, (@{channel})'
       defaults: { channel: 1 }
       enums:
-        state: { on: 'ON', off: 'OFF', true: 'ON', false: 'OFF', 1: 'ON', 0: 'OFF' }
+        state: { on: 'ON', off: 'OFF', true: 'ON', false: 'OFF', '1': 'ON', '0': 'OFF' }
     battery_cutoff_timer:
       template: 'BATTery:CUTOff:TIMer {time_s}, (@{channel})'
       defaults: { channel: 1 }

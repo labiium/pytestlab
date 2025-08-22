@@ -10,10 +10,11 @@ from .tsa import LinkedTSA
 
 class AuditRecord(TypedDict):
     """Represents a single record in the audit trail database."""
-    id:      int
-    ts:      str
-    actor:   str
-    action:  str
+
+    id: int
+    ts: str
+    actor: str
+    action: str
     envelope_sha: str
     tsa_idx: int
 

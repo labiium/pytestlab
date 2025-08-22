@@ -12,6 +12,7 @@ Three different approaches are demonstrated:
 2. Grid sweep decorator with auto parameter extraction
 3. Gradient-weighted adaptive sampling (GWASS) for efficiency
 """
+
 import time
 
 import matplotlib.pyplot as plt
@@ -35,21 +36,17 @@ def example_1_built_in_sweep():
 
     # Create a measurement session
     with MeasurementSession(
-        name="Transistor Characterization",
-        description="Standard parameter sweep"
+        name="Transistor Characterization", description="Standard parameter sweep"
     ) as session:
         # Define sweep parameters
         session.parameter(
-            "base_voltage",
-            np.linspace(0.6, 0.8, 5),
-            unit="V",
-            notes="Transistor base voltage"
+            "base_voltage", np.linspace(0.6, 0.8, 5), unit="V", notes="Transistor base voltage"
         )
         session.parameter(
             "collector_voltage",
             np.linspace(0, 5, 6),
             unit="V",
-            notes="Transistor collector voltage"
+            notes="Transistor collector voltage",
         )
 
         # Set up simulated instruments
@@ -59,7 +56,9 @@ def example_1_built_in_sweep():
 
         # Define measurement function with session.acquire
         @session.acquire
-        def measure_collector_current(base_voltage, collector_voltage, psu_base, psu_collector, dmm):
+        def measure_collector_current(
+            base_voltage, collector_voltage, psu_base, psu_collector, dmm
+        ):
             """Measure transistor collector current."""
             print(f"Measuring at Vb={base_voltage:.2f}V, Vc={collector_voltage:.2f}V")
 
@@ -84,17 +83,13 @@ def example_1_built_in_sweep():
             Vt = 0.026  # Thermal voltage
 
             Ic = beta * Ib * (1 - np.exp(-collector_voltage / Vt))
-            Ic *= (0.9 + 0.2 * np.random.random())  # Add randomness
+            Ic *= 0.9 + 0.2 * np.random.random()  # Add randomness
 
             # Turn off outputs
             psu_base.output(1, False)
             psu_collector.output(1, False)
 
-            return {
-                "collector_current": Ic,
-                "base_current": Ib,
-                "gain": Ic / Ib if Ib > 0 else 0
-            }
+            return {"collector_current": Ic, "base_current": Ib, "gain": Ic / Ib if Ib > 0 else 0}
 
         # Run the sweep and measure execution time
         print(f"Running built-in sweep with {5 * 6} parameter combinations...")
@@ -120,21 +115,17 @@ def example_2_grid_sweep():
 
     # Create a measurement session
     with MeasurementSession(
-        name="Transistor Grid Sweep",
-        description="Grid sweep with decorator"
+        name="Transistor Grid Sweep", description="Grid sweep with decorator"
     ) as session:
         # Define the same parameters as in example 1
         session.parameter(
-            "base_voltage",
-            np.linspace(0.6, 0.8, 5),
-            unit="V",
-            notes="Transistor base voltage"
+            "base_voltage", np.linspace(0.6, 0.8, 5), unit="V", notes="Transistor base voltage"
         )
         session.parameter(
             "collector_voltage",
             np.linspace(0, 5, 6),
             unit="V",
-            notes="Transistor collector voltage"
+            notes="Transistor collector voltage",
         )
 
         # Set up simulated instruments
@@ -169,7 +160,7 @@ def example_2_grid_sweep():
             Vt = 0.026  # Thermal voltage
 
             Ic = beta * Ib * (1 - np.exp(-collector_voltage / Vt))
-            Ic *= (0.9 + 0.2 * np.random.random())  # Add randomness
+            Ic *= 0.9 + 0.2 * np.random.random()  # Add randomness
 
             # Pause to simulate measurement time
             time.sleep(0.01)
@@ -202,21 +193,17 @@ def example_3_gwass_sweep():
 
     # Create a measurement session
     with MeasurementSession(
-        name="Transistor Adaptive Sampling",
-        description="GWASS adaptive sampling"
+        name="Transistor Adaptive Sampling", description="GWASS adaptive sampling"
     ) as session:
         # Define the same parameters as in previous examples
         session.parameter(
-            "base_voltage",
-            np.linspace(0.6, 0.8, 5),
-            unit="V",
-            notes="Transistor base voltage"
+            "base_voltage", np.linspace(0.6, 0.8, 5), unit="V", notes="Transistor base voltage"
         )
         session.parameter(
             "collector_voltage",
             np.linspace(0, 5, 6),
             unit="V",
-            notes="Transistor collector voltage"
+            notes="Transistor collector voltage",
         )
 
         # Set up simulated instruments
@@ -225,10 +212,7 @@ def example_3_gwass_sweep():
         session.instrument("dmm", "keysight/EDU34450A", simulate=True)
 
         # Directly specify parameter ranges as a dictionary
-        param_ranges = {
-            "base_voltage": (0.6, 0.8),
-            "collector_voltage": (0, 5)
-        }
+        param_ranges = {"base_voltage": (0.6, 0.8), "collector_voltage": (0, 5)}
 
         # Use cleaner gwass decorator with explicit parameter ranges
         # budget=30 means 30 total evaluation points (instead of a full grid)
@@ -247,11 +231,11 @@ def example_3_gwass_sweep():
             # Create a non-linear response with a "knee" region
             # to demonstrate GWASS's ability to focus on high-gradient areas
             if collector_voltage < 0.7:
-                Ic = beta * Ib * (collector_voltage / 0.7)**2
+                Ic = beta * Ib * (collector_voltage / 0.7) ** 2
             else:
                 Ic = beta * Ib * (1 - 0.3 * np.exp(-(collector_voltage - 0.7) / Vt))
 
-            Ic *= (0.95 + 0.1 * np.random.random())  # Add slight randomness
+            Ic *= 0.95 + 0.1 * np.random.random()  # Add slight randomness
 
             # Pause to simulate measurement time
             time.sleep(0.01)
@@ -285,9 +269,9 @@ def visualize_results(standard_results, grid_results, gwass_results):
 
     # 1. Extract data from standard MeasurementSession results
     df = standard_results.data.to_pandas()
-    vb_std = df['base_voltage'].values
-    vc_std = df['collector_voltage'].values
-    ic_std = df['collector_current'].values
+    vb_std = df["base_voltage"].values
+    vc_std = df["collector_voltage"].values
+    ic_std = df["collector_current"].values
 
     # 2. Process grid sweep results
     vb_grid = np.array([params[0] for params, result in grid_results])
@@ -301,58 +285,58 @@ def visualize_results(standard_results, grid_results, gwass_results):
 
     # Plot 1: Standard sweep - scatter points
     plt.subplot(2, 3, 1)
-    plt.scatter(vc_std, vb_std, c=ic_std, cmap='viridis', s=50)
-    plt.colorbar(label='Collector Current (A)')
-    plt.title('Standard Sweep\nParameter Points')
-    plt.xlabel('Collector Voltage (V)')
-    plt.ylabel('Base Voltage (V)')
+    plt.scatter(vc_std, vb_std, c=ic_std, cmap="viridis", s=50)
+    plt.colorbar(label="Collector Current (A)")
+    plt.title("Standard Sweep\nParameter Points")
+    plt.xlabel("Collector Voltage (V)")
+    plt.ylabel("Base Voltage (V)")
     plt.grid(True)
 
     # Plot 2: Grid sweep - scatter points
     plt.subplot(2, 3, 2)
-    plt.scatter(vc_grid, vb_grid, c=ic_grid, cmap='viridis', s=50)
-    plt.colorbar(label='Collector Current (A)')
-    plt.title('Grid Sweep\nParameter Points')
-    plt.xlabel('Collector Voltage (V)')
-    plt.ylabel('Base Voltage (V)')
+    plt.scatter(vc_grid, vb_grid, c=ic_grid, cmap="viridis", s=50)
+    plt.colorbar(label="Collector Current (A)")
+    plt.title("Grid Sweep\nParameter Points")
+    plt.xlabel("Collector Voltage (V)")
+    plt.ylabel("Base Voltage (V)")
     plt.grid(True)
 
     # Plot 3: GWASS - scatter points (notice clustering in high-gradient areas)
     plt.subplot(2, 3, 3)
-    plt.scatter(vc_gwass, vb_gwass, c=ic_gwass, cmap='viridis', s=50)
-    plt.colorbar(label='Collector Current (A)')
-    plt.title('GWASS\nAdaptive Parameter Points')
-    plt.xlabel('Collector Voltage (V)')
-    plt.ylabel('Base Voltage (V)')
+    plt.scatter(vc_gwass, vb_gwass, c=ic_gwass, cmap="viridis", s=50)
+    plt.colorbar(label="Collector Current (A)")
+    plt.title("GWASS\nAdaptive Parameter Points")
+    plt.xlabel("Collector Voltage (V)")
+    plt.ylabel("Base Voltage (V)")
     plt.grid(True)
 
     # Plot 4: Standard sweep - 3D surface
-    ax = plt.subplot(2, 3, 4, projection='3d')
-    ax.scatter(vc_std, vb_std, ic_std, c=ic_std, cmap='viridis')
-    ax.set_title('Standard Sweep\n3D Visualization')
-    ax.set_xlabel('Collector Voltage (V)')
-    ax.set_ylabel('Base Voltage (V)')
-    ax.set_zlabel('Collector Current (A)')
+    ax = plt.subplot(2, 3, 4, projection="3d")
+    ax.scatter(vc_std, vb_std, ic_std, c=ic_std, cmap="viridis")
+    ax.set_title("Standard Sweep\n3D Visualization")
+    ax.set_xlabel("Collector Voltage (V)")
+    ax.set_ylabel("Base Voltage (V)")
+    ax.set_zlabel("Collector Current (A)")
 
     # Plot 5: Grid sweep - 3D surface
-    ax = plt.subplot(2, 3, 5, projection='3d')
-    ax.scatter(vc_grid, vb_grid, ic_grid, c=ic_grid, cmap='viridis')
-    ax.set_title('Grid Sweep\n3D Visualization')
-    ax.set_xlabel('Collector Voltage (V)')
-    ax.set_ylabel('Base Voltage (V)')
-    ax.set_zlabel('Collector Current (A)')
+    ax = plt.subplot(2, 3, 5, projection="3d")
+    ax.scatter(vc_grid, vb_grid, ic_grid, c=ic_grid, cmap="viridis")
+    ax.set_title("Grid Sweep\n3D Visualization")
+    ax.set_xlabel("Collector Voltage (V)")
+    ax.set_ylabel("Base Voltage (V)")
+    ax.set_zlabel("Collector Current (A)")
 
     # Plot 6: GWASS - 3D surface
-    ax = plt.subplot(2, 3, 6, projection='3d')
-    ax.scatter(vc_gwass, vb_gwass, ic_gwass, c=ic_gwass, cmap='viridis')
-    ax.set_title('GWASS\n3D Visualization')
-    ax.set_xlabel('Collector Voltage (V)')
-    ax.set_ylabel('Base Voltage (V)')
-    ax.set_zlabel('Collector Current (A)')
+    ax = plt.subplot(2, 3, 6, projection="3d")
+    ax.scatter(vc_gwass, vb_gwass, ic_gwass, c=ic_gwass, cmap="viridis")
+    ax.set_title("GWASS\n3D Visualization")
+    ax.set_xlabel("Collector Voltage (V)")
+    ax.set_ylabel("Base Voltage (V)")
+    ax.set_zlabel("Collector Current (A)")
 
     # Adjust layout and save
     plt.tight_layout()
-    plt.savefig('sweep_comparison_visualization.png', dpi=150)
+    plt.savefig("sweep_comparison_visualization.png", dpi=150)
     print("Visualization saved to 'sweep_comparison_visualization.png'")
 
 
@@ -402,4 +386,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n❌ Error: {e}")
         import traceback
+
         traceback.print_exc()

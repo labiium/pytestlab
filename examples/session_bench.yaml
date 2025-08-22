@@ -11,7 +11,7 @@ experiment:
   date: "2025-07-04"
   database_path: "transistor_measurements.db"
   notes: |
-    This experiment characterizes the current-voltage relationship of 
+    This experiment characterizes the current-voltage relationship of
     a test transistor under various base bias conditions.
 
 simulate: true
@@ -26,7 +26,7 @@ instruments:
     profile: "keysight/EDU36311A"
     backend:
       type: "lamb"
-  
+
   # Multimeter for current measurements
   dmm:
     profile: "keysight/EDU34450A"

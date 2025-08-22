@@ -72,7 +72,7 @@ read -p "Proceed with recording? (y/N): " -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     echo "Recording skipped. Creating mock session for demonstration..."
-    
+
     # Create a comprehensive mock recorded session
     cat > "${RECORDED_SESSION}" << 'EOF'
 psu:
@@ -458,7 +458,7 @@ if [[ -f "${RECORDED_SESSION}" ]]; then
     echo "Command to run replay:"
     echo "  pytestlab replay run ${TEST_SCRIPT} --session ${RECORDED_SESSION}"
     echo ""
-    
+
     read -p "Execute replay now? (y/N): " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then

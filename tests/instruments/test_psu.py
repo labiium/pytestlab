@@ -63,7 +63,10 @@ def test_keysight_edu36311a_psu_sanity():
     # --- Get Initial Configuration ---
     initial_config = psu.get_configuration()
     assert isinstance(initial_config, dict)
-    assert all(hasattr(cfg, "voltage") and hasattr(cfg, "current") and hasattr(cfg, "state") for cfg in initial_config.values())
+    assert all(
+        hasattr(cfg, "voltage") and hasattr(cfg, "current") and hasattr(cfg, "state")
+        for cfg in initial_config.values()
+    )
 
     # --- Set Voltage for Each Channel ---
     psu.set_voltage(1, 1.5)
@@ -106,7 +109,10 @@ def test_keysight_edu36311a_psu_sanity():
     # --- Final Configuration ---
     final_config = psu.get_configuration()
     assert isinstance(final_config, dict)
-    assert all(hasattr(cfg, "voltage") and hasattr(cfg, "current") and hasattr(cfg, "state") for cfg in final_config.values())
+    assert all(
+        hasattr(cfg, "voltage") and hasattr(cfg, "current") and hasattr(cfg, "state")
+        for cfg in final_config.values()
+    )
 
     # Optionally, add more assertions as needed for your use case
 

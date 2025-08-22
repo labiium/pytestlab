@@ -62,7 +62,9 @@ def basic_parallel_example():
         experiment = session.run(duration=10.0, interval=0.2)
 
         print(f"✅ Captured {len(experiment.data)} voltage measurements")
-        print(f"📊 Voltage range: {experiment.data['measured_voltage'].min():.2f}V to {experiment.data['measured_voltage'].max():.2f}V")
+        print(
+            f"📊 Voltage range: {experiment.data['measured_voltage'].min():.2f}V to {experiment.data['measured_voltage'].max():.2f}V"
+        )
 
 
 def complex_parallel_example():
@@ -154,7 +156,7 @@ def complex_parallel_example():
                     "supply_voltage": voltage,
                     "supply_current": current,
                     "power_consumption": power,
-                    "scope_samples": scope_samples
+                    "scope_samples": scope_samples,
                 }
             except Exception as e:
                 print(f"  Acquisition error: {e}")
@@ -162,7 +164,7 @@ def complex_parallel_example():
                     "supply_voltage": 0,
                     "supply_current": 0,
                     "power_consumption": 0,
-                    "scope_samples": 0
+                    "scope_samples": 0,
                 }
 
         # Run for 15 seconds with all tasks in parallel
@@ -175,10 +177,10 @@ def complex_parallel_example():
         experiment = session.run(duration=15.0, interval=0.3)
 
         print(f"✅ Captured {len(experiment.data)} power measurements")
-        avg_power = experiment.data['power_consumption'].mean()
-        max_power = experiment.data['power_consumption'].max()
+        avg_power = experiment.data["power_consumption"].mean()
+        max_power = experiment.data["power_consumption"].max()
         print(f"📊 Power consumption - Average: {avg_power:.2f}W, Peak: {max_power:.2f}W")
-        total_scope_samples = experiment.data['scope_samples'].sum()
+        total_scope_samples = experiment.data["scope_samples"].sum()
         print(f"📡 Total scope samples captured: {total_scope_samples}")
 
 
@@ -219,7 +221,7 @@ def stress_test_example():
         experiment = session.run(duration=5.0, interval=0.05)
 
         print(f"✅ Captured {len(experiment.data)} rapid measurements")
-        voltage_std = experiment.data['voltage'].std()
+        voltage_std = experiment.data["voltage"].std()
         print(f"📊 Voltage stability (std dev): {voltage_std:.4f}V")
 
 

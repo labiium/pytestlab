@@ -15,30 +15,25 @@ from pytestlab.instruments import PowerSupply
 def psu_config():
     """Create a temporary profile file for the power supply."""
     profile = {
-        'device_type': 'power_supply',
-        'manufacturer': 'Keysight',
-        'model': 'EDU36311A',
-        'channels': [
+        "device_type": "power_supply",
+        "manufacturer": "Keysight",
+        "model": "EDU36311A",
+        "channels": [
             {
-                'channel_id': 1,
-                'description': 'Channel 1',
-                'voltage_range': {'min_val': 0, 'max_val': 6},
-                'current_limit_range': {'min_val': 0, 'max_val': 5},
-                'accuracy': {'voltage': 0.05, 'current': 0.2}
+                "channel_id": 1,
+                "description": "Channel 1",
+                "voltage_range": {"min_val": 0, "max_val": 6},
+                "current_limit_range": {"min_val": 0, "max_val": 5},
+                "accuracy": {"voltage": 0.05, "current": 0.2},
             }
         ],
-        'scpi': {
-            '*IDN?': 'dummy_idn'
-        }
+        "scpi": {"*IDN?": "dummy_idn"},
     }
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
         yaml.dump(profile, f)
         profile_file = f.name
 
-    yield {
-        'profile': profile_file,
-        'address': 'USB0::0x2A8D::0x3102::CN61130056::INSTR'
-    }
+    yield {"profile": profile_file, "address": "USB0::0x2A8D::0x3102::CN61130056::INSTR"}
 
     Path(profile_file).unlink(missing_ok=True)
 
@@ -46,7 +41,7 @@ def psu_config():
 @pytest.fixture
 def psu(psu_config):
     """A power supply with a simulated backend."""
-    config = load_profile(psu_config['profile'])
+    config = load_profile(psu_config["profile"])
     return PowerSupply(config=config, backend="sim")
 
 

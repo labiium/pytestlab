@@ -48,13 +48,10 @@ _ACQ_TYPE_MAP = {
     AcquisitionType.NORMAL: "NORMal",
     AcquisitionType.AVERAGE: "AVERage",
     AcquisitionType.HIGH_RES: "HRESolution",
-    AcquisitionType.PEAK: "PEAK"
+    AcquisitionType.PEAK: "PEAK",
 }
 
-_ACQ_MODE_MAP = {
-    "REAL_TIME": "RTIMe",
-    "SEGMENTED": "SEGMented"
-}
+_ACQ_MODE_MAP = {"REAL_TIME": "RTIMe", "SEGMENTED": "SEGMented"}
 
 
 class ChannelReadingResult(MeasurementResult):
@@ -104,10 +101,12 @@ class ChannelReadingResult(MeasurementResult):
         col = self._column_for_channel(channel)
         if col not in df.columns:
             raise KeyError(f"Channel column not present: {col}")
-        sub_df = pl.DataFrame({
-            "Time (s)": df["Time (s)"],
-            col: df[col],
-        })
+        sub_df = pl.DataFrame(
+            {
+                "Time (s)": df["Time (s)"],
+                col: df[col],
+            }
+        )
         return ChannelReadingResult(
             values=sub_df,
             instrument=self.instrument,
@@ -130,11 +129,13 @@ class ChannelReadingResult(MeasurementResult):
 
 class FFTResult(MeasurementResult):
     """A result class for FFT data from the oscilloscope."""
+
     pass
 
 
 class FRanalysisResult(MeasurementResult):
     """A result class for frequency response analysis data."""
+
     pass
 
 
@@ -152,12 +153,21 @@ class ScopeChannelFacade:
         _scope: The parent `Oscilloscope` instance.
         _channel: The channel number this facade controls.
     """
+
     def __init__(self, scope: Oscilloscope, channel_num: int):
         self._scope = scope
         self._channel = channel_num
 
     @validate_call
-    def setup(self, scale: float | None = None, position: float | None = None, offset: float | None = None, coupling: str | None = None, probe_attenuation: int | None = None, bandwidth_limit: str | float | None = None) -> Self:
+    def setup(
+        self,
+        scale: float | None = None,
+        position: float | None = None,
+        offset: float | None = None,
+        coupling: str | None = None,
+        probe_attenuation: int | None = None,
+        bandwidth_limit: str | float | None = None,
+    ) -> Self:
         """Configures multiple settings for the channel in a single call.
 
         This method allows setting the vertical scale, position/offset, coupling,
@@ -177,14 +187,20 @@ class ScopeChannelFacade:
             The `ScopeChannelFacade` instance for method chaining.
         """
         if scale is not None:
-            current_offset_val = self._scope.get_channel_axis(self._channel)[1] if offset is None and position is None else (offset or position or 0.0)
+            current_offset_val = (
+                self._scope.get_channel_axis(self._channel)[1]
+                if offset is None and position is None
+                else (offset or position or 0.0)
+            )
             self._scope.set_channel_axis(self._channel, scale, current_offset_val)
         if offset is not None or position is not None:
             val_to_set = position if position is not None else offset
             current_scale_val = self._scope.get_channel_axis(self._channel)[0]
             self._scope.set_channel_axis(self._channel, current_scale_val, val_to_set)
         if coupling is not None:
-            for cmd in self._scope.scpi_engine.build("set_channel_coupling", channel=self._channel, coupling=coupling.upper()):
+            for cmd in self._scope.scpi_engine.build(
+                "set_channel_coupling", channel=self._channel, coupling=coupling.upper()
+            ):
                 self._scope._send_command(cmd)
             self._scope._logger.debug(f"Channel {self._channel} coupling set to {coupling.upper()}")
         if probe_attenuation is not None:
@@ -221,11 +237,19 @@ class ScopeTriggerFacade:
     Attributes:
         _scope: The parent `Oscilloscope` instance.
     """
+
     def __init__(self, scope: Oscilloscope):
         self._scope = scope
 
     @validate_call
-    def setup_edge(self, source: str, level: float, slope: TriggerSlope = TriggerSlope.POSITIVE, coupling: str | None = None, mode: str = "EDGE") -> Self:
+    def setup_edge(
+        self,
+        source: str,
+        level: float,
+        slope: TriggerSlope = TriggerSlope.POSITIVE,
+        coupling: str | None = None,
+        mode: str = "EDGE",
+    ) -> Self:
         """Configures a standard edge trigger.
 
         Args:
@@ -241,7 +265,7 @@ class ScopeTriggerFacade:
         trigger_channel_for_level = 1
         if source.upper().startswith("CHAN"):
             try:
-                trigger_channel_for_level = int(source[len("CHAN"):])
+                trigger_channel_for_level = int(source[len("CHAN") :])
             except ValueError as e:
                 raise InstrumentParameterError(
                     parameter="source",
@@ -250,7 +274,7 @@ class ScopeTriggerFacade:
                 ) from e
         elif source.upper().startswith("CH"):
             try:
-                trigger_channel_for_level = int(source[len("CH"):])
+                trigger_channel_for_level = int(source[len("CH") :])
             except ValueError as e:
                 raise InstrumentParameterError(
                     parameter="source",
@@ -259,14 +283,12 @@ class ScopeTriggerFacade:
                 ) from e
 
         self._scope.configure_trigger(
-            channel=trigger_channel_for_level,
-            level=level,
-            source=source,
-            slope=slope,
-            mode=mode
+            channel=trigger_channel_for_level, level=level, source=source, slope=slope, mode=mode
         )
         if coupling is not None:
-            for cmd in self._scope.scpi_engine.build("set_trigger_coupling", mode=mode.upper(), coupling=coupling.upper()):
+            for cmd in self._scope.scpi_engine.build(
+                "set_trigger_coupling", mode=mode.upper(), coupling=coupling.upper()
+            ):
                 self._scope._send_command(cmd)
         return self
 
@@ -281,6 +303,7 @@ class ScopeAcquisitionFacade:
     Attributes:
         _scope: The parent `Oscilloscope` instance.
     """
+
     def __init__(self, scope: Oscilloscope):
         self._scope = scope
 
@@ -288,7 +311,11 @@ class ScopeAcquisitionFacade:
     def set_acquisition_type(self, acq_type: AcquisitionType) -> Self:
         scpi_val = _ACQ_TYPE_MAP.get(acq_type)
         if not scpi_val:
-            raise InstrumentParameterError(parameter="acq_type", value=acq_type, message="Unsupported acquisition type enum member.")
+            raise InstrumentParameterError(
+                parameter="acq_type",
+                value=acq_type,
+                message="Unsupported acquisition type enum member.",
+            )
         for cmd in self._scope.scpi_engine.build("acq_set_type", value=scpi_val):
             self._scope._send_command(cmd)
         self._scope._wait()
@@ -297,20 +324,28 @@ class ScopeAcquisitionFacade:
 
     @validate_call
     def get_acquisition_type(self) -> str:
-        resp_str_raw: str = self._scope._query(self._scope.scpi_engine.build("acq_get_type")[0]).strip()
+        resp_str_raw: str = self._scope._query(
+            self._scope.scpi_engine.build("acq_get_type")[0]
+        ).strip()
         for enum_member, scpi_command_str in _ACQ_TYPE_MAP.items():
             if resp_str_raw.upper().startswith(scpi_command_str.upper()[:4]):
                 return enum_member.name
-        self._scope._logger.warning(f"Could not map SCPI response '{resp_str_raw}' to a known AcquisitionType. Returning raw response.")
+        self._scope._logger.warning(
+            f"Could not map SCPI response '{resp_str_raw}' to a known AcquisitionType. Returning raw response."
+        )
         return resp_str_raw
 
     @validate_call
     def get_acquisition_mode(self) -> str:
-        resp_str_raw: str = self._scope._query(self._scope.scpi_engine.build("acq_get_mode")[0]).strip()
+        resp_str_raw: str = self._scope._query(
+            self._scope.scpi_engine.build("acq_get_mode")[0]
+        ).strip()
         for friendly_name, scpi_command_str in _ACQ_MODE_MAP.items():
             if resp_str_raw.upper().startswith(scpi_command_str.upper()[:4]):
                 return friendly_name
-        self._scope._logger.warning(f"Could not map SCPI response '{resp_str_raw}' to a known AcquisitionMode. Returning raw response.")
+        self._scope._logger.warning(
+            f"Could not map SCPI response '{resp_str_raw}' to a known AcquisitionMode. Returning raw response."
+        )
         return resp_str_raw
 
     @validate_call
@@ -337,7 +372,12 @@ class ScopeAcquisitionFacade:
         mode_upper: str = mode.upper()
         scpi_mode_val = _ACQ_MODE_MAP.get(mode_upper)
         if not scpi_mode_val:
-            raise InstrumentParameterError(parameter="mode", value=mode, valid_range=list(_ACQ_MODE_MAP.keys()), message="Unknown acquisition mode.")
+            raise InstrumentParameterError(
+                parameter="mode",
+                value=mode,
+                valid_range=list(_ACQ_MODE_MAP.keys()),
+                message="Unknown acquisition mode.",
+            )
         for cmd in self._scope.scpi_engine.build("acq_set_mode", value=scpi_mode_val):
             self._scope._send_command(cmd)
         self._scope._wait()
@@ -380,8 +420,7 @@ class ScopeAcquisitionFacade:
     def analyze_all_segments(self) -> Self:
         if self.get_acquisition_mode() != "SEGMENTED":
             raise InstrumentParameterError(
-                parameter="count",
-                message="Segment analysis requires SEGMENTED mode."
+                parameter="count", message="Segment analysis requires SEGMENTED mode."
             )
         for cmd in self._scope.scpi_engine.build("seg_analyze"):
             self._scope._send_command(cmd)
@@ -399,7 +438,7 @@ class ScopeAcquisitionFacade:
     @validate_call
     def get_acquire_setup(self) -> dict[str, str]:
         raw_str: str = self._scope._query(self._scope.scpi_engine.build("acquire_setup")[0]).strip()
-        parts: list[str] = [p.strip() for p in raw_str.split(';')]
+        parts: list[str] = [p.strip() for p in raw_str.split(";")]
         setup_dict: dict[str, str] = {}
         for part in parts:
             kv = part.split(maxsplit=1)
@@ -460,10 +499,17 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         trigger: A `ScopeTriggerFacade` for configuring trigger settings.
         acquisition: A `ScopeAcquisitionFacade` for acquisition system settings.
     """
+
     config: OscilloscopeConfig  # Type hint for validated config
 
     # visa_resource is handled by base Instrument or backend through config.address
-    def __init__(self, config: OscilloscopeConfig, debug_mode: bool = False, simulate: bool = False, **kwargs: Any) -> None:  # config is now non-optional
+    def __init__(
+        self,
+        config: OscilloscopeConfig,
+        debug_mode: bool = False,
+        simulate: bool = False,
+        **kwargs: Any,
+    ) -> None:  # config is now non-optional
         """
         Initialize the Oscilloscope class with the given VISA resource and profile information.
 
@@ -473,7 +519,9 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         simulate (bool): Enable simulation mode. (Handled by base or backend)
         """
         # The config is already validated by the loader to be OscilloscopeConfig V2
-        super().__init__(config=config, debug_mode=debug_mode, simulate=simulate, **kwargs)  # Pass kwargs
+        super().__init__(
+            config=config, debug_mode=debug_mode, simulate=simulate, **kwargs
+        )  # Pass kwargs
         # Initialize facades
         self.trigger = ScopeTriggerFacade(self)
         self.acquisition = ScopeAcquisitionFacade(self)
@@ -505,7 +553,9 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         return ScopeChannelFacade(self, ch_num)
 
     @classmethod
-    def from_config(cls: type[Oscilloscope], config: OscilloscopeConfig, debug_mode: bool = False, **kwargs: Any) -> Oscilloscope:
+    def from_config(
+        cls: type[Oscilloscope], config: OscilloscopeConfig, debug_mode: bool = False, **kwargs: Any
+    ) -> Oscilloscope:
         # This method aligns with the new __init__ signature.
         return cls(config=config, debug_mode=debug_mode, **kwargs)
 
@@ -526,7 +576,9 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             # Check for stored errors
             instrument_errors = self.get_all_errors()
             if instrument_errors:
-                report.warnings.extend([f"Stored Error: {code} - {msg}" for code, msg in instrument_errors])
+                report.warnings.extend(
+                    [f"Stored Error: {code} - {msg}" for code, msg in instrument_errors]
+                )
 
             # Set initial status based on errors
             if not report.errors and not report.warnings:
@@ -545,17 +597,17 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             _ = self.get_time_axis()
 
             # Check supported features based on configuration
-            if hasattr(self.config, 'fft') and self.config.fft:
+            if hasattr(self.config, "fft") and self.config.fft:
                 report.supported_features["fft"] = True
             else:
                 report.supported_features["fft"] = False
 
-            if hasattr(self.config, 'franalysis') and self.config.franalysis:
+            if hasattr(self.config, "franalysis") and self.config.franalysis:
                 report.supported_features["franalysis"] = True
             else:
                 report.supported_features["franalysis"] = False
 
-            if hasattr(self.config, 'function_generator') and self.config.function_generator:
+            if hasattr(self.config, "function_generator") and self.config.function_generator:
                 report.supported_features["function_generator"] = True
             else:
                 report.supported_features["function_generator"] = False
@@ -564,7 +616,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             report.errors.append(f"Oscilloscope-specific check failed: {str(e)}")
 
         # Determine backend status
-        if hasattr(self, '_backend') and hasattr(self._backend, '__class__'):
+        if hasattr(self, "_backend") and hasattr(self._backend, "__class__"):
             backend_name = self._backend.__class__.__name__
             if "SimBackend" in backend_name:
                 report.backend_status = "Simulated"
@@ -598,8 +650,8 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         Returns:
             A `Preamble` dataclass instance.
         """
-        q = self.scpi_engine.build('wave_preamble')[0]
-        parts = self.scpi_engine.parse('wave_preamble', self._query(q))
+        q = self.scpi_engine.build("wave_preamble")[0]
+        parts = self.scpi_engine.parse("wave_preamble", self._query(q))
         self._logger.debug(parts)
 
         # Format of preamble:
@@ -614,7 +666,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             xref=float(parts[6]),
             yinc=float(parts[7]),
             yorg=float(parts[8]),
-            yref=float(parts[9])
+            yref=float(parts[9]),
         )
         return pre
 
@@ -632,20 +684,20 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         """
         # Ensure previous operations are complete
         self._wait()
-        for cmd in self.scpi_engine.build('set_wave_source', source=source):
+        for cmd in self.scpi_engine.build("set_wave_source", source=source):
             self._send_command(cmd)
         self._wait()
         self._logger.debug(f"Reading data from {source}")
-        for cmd in self.scpi_engine.build('set_wave_points_max'):
+        for cmd in self.scpi_engine.build("set_wave_points_max"):
             self._send_command(cmd)
-        for cmd in self.scpi_engine.build('set_wave_format_byte'):
+        for cmd in self.scpi_engine.build("set_wave_format_byte"):
             self._send_command(cmd)
         if source != "FFT":
-            for cmd in self.scpi_engine.build('set_wave_points_mode_raw'):
+            for cmd in self.scpi_engine.build("set_wave_points_mode_raw"):
                 self._send_command(cmd)
         # Query and parse binblock via SCPIEngine
-        q = self.scpi_engine.build('wave_data')[0]
-        bin_bytes: bytes = self.scpi_engine.parse('wave_data', self._query_raw(q))
+        q = self.scpi_engine.build("wave_data")[0]
+        bin_bytes: bytes = self.scpi_engine.parse("wave_data", self._query_raw(q))
         return np.frombuffer(bin_bytes, dtype=np.uint8)
 
     @validate_call
@@ -692,8 +744,12 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
 
         :return: A list containing the time axis scale and position
         """
-        s = self.scpi_engine.parse("get_timebase_scale", self._query(self.scpi_engine.build("get_timebase_scale")[0]))
-        p = self.scpi_engine.parse("get_timebase_position", self._query(self.scpi_engine.build("get_timebase_position")[0]))
+        s = self.scpi_engine.parse(
+            "get_timebase_scale", self._query(self.scpi_engine.build("get_timebase_scale")[0])
+        )
+        p = self.scpi_engine.parse(
+            "get_timebase_position", self._query(self.scpi_engine.build("get_timebase_position")[0])
+        )
         return [np.float64(s), np.float64(p)]
 
     @validate_call
@@ -713,7 +769,9 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                 message="Channel number is out of range.",
             )
 
-        for cmd in self.scpi_engine.build("set_channel_axis", channel=channel, scale=scale, offset=offset):
+        for cmd in self.scpi_engine.build(
+            "set_channel_axis", channel=channel, scale=scale, offset=offset
+        ):
             self._send_command(cmd)
         self._wait()
 
@@ -733,12 +791,26 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                 message="Channel number is out of range.",
             )
 
-        s = self.scpi_engine.parse("get_channel_scale", self._query(self.scpi_engine.build("get_channel_scale", channel=channel)[0]))
-        o = self.scpi_engine.parse("get_channel_offset", self._query(self.scpi_engine.build("get_channel_offset", channel=channel)[0]))
+        s = self.scpi_engine.parse(
+            "get_channel_scale",
+            self._query(self.scpi_engine.build("get_channel_scale", channel=channel)[0]),
+        )
+        o = self.scpi_engine.parse(
+            "get_channel_offset",
+            self._query(self.scpi_engine.build("get_channel_offset", channel=channel)[0]),
+        )
         return [np.float64(s), np.float64(o)]
 
     @validate_call
-    def configure_trigger(self, channel: int, level: float, source: str | None = None, trigger_type: str = "HIGH", slope: TriggerSlope = TriggerSlope.POSITIVE, mode: str = "EDGE") -> None:
+    def configure_trigger(
+        self,
+        channel: int,
+        level: float,
+        source: str | None = None,
+        trigger_type: str = "HIGH",
+        slope: TriggerSlope = TriggerSlope.POSITIVE,
+        mode: str = "EDGE",
+    ) -> None:
         """
         Sets the trigger for the oscilloscope.
 
@@ -802,8 +874,12 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             )
         scpi_slope = slope.value
 
-        if mode.upper() not in [m.upper() for m in self.config.trigger.modes]:  # Case-insensitive check
-             self._logger.warning(f"Trigger mode '{mode}' not in configured supported modes: {self.config.trigger.modes}. Passing directly to instrument.")
+        if mode.upper() not in [
+            m.upper() for m in self.config.trigger.modes
+        ]:  # Case-insensitive check
+            self._logger.warning(
+                f"Trigger mode '{mode}' not in configured supported modes: {self.config.trigger.modes}. Passing directly to instrument."
+            )
         scpi_mode = mode
 
         for cmd in self.scpi_engine.build(
@@ -847,25 +923,32 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
 
         if self.config.measurement_accuracy:
             mode_key = f"vpp_ch{channel}"
-            self._logger.debug(f"Attempting to find accuracy spec for Vpp on channel {channel} with key: '{mode_key}'")
+            self._logger.debug(
+                f"Attempting to find accuracy spec for Vpp on channel {channel} with key: '{mode_key}'"
+            )
             spec = self.config.measurement_accuracy.get(mode_key)
             if spec:
                 sigma = spec.calculate_std_dev(reading, range_value=None)
                 if sigma > 0:
                     value_to_return = ufloat(reading, sigma)
-                    self._logger.debug(f"Applied accuracy spec '{mode_key}', value: {value_to_return}")
+                    self._logger.debug(
+                        f"Applied accuracy spec '{mode_key}', value: {value_to_return}"
+                    )
                 else:
-                    self._logger.debug(f"Accuracy spec '{mode_key}' resulted in sigma=0. Returning float.")
+                    self._logger.debug(
+                        f"Accuracy spec '{mode_key}' resulted in sigma=0. Returning float."
+                    )
             else:
-                self._logger.debug(f"No accuracy spec found for Vpp on channel {channel} with key '{mode_key}'. Returning float.")
+                self._logger.debug(
+                    f"No accuracy spec found for Vpp on channel {channel} with key '{mode_key}'. Returning float."
+                )
         else:
-            self._logger.debug(f"No measurement_accuracy configuration in instrument for Vpp on channel {channel}. Returning float.")
+            self._logger.debug(
+                f"No measurement_accuracy configuration in instrument for Vpp on channel {channel}. Returning float."
+            )
 
         measurement_result = MeasurementResult(
-            values=value_to_return,
-            units="V",
-            instrument=self.config.model,
-            measurement_type="P2PV"
+            values=value_to_return, units="V", instrument=self.config.model, measurement_type="P2PV"
         )
 
         self._logger.debug(f"Peak to Peak Voltage (Channel {channel}): {value_to_return}")
@@ -898,19 +981,29 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
 
         if self.config.measurement_accuracy:
             mode_key = f"vrms_ch{channel}"
-            self._logger.debug(f"Attempting to find accuracy spec for Vrms on channel {channel} with key: '{mode_key}'")
+            self._logger.debug(
+                f"Attempting to find accuracy spec for Vrms on channel {channel} with key: '{mode_key}'"
+            )
             spec = self.config.measurement_accuracy.get(mode_key)
             if spec:
                 sigma = spec.calculate_std_dev(reading, range_value=None)
                 if sigma > 0:
                     value_to_return = ufloat(reading, sigma)
-                    self._logger.debug(f"Applied accuracy spec '{mode_key}', value: {value_to_return}")
+                    self._logger.debug(
+                        f"Applied accuracy spec '{mode_key}', value: {value_to_return}"
+                    )
                 else:
-                    self._logger.debug(f"Accuracy spec '{mode_key}' resulted in sigma=0. Returning float.")
+                    self._logger.debug(
+                        f"Accuracy spec '{mode_key}' resulted in sigma=0. Returning float."
+                    )
             else:
-                self._logger.debug(f"No accuracy spec found for Vrms on channel {channel} with key '{mode_key}'. Returning float.")
+                self._logger.debug(
+                    f"No accuracy spec found for Vrms on channel {channel} with key '{mode_key}'. Returning float."
+                )
         else:
-            self._logger.debug(f"No measurement_accuracy configuration in instrument for Vrms on channel {channel}. Returning float.")
+            self._logger.debug(
+                f"No measurement_accuracy configuration in instrument for Vrms on channel {channel}. Returning float."
+            )
 
         self._logger.debug(f"RMS Voltage (Channel {channel}): {value_to_return}")
 
@@ -918,7 +1011,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             values=value_to_return,
             instrument=self.config.model,
             units="V",
-            measurement_type="rms_voltage"
+            measurement_type="rms_voltage",
         )
         return measurement_result
 
@@ -927,10 +1020,9 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
     def read_channels(
         self,
         *channels: int | list[int] | tuple[int, ...],
-
         run_after: bool = True,
         timebase: float | None = None,
-        **kwargs
+        **kwargs,
     ) -> ChannelReadingResult:
         """
         Acquire one or more channels and return a ChannelReadingResult with a correct
@@ -941,10 +1033,13 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         channels have different vertical settings.
         """
         # ---------------------- argument normalisation (unchanged) ----------------------
-        if 'runAfter' in kwargs:
-            warnings.warn("'runAfter' is deprecated, use 'run_after' instead.",
-                          DeprecationWarning, stacklevel=2)
-            _ = kwargs['runAfter']
+        if "runAfter" in kwargs:
+            warnings.warn(
+                "'runAfter' is deprecated, use 'run_after' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            _ = kwargs["runAfter"]
 
         if not channels:
             raise InstrumentParameterError(message="No channels specified.")
@@ -960,7 +1055,8 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         for ch in processed_channels:
             if not (1 <= ch <= len(self.config.channels)):
                 raise InstrumentParameterError(
-                    parameter="channels", value=ch,
+                    parameter="channels",
+                    value=ch,
                     valid_range=(1, len(self.config.channels)),
                     message="Channel number is out of range.",
                 )
@@ -972,7 +1068,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
 
         # ----------------------------- acquire waveform --------------------------------
         chan_list_str = ", ".join(f"CHANnel{ch}" for ch in processed_channels)
-        for cmd in self.scpi_engine.build('digitize', sources=chan_list_str):
+        for cmd in self.scpi_engine.build("digitize", sources=chan_list_str):
             self._send_command(cmd)
 
         sampling_rate = float(self.get_sampling_rate())
@@ -982,7 +1078,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
 
         for _idx, ch in enumerate(processed_channels, start=1):
             # Select channel as waveform source and fetch its preamble
-            for cmd in self.scpi_engine.build('set_wave_source', source=f"CHANnel{ch}"):
+            for cmd in self.scpi_engine.build("set_wave_source", source=f"CHANnel{ch}"):
                 self._send_command(cmd)
             pre = self._read_preamble()
 
@@ -1046,7 +1142,9 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         Returns:
             float: The sampling rate in Hz.
         """
-        v = self.scpi_engine.parse("acquire_sample_rate", self._query(self.scpi_engine.build("acquire_sample_rate")[0]))
+        v = self.scpi_engine.parse(
+            "acquire_sample_rate", self._query(self.scpi_engine.build("acquire_sample_rate")[0])
+        )
         return np.float64(v)
 
     @validate_call
@@ -1067,14 +1165,18 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                 valid_range=(1, len(self.config.channels)),
                 message="Channel number is out of range.",
             )
-        response_str: str = (self._query(self.scpi_engine.build("probe_get", channel=channel)[0])).strip()
+        response_str: str = (
+            self._query(self.scpi_engine.build("probe_get", channel=channel)[0])
+        ).strip()
         try:
             num_factor = float(response_str)
             if num_factor.is_integer():
                 return f"{int(num_factor)}:1"
             return f"{num_factor}:1"
         except ValueError:
-            self._logger.warning(f"Could not parse probe attenuation factor '{response_str}' as number. Returning raw.")
+            self._logger.warning(
+                f"Could not parse probe attenuation factor '{response_str}' as number. Returning raw."
+            )
             return response_str  # Or raise error
 
     @validate_call
@@ -1153,7 +1255,9 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                 valid_range=(1, len(self.config.channels)),
                 message="Channel number is out of range.",
             )
-        for cmd in self.scpi_engine.build("channel_bandwidth", channel=channel, bandwidth=bandwidth):
+        for cmd in self.scpi_engine.build(
+            "channel_bandwidth", channel=channel, bandwidth=bandwidth
+        ):
             self._send_command(cmd)
 
     @validate_call
@@ -1166,9 +1270,11 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         state (bool): True to enable ('ON'), False to disable ('OFF').
         """
         if self.config.function_generator is None:
-            raise InstrumentConfigurationError(self.config.model, "Function generator not configured.")
+            raise InstrumentConfigurationError(
+                self.config.model, "Function generator not configured."
+            )
         scpi_state = SCPIOnOff.ON.value if state else SCPIOnOff.OFF.value
-        cmds = self.scpi_engine.build('wgen_output', state=scpi_state)
+        cmds = self.scpi_engine.build("wgen_output", state=scpi_state)
         for cmd in cmds:
             self._send_command(cmd)
 
@@ -1195,7 +1301,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                 message="Unsupported waveform type.",
             )
 
-        cmds = self.scpi_engine.build('wgen_set_func', func=func_type.value)
+        cmds = self.scpi_engine.build("wgen_set_func", func=func_type.value)
         for cmd in cmds:
             self._send_command(cmd)
 
@@ -1213,8 +1319,10 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                 self.config.model, "Function generator not configured."
             )
         # Assuming RangeMixin's assert_in_range is preferred for validation
-        self.config.function_generator.frequency.assert_in_range(freq, name="Waveform generator frequency")
-        cmds = self.scpi_engine.build('wgen_set_freq', frequency=freq)
+        self.config.function_generator.frequency.assert_in_range(
+            freq, name="Waveform generator frequency"
+        )
+        cmds = self.scpi_engine.build("wgen_set_freq", frequency=freq)
         for cmd in cmds:
             self._send_command(cmd)
 
@@ -1231,8 +1339,10 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             raise InstrumentConfigurationError(
                 self.config.model, "Function generator not configured."
             )
-        self.config.function_generator.amplitude.assert_in_range(amp, name="Waveform generator amplitude")
-        cmds = self.scpi_engine.build('wgen_set_volt', amplitude=amp)
+        self.config.function_generator.amplitude.assert_in_range(
+            amp, name="Waveform generator amplitude"
+        )
+        cmds = self.scpi_engine.build("wgen_set_volt", amplitude=amp)
         for cmd in cmds:
             self._send_command(cmd)
 
@@ -1249,8 +1359,10 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             raise InstrumentConfigurationError(
                 self.config.model, "Function generator not configured."
             )
-        self.config.function_generator.offset.assert_in_range(offset, name="Waveform generator offset")
-        cmds = self.scpi_engine.build('wgen_set_offset', offset=offset)
+        self.config.function_generator.offset.assert_in_range(
+            offset, name="Waveform generator offset"
+        )
+        cmds = self.scpi_engine.build("wgen_set_offset", offset=offset)
         for cmd in cmds:
             self._send_command(cmd)
 
@@ -1274,7 +1386,9 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
 
     @validate_call
     # @ConfigRequires("function_generator")
-    def set_wgen_square(self, v0: float, v1: float, freq: float, duty_cycle: int | None = None, **kwargs) -> None:
+    def set_wgen_square(
+        self, v0: float, v1: float, freq: float, duty_cycle: int | None = None, **kwargs
+    ) -> None:
         """Sets the waveform generator to a square wave.
 
         :param v0: The voltage of the low state in volts
@@ -1282,13 +1396,13 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         :param freq: The frequency of the square wave in Hz.
         :param duty_cycle: The duty cycle (1% to 99%).
         """
-        if 'dutyCycle' in kwargs:
+        if "dutyCycle" in kwargs:
             warnings.warn(
                 "'dutyCycle' is deprecated, use 'duty_cycle' instead.",
                 DeprecationWarning,
                 stacklevel=2,
             )
-            duty_cycle = kwargs['dutyCycle']
+            duty_cycle = kwargs["dutyCycle"]
 
         if duty_cycle is None:
             duty_cycle = 50
@@ -1303,13 +1417,13 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         def clamp_duty(number: int) -> int:
             return max(1, min(number, 99))
 
-        for cmd in self.scpi_engine.build('wgen_set_low', value=v0):
+        for cmd in self.scpi_engine.build("wgen_set_low", value=v0):
             self._send_command(cmd)
-        for cmd in self.scpi_engine.build('wgen_set_high', value=v1):
+        for cmd in self.scpi_engine.build("wgen_set_high", value=v1):
             self._send_command(cmd)
-        for cmd in self.scpi_engine.build('wgen_set_freq', frequency=freq):
+        for cmd in self.scpi_engine.build("wgen_set_freq", frequency=freq):
             self._send_command(cmd)
-        for cmd in self.scpi_engine.build('wgen_set_square_duty', duty=clamp_duty(duty_cycle)):
+        for cmd in self.scpi_engine.build("wgen_set_square_duty", duty=clamp_duty(duty_cycle)):
             self._send_command(cmd)
 
     @validate_call
@@ -1331,18 +1445,22 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         def clamp_symmetry(number: int) -> int:
             return max(0, min(number, 100))
 
-        for cmd in self.scpi_engine.build('wgen_set_low', value=v0):
+        for cmd in self.scpi_engine.build("wgen_set_low", value=v0):
             self._send_command(cmd)
-        for cmd in self.scpi_engine.build('wgen_set_high', value=v1):
+        for cmd in self.scpi_engine.build("wgen_set_high", value=v1):
             self._send_command(cmd)
-        for cmd in self.scpi_engine.build('wgen_set_freq', frequency=freq):
+        for cmd in self.scpi_engine.build("wgen_set_freq", frequency=freq):
             self._send_command(cmd)
-        for cmd in self.scpi_engine.build('wgen_set_ramp_symmetry', symmetry=clamp_symmetry(symmetry)):
+        for cmd in self.scpi_engine.build(
+            "wgen_set_ramp_symmetry", symmetry=clamp_symmetry(symmetry)
+        ):
             self._send_command(cmd)
 
     @validate_call
     # @ConfigRequires("function_generator")
-    def set_wgen_pulse(self, v0: float, v1: float, period: float, pulse_width: float | None = None, **kwargs) -> None:
+    def set_wgen_pulse(
+        self, v0: float, v1: float, period: float, pulse_width: float | None = None, **kwargs
+    ) -> None:
         """Sets the waveform generator to a pulse wave.
 
         :param v0: The voltage of the low state in volts
@@ -1350,13 +1468,13 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         :param period: The period of the pulse wave in seconds.
         :param pulse_width: The pulse width in seconds.
         """
-        if 'pulseWidth' in kwargs:
+        if "pulseWidth" in kwargs:
             warnings.warn(
                 "'pulseWidth' is deprecated, use 'pulse_width' instead.",
                 DeprecationWarning,
                 stacklevel=2,
             )
-            pulse_width = kwargs['pulseWidth']
+            pulse_width = kwargs["pulseWidth"]
 
         if pulse_width is None:
             raise InstrumentParameterError(message="pulse_width is required.")
@@ -1367,13 +1485,13 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             )
         self.set_wave_gen_func(WaveformType.PULSE)
 
-        for cmd in self.scpi_engine.build('wgen_set_low', value=v0):
+        for cmd in self.scpi_engine.build("wgen_set_low", value=v0):
             self._send_command(cmd)
-        for cmd in self.scpi_engine.build('wgen_set_high', value=v1):
+        for cmd in self.scpi_engine.build("wgen_set_high", value=v1):
             self._send_command(cmd)
-        for cmd in self.scpi_engine.build('wgen_set_period', period=period):
+        for cmd in self.scpi_engine.build("wgen_set_period", period=period):
             self._send_command(cmd)
-        for cmd in self.scpi_engine.build('wgen_set_pulse_width', width=pulse_width):
+        for cmd in self.scpi_engine.build("wgen_set_pulse_width", width=pulse_width):
             self._send_command(cmd)
 
     @validate_call
@@ -1404,9 +1522,9 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                 self.config.model, "Function generator not configured."
             )
         self.set_wave_gen_func(WaveformType.NOISE)
-        for cmd in self.scpi_engine.build('wgen_set_low', value=v0):
+        for cmd in self.scpi_engine.build("wgen_set_low", value=v0):
             self._send_command(cmd)
-        for cmd in self.scpi_engine.build('wgen_set_high', value=v1):
+        for cmd in self.scpi_engine.build("wgen_set_high", value=v1):
             self._send_command(cmd)
         self.set_wave_gen_offset(offset)
 
@@ -1426,9 +1544,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             ch_list = channels
         else:
             # validate_call should catch this if type hints are precise enough
-            raise InstrumentParameterError(
-                message="channels must be an int or a list of ints"
-            )
+            raise InstrumentParameterError(message="channels must be an int or a list of ints")
 
         for ch_num in ch_list:
             if not (1 <= ch_num <= len(self.config.channels)):
@@ -1450,9 +1566,11 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         :param state: True to enable FFT display, False to disable.
         """
         if self.config.fft is None:
-            raise InstrumentConfigurationError(self.config.model, "FFT not configured for this instrument.")
+            raise InstrumentConfigurationError(
+                self.config.model, "FFT not configured for this instrument."
+            )
         scpi_state = SCPIOnOff.ON.value if state else SCPIOnOff.OFF.value
-        for cmd in self.scpi_engine.build('fft_display', state=scpi_state):
+        for cmd in self.scpi_engine.build("fft_display", state=scpi_state):
             self._send_command(cmd)
         self._logger.debug(f"FFT display {'enabled' if state else 'disabled'}.")
 
@@ -1465,13 +1583,22 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         :param state: True to enable display, False to disable.
         """
         scpi_state = SCPIOnOff.ON.value if state else SCPIOnOff.OFF.value
-        for cmd in self.scpi_engine.build('function_display', state=scpi_state):
+        for cmd in self.scpi_engine.build("function_display", state=scpi_state):
             self._send_command(cmd)
         self._logger.debug(f"Function display {'enabled' if state else 'disabled'}.")
 
     @validate_call
     # @ConfigRequires("fft")
-    def configure_fft(self, source_channel: int, scale: float | None = None, offset: float | None = None, span: float | None = None, window_type: str = 'HANNing', units: str = 'DECibel', display: bool = True) -> None:
+    def configure_fft(
+        self,
+        source_channel: int,
+        scale: float | None = None,
+        offset: float | None = None,
+        span: float | None = None,
+        window_type: str = "HANNing",
+        units: str = "DECibel",
+        display: bool = True,
+    ) -> None:
         """
         Configure the oscilloscope to perform an FFT on the specified channel.
 
@@ -1517,34 +1644,38 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         scpi_units = units
 
         if self.config.fft is None:
-            raise InstrumentConfigurationError(self.config.model, "FFT not configured for this instrument.")
-        for cmd in self.scpi_engine.build('fft_source', channel=source_channel):
+            raise InstrumentConfigurationError(
+                self.config.model, "FFT not configured for this instrument."
+            )
+        for cmd in self.scpi_engine.build("fft_source", channel=source_channel):
             self._send_command(cmd)
-        for cmd in self.scpi_engine.build('fft_window', window=scpi_window):
+        for cmd in self.scpi_engine.build("fft_window", window=scpi_window):
             self._send_command(cmd)
 
         if span is not None:
-            for cmd in self.scpi_engine.build('fft_span', span=span):
+            for cmd in self.scpi_engine.build("fft_span", span=span):
                 self._send_command(cmd)
 
-        for cmd in self.scpi_engine.build('fft_vtype', units=scpi_units):
+        for cmd in self.scpi_engine.build("fft_vtype", units=scpi_units):
             self._send_command(cmd)
 
         if scale is not None:
-            for cmd in self.scpi_engine.build('fft_scale', scale=scale):
+            for cmd in self.scpi_engine.build("fft_scale", scale=scale):
                 self._send_command(cmd)
 
         if offset is not None:
-            for cmd in self.scpi_engine.build('fft_offset', offset=offset):
+            for cmd in self.scpi_engine.build("fft_offset", offset=offset):
                 self._send_command(cmd)
 
         scpi_display_state = SCPIOnOff.ON.value if display else SCPIOnOff.OFF.value
-        for cmd in self.scpi_engine.build('fft_display', state=scpi_display_state):
+        for cmd in self.scpi_engine.build("fft_display", state=scpi_display_state):
             self._send_command(cmd)
 
         self._logger.debug(f"FFT configured for channel {source_channel}.")
 
-    def _convert_binary_block_to_data(self, binary_block: bytes) -> np.ndarray:  # Synchronous method for converting binary data
+    def _convert_binary_block_to_data(
+        self, binary_block: bytes
+    ) -> np.ndarray:  # Synchronous method for converting binary data
         """
         Converts a SCPI binary block to a NumPy array.
         Assumes format like #<N><LengthBytes><DataBytes>
@@ -1552,13 +1683,13 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         This is a more standard interpretation of SCPI binary blocks.
         The actual data type (e.g., int8, int16) depends on :WAVeform:FORMat.
         """
-        if not binary_block.startswith(b'#'):
+        if not binary_block.startswith(b"#"):
             raise InstrumentDataError(
                 self.config.model, "Invalid binary block format: does not start with #"
             )
 
-        len_digits = int(binary_block[1:2].decode('ascii'))
-        data_len = int(binary_block[2 : 2 + len_digits].decode('ascii'))
+        len_digits = int(binary_block[1:2].decode("ascii"))
+        data_len = int(binary_block[2 : 2 + len_digits].decode("ascii"))
 
         actual_data_start_index = 2 + len_digits
         raw_data_bytes = binary_block[actual_data_start_index : actual_data_start_index + data_len]
@@ -1567,12 +1698,14 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         data_array = np.frombuffer(raw_data_bytes, dtype=dt)
 
         if len(data_array) != data_len:
-             self._logger.debug(f"Warning: Binary block data length mismatch. Expected {data_len}, got {len(data_array)}")
+            self._logger.debug(
+                f"Warning: Binary block data length mismatch. Expected {data_len}, got {len(data_array)}"
+            )
 
         return data_array
 
     @validate_call
-    def read_fft_data(self, channel: int, window: str | None = 'hann') -> FFTResult:
+    def read_fft_data(self, channel: int, window: str | None = "hann") -> FFTResult:
         """
         Acquires time-domain data for the specified channel and computes the FFT using
         the analysis submodule.
@@ -1585,7 +1718,9 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         Returns:
             FFTResult: An object containing the computed FFT data (frequency and linear magnitude).
         """
-        self._logger.debug(f"Initiating FFT computation for channel {channel} using analysis module.")
+        self._logger.debug(
+            f"Initiating FFT computation for channel {channel} using analysis module."
+        )
 
         if not (1 <= channel <= len(self.config.channels)):
             raise InstrumentParameterError(
@@ -1599,16 +1734,17 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         waveform_data: ChannelReadingResult = self.read_channels(channel)
 
         if waveform_data.values is None or waveform_data.values.is_empty():
-            self._logger.warning(f"No waveform data acquired for channel {channel}. Cannot compute FFT.")
+            self._logger.warning(
+                f"No waveform data acquired for channel {channel}. Cannot compute FFT."
+            )
             # Return an empty FFTResult or raise an error
             return FFTResult(
                 instrument=self.config.model,
                 units="Linear",
                 measurement_type="FFT_computed_python",
-                values=pl.DataFrame({
-                    "Frequency (Hz)": np.array([]),
-                    "Magnitude (Linear)": np.array([])
-                })
+                values=pl.DataFrame(
+                    {"Frequency (Hz)": np.array([]), "Magnitude (Linear)": np.array([])}
+                ),
             )
 
         time_array = waveform_data.values["Time (s)"].to_numpy()
@@ -1622,9 +1758,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
 
         # 2. Call the appropriate function from pytestlab.analysis.fft
         frequency_array, magnitude_array = analysis_fft.compute_fft(
-            time_array=time_array,
-            voltage_array=voltage_array,
-            window=window
+            time_array=time_array, voltage_array=voltage_array, window=window
         )
 
         # 3. Return or further process the results
@@ -1632,10 +1766,9 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             instrument=self.config.model,
             units="Linear",  # compute_fft returns linear magnitude
             measurement_type="FFT_computed_python",
-            values=pl.DataFrame({
-                "Frequency (Hz)": frequency_array,
-                "Magnitude (Linear)": magnitude_array
-            })
+            values=pl.DataFrame(
+                {"Frequency (Hz)": frequency_array, "Magnitude (Linear)": magnitude_array}
+            ),
         )
 
     @validate_call
@@ -1647,23 +1780,38 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         """
         binary_data_response: bytes = self._query_raw(self.scpi_engine.build("screenshot")[0])
 
-        if not binary_data_response.startswith(b'#'):
+        if not binary_data_response.startswith(b"#"):
             raise InstrumentDataError(
                 self.config.model, "Invalid screenshot data format: does not start with #"
             )
 
         length_of_length_field: int = int(chr(binary_data_response[1]))
-        png_data_length_str: str = binary_data_response[2 : 2 + length_of_length_field].decode('ascii')
+        png_data_length_str: str = binary_data_response[2 : 2 + length_of_length_field].decode(
+            "ascii"
+        )
         png_data_length: int = int(png_data_length_str)
         png_data_start_index: int = 2 + length_of_length_field
-        image_data_bytes: bytes = binary_data_response[png_data_start_index : png_data_start_index + png_data_length]
+        image_data_bytes: bytes = binary_data_response[
+            png_data_start_index : png_data_start_index + png_data_length
+        ]
 
         return Image.open(BytesIO(image_data_bytes))
 
     @validate_call
     # @ConfigRequires("franalysis")
     # @ConfigRequires("function_generator")
-    def franalysis_sweep(self, input_channel: int, output_channel: int, start_freq: float, stop_freq: float, amplitude: float, points: int = 10, trace: str = "none", load: str = "onemeg", disable_on_complete: bool = True) -> FRanalysisResult:
+    def franalysis_sweep(
+        self,
+        input_channel: int,
+        output_channel: int,
+        start_freq: float,
+        stop_freq: float,
+        amplitude: float,
+        points: int = 10,
+        trace: str = "none",
+        load: str = "onemeg",
+        disable_on_complete: bool = True,
+    ) -> FRanalysisResult:
         """
         Perform a frequency response analysis sweep.
 
@@ -1701,42 +1849,41 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
 
         # SCPI commands for frequency response analysis sweep via SCPIEngine only
         if self.config.franalysis is None or self.config.function_generator is None:
-            raise InstrumentConfigurationError(self.config.model, "FRAnalysis or function generator not configured.")
-        for cmd in self.scpi_engine.build('fran_enable'):
+            raise InstrumentConfigurationError(
+                self.config.model, "FRAnalysis or function generator not configured."
+            )
+        for cmd in self.scpi_engine.build("fran_enable"):
             self._send_command(cmd)
-        for cmd in self.scpi_engine.build('fran_start', value=start_freq):
+        for cmd in self.scpi_engine.build("fran_start", value=start_freq):
             self._send_command(cmd)
-        for cmd in self.scpi_engine.build('fran_stop', value=stop_freq):
+        for cmd in self.scpi_engine.build("fran_stop", value=stop_freq):
             self._send_command(cmd)
-        for cmd in self.scpi_engine.build('fran_amplitude', value=amplitude):
+        for cmd in self.scpi_engine.build("fran_amplitude", value=amplitude):
             self._send_command(cmd)
-        for cmd in self.scpi_engine.build('fran_points', value=points):
+        for cmd in self.scpi_engine.build("fran_points", value=points):
             self._send_command(cmd)
-        for cmd in self.scpi_engine.build('fran_trace', value=trace):
+        for cmd in self.scpi_engine.build("fran_trace", value=trace):
             self._send_command(cmd)
-        for cmd in self.scpi_engine.build('fran_load', value=load):
+        for cmd in self.scpi_engine.build("fran_load", value=load):
             self._send_command(cmd)
         if disable_on_complete:
-            for cmd in self.scpi_engine.build('fran_disable'):
+            for cmd in self.scpi_engine.build("fran_disable"):
                 self._send_command(cmd)
         self._wait()
-        result_data = self._query(self.scpi_engine.build('fran_fetch')[0])
+        result_data = self._query(self.scpi_engine.build("fran_fetch")[0])
 
         # Parse the result data into a structured format if needed
         # For now, let's assume it's a simple comma-separated value string
-        parsed_results = [float(val) for val in result_data.split(',')]
+        parsed_results = [float(val) for val in result_data.split(",")]
 
         # Create a DataFrame or structured result object
         # Assuming two columns: Frequency and Magnitude
         freq_values = parsed_results[0::2]  # Extracting frequency values
-        mag_values = parsed_results[1::2]   # Extracting magnitude values
+        mag_values = parsed_results[1::2]  # Extracting magnitude values
 
         return FRanalysisResult(
             instrument=self.config.model,
             units="",
             measurement_type="FrequencyResponse",
-            values=pl.DataFrame({
-                "Frequency (Hz)": freq_values,
-                "Magnitude": mag_values
-            })
+            values=pl.DataFrame({"Frequency (Hz)": freq_values, "Magnitude": mag_values}),
         )

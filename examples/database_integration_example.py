@@ -14,6 +14,7 @@ The example shows:
 3. Retrieving and analyzing stored experiments
 4. Managing multiple experiments in a single database
 """
+
 import os
 import time
 from datetime import datetime
@@ -42,22 +43,14 @@ def run_experiment(name, description, base_voltages, collector_range):
             "operator": "Database Example Script",
             "date": datetime.now().strftime("%Y-%m-%d"),
             "database_path": DB_PATH,
-            "notes": "Automatically generated experiment for database integration example."
+            "notes": "Automatically generated experiment for database integration example.",
         },
         "simulate": True,
-        "backend_defaults": {
-            "type": "lamb"
-        },
+        "backend_defaults": {"type": "lamb"},
         "instruments": {
-            "psu": {
-                "profile": "keysight/EDU36311A",
-                "backend": {"type": "lamb"}
-            },
-            "dmm": {
-                "profile": "keysight/EDU34450A",
-                "backend": {"type": "lamb"}
-            }
-        }
+            "psu": {"profile": "keysight/EDU36311A", "backend": {"type": "lamb"}},
+            "dmm": {"profile": "keysight/EDU34450A", "backend": {"type": "lamb"}},
+        },
     }
 
     # Initialize bench from config dictionary
@@ -67,10 +60,12 @@ def run_experiment(name, description, base_voltages, collector_range):
         # Create measurement session using the bench
         with MeasurementSession(bench=bench) as session:
             # Define parameters
-            session.parameter("V_base", base_voltages, unit="V",
-                             notes="Base voltage for transistor")
-            session.parameter("V_collector", collector_range, unit="V",
-                             notes="Collector voltage sweep")
+            session.parameter(
+                "V_base", base_voltages, unit="V", notes="Base voltage for transistor"
+            )
+            session.parameter(
+                "V_collector", collector_range, unit="V", notes="Collector voltage sweep"
+            )
 
             # Define measurement function
             @session.acquire
@@ -103,10 +98,7 @@ def run_experiment(name, description, base_voltages, collector_range):
                 psu.output(2, False)
 
                 # Return measurement data
-                return {
-                    "I_collector": collector_current,
-                    "hFE": beta
-                }
+                return {"I_collector": collector_current, "hFE": beta}
 
             # Run the measurement sweep
             print("🔄 Running measurement sweep...")
@@ -127,7 +119,7 @@ def run_multiple_experiments():
         name="Transistor Low Voltage Test",
         description="Characterization at low base voltages",
         base_voltages=np.linspace(0.5, 0.7, 3),
-        collector_range=np.linspace(0, 5, 6)
+        collector_range=np.linspace(0, 5, 6),
     )
 
     # Wait a moment to ensure database writes complete
@@ -138,7 +130,7 @@ def run_multiple_experiments():
         name="Transistor High Voltage Test",
         description="Characterization at high base voltages",
         base_voltages=np.linspace(0.8, 1.0, 3),
-        collector_range=np.linspace(0, 5, 6)
+        collector_range=np.linspace(0, 5, 6),
     )
 
     # Return both experiments
@@ -171,13 +163,13 @@ def analyze_database():
         print(f"  Parameters: {', '.join(experiment.parameters.keys())}")
 
         # Get unique base voltages
-        base_voltages = sorted(set(experiment.data['V_base'].to_numpy().flatten()))
+        base_voltages = sorted(set(experiment.data["V_base"].to_numpy().flatten()))
         print(f"  Base voltages tested: {[f'{v:.1f}V' for v in base_voltages]}")
 
         # Calculate statistics
-        avg_current = experiment.data['I_collector'].mean()
-        max_current = experiment.data['I_collector'].max()
-        avg_gain = experiment.data['hFE'].mean()
+        avg_current = experiment.data["I_collector"].mean()
+        max_current = experiment.data["I_collector"].max()
+        avg_gain = experiment.data["hFE"].mean()
 
         print(f"  Average collector current: {avg_current:.2f}A")
         print(f"  Maximum collector current: {max_current:.2f}A")
@@ -198,12 +190,14 @@ def analyze_database():
                 avg_gain = base_rows["hFE"].mean()
                 max_current = base_rows["I_collector"].max()
 
-                results.append({
-                    "experiment": exp.name,
-                    "V_base": v_base,
-                    "avg_hFE": avg_gain,
-                    "max_I_collector": max_current
-                })
+                results.append(
+                    {
+                        "experiment": exp.name,
+                        "V_base": v_base,
+                        "avg_hFE": avg_gain,
+                        "max_I_collector": max_current,
+                    }
+                )
 
         # Convert to DataFrame for easy analysis
         results_df = pl.DataFrame(results)
@@ -239,4 +233,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n❌ Error: {e}")
         import traceback
+
         traceback.print_exc()

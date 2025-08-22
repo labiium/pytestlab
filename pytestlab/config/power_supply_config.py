@@ -15,12 +15,11 @@ from pytestlab.config.instrument_config import InstrumentConfig
 
 class PowerSupplyChannelConfig(BaseModel):
     """Configuration for a single power supply channel."""
-    model_config = ConfigDict(validate_assignment=True, extra='forbid')
+
+    model_config = ConfigDict(validate_assignment=True, extra="forbid")
 
     channel_id: int = Field(..., gt=0, description="Channel identifier (e.g., 1, 2)")
-    voltage_range: Range = Field(
-        ..., description="Programmable voltage range for the channel"
-    )
+    voltage_range: Range = Field(..., description="Programmable voltage range for the channel")
     current_limit_range: Range = Field(
         ..., description="Programmable current limit range for the channel"
     )
@@ -35,25 +34,28 @@ class PowerSupplyChannelConfig(BaseModel):
     # over_voltage_protection: Optional[float] = Field(None, description="Per-channel Over Voltage Protection setting")
     # over_current_protection: Optional[float] = Field(None, description="Per-channel Over Current Protection setting")
 
-    @model_validator(mode='before')
+    @model_validator(mode="before")
     def migrate_profile_fields(cls, values):
         # Map 'voltage' to 'voltage_range' if present
-        if 'voltage' in values and 'voltage_range' not in values:
-            values['voltage_range'] = Range(**values['voltage'])
-        if 'current' in values and 'current_limit_range' not in values:
-            values['current_limit_range'] = Range(**values['current'])
+        if "voltage" in values and "voltage_range" not in values:
+            values["voltage_range"] = Range(**values["voltage"])
+        if "current" in values and "current_limit_range" not in values:
+            values["current_limit_range"] = Range(**values["current"])
         return values
 
 
 class PowerSupplyConfig(InstrumentConfig):
     """Pydantic model for Power Supply configuration."""
-    model_config = ConfigDict(validate_assignment=True, extra='forbid')
+
+    model_config = ConfigDict(validate_assignment=True, extra="forbid")
 
     device_type: Literal["power_supply", "PSU"] = Field(  # More flexible device_type
         "PSU", description="Device type identifier, must be 'PSU' or 'power_supply'."
     )
     channels: list[PowerSupplyChannelConfig] = Field(
-        ..., min_length=1, description="List of power supply channel configurations"  # Ensure min_length is appropriate
+        ...,
+        min_length=1,
+        description="List of power supply channel configurations",  # Ensure min_length is appropriate
     )
     over_voltage_protection: Range | None = Field(
         None, description="Global Over Voltage Protection setting for the PSU, if applicable."
@@ -67,14 +69,12 @@ class PowerSupplyConfig(InstrumentConfig):
     load_regulation: float | None = Field(
         None, description="Load regulation specification for the PSU."
     )
-    total_power: float | None = Field(
-        None, description="Total output power rating for the PSU."
-    )
+    total_power: float | None = Field(None, description="Total output power rating for the PSU.")
     # Add other global PSU settings if any, e.g.:
     # tracking_enabled: Optional[bool] = Field(None, description="Enable/disable channel tracking if supported")
 
-    @model_validator(mode='after')
-    def check_channel_ids_unique(self) -> 'PowerSupplyConfig':
+    @model_validator(mode="after")
+    def check_channel_ids_unique(self) -> "PowerSupplyConfig":
         if self.channels:
             ids = [ch.channel_id for ch in self.channels]
             if len(ids) != len(set(ids)):

@@ -1,6 +1,7 @@
 """
 Unit tests for the notebook-friendly MeasurementSession.
 """
+
 from __future__ import annotations
 
 import numpy as np

@@ -33,10 +33,7 @@ def demonstrate_successful_replay():
     psu_backend = ReplayBackend(psu_log, "psu_demo")
 
     print("Creating PSU instrument with replay backend...")
-    psu = AutoInstrument.from_config(
-        "keysight/EDU36311A",
-        backend_override=psu_backend
-    )
+    psu = AutoInstrument.from_config("keysight/EDU36311A", backend_override=psu_backend)
     psu.connect_backend()
 
     print("Executing commands in exact recorded sequence...")
@@ -89,10 +86,7 @@ def demonstrate_mismatch_detection():
     psu_backend = ReplayBackend(psu_log, "psu_mismatch_demo")
 
     print("Creating PSU instrument with replay backend...")
-    psu = AutoInstrument.from_config(
-        "keysight/EDU36311A",
-        backend_override=psu_backend
-    )
+    psu = AutoInstrument.from_config("keysight/EDU36311A", backend_override=psu_backend)
     psu.connect_backend()
 
     print("Executing sequence with intentional deviation...")
@@ -137,7 +131,9 @@ def demonstrate_cli_integration():
     print("  pytestlab replay run <script> --session <session.yaml>")
     print()
     print("Example workflow:")
-    print("1. Record a session: pytestlab replay record measurement.py --bench bench.yaml --output session.yaml")
+    print(
+        "1. Record a session: pytestlab replay record measurement.py --bench bench.yaml --output session.yaml"
+    )
     print("2. Replay session:   pytestlab replay run measurement.py --session session.yaml")
     print("3. Any script deviation will cause ReplayMismatchError during step 2")
     print()

@@ -15,6 +15,7 @@ class VisaBackend:  # Intentionally not inheriting from InstrumentIO at runtime 
     A backend for communicating with instruments using pyvisa (sync).
     This class implements the InstrumentIO protocol.
     """
+
     def __init__(self, address: str, timeout_ms: int | None = 5000):
         self.address = address
         self.rm = pyvisa.ResourceManager()
@@ -43,9 +44,13 @@ class VisaBackend:  # Intentionally not inheriting from InstrumentIO at runtime 
             self.instrument = resource
             self.instrument.timeout = self._timeout_ms  # pyvisa timeout is in milliseconds
         except pyvisa.Error as e:  # Catch specific pyvisa errors
-            raise InstrumentConnectionError(f"Failed to connect to VISA resource {self.address}: {e}") from e
+            raise InstrumentConnectionError(
+                f"Failed to connect to VISA resource {self.address}: {e}"
+            ) from e
         except Exception as e:  # Catch other potential errors during connection
-            raise InstrumentConnectionError(f"An unexpected error occurred while connecting to VISA resource {self.address}: {e}") from e
+            raise InstrumentConnectionError(
+                f"An unexpected error occurred while connecting to VISA resource {self.address}: {e}"
+            ) from e
 
     def disconnect(self) -> None:
         """Disconnects from the VISA resource."""
@@ -54,9 +59,13 @@ class VisaBackend:  # Intentionally not inheriting from InstrumentIO at runtime 
                 self.instrument.close()
             except pyvisa.Error as e:
                 # Log or handle error during close if necessary
-                raise InstrumentConnectionError(f"Error disconnecting from VISA resource {self.address}: {e}") from e
+                raise InstrumentConnectionError(
+                    f"Error disconnecting from VISA resource {self.address}: {e}"
+                ) from e
             except Exception as e:
-                raise InstrumentConnectionError(f"An unexpected error occurred while disconnecting VISA resource {self.address}: {e}") from e
+                raise InstrumentConnectionError(
+                    f"An unexpected error occurred while disconnecting VISA resource {self.address}: {e}"
+                ) from e
             finally:
                 self.instrument = None
         # If already disconnected, do nothing.
@@ -68,9 +77,13 @@ class VisaBackend:  # Intentionally not inheriting from InstrumentIO at runtime 
         try:
             self.instrument.write(cmd)
         except pyvisa.Error as e:
-            raise InstrumentCommunicationError(f"Failed to write command '{cmd}' to {self.address}: {e}") from e
+            raise InstrumentCommunicationError(
+                f"Failed to write command '{cmd}' to {self.address}: {e}"
+            ) from e
         except Exception as e:
-            raise InstrumentCommunicationError(f"An unexpected error occurred writing command '{cmd}' to {self.address}: {e}") from e
+            raise InstrumentCommunicationError(
+                f"An unexpected error occurred writing command '{cmd}' to {self.address}: {e}"
+            ) from e
 
     def query(self, cmd: str, delay: float | None = None) -> str:
         """Sends a query to the instrument and returns the string response."""
@@ -80,9 +93,13 @@ class VisaBackend:  # Intentionally not inheriting from InstrumentIO at runtime 
             response = self.instrument.query(cmd, delay=delay)
             return response.strip()
         except pyvisa.Error as e:  # pyvisa.VisaIOError is a common one here
-            raise InstrumentCommunicationError(f"Failed to query '{cmd}' from {self.address}: {e}") from e
+            raise InstrumentCommunicationError(
+                f"Failed to query '{cmd}' from {self.address}: {e}"
+            ) from e
         except Exception as e:
-            raise InstrumentCommunicationError(f"An unexpected error occurred querying '{cmd}' from {self.address}: {e}") from e
+            raise InstrumentCommunicationError(
+                f"An unexpected error occurred querying '{cmd}' from {self.address}: {e}"
+            ) from e
 
     def query_raw(self, cmd: str, delay: float | None = None) -> bytes:
         """Sends a query and returns the raw bytes response."""
@@ -99,9 +116,13 @@ class VisaBackend:  # Intentionally not inheriting from InstrumentIO at runtime 
             data = self.instrument.read_bytes(self.instrument.chunk_size)  # Or read_raw()
             return data
         except pyvisa.Error as e:
-            raise InstrumentCommunicationError(f"Failed to query_raw '{cmd}' from {self.address}: {e}") from e
+            raise InstrumentCommunicationError(
+                f"Failed to query_raw '{cmd}' from {self.address}: {e}"
+            ) from e
         except Exception as e:
-            raise InstrumentCommunicationError(f"An unexpected error occurred during query_raw '{cmd}' from {self.address}: {e}") from e
+            raise InstrumentCommunicationError(
+                f"An unexpected error occurred during query_raw '{cmd}' from {self.address}: {e}"
+            ) from e
 
     def close(self) -> None:
         """Closes the connection (alias for disconnect)."""
@@ -119,9 +140,13 @@ class VisaBackend:  # Intentionally not inheriting from InstrumentIO at runtime 
                 # Log this, but don't necessarily fail the operation if instrument is disconnected
                 # or doesn't support dynamic timeout setting in its current state.
                 # Consider raising InstrumentConfigurationError if strictness is required.
-                print(f"Warning: Could not set timeout on VISA resource {self.address} (instrument may be disconnected or unresponsive): {e}")
+                print(
+                    f"Warning: Could not set timeout on VISA resource {self.address} (instrument may be disconnected or unresponsive): {e}"
+                )
             except Exception as e:
-                print(f"Warning: An unexpected error occurred setting timeout on VISA resource {self.address}: {e}")
+                print(
+                    f"Warning: An unexpected error occurred setting timeout on VISA resource {self.address}: {e}"
+                )
 
     def get_timeout(self) -> int:
         """Gets the communication timeout in milliseconds."""
@@ -133,6 +158,7 @@ class VisaBackend:  # Intentionally not inheriting from InstrumentIO at runtime 
 
 # To ensure VisaBackend correctly implements InstrumentIO, you can do a static check:
 if TYPE_CHECKING:
+
     def _check_visa_backend_protocol(backend: InstrumentIO) -> None: ...
     def _test() -> None:
         _check_visa_backend_protocol(VisaBackend(address="TCPIP0::localhost::INSTR"))

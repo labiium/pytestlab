@@ -4,9 +4,9 @@ import numpy as np
 
 
 def compute_fft(
-    time_array: np.ndarray, 
-    voltage_array: np.ndarray, 
-    window: str | None = 'hann'  # Example: allow windowing
+    time_array: np.ndarray,
+    voltage_array: np.ndarray,
+    window: str | None = "hann",  # Example: allow windowing
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Computes the Fast Fourier Transform (FFT) of a given time-domain signal.
@@ -29,24 +29,26 @@ def compute_fft(
         raise ValueError("Time and voltage arrays must have the same size.")
     if time_array.ndim != 1 or voltage_array.ndim != 1:
         raise ValueError("Input arrays must be 1-dimensional.")
-    
+
     N = voltage_array.size
     if N == 0:
         return np.array([]), np.array([])
     if N <= 1:  # FFT not meaningful for 0 or 1 sample
-            return np.array([]), np.array([])
+        return np.array([]), np.array([])
 
     # Apply windowing if specified
     if window:
-        if window == 'hann':
+        if window == "hann":
             voltage_array_windowed = voltage_array * np.hanning(N)
-        elif window == 'hamming':
+        elif window == "hamming":
             voltage_array_windowed = voltage_array * np.hamming(N)
         # Add other windows or raise error for unsupported window
         # elif window is None or window == '': # No window
         #    voltage_array_windowed = voltage_array
         else:
-            raise ValueError(f"Unsupported window function: {window}. Supported: 'hann', 'hamming', None.")
+            raise ValueError(
+                f"Unsupported window function: {window}. Supported: 'hann', 'hamming', None."
+            )
     else:  # No window
         voltage_array_windowed = voltage_array
 
@@ -54,21 +56,21 @@ def compute_fft(
     fft_values = np.fft.fft(voltage_array_windowed)
     # Take only positive frequencies (first N // 2 points)
     # For real inputs, the FFT is symmetric, so we only need half.
-    fft_magnitudes = np.abs(fft_values)[:N // 2]
+    fft_magnitudes = np.abs(fft_values)[: N // 2]
 
     # Compute frequency bins
     # This requires sampling frequency Fs.
     # A more robust way if time_array is uniformly spaced:
     if N > 1 and (time_array[-1] - time_array[0]) > 0:
-            # Total duration T = time_array[-1] - time_array[0]
-            # Number of sampling intervals = N - 1
-            # Sampling interval dt = T / (N - 1)
-            # Sampling frequency Fs = 1 / dt = (N - 1) / T
-            dt = (time_array[-1] - time_array[0]) / (N - 1)
-            if dt <= 0:  # Avoid division by zero or negative dt if time_array is not monotonic
-                # This case should ideally be caught by pre-checks or handled by requiring Fs
-                return np.array([]), np.array([]) 
-            Fs = 1 / dt
+        # Total duration T = time_array[-1] - time_array[0]
+        # Number of sampling intervals = N - 1
+        # Sampling interval dt = T / (N - 1)
+        # Sampling frequency Fs = 1 / dt = (N - 1) / T
+        dt = (time_array[-1] - time_array[0]) / (N - 1)
+        if dt <= 0:  # Avoid division by zero or negative dt if time_array is not monotonic
+            # This case should ideally be caught by pre-checks or handled by requiring Fs
+            return np.array([]), np.array([])
+        Fs = 1 / dt
     elif N == 1 and time_array.size == 1:  # Single point, Fs is undefined, Nyquist is 0
         # Return empty or a specific representation for a single point "spectrum"
         # For FFT, typically need >1 points.
@@ -76,13 +78,13 @@ def compute_fft(
         # For now, aligning with N<=1 check above.
         return np.array([]), np.array([])
     else:  # Cannot determine Fs (e.g., N > 1 but time_array[-1] == time_array[0]), or N is too small
-            # Or if time_array is not sorted, (time_array[-1] - time_array[0]) could be non-positive.
-            # Consider requiring Fs as an input for more robustness if time_array properties are not guaranteed.
-            # For now, returning empty as a safe default.
-            return np.array([]), np.array([])
+        # Or if time_array is not sorted, (time_array[-1] - time_array[0]) could be non-positive.
+        # Consider requiring Fs as an input for more robustness if time_array properties are not guaranteed.
+        # For now, returning empty as a safe default.
+        return np.array([]), np.array([])
 
     # d = sampling interval = 1/Fs
-    frequency_array = np.fft.fftfreq(N, d=1 / Fs)[:N // 2]
+    frequency_array = np.fft.fftfreq(N, d=1 / Fs)[: N // 2]
 
     # fft_magnitudes are linear. User can convert to dB if needed:
     # fft_magnitudes_db = 20 * np.log10(fft_magnitudes)

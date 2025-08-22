@@ -21,10 +21,7 @@ def sim_scope() -> Oscilloscope:
     # Use the local simulation profile with custom configuration
     # `simulate=True` ensures SimBackend is used
     sim_profile_path = Path(__file__).parent / "keysight" / "DSOX1204G.yaml"
-    scope = AutoInstrument.from_config(
-        config_source=str(sim_profile_path),
-        simulate=True
-    )
+    scope = AutoInstrument.from_config(config_source=str(sim_profile_path), simulate=True)
 
     # Establish the "connection" to the backend
     scope.connect_backend()

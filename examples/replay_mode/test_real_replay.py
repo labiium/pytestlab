@@ -23,25 +23,40 @@ def session_file():
         "psu": {
             "profile": "keysight/EDU36311A",
             "log": [
-                {"type": "query", "command": "*IDN?", "response": "Keysight Technologies,EDU36311A,MY54440024,1.0.0", "timestamp": 0.1},
+                {
+                    "type": "query",
+                    "command": "*IDN?",
+                    "response": "Keysight Technologies,EDU36311A,MY54440024,1.0.0",
+                    "timestamp": 0.1,
+                },
                 {"type": "write", "command": "INST:NSEL 1", "timestamp": 0.2},
                 {"type": "write", "command": "VOLT 1.0", "timestamp": 0.3},
                 {"type": "write", "command": "CURR 0.1", "timestamp": 0.4},
                 {"type": "write", "command": "OUTP ON", "timestamp": 0.5},
                 {"type": "query", "command": "MEAS:VOLT?", "response": "1.001", "timestamp": 0.6},
                 {"type": "query", "command": "MEAS:CURR?", "response": "0.050", "timestamp": 0.7},
-                {"type": "write", "command": "OUTP OFF", "timestamp": 0.8}
-            ]
+                {"type": "write", "command": "OUTP OFF", "timestamp": 0.8},
+            ],
         },
         "osc": {
             "profile": "keysight/DSOX1204G",
             "log": [
-                {"type": "query", "command": "*IDN?", "response": "Keysight Technologies,DSOX1204G,MY54440025,1.0.0", "timestamp": 0.1},
+                {
+                    "type": "query",
+                    "command": "*IDN?",
+                    "response": "Keysight Technologies,DSOX1204G,MY54440025,1.0.0",
+                    "timestamp": 0.1,
+                },
                 {"type": "write", "command": ":TIM:SCAL 0.001", "timestamp": 0.2},
                 {"type": "write", "command": ":TIM:POS 0.0", "timestamp": 0.3},
-                {"type": "query", "command": "MEAS:VPP? CHAN1", "response": "2.001", "timestamp": 0.4}
-            ]
-        }
+                {
+                    "type": "query",
+                    "command": "MEAS:VPP? CHAN1",
+                    "response": "2.001",
+                    "timestamp": 0.4,
+                },
+            ],
+        },
     }
 
     session_file = Path("test_session.yaml")
@@ -69,17 +84,13 @@ def test_real_instruments_recording():
         # Connect to real instruments via LAMB
         print("Connecting to PSU via LAMB...")
         psu = AutoInstrument.from_config(
-            "keysight/EDU36311A",
-            simulate=False,
-            backend_type_hint="lamb"
+            "keysight/EDU36311A", simulate=False, backend_type_hint="lamb"
         )
         psu.connect_backend()
 
         print("Connecting to Oscilloscope via LAMB...")
         osc = AutoInstrument.from_config(
-            "keysight/DSOX1204G",
-            simulate=False,
-            backend_type_hint="lamb"
+            "keysight/DSOX1204G", simulate=False, backend_type_hint="lamb"
         )
         osc.connect_backend()
 
@@ -94,14 +105,8 @@ def test_real_instruments_recording():
 
         # Save recorded session
         session_data = {
-            "psu": {
-                "profile": "keysight/EDU36311A",
-                "log": psu_log
-            },
-            "osc": {
-                "profile": "keysight/DSOX1204G",
-                "log": osc_log
-            }
+            "psu": {"profile": "keysight/EDU36311A", "log": psu_log},
+            "osc": {"profile": "keysight/DSOX1204G", "log": osc_log},
         }
 
         session_file = Path("real_instrument_session.yaml")
@@ -117,6 +122,7 @@ def test_real_instruments_recording():
     except Exception as e:
         print(f"✗ Error during recording: {e}")
         import traceback
+
         traceback.print_exc()
         return None
     finally:
@@ -185,6 +191,7 @@ def test_replay_session(session_file: Path):
     except Exception as e:
         print(f"✗ Error during replay: {e}")
         import traceback
+
         traceback.print_exc()
         pytest.fail(f"Error during replay: {e}")
 
@@ -237,15 +244,23 @@ def perform_measurement_sequence(psu, osc):
             actual_voltage = psu.read_voltage(1)
             actual_current = psu.read_current(1)
 
-            measurements.append({
-                'set_voltage': voltage,
-                'actual_voltage': float(actual_voltage.values) if hasattr(actual_voltage, 'values') else actual_voltage,
-                'actual_current': float(actual_current.values) if hasattr(actual_current, 'values') else actual_current,
-                'osc_vpp': float(vpp.values) if hasattr(vpp, 'values') else vpp,
-            })
+            measurements.append(
+                {
+                    "set_voltage": voltage,
+                    "actual_voltage": float(actual_voltage.values)
+                    if hasattr(actual_voltage, "values")
+                    else actual_voltage,
+                    "actual_current": float(actual_current.values)
+                    if hasattr(actual_current, "values")
+                    else actual_current,
+                    "osc_vpp": float(vpp.values) if hasattr(vpp, "values") else vpp,
+                }
+            )
 
-            print(f"  Set: {voltage}V, Actual: {measurements[-1]['actual_voltage']:.3f}V, "
-                  f"Current: {measurements[-1]['actual_current']:.3f}A, Vpp: {measurements[-1]['osc_vpp']:.3f}V")
+            print(
+                f"  Set: {voltage}V, Actual: {measurements[-1]['actual_voltage']:.3f}V, "
+                f"Current: {measurements[-1]['actual_current']:.3f}A, Vpp: {measurements[-1]['osc_vpp']:.3f}V"
+            )
 
     finally:
         # Safety: disable output
@@ -327,4 +342,5 @@ def main():
 
 if __name__ == "__main__":
     import sys
+
     sys.exit(main())

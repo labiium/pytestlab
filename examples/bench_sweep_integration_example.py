@@ -45,19 +45,19 @@ def visualize_results(results_dict):
     for i, (label, results) in enumerate(results_dict.items(), 1):
         if isinstance(results, pl.DataFrame):
             df = results
-            vb = df['V_base'].to_numpy()
-            vc = df['V_collector'].to_numpy()
-            ic = df['I_collector'].to_numpy()
+            vb = df["V_base"].to_numpy()
+            vc = df["V_collector"].to_numpy()
+            ic = df["I_collector"].to_numpy()
         else:
             vb = np.array([params[0] for params, _ in results])
             vc = np.array([params[1] for params, _ in results])
             ic = np.array([out for _, out in results])
         plt.subplot(1, len(results_dict), i)
-        plt.scatter(vc, vb, c=ic, cmap='viridis', s=50)
-        plt.colorbar(label='Collector Current (A)')
+        plt.scatter(vc, vb, c=ic, cmap="viridis", s=50)
+        plt.colorbar(label="Collector Current (A)")
         plt.title(label)
-        plt.xlabel('Collector Voltage (V)')
-        plt.ylabel('Base Voltage (V)')
+        plt.xlabel("Collector Voltage (V)")
+        plt.ylabel("Base Voltage (V)")
         plt.grid(True)
     plt.tight_layout()
     plt.savefig("bench_sweep_comparison.png", dpi=150)
@@ -72,7 +72,9 @@ def main():
         # --- 1. Built-in MeasurementSession grid sweep ---
         with MeasurementSession(bench=bench) as session:
             session.parameter("V_base", np.linspace(0.6, 1.0, 5), unit="V", notes="Base voltage")
-            session.parameter("V_collector", np.linspace(0, 5, 10), unit="V", notes="Collector voltage")
+            session.parameter(
+                "V_collector", np.linspace(0, 5, 10), unit="V", notes="Collector voltage"
+            )
 
             @session.acquire
             def measure(V_base, V_collector, psu, dmm):
@@ -103,8 +105,7 @@ def main():
             return params["V_base"] > 0.7 and params["V_collector"] > 1.0
 
         param_space = ParameterSpace(
-            {"V_base": (0.6, 1.0), "V_collector": (0, 5)},
-            constraint=valid_region
+            {"V_base": (0.6, 1.0), "V_collector": (0, 5)}, constraint=valid_region
         )
 
         @grid_sweep(param_space=param_space, points=6)
@@ -138,12 +139,14 @@ def main():
         gwass_results = gwass_measure()
 
         # --- Visualization ---
-        visualize_results({
-            "Built-in Grid": built_in_results,
-            "Grid Sweep": grid_results,
-            "Monte Carlo": mc_results,
-            "GWASS": gwass_results,
-        })
+        visualize_results(
+            {
+                "Built-in Grid": built_in_results,
+                "Grid Sweep": grid_results,
+                "Monte Carlo": mc_results,
+                "GWASS": gwass_results,
+            }
+        )
 
         print("All sweeps complete.")
 

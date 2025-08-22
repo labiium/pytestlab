@@ -25,7 +25,7 @@ from .scpi_engine import SCPIEngine
 # Forward reference for ConfigType if InstrumentConfig is not fully defined/imported yet,
 # or if it's defined in a way that causes circular dependencies.
 # For this refactor, we assume InstrumentConfig is available.
-ConfigType = TypeVar('ConfigType', bound='InstrumentConfig')
+ConfigType = TypeVar("ConfigType", bound="InstrumentConfig")
 
 
 class InstrumentIO(Protocol):
@@ -35,6 +35,7 @@ class InstrumentIO(Protocol):
     (like a traditional VISA wrapper) must implement to be compatible with the
     instrument driver framework.
     """
+
     def connect(self) -> None:
         """Establishes the connection to the instrument."""
         ...
@@ -117,24 +118,32 @@ class Instrument(Generic[ConfigType]):
         self._backend = backend
         self._command_log = []
 
-        logger_name = self.config.model if hasattr(self.config, 'model') else self.__class__.__name__
+        logger_name = (
+            self.config.model if hasattr(self.config, "model") else self.__class__.__name__
+        )
         self._logger = get_logger(logger_name)
 
-        self._logger.info(f"Instrument '{logger_name}': Initializing with backend '{type(backend).__name__}'.")
-        scpi_section = self.config.scpi if hasattr(self.config, 'scpi') and self.config.scpi is not None else {}
+        self._logger.info(
+            f"Instrument '{logger_name}': Initializing with backend '{type(backend).__name__}'."
+        )
+        scpi_section = (
+            self.config.scpi
+            if hasattr(self.config, "scpi") and self.config.scpi is not None
+            else {}
+        )
         self.scpi_engine = SCPIEngine(scpi_section)
 
     @classmethod
-    def from_config(cls: type[Instrument], config: InstrumentConfig, debug_mode: bool = False) -> Instrument:
+    def from_config(
+        cls: type[Instrument], config: InstrumentConfig, debug_mode: bool = False
+    ) -> Instrument:
         if not isinstance(config, InstrumentConfig):
             raise InstrumentConfigurationError(
                 cls.__name__, "from_config expects an InstrumentConfig object."
             )
         # The backend instantiation is missing here and is crucial.
         # This will be handled by AutoInstrument.from_config later.
-        raise NotImplementedError(
-            "from_config needs to be updated for backend instantiation."
-        )
+        raise NotImplementedError("from_config needs to be updated for backend instantiation.")
 
     def connect_backend(self) -> None:
         """Establishes the connection to the instrument via the backend.
@@ -146,17 +155,21 @@ class Instrument(Generic[ConfigType]):
         Raises:
             InstrumentConnectionError: If the backend fails to connect.
         """
-        logger_name = self.config.model if hasattr(self.config, 'model') else self.__class__.__name__
+        logger_name = (
+            self.config.model if hasattr(self.config, "model") else self.__class__.__name__
+        )
         try:
             self._backend.connect()
             self._logger.info(f"Instrument '{logger_name}': Backend connected.")
         except Exception as e:
             self._logger.error(f"Instrument '{logger_name}': Failed to connect backend: {e}")
-            if hasattr(self._backend, 'disconnect'):  # Check if disconnect is available
+            if hasattr(self._backend, "disconnect"):  # Check if disconnect is available
                 try:
                     self._backend.disconnect()
                 except Exception as disc_e:
-                    self._logger.error(f"Instrument '{logger_name}': Error disconnecting backend during failed connect: {disc_e}")
+                    self._logger.error(
+                        f"Instrument '{logger_name}': Error disconnecting backend during failed connect: {disc_e}"
+                    )
             raise InstrumentConnectionError(
                 instrument=logger_name, message=f"Failed to connect backend: {e}"
             ) from e
@@ -180,17 +193,19 @@ class Instrument(Generic[ConfigType]):
             InstrumentDataError: If the data is not in the expected format.
         """
         # The first character must be '#' to indicate a binary block.
-        if not data.startswith(b'#'):
-            self._logger.debug(f"Warning: Data for _read_to_np does not start with '#'. Attempting direct conversion. Raw data (first 20 bytes): {data[:20]}")
+        if not data.startswith(b"#"):
+            self._logger.debug(
+                f"Warning: Data for _read_to_np does not start with '#'. Attempting direct conversion. Raw data (first 20 bytes): {data[:20]}"
+            )
             # Fallback for non-standard data, which might be a simple header-less stream.
             # This is a best-effort attempt and may not work for all instruments.
             if len(data) > 10:
-                end_slice = -1 if data.endswith(b'\n') else None
+                end_slice = -1 if data.endswith(b"\n") else None
                 return np.frombuffer(data[10:end_slice], dtype=np.uint8)
             return np.array([], dtype=np.uint8)
 
         try:
-            len_digits_char = data[1:2].decode('ascii')
+            len_digits_char = data[1:2].decode("ascii")
             if not len_digits_char.isdigit():
                 raise InstrumentDataError(
                     self.config.model,
@@ -204,7 +219,7 @@ class Instrument(Generic[ConfigType]):
                     "Indefinite length SCPI binary block (#0) not supported for waveform data.",
                 )
 
-            data_length_str = data[2 : 2 + num_digits_for_length].decode('ascii')
+            data_length_str = data[2 : 2 + num_digits_for_length].decode("ascii")
             actual_data_length = int(data_length_str)
 
             data_start_index = 2 + num_digits_for_length
@@ -215,11 +230,15 @@ class Instrument(Generic[ConfigType]):
             np_array = np.frombuffer(waveform_bytes_segment, dtype=np.uint8)
 
             if len(waveform_bytes_segment) != actual_data_length:
-                self._logger.debug(f"Warning: SCPI binary block data length mismatch. Expected {actual_data_length} bytes, got {len(waveform_bytes_segment)} bytes in segment.")
+                self._logger.debug(
+                    f"Warning: SCPI binary block data length mismatch. Expected {actual_data_length} bytes, got {len(waveform_bytes_segment)} bytes in segment."
+                )
 
             return np_array
         except Exception as e:
-            self._logger.debug(f"Error parsing SCPI binary block in _read_to_np: {e}. Raw data (first 50 bytes): {data[:50]}")
+            self._logger.debug(
+                f"Error parsing SCPI binary block in _read_to_np: {e}. Raw data (first 50 bytes): {data[:50]}"
+            )
             raise InstrumentDataError(
                 self.config.model, "Failed to parse binary data from instrument."
             ) from e
@@ -243,9 +262,13 @@ class Instrument(Generic[ConfigType]):
             self._backend.write(command)
             if not skip_check:
                 self._error_check()
-            self._command_log.append({"command": command, "success": True, "type": "write", "timestamp": time.time()})
+            self._command_log.append(
+                {"command": command, "success": True, "type": "write", "timestamp": time.time()}
+            )
         except Exception as e:
-            self._command_log.append({"command": command, "success": False, "type": "write", "timestamp": time.time()})
+            self._command_log.append(
+                {"command": command, "success": False, "type": "write", "timestamp": time.time()}
+            )
             raise InstrumentCommunicationError(
                 instrument=self.config.model,
                 command=command,
@@ -278,10 +301,27 @@ class Instrument(Generic[ConfigType]):
             # self._logger.debug(f"RESPONSE: {response}")
             if not skip_check:
                 self._error_check()
-            self._command_log.append({"command": query, "success": True, "type": "query", "timestamp": time.time(), "response": response, "delay": delay})
+            self._command_log.append(
+                {
+                    "command": query,
+                    "success": True,
+                    "type": "query",
+                    "timestamp": time.time(),
+                    "response": response,
+                    "delay": delay,
+                }
+            )
             return response.strip()
         except Exception as e:
-            self._command_log.append({"command": query, "success": False, "type": "query", "timestamp": time.time(), "delay": delay})
+            self._command_log.append(
+                {
+                    "command": query,
+                    "success": False,
+                    "type": "query",
+                    "timestamp": time.time(),
+                    "delay": delay,
+                }
+            )
             raise InstrumentCommunicationError(
                 instrument=self.config.model,
                 command=query,
@@ -310,10 +350,27 @@ class Instrument(Generic[ConfigType]):
             response: bytes = self._backend.query_raw(query, delay=delay)
             # self._logger.debug(f"RESPONSE (bytes): {len(response)} bytes")
             # Raw queries typically don't run _error_check() as the response might not be string-parsable for errors.
-            self._command_log.append({"command": query, "success": True, "type": "query_raw", "timestamp": time.time(), "response_len": len(response), "delay": delay})
+            self._command_log.append(
+                {
+                    "command": query,
+                    "success": True,
+                    "type": "query_raw",
+                    "timestamp": time.time(),
+                    "response_len": len(response),
+                    "delay": delay,
+                }
+            )
             return response
         except Exception as e:
-            self._command_log.append({"command": query, "success": False, "type": "query_raw", "timestamp": time.time(), "delay": delay})
+            self._command_log.append(
+                {
+                    "command": query,
+                    "success": False,
+                    "type": "query_raw",
+                    "timestamp": time.time(),
+                    "delay": delay,
+                }
+            )
             raise InstrumentCommunicationError(
                 instrument=self.config.model,
                 command=query,
@@ -336,8 +393,12 @@ class Instrument(Generic[ConfigType]):
         """
         try:
             self._backend.query("*OPC?")  # delay=None by default for _backend.query
-            self._logger.debug("Waiting for instrument to finish processing commands (*OPC? successful).")
-            self._command_log.append({"command": "*OPC?", "success": True, "type": "wait", "timestamp": time.time()})
+            self._logger.debug(
+                "Waiting for instrument to finish processing commands (*OPC? successful)."
+            )
+            self._command_log.append(
+                {"command": "*OPC?", "success": True, "type": "wait", "timestamp": time.time()}
+            )
         except Exception as e:
             self._logger.debug(f"Error during *OPC? wait: {e}")
             raise InstrumentCommunicationError(
@@ -369,10 +430,20 @@ class Instrument(Generic[ConfigType]):
             attempts += 1
 
         if attempts >= max_attempts and result == 0:
-            self._logger.debug("Warning: _wait_event timed out polling *ESR?. ESR did not become non-zero.")
+            self._logger.debug(
+                "Warning: _wait_event timed out polling *ESR?. ESR did not become non-zero."
+            )
         else:
             self._logger.debug(f"Instrument event occurred or ESR became non-zero (ESR: {result}).")
-        self._command_log.append({"command": "*ESR? poll", "success": True, "type": "wait_event", "timestamp": time.time(), "final_esr": result})
+        self._command_log.append(
+            {
+                "command": "*ESR? poll",
+                "success": True,
+                "type": "wait_event",
+                "timestamp": time.time(),
+                "final_esr": result,
+            }
+        )
 
     def _history(self) -> None:
         """
@@ -380,10 +451,16 @@ class Instrument(Generic[ConfigType]):
         """
         print("--- Command History ---")
         for i, entry in enumerate(self._command_log):
-            ts_val = entry.get('timestamp', 'N/A')
-            ts_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(ts_val)) if isinstance(ts_val, float) else "Invalid Timestamp"
-            print(f"{i + 1}. [{ts_str}] Type: {entry.get('type', 'N/A')}, Success: {entry.get('success', 'N/A')}, Command: {entry.get('command', 'N/A')}")
-            if 'response' in entry:
+            ts_val = entry.get("timestamp", "N/A")
+            ts_str = (
+                time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts_val))
+                if isinstance(ts_val, float)
+                else "Invalid Timestamp"
+            )
+            print(
+                f"{i + 1}. [{ts_str}] Type: {entry.get('type', 'N/A')}, Success: {entry.get('success', 'N/A')}, Command: {entry.get('command', 'N/A')}"
+            )
+            if "response" in entry:
                 print(f"   Response: {entry['response']}")
         print("--- End of History ---")
 
@@ -398,7 +475,7 @@ class Instrument(Generic[ConfigType]):
 
             # Parse the error response
             try:
-                code_str, msg_part = error_response.split(',', 1)
+                code_str, msg_part = error_response.split(",", 1)
                 code = int(code_str)
                 message = msg_part.strip().strip('"')
             except (ValueError, IndexError) as e:
@@ -435,13 +512,19 @@ class Instrument(Generic[ConfigType]):
     def close(self) -> None:
         """Close the connection to the instrument via the backend."""
         try:
-            model_name_for_logger = self.config.model if hasattr(self.config, 'model') else self.__class__.__name__
+            model_name_for_logger = (
+                self.config.model if hasattr(self.config, "model") else self.__class__.__name__
+            )
             self._logger.info(f"Instrument '{model_name_for_logger}': Closing connection.")
             self._backend.close()  # Changed to use close
             self._logger.info(f"Instrument '{model_name_for_logger}': Connection closed.")
         except Exception as e:
-            model_name_for_logger = self.config.model if hasattr(self.config, 'model') else self.__class__.__name__
-            self._logger.error(f"Instrument '{model_name_for_logger}': Error during backend close: {e}")
+            model_name_for_logger = (
+                self.config.model if hasattr(self.config, "model") else self.__class__.__name__
+            )
+            self._logger.error(
+                f"Instrument '{model_name_for_logger}': Error during backend close: {e}"
+            )
             # Optionally re-raise if failed close is critical:
             # raise InstrumentConnectionError(f"Failed to close backend connection: {e}") from e
 
@@ -455,13 +538,15 @@ class Instrument(Generic[ConfigType]):
         Executes the instrument's internal self-test routine (*TST?) and reports result.
         """
         if not full_test:
-             self._logger.debug("Note: `full_test=False` currently ignored, running standard *TST? self-test.")
+            self._logger.debug(
+                "Note: `full_test=False` currently ignored, running standard *TST? self-test."
+            )
 
         self._logger.debug("Running self-test (*TST?)...")
         result_str = ""
         try:
-             result_str = self._query("*TST?")
-             code = int(result_str.strip())
+            result_str = self._query("*TST?")
+            code = int(result_str.strip())
         except ValueError as e:
             raise InstrumentCommunicationError(
                 instrument=self.config.model,
@@ -479,14 +564,22 @@ class Instrument(Generic[ConfigType]):
             self._logger.debug("Self-test query (*TST?) returned 0 (Passed).")
             errors_after_test = self.get_all_errors()
             if errors_after_test:
-                 details = "; ".join([f"{c}: {m}" for c, m in errors_after_test])
-                 warn_msg = f"Self-test query passed, but errors found in queue afterwards: {details}"
-                 self._logger.debug(warn_msg)
+                details = "; ".join([f"{c}: {m}" for c, m in errors_after_test])
+                warn_msg = (
+                    f"Self-test query passed, but errors found in queue afterwards: {details}"
+                )
+                self._logger.debug(warn_msg)
             return "Passed"
         else:
-            self._logger.debug(f"Self-test query (*TST?) returned non-zero code: {code} (Failed). Reading error queue...")
+            self._logger.debug(
+                f"Self-test query (*TST?) returned non-zero code: {code} (Failed). Reading error queue..."
+            )
             errors = self.get_all_errors()
-            details = "; ".join([f"{c}: {m}" for c, m in errors]) if errors else 'No specific errors reported in queue'
+            details = (
+                "; ".join([f"{c}: {m}" for c, m in errors])
+                if errors
+                else "No specific errors reported in queue"
+            )
             fail_msg = f"Failed: Code {code}. Errors: {details}"
             self._logger.debug(fail_msg)
             return fail_msg
@@ -496,9 +589,10 @@ class Instrument(Generic[ConfigType]):
         """
         Decorator to specify method requirements based on instrument configuration.
         """
+
         def decorator(func: Callable) -> Callable:
             def wrapped_func(self: Instrument, *args: Any, **kwargs: Any) -> Any:
-                if not hasattr(self.config, 'requires') or not callable(self.config.requires):
+                if not hasattr(self.config, "requires") or not callable(self.config.requires):
                     raise InstrumentConfigurationError(
                         self.config.model,
                         "Config object missing 'requires' method for decorator.",
@@ -511,7 +605,9 @@ class Instrument(Generic[ConfigType]):
                         self.config.model,
                         f"Method '{func.__name__}' requires '{requirement}', which is not available for this instrument model/configuration.",
                     )
+
             return wrapped_func
+
         return decorator
 
     def clear_status(self) -> None:
@@ -530,25 +626,31 @@ class Instrument(Generic[ConfigType]):
             try:
                 code, message = self.get_error()
             except InstrumentCommunicationError as e:
-                self._logger.debug(f"Communication error while reading error queue (iteration {i + 1}): {e}")
+                self._logger.debug(
+                    f"Communication error while reading error queue (iteration {i + 1}): {e}"
+                )
                 if errors:
-                     self._logger.debug(f"Returning errors read before communication failure: {errors}")
+                    self._logger.debug(
+                        f"Returning errors read before communication failure: {errors}"
+                    )
                 return errors
 
             if code == 0:
                 break
             errors.append((code, message))
             if code == -350:
-                 self._logger.debug("Error queue overflow (-350) detected. Stopping read.")
-                 break
+                self._logger.debug("Error queue overflow (-350) detected. Stopping read.")
+                break
         else:
-            self._logger.debug(f"Warning: Read {self.MAX_ERRORS_TO_READ} errors without reaching 'No error'. "
-                      "Error queue might still contain errors or be in an unexpected state.")
+            self._logger.debug(
+                f"Warning: Read {self.MAX_ERRORS_TO_READ} errors without reaching 'No error'. "
+                "Error queue might still contain errors or be in an unexpected state."
+            )
 
         if not errors:
             self._logger.debug("No errors found in instrument queue.")
         else:
-             self._logger.debug(f"Retrieved {len(errors)} error(s) from queue: {errors}")
+            self._logger.debug(f"Retrieved {len(errors)} error(s) from queue: {errors}")
         return errors
 
     def get_error(self) -> tuple[int, str]:
@@ -557,11 +659,13 @@ class Instrument(Generic[ConfigType]):
         """
         response = (self._query("SYSTem:ERRor?", skip_check=True)).strip()
         try:
-            code_str, msg_part = response.split(',', 1)
+            code_str, msg_part = response.split(",", 1)
             code = int(code_str)
             message = msg_part.strip().strip('"')
         except (ValueError, IndexError) as e:
-            self._logger.debug(f"Warning: Unexpected error response format: '{response}'. Raising error.")
+            self._logger.debug(
+                f"Warning: Unexpected error response format: '{response}'. Raising error."
+            )
             raise InstrumentCommunicationError(
                 instrument=self.config.model,
                 command="SYSTem:ERRor?",
@@ -569,10 +673,12 @@ class Instrument(Generic[ConfigType]):
             ) from e
 
         if code != 0:
-             self._logger.debug(f"Instrument Error Query: Code={code}, Message='{message}'")
+            self._logger.debug(f"Instrument Error Query: Code={code}, Message='{message}'")
         return code, message
 
-    def wait_for_operation_complete(self, query_instrument: bool = True, timeout: float = 10.0) -> str | None:
+    def wait_for_operation_complete(
+        self, query_instrument: bool = True, timeout: float = 10.0
+    ) -> str | None:
         """
         Waits for the instrument to finish all pending overlapping commands.
         The 'timeout' parameter's effect depends on the backend's query timeout settings.
@@ -584,14 +690,18 @@ class Instrument(Generic[ConfigType]):
             # _query method or backend implementation uses it, but _query currently
             # passes 'delay', not 'timeout'. For *OPC?, no delay is typically needed.
             # The backend's own communication timeout will apply to the query.
-            self._logger.debug(f"Waiting for operation complete (*OPC?). Effective timeout depends on backend (method timeout hint: {timeout}s).")
+            self._logger.debug(
+                f"Waiting for operation complete (*OPC?). Effective timeout depends on backend (method timeout hint: {timeout}s)."
+            )
             try:
                 # The timeout parameter of this method is not directly passed to _query here.
                 # _query's delay parameter is for a different purpose.
                 response = self._query("*OPC?")  # This now uses self._backend.query
                 self._logger.debug("Operation complete query (*OPC?) returned.")
                 if response.strip() != "1":
-                    self._logger.debug(f"Warning: *OPC? returned '{response}' instead of expected '1'.")
+                    self._logger.debug(
+                        f"Warning: *OPC? returned '{response}' instead of expected '1'."
+                    )
                 return response.strip()
             except InstrumentCommunicationError as e:
                 # The 'timeout' parameter of this method is noted here for context.
@@ -603,7 +713,9 @@ class Instrument(Generic[ConfigType]):
             # 'finally' block for restoring timeout removed.
         else:
             self._send_command("*OPC")  # This now uses self._backend.write
-            self._logger.debug("Operation complete command (*OPC) sent (non-blocking). Status polling required.")
+            self._logger.debug(
+                "Operation complete command (*OPC) sent (non-blocking). Status polling required."
+            )
             return None
 
     def set_communication_timeout(self, timeout_ms: int) -> None:
@@ -633,14 +745,16 @@ class Instrument(Generic[ConfigType]):
             report.instrument_idn = self.id()
             instrument_errors = self.get_all_errors()
             if instrument_errors:
-                report.warnings.extend([f"Stored Error: {code} - {msg}" for code, msg in instrument_errors])
+                report.warnings.extend(
+                    [f"Stored Error: {code} - {msg}" for code, msg in instrument_errors]
+                )
 
             if not report.errors and not report.warnings:
-                 report.status = HealthStatus.OK
+                report.status = HealthStatus.OK
             elif report.warnings and not report.errors:
-                 report.status = HealthStatus.WARNING
+                report.status = HealthStatus.WARNING
             else:  # if errors are present
-                 report.status = HealthStatus.ERROR
+                report.status = HealthStatus.ERROR
 
         except Exception as e:
             report.status = HealthStatus.ERROR

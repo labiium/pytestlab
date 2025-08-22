@@ -10,11 +10,13 @@ def test_plot_dataframe_basic():
     from pytestlab.plotting import PlotSpec
     from pytestlab.plotting import plot_dataframe
 
-    df = pl.DataFrame({
-        "Time (s)": [0.0, 0.1, 0.2, 0.3],
-        "A": [0.0, 1.0, 0.0, -1.0],
-        "B": [1.0, 0.0, -1.0, 0.0],
-    })
+    df = pl.DataFrame(
+        {
+            "Time (s)": [0.0, 0.1, 0.2, 0.3],
+            "A": [0.0, 1.0, 0.0, -1.0],
+            "B": [1.0, 0.0, -1.0, 0.0],
+        }
+    )
 
     fig = plot_dataframe(df, PlotSpec(title="DF Test"))
     assert hasattr(fig, "savefig")
@@ -57,10 +59,12 @@ def test_measurement_result_plot_dataframe_and_units():
     from pytestlab.experiments import MeasurementResult
     from pytestlab.plotting import PlotSpec
 
-    df = pl.DataFrame({
-        "Time (s)": [0.0, 0.1, 0.2],
-        "Voltage (V)": [0.0, 0.5, 1.0],
-    })
+    df = pl.DataFrame(
+        {
+            "Time (s)": [0.0, 0.1, 0.2],
+            "Voltage (V)": [0.0, 0.5, 1.0],
+        }
+    )
     res = MeasurementResult(values=df, instrument="sim", units="V", measurement_type="waveform")
     fig = res.plot(PlotSpec(title="MR DF Plot"))
     ax = fig.axes[0]
@@ -85,5 +89,3 @@ def test_session_plot_after_sweep():
         fig = session.plot(PlotSpec(title="Session Data"))
         ax = fig.axes[0]
         assert ax.get_xlabel() == "Time (s)"
-
-

@@ -71,7 +71,7 @@ class MeasurementPlanEntry(BaseModel):
 
 
 class BenchConfigExtended(BaseModel):
-    model_config = ConfigDict(extra='forbid')
+    model_config = ConfigDict(extra="forbid")
     bench_name: str
     experiment: ExperimentSection | None = None
     instruments: dict[str, InstrumentEntry]

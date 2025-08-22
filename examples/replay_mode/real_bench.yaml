@@ -1,6 +1,6 @@
 metadata:
   name: "Real PSU and Oscilloscope Bench"
-  version: "1.0" 
+  version: "1.0"
   description: "Bench configuration for PSU and oscilloscope using LAMB backend"
   operator: "Test Engineer"
   date: "2025-07-21"
@@ -91,7 +91,7 @@ macros:
         action: "set_voltage"
         channel: 1
         value: 0.0
-      - instrument: "psu" 
+      - instrument: "psu"
         action: "set_current"
         channel: 1
         value: 0.1

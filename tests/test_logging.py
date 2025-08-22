@@ -50,7 +50,9 @@ def test_pytestlab_log_env_variable(caplog, monkeypatch):
     logger.info("Info message for env var test.")
     logger.debug("Debug message for env var test (should not appear).")
 
-    assert logging.getLogger("pytestlab").getEffectiveLevel() <= logging.INFO  # Check effective level
+    assert (
+        logging.getLogger("pytestlab").getEffectiveLevel() <= logging.INFO
+    )  # Check effective level
     assert "Info message for env var test." in caplog.text
     assert "Debug message for env var test (should not appear)." not in caplog.text
 

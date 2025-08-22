@@ -47,11 +47,14 @@ class AutoInstrument:
     configuration source and `from_type` for creating one based on a generic
     instrument category.
     """
-    _instrument_mapping: dict[str, type[Instrument[Any]]] = {  # Make Instrument generic type more specific
-        'oscilloscope': Oscilloscope,
-        'waveform_generator': WaveformGenerator,
-        'power_supply': PowerSupply,
-        'multimeter': Multimeter,
+
+    _instrument_mapping: dict[
+        str, type[Instrument[Any]]
+    ] = {  # Make Instrument generic type more specific
+        "oscilloscope": Oscilloscope,
+        "waveform_generator": WaveformGenerator,
+        "power_supply": PowerSupply,
+        "multimeter": Multimeter,
         "dc_active_load": DCActiveLoad,
         "vna": VectorNetworkAnalyser,
         "spectrum_analyzer": SpectrumAnalyser,
@@ -60,7 +63,9 @@ class AutoInstrument:
     }
 
     @classmethod
-    def from_type(cls: type[AutoInstrument], instrument_type: str, *args: Any, **kwargs: Any) -> Instrument:
+    def from_type(
+        cls: type[AutoInstrument], instrument_type: str, *args: Any, **kwargs: Any
+    ) -> Instrument:
         """Initializes a specific instrument driver based on its type string.
 
         This factory method uses a mapping to find the appropriate instrument class
@@ -151,19 +156,25 @@ class AutoInstrument:
                     )
 
                 # Cache the newly downloaded configuration
-                with open(cache_file, 'w') as f:
+                with open(cache_file, "w") as f:
                     f.write(config_text)
 
                 return loaded_config
             except httpx.HTTPStatusError as http_err:
                 # Handle HTTP errors, specifically 404 for not found
                 if http_err.response.status_code == 404:
-                     raise FileNotFoundError(f"Configuration file not found at {url} (HTTP 404).") from http_err
+                    raise FileNotFoundError(
+                        f"Configuration file not found at {url} (HTTP 404)."
+                    ) from http_err
                 else:
-                     raise FileNotFoundError(f"Failed to fetch configuration from CDN ({url}): HTTP {http_err.response.status_code}") from http_err
+                    raise FileNotFoundError(
+                        f"Failed to fetch configuration from CDN ({url}): HTTP {http_err.response.status_code}"
+                    ) from http_err
             except httpx.RequestError as e:
                 # Handle network-related errors
-                raise FileNotFoundError(f"Failed to fetch configuration from CDN ({url}): {str(e)}") from e
+                raise FileNotFoundError(
+                    f"Failed to fetch configuration from CDN ({url}): {str(e)}"
+                ) from e
             except yaml.YAMLError as ye:
                 # Handle errors in parsing the YAML content
                 raise InstrumentConfigurationError(
@@ -171,7 +182,9 @@ class AutoInstrument:
                 ) from ye
 
     @classmethod
-    def get_config_from_local(cls: type[AutoInstrument], identifier: str, normalized_identifier: str | None = None) -> dict[str, Any]:
+    def get_config_from_local(
+        cls: type[AutoInstrument], identifier: str, normalized_identifier: str | None = None
+    ) -> dict[str, Any]:
         """Loads an instrument configuration from the local filesystem.
 
         This method searches for a configuration file in two primary locations:
@@ -194,17 +207,23 @@ class AutoInstrument:
         """
         import pytestlab as ptl
 
-        norm_id = normalized_identifier if normalized_identifier is not None else os.path.normpath(identifier)
+        norm_id = (
+            normalized_identifier
+            if normalized_identifier is not None
+            else os.path.normpath(identifier)
+        )
 
         current_file_directory = os.path.dirname(ptl.__file__)
-        preset_path = os.path.join(current_file_directory, "profiles", norm_id + '.yaml')
+        preset_path = os.path.join(current_file_directory, "profiles", norm_id + ".yaml")
 
         # Determine the correct file path to load from
         path_to_try: str | None = None
         if os.path.exists(preset_path):
             # First, check for a built-in profile matching the identifier
             path_to_try = preset_path
-        elif os.path.exists(identifier) and (identifier.endswith('.yaml') or identifier.endswith('.json')):
+        elif os.path.exists(identifier) and (
+            identifier.endswith(".yaml") or identifier.endswith(".json")
+        ):
             # Next, check if the identifier is a direct path to an existing file
             path_to_try = identifier
 
@@ -225,22 +244,27 @@ class AutoInstrument:
                     f"Error parsing YAML from local file '{path_to_try}': {ye}",
                 ) from ye
             except Exception as e:
-                raise FileNotFoundError(f"Error reading local config file '{path_to_try}': {e}") from e
+                raise FileNotFoundError(
+                    f"Error reading local config file '{path_to_try}': {e}"
+                ) from e
 
-        raise FileNotFoundError(f"No configuration found for identifier '{identifier}' in local paths.")
+        raise FileNotFoundError(
+            f"No configuration found for identifier '{identifier}' in local paths."
+        )
 
     @classmethod
-    def from_config(cls: type[AutoInstrument],
-                          config_source: str | dict[str, Any] | PydanticInstrumentConfig,  # Adjusted type hint
-                          *args,
-                          serial_number: str | None = None,
-                          debug_mode: bool = False,
-                          simulate: bool | None = None,
-                          backend_type_hint: str | None = None,
-                          address_override: str | None = None,
-                          timeout_override_ms: int | None = None,
-                          backend_override: InstrumentIO | None = None  # Add this new parameter
-                         ) -> Instrument[Any]:
+    def from_config(
+        cls: type[AutoInstrument],
+        config_source: str | dict[str, Any] | PydanticInstrumentConfig,  # Adjusted type hint
+        *args,
+        serial_number: str | None = None,
+        debug_mode: bool = False,
+        simulate: bool | None = None,
+        backend_type_hint: str | None = None,
+        address_override: str | None = None,
+        timeout_override_ms: int | None = None,
+        backend_override: InstrumentIO | None = None,  # Add this new parameter
+    ) -> Instrument[Any]:
         """Initializes an instrument from a configuration source.
 
         This is the primary factory method for creating instrument instances. It
@@ -294,9 +318,9 @@ class AutoInstrument:
                 config_model = config_source
             elif isinstance(config_source, dict):
                 # Check if this is a config dict with a 'profile' key
-                if 'profile' in config_source:
+                if "profile" in config_source:
                     # Load the profile first, then merge with other config
-                    profile_source = config_source['profile']
+                    profile_source = config_source["profile"]
                     config_model = load_profile(profile_source)
                 else:
                     # Treat the dict as profile data directly
@@ -308,17 +332,17 @@ class AutoInstrument:
             config_model: PydanticInstrumentConfig
             if isinstance(config_source, PydanticInstrumentConfig):
                 config_model = config_source
-                config_data = config_model.model_dump(mode='python')
+                config_data = config_model.model_dump(mode="python")
             elif isinstance(config_source, dict):
                 # Check if this is a config dict with a 'profile' key
-                if 'profile' in config_source:
+                if "profile" in config_source:
                     # Load the profile first, then merge with other config
-                    profile_source = config_source['profile']
+                    profile_source = config_source["profile"]
                     config_model = load_profile(profile_source)
-                    config_data = config_model.model_dump(mode='python')
+                    config_data = config_model.model_dump(mode="python")
                     # Merge any additional config like address
                     for key, value in config_source.items():
-                        if key != 'profile':
+                        if key != "profile":
                             config_data[key] = value
                 else:
                     # Treat the dict as profile data directly
@@ -328,11 +352,11 @@ class AutoInstrument:
                 # Determine if this looks like a file path or a CDN identifier
                 # File paths typically contain path separators or file extensions
                 is_file_path = (
-                    os.path.sep in config_source or
-                    '/' in config_source or
-                    config_source.endswith('.yaml') or
-                    config_source.endswith('.json') or
-                    os.path.exists(config_source)
+                    os.path.sep in config_source
+                    or "/" in config_source
+                    or config_source.endswith(".yaml")
+                    or config_source.endswith(".json")
+                    or os.path.exists(config_source)
                 )
 
                 if is_file_path:
@@ -340,36 +364,50 @@ class AutoInstrument:
                     try:
                         config_data = cls.get_config_from_local(config_source)
                         if debug_mode:
-                            print(f"Successfully loaded configuration for '{config_source}' from local.")
+                            print(
+                                f"Successfully loaded configuration for '{config_source}' from local."
+                            )
                     except FileNotFoundError:
                         # Fallback to CDN if local fails (unlikely for file paths)
                         try:
                             config_data = cls.get_config_from_cdn(config_source)
                             if debug_mode:
-                                print(f"Successfully loaded configuration for '{config_source}' from CDN.")
+                                print(
+                                    f"Successfully loaded configuration for '{config_source}' from CDN."
+                                )
                         except FileNotFoundError:
-                            raise FileNotFoundError(f"Configuration '{config_source}' not found in local paths or CDN.") from None
+                            raise FileNotFoundError(
+                                f"Configuration '{config_source}' not found in local paths or CDN."
+                            ) from None
                 else:
                     # Try CDN first for identifiers
                     try:
                         config_data = cls.get_config_from_cdn(config_source)
                         if debug_mode:
-                            print(f"Successfully loaded configuration for '{config_source}' from CDN.")
+                            print(
+                                f"Successfully loaded configuration for '{config_source}' from CDN."
+                            )
                     except FileNotFoundError:
                         try:
                             # Fallback to local file system if not found on CDN
                             config_data = cls.get_config_from_local(config_source)
                             if debug_mode:
-                                print(f"Successfully loaded configuration for '{config_source}' from local.")
+                                print(
+                                    f"Successfully loaded configuration for '{config_source}' from local."
+                                )
                         except FileNotFoundError:
                             # If not found in either location, raise an error
-                            raise FileNotFoundError(f"Configuration '{config_source}' not found in CDN or local paths.") from None
+                            raise FileNotFoundError(
+                                f"Configuration '{config_source}' not found in CDN or local paths."
+                            ) from None
                 config_model = load_profile(config_data)
             else:
-                raise TypeError("config_source must be a file path (str), a dict, or an InstrumentConfig object.")
+                raise TypeError(
+                    "config_source must be a file path (str), a dict, or an InstrumentConfig object."
+                )
 
             # Override the serial number in the config if one is provided as an argument
-            if serial_number is not None and hasattr(config_model, 'serial_number'):
+            if serial_number is not None and hasattr(config_model, "serial_number"):
                 config_model.serial_number = serial_number  # type: ignore
 
             # Step 2: Determine the final simulation mode based on a clear priority
@@ -383,14 +421,18 @@ class AutoInstrument:
                 # Second priority: environment variable
                 env_simulate = os.getenv("PYTESTLAB_SIMULATE")
                 if env_simulate is not None:
-                    final_simulation_mode = env_simulate.lower() in ('true', '1', 'yes')
+                    final_simulation_mode = env_simulate.lower() in ("true", "1", "yes")
                     if debug_mode:
-                        print(f"Simulation mode set to {final_simulation_mode} by PYTESTLAB_SIMULATE environment variable.")
+                        print(
+                            f"Simulation mode set to {final_simulation_mode} by PYTESTLAB_SIMULATE environment variable."
+                        )
                 else:
                     # Lowest priority: default to False
                     final_simulation_mode = False
                     if debug_mode:
-                        print(f"Simulation mode defaulted to {final_simulation_mode} (no explicit argument or PYTESTLAB_SIMULATE).")
+                        print(
+                            f"Simulation mode defaulted to {final_simulation_mode} (no explicit argument or PYTESTLAB_SIMULATE)."
+                        )
 
             # Step 3: Determine the actual communication address and timeout
             actual_address: str | None
@@ -401,7 +443,9 @@ class AutoInstrument:
                     print(f"Address overridden to '{actual_address}'.")
             else:
                 # Otherwise, get the address from the configuration data
-                actual_address = getattr(config_model, 'address', getattr(config_model, 'resource_name', None))
+                actual_address = getattr(
+                    config_model, "address", getattr(config_model, "resource_name", None)
+                )
                 if debug_mode:
                     print(f"Address from config: '{actual_address}'.")
 
@@ -414,9 +458,11 @@ class AutoInstrument:
             else:
                 # Assuming 'communication.timeout_ms' or 'communication_timeout_ms' might exist
                 # Prefer 'communication_timeout_ms' as per previous logic if 'communication' object isn't standard
-                timeout_from_config = getattr(config_model, 'communication_timeout_ms', None)
-                if hasattr(config_model, 'communication') and hasattr(config_model.communication, 'timeout_ms'):  # type: ignore
-                     timeout_from_config = config_model.communication.timeout_ms  # type: ignore
+                timeout_from_config = getattr(config_model, "communication_timeout_ms", None)
+                if hasattr(config_model, "communication") and hasattr(
+                    config_model.communication, "timeout_ms"
+                ):  # type: ignore
+                    timeout_from_config = config_model.communication.timeout_ms  # type: ignore
 
                 if isinstance(timeout_from_config, int) and timeout_from_config > 0:
                     actual_timeout = timeout_from_config
@@ -425,7 +471,9 @@ class AutoInstrument:
                 else:
                     actual_timeout = default_communication_timeout_ms
                     if debug_mode:
-                        print(f"Warning: Invalid or missing timeout in config, using default {actual_timeout}ms.")
+                        print(
+                            f"Warning: Invalid or missing timeout in config, using default {actual_timeout}ms."
+                        )
 
             if not isinstance(actual_timeout, int) or actual_timeout <= 0:  # Final safety check
                 actual_timeout = default_communication_timeout_ms
@@ -437,22 +485,31 @@ class AutoInstrument:
                 # Helper to resolve sim profile path
                 def resolve_sim_profile_path(profile_key_or_path: str) -> str:
                     # 1. User override in ~/.pytestlab/profiles
-                    user_profile = os.path.expanduser(os.path.join("~/.pytestlab/profiles", profile_key_or_path + ".yaml"))
+                    user_profile = os.path.expanduser(
+                        os.path.join("~/.pytestlab/profiles", profile_key_or_path + ".yaml")
+                    )
                     if os.path.exists(user_profile):
                         return user_profile
                     # 2. User sim_profiles (legacy)
-                    user_sim_profile = os.path.expanduser(os.path.join("~/.pytestlab/sim_profiles", profile_key_or_path + ".yaml"))
+                    user_sim_profile = os.path.expanduser(
+                        os.path.join("~/.pytestlab/sim_profiles", profile_key_or_path + ".yaml")
+                    )
                     if os.path.exists(user_sim_profile):
                         return user_sim_profile
                     # 3. Package profile
                     import pytestlab as ptl
-                    pkg_profile = os.path.join(os.path.dirname(ptl.__file__), "profiles", profile_key_or_path + ".yaml")
+
+                    pkg_profile = os.path.join(
+                        os.path.dirname(ptl.__file__), "profiles", profile_key_or_path + ".yaml"
+                    )
                     if os.path.exists(pkg_profile):
                         return pkg_profile
                     # 4. Direct path
                     if os.path.exists(profile_key_or_path):
                         return profile_key_or_path
-                    raise FileNotFoundError(f"Simulation profile not found for '{profile_key_or_path}'")
+                    raise FileNotFoundError(
+                        f"Simulation profile not found for '{profile_key_or_path}'"
+                    )
 
                 device_model_str = getattr(config_model, "model", "GenericSimulatedModel")
                 if isinstance(config_source, str):
@@ -484,39 +541,45 @@ class AutoInstrument:
                         print(f"Backend type hint provided: '{chosen_backend_type}'.")
                 elif actual_address and "LAMB::" in actual_address.upper():
                     # Infer 'lamb' backend from the address format
-                    chosen_backend_type = 'lamb'
+                    chosen_backend_type = "lamb"
                     if debug_mode:
                         print(f"Inferred backend type: 'lamb' from address '{actual_address}'.")
                 elif actual_address:
                     # Infer 'visa' for any other address type
-                    chosen_backend_type = 'visa'
+                    chosen_backend_type = "visa"
                     if debug_mode:
                         print(f"Inferred backend type: 'visa' from address '{actual_address}'.")
                 else:
                     # Default to 'lamb' if no address is provided (e.g., for remote discovery)
-                    chosen_backend_type = 'lamb'
+                    chosen_backend_type = "lamb"
                     if debug_mode:
                         print("Defaulting backend type to 'lamb' (no address present).")
 
-                if chosen_backend_type == 'visa':
+                if chosen_backend_type == "visa":
                     if actual_address is None:
                         raise InstrumentConfigurationError(
                             config_source, "Missing address/resource_name for VISA backend."
                         )
-                    backend_instance = VisaBackend(address=actual_address, timeout_ms=actual_timeout)
+                    backend_instance = VisaBackend(
+                        address=actual_address, timeout_ms=actual_timeout
+                    )
                     if debug_mode:
-                        print(f"Using VisaBackend for '{actual_address}' with timeout {actual_timeout}ms.")
-                elif chosen_backend_type == 'lamb':
-                    lamb_server_url = getattr(config_model, 'lamb_url', 'http://lamb-server:8000')
+                        print(
+                            f"Using VisaBackend for '{actual_address}' with timeout {actual_timeout}ms."
+                        )
+                elif chosen_backend_type == "lamb":
+                    lamb_server_url = getattr(config_model, "lamb_url", "http://lamb-server:8000")
                     if actual_address:
-                        backend_instance = LambBackend(address=actual_address, url=lamb_server_url, timeout_ms=actual_timeout)
+                        backend_instance = LambBackend(
+                            address=actual_address, url=lamb_server_url, timeout_ms=actual_timeout
+                        )
                     elif hasattr(config_model, "model") and hasattr(config_model, "serial_number"):
                         backend_instance = LambBackend(
                             address=None,
                             url=lamb_server_url,
                             timeout_ms=actual_timeout,
                             model_name=config_model.model,
-                            serial_number=config_model.serial_number
+                            serial_number=config_model.serial_number,
                         )
                     else:
                         raise InstrumentConfigurationError(
@@ -524,7 +587,9 @@ class AutoInstrument:
                             "Lamb backend requires either an address or both model and serial_number in the config.",
                         )
                     if debug_mode:
-                        print(f"Using LambBackend for model='{getattr(config_model, 'model', None)}', serial='{getattr(config_model, 'serial_number', None)}' via '{lamb_server_url}' with timeout {actual_timeout}ms.")
+                        print(
+                            f"Using LambBackend for model='{getattr(config_model, 'model', None)}', serial='{getattr(config_model, 'serial_number', None)}' via '{lamb_server_url}' with timeout {actual_timeout}ms."
+                        )
                 else:
                     raise InstrumentConfigurationError(
                         config_source, f"Unsupported backend_type '{chosen_backend_type}'."
@@ -545,14 +610,20 @@ class AutoInstrument:
         instrument = instrument_class_to_init(config=config_model, backend=backend_instance)
 
         if debug_mode:
-            print(f"Instantiated {instrument_class_to_init.__name__} with {type(backend_instance).__name__}.")
+            print(
+                f"Instantiated {instrument_class_to_init.__name__} with {type(backend_instance).__name__}."
+            )
         if debug_mode:
-            print("Note: Backend connection is not established by __init__. Call 'instrument.connect_backend()' explicitly.")
+            print(
+                "Note: Backend connection is not established by __init__. Call 'instrument.connect_backend()' explicitly."
+            )
 
         return instrument
 
     @classmethod
-    def register_instrument(cls: type[AutoInstrument], instrument_type: str, instrument_class: type[Instrument[Any]]) -> None:
+    def register_instrument(
+        cls: type[AutoInstrument], instrument_type: str, instrument_class: type[Instrument[Any]]
+    ) -> None:
         """Dynamically registers a new custom instrument class.
 
         This allows users to extend PyTestLab with their own instrument drivers.
@@ -583,4 +654,6 @@ class AutoInstrument:
             )
         cls._instrument_mapping[type_key] = instrument_class
         # Consider using a logger if available, instead of print
-        print(f"Instrument type '{instrument_type}' registered with class {instrument_class.__name__}.")
+        print(
+            f"Instrument type '{instrument_type}' registered with class {instrument_class.__name__}."
+        )

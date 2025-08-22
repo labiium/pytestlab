@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 class ExperimentParameter:
     """Represents a single experiment parameter."""
+
     def __init__(self, name: str, units: str, notes: str = "") -> None:
         self.name: str = name
         self.units: str = units
@@ -42,6 +43,7 @@ class Experiment:
     Additionally, printing the Experiment instance (via __str__) shows a
     summary and the head (first few rows) of the data.
     """
+
     def __init__(self, name: str, description: str = "", notes: str = "") -> None:
         self.name: str = name
         self.description: str = description
@@ -60,7 +62,11 @@ class Experiment:
         """
         self.parameters[name] = ExperimentParameter(name, units, notes)
 
-    def add_trial(self, measurement_result: pl.DataFrame | dict[str, Any] | list[Any] | MeasurementResult, **parameter_values: Any) -> None:
+    def add_trial(
+        self,
+        measurement_result: pl.DataFrame | dict[str, Any] | list[Any] | MeasurementResult,
+        **parameter_values: Any,
+    ) -> None:
         """
         Add a new trial to the experiment.
 
@@ -79,7 +85,7 @@ class Experiment:
         trial_df: pl.DataFrame
 
         # Special handling for MeasurementResult objects
-        if hasattr(measurement_result, 'values') and hasattr(measurement_result, 'to_dict'):
+        if hasattr(measurement_result, "values") and hasattr(measurement_result, "to_dict"):
             # If it's a MeasurementResult, extract its values
             if isinstance(measurement_result.values, pl.DataFrame):
                 trial_df = measurement_result.values
@@ -88,18 +94,24 @@ class Experiment:
                 try:
                     trial_df = pl.DataFrame(measurement_result.to_dict(), strict=False)
                 except Exception as e:
-                    raise ValueError(f"Failed to convert MeasurementResult to DataFrame: {e}") from e
+                    raise ValueError(
+                        f"Failed to convert MeasurementResult to DataFrame: {e}"
+                    ) from e
         elif not isinstance(measurement_result, pl.DataFrame):
             try:
                 trial_df = pl.DataFrame(measurement_result, strict=False)
             except Exception as e:
-                raise ValueError(f"Failed to convert measurement_result to a Polars DataFrame: {e}") from e
+                raise ValueError(
+                    f"Failed to convert measurement_result to a Polars DataFrame: {e}"
+                ) from e
         else:
             trial_df = measurement_result
 
         for param_name, value in parameter_values.items():
             if param_name not in self.parameters:
-                raise ValueError(f"Parameter '{param_name}' is not defined in the experiment. Add it first using add_parameter().")
+                raise ValueError(
+                    f"Parameter '{param_name}' is not defined in the experiment. Add it first using add_parameter()."
+                )
             trial_df = trial_df.with_columns(pl.lit(value).alias(param_name))
 
         if self.data.is_empty():
@@ -108,7 +120,9 @@ class Experiment:
             try:
                 self.data = self.data.vstack(trial_df)
             except Exception as e:
-                raise ValueError(f"Failed to stack new trial data. Check for schema compatibility. Error: {e}") from e
+                raise ValueError(
+                    f"Failed to stack new trial data. Check for schema compatibility. Error: {e}"
+                ) from e
 
     def list_trials(self) -> None:
         """Print the full trials DataFrame."""
@@ -136,11 +150,13 @@ class Experiment:
         else:
             head_data = "No trial data available."
 
-        return (f"Experiment: {self.name}\n"
-                f"Description: {self.description}\n"
-                f"Notes: {self.notes or 'No notes'}\n"
-                f"Parameters: {param_str}\n"
-                f"Trial Data (first 5 rows):\n{head_data}")
+        return (
+            f"Experiment: {self.name}\n"
+            f"Description: {self.description}\n"
+            f"Notes: {self.notes or 'No notes'}\n"
+            f"Parameters: {param_str}\n"
+            f"Trial Data (first 5 rows):\n{head_data}"
+        )
 
     # def save_arrow(self, file_path: str) -> None:
     #     """

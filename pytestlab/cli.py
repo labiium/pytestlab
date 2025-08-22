@@ -43,9 +43,8 @@ app = typer.Typer(help="PyTestLab: Scientific test & measurement toolbox CLI.")
 @app.callback()
 def main_callback(
     version: bool | None = typer.Option(
-        None, "--version", callback=version_callback, is_eager=True,
-        help="Show version and exit."
-    )
+        None, "--version", callback=version_callback, is_eager=True, help="Show version and exit."
+    ),
 ):
     """PyTestLab: Scientific test & measurement toolbox CLI."""
     pass
@@ -68,10 +67,10 @@ app.add_typer(sim_profile_app)
 
 # --- Simulation Profile Helpers ---
 def get_user_override_path(profile_key: str) -> Path:
-   """Gets the path to the user's override profile."""
-   home_dir = Path.home()
-   key_path = Path(profile_key.replace("/", os.sep) + ".yaml")
-   return home_dir / ".config" / "pytestlab" / "profiles" / key_path
+    """Gets the path to the user's override profile."""
+    home_dir = Path.home()
+    key_path = Path(profile_key.replace("/", os.sep) + ".yaml")
+    return home_dir / ".config" / "pytestlab" / "profiles" / key_path
 
 
 def get_user_recorded_profile_path(profile_key: str) -> Path:
@@ -80,109 +79,139 @@ def get_user_recorded_profile_path(profile_key: str) -> Path:
     key_path = Path(profile_key.replace("/", os.sep) + ".yaml")
     return home_dir / ".config" / "pytestlab" / "recorded_sim_profiles" / key_path
 
+
 # --- Simulation Profile Commands ---
 
 
 @sim_profile_app.command("edit")
-def sim_profile_edit(profile_key: Annotated[str, typer.Argument(help="Profile key (e.g., keysight/DSOX1204G).")]):
-   """Opens the user's override profile in their default text editor."""
-   try:
-       official_path = resolve_profile_key_to_path(profile_key)
-       override_path = get_user_override_path(profile_key)
+def sim_profile_edit(
+    profile_key: Annotated[str, typer.Argument(help="Profile key (e.g., keysight/DSOX1204G).")],
+):
+    """Opens the user's override profile in their default text editor."""
+    try:
+        official_path = resolve_profile_key_to_path(profile_key)
+        override_path = get_user_override_path(profile_key)
 
-       if not override_path.exists():
-           rich.print(f"No user override found for '{profile_key}'. Creating one from the official profile.")
-           override_path.parent.mkdir(parents=True, exist_ok=True)
-           shutil.copy(official_path, override_path)
-           rich.print(f"Copied official profile to: {override_path}")
+        if not override_path.exists():
+            rich.print(
+                f"No user override found for '{profile_key}'. Creating one from the official profile."
+            )
+            override_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(official_path, override_path)
+            rich.print(f"Copied official profile to: {override_path}")
 
-       rich.print(f"Opening '{override_path}' in your default editor...")
-       typer.launch(str(override_path))
+        rich.print(f"Opening '{override_path}' in your default editor...")
+        typer.launch(str(override_path))
 
-   except FileNotFoundError:
-       rich.print(f"[bold red]Error: Official profile for key '{profile_key}' not found.[/bold red]")
-       raise typer.Exit(code=1) from None
-   except Exception as e:
-       rich.print(f"[bold red]An unexpected error occurred: {e}[/bold red]")
-       raise typer.Exit(code=1) from None
+    except FileNotFoundError:
+        rich.print(
+            f"[bold red]Error: Official profile for key '{profile_key}' not found.[/bold red]"
+        )
+        raise typer.Exit(code=1) from None
+    except Exception as e:
+        rich.print(f"[bold red]An unexpected error occurred: {e}[/bold red]")
+        raise typer.Exit(code=1) from None
 
 
 @sim_profile_app.command("reset")
 def sim_profile_reset(profile_key: Annotated[str, typer.Argument(help="Profile key to reset.")]):
-   """Deletes the user's override profile, reverting to the official one."""
-   override_path = get_user_override_path(profile_key)
-   if override_path.exists():
-       try:
-           os.remove(override_path)
-           rich.print(f"[bold green]Successfully deleted override profile:[/bold green] {override_path}")
-           rich.print(f"Simulations for '{profile_key}' will now use the official profile.")
-       except OSError as e:
-           rich.print(f"[bold red]Error deleting file '{override_path}': {e}[/bold red]")
-           raise typer.Exit(code=1) from None
-   else:
-       rich.print(f"[bold yellow]No user override profile to reset for '{profile_key}'.[/bold yellow]")
+    """Deletes the user's override profile, reverting to the official one."""
+    override_path = get_user_override_path(profile_key)
+    if override_path.exists():
+        try:
+            os.remove(override_path)
+            rich.print(
+                f"[bold green]Successfully deleted override profile:[/bold green] {override_path}"
+            )
+            rich.print(f"Simulations for '{profile_key}' will now use the official profile.")
+        except OSError as e:
+            rich.print(f"[bold red]Error deleting file '{override_path}': {e}[/bold red]")
+            raise typer.Exit(code=1) from None
+    else:
+        rich.print(
+            f"[bold yellow]No user override profile to reset for '{profile_key}'.[/bold yellow]"
+        )
 
 
 @sim_profile_app.command("diff")
 def sim_profile_diff(profile_key: Annotated[str, typer.Argument(help="Profile key to compare.")]):
-   """Shows a diff between the user's override and the official profile."""
-   try:
-       official_path = resolve_profile_key_to_path(profile_key)
-       override_path = get_user_override_path(profile_key)
+    """Shows a diff between the user's override and the official profile."""
+    try:
+        official_path = resolve_profile_key_to_path(profile_key)
+        override_path = get_user_override_path(profile_key)
 
-       if not override_path.exists():
-           rich.print(f"[bold yellow]No user override profile found for '{profile_key}'. Nothing to compare.[/bold yellow]")
-           raise typer.Exit()
+        if not override_path.exists():
+            rich.print(
+                f"[bold yellow]No user override profile found for '{profile_key}'. Nothing to compare.[/bold yellow]"
+            )
+            raise typer.Exit()
 
-       with open(official_path) as f_official, open(override_path) as f_override:
-           official_lines = f_official.readlines()
-           override_lines = f_override.readlines()
+        with open(official_path) as f_official, open(override_path) as f_override:
+            official_lines = f_official.readlines()
+            override_lines = f_override.readlines()
 
-       diff = difflib.unified_diff(
-           official_lines,
-           override_lines,
-           fromfile=f"official/{profile_key}",
-           tofile=f"user/{profile_key}",
-       )
+        diff = difflib.unified_diff(
+            official_lines,
+            override_lines,
+            fromfile=f"official/{profile_key}",
+            tofile=f"user/{profile_key}",
+        )
 
-       diff_str = "".join(diff)
-       if not diff_str:
-           rich.print("[bold green]No differences found between the official and user profiles.[/bold green]")
-           return
+        diff_str = "".join(diff)
+        if not diff_str:
+            rich.print(
+                "[bold green]No differences found between the official and user profiles.[/bold green]"
+            )
+            return
 
-       rich.print(f"[bold]Diff for {profile_key}:[/bold]")
-       syntax = Syntax(diff_str, "diff", theme="monokai")
-       rich.print(syntax)
+        rich.print(f"[bold]Diff for {profile_key}:[/bold]")
+        syntax = Syntax(diff_str, "diff", theme="monokai")
+        rich.print(syntax)
 
-   except FileNotFoundError:
-       rich.print(f"[bold red]Error: Official profile for key '{profile_key}' not found.[/bold red]")
-       raise typer.Exit(code=1) from None
-   except Exception as e:
-       rich.print(f"[bold red]An unexpected error occurred: {e}[/bold red]")
-       raise typer.Exit(code=1) from None
+    except FileNotFoundError:
+        rich.print(
+            f"[bold red]Error: Official profile for key '{profile_key}' not found.[/bold red]"
+        )
+        raise typer.Exit(code=1) from None
+    except Exception as e:
+        rich.print(f"[bold red]An unexpected error occurred: {e}[/bold red]")
+        raise typer.Exit(code=1) from None
 
 
 @sim_profile_app.command("record")
 def sim_profile_record(
     profile_key: Annotated[str, typer.Argument(help="Profile key of the instrument to record.")],
     address: Annotated[str | None, typer.Option(help="VISA address of the instrument.")] = None,
-    output_path: Annotated[Path | None, typer.Option(help="Output path for the recorded YAML profile. If not provided, it will be saved to the user's cache.")] = None,
-    script: Annotated[Path | None, typer.Option(help="Path to a Python script to run against the instrument.")] = None,
-    simulate: Annotated[bool, typer.Option(help="Use a simulated instrument for recording.")] = False,
+    output_path: Annotated[
+        Path | None,
+        typer.Option(
+            help="Output path for the recorded YAML profile. If not provided, it will be saved to the user's cache."
+        ),
+    ] = None,
+    script: Annotated[
+        Path | None, typer.Option(help="Path to a Python script to run against the instrument.")
+    ] = None,
+    simulate: Annotated[
+        bool, typer.Option(help="Use a simulated instrument for recording.")
+    ] = False,
 ):
     """Records instrument interactions to create a simulation profile."""
     instrument = None
     final_output_path = output_path  # Ensure defined even if an early exception occurs
     try:
         if not simulate and not address:
-            rich.print("[bold red]Error: The --address option is required for recording from a real instrument.[/bold red]")
+            rich.print(
+                "[bold red]Error: The --address option is required for recording from a real instrument.[/bold red]"
+            )
             raise typer.Exit(code=1)
 
         final_output_path = output_path
         if not final_output_path:
             final_output_path = get_user_recorded_profile_path(profile_key)
             final_output_path.parent.mkdir(parents=True, exist_ok=True)
-            rich.print(f"[yellow]No output path provided. Saving to user cache:[/yellow] {final_output_path}")
+            rich.print(
+                f"[yellow]No output path provided. Saving to user cache:[/yellow] {final_output_path}"
+            )
 
         if simulate:
             rich.print(f"Connecting to simulated instrument '{profile_key}'...")
@@ -190,16 +219,16 @@ def sim_profile_record(
             rich.print(f"Connecting to instrument '{profile_key}' at address '{address}'...")
 
         instrument = AutoInstrument.from_config(
-            config_source=profile_key,
-            simulate=simulate,
-            address_override=address
+            config_source=profile_key, simulate=simulate, address_override=address
         )
         instrument.connect_backend()
 
         # Wrap the real backend with the recording backend
         base_profile_model = load_profile(profile_key)
         base_profile = base_profile_model.model_dump()
-        recording_backend = RecordingBackend(instrument._backend, str(final_output_path), base_profile=base_profile)
+        recording_backend = RecordingBackend(
+            instrument._backend, str(final_output_path), base_profile=base_profile
+        )
         instrument._backend = recording_backend  # type: ignore[attr-defined]
 
         rich.print("[bold green]Connection successful. Recording started.[/bold green]")
@@ -213,20 +242,25 @@ def sim_profile_record(
                 if hasattr(script_module, "main"):
                     script_module.main(instrument)
                 else:
-                    rich.print("[bold yellow]Warning: No 'main(instrument)' function found in script.[/bold yellow]")
+                    rich.print(
+                        "[bold yellow]Warning: No 'main(instrument)' function found in script.[/bold yellow]"
+                    )
             else:
                 rich.print(f"[bold red]Error: Could not load script '{script}'.[/bold red]")
         else:
-            rich.print("\n[bold]Starting interactive REPL. Press Ctrl+D or type 'exit()' to quit.[/bold]")
+            rich.print(
+                "\n[bold]Starting interactive REPL. Press Ctrl+D or type 'exit()' to quit.[/bold]"
+            )
             # Basic REPL for demonstration
             code.interact(
                 banner="PyTestLab Interactive Recording Session",
-                local=dict(globals(), **{'instrument': instrument}),
-                exitmsg="REPL finished."
+                local=dict(globals(), **{"instrument": instrument}),
+                exitmsg="REPL finished.",
             )
 
     except Exception as e:
         import traceback
+
         rich.print(f"[bold red]An unexpected error occurred: {e}[/bold red]")
         traceback.print_exc()
         raise typer.Exit(code=1) from None
@@ -239,7 +273,9 @@ def sim_profile_record(
 
 # --- Profile Commands ---
 @profile_app.command("list")
-def list_profiles(profile_dir: Annotated[Path | None, typer.Option(help="Custom directory for profiles.")] = None):
+def list_profiles(
+    profile_dir: Annotated[Path | None, typer.Option(help="Custom directory for profiles.")] = None,
+):
     """Lists available YAML instrument profiles."""
     try:
         profile_paths = []
@@ -260,10 +296,14 @@ def list_profiles(profile_dir: Annotated[Path | None, typer.Option(help="Custom 
         # Add logic for custom_dir if provided
         if profile_dir:
             if profile_dir.is_dir():
-                for profile_file in profile_dir.glob("*.yaml"):  # Assuming flat structure in custom_dir for now
+                for profile_file in profile_dir.glob(
+                    "*.yaml"
+                ):  # Assuming flat structure in custom_dir for now
                     profile_paths.append(str(profile_file.resolve()))
             else:
-                rich.print(f"[bold yellow]Warning: Custom profile directory '{profile_dir}' not found.[/bold yellow]")
+                rich.print(
+                    f"[bold yellow]Warning: Custom profile directory '{profile_dir}' not found.[/bold yellow]"
+                )
 
         if not profile_paths:
             rich.print("[bold yellow]No profiles found.[/bold yellow]")
@@ -271,7 +311,9 @@ def list_profiles(profile_dir: Annotated[Path | None, typer.Option(help="Custom 
 
         table = Table(title="[bold]Available Profiles[/bold]")
         table.add_column("Profile Key", style="cyan", no_wrap=True)
-        for p_path in sorted(list(set(profile_paths))):  # Use set to avoid duplicates if custom overlaps
+        for p_path in sorted(
+            list(set(profile_paths))
+        ):  # Use set to avoid duplicates if custom overlaps
             table.add_row(p_path)
         rich.print(table)
     except Exception as e:
@@ -280,7 +322,12 @@ def list_profiles(profile_dir: Annotated[Path | None, typer.Option(help="Custom 
 
 
 @profile_app.command("show")
-def show_profile(profile_key_or_path: Annotated[str, typer.Argument(help="Profile key (e.g., keysight/DSOX1204G) or direct path to YAML file.")]):
+def show_profile(
+    profile_key_or_path: Annotated[
+        str,
+        typer.Argument(help="Profile key (e.g., keysight/DSOX1204G) or direct path to YAML file."),
+    ],
+):
     """Shows the content of a specific instrument profile."""
     try:
         profile_path = Path(profile_key_or_path)
@@ -302,13 +349,17 @@ def show_profile(profile_key_or_path: Annotated[str, typer.Argument(help="Profil
         rich.print(f"[bold red]Error parsing YAML file '{profile_key_or_path}': {e}[/bold red]")
         raise typer.Exit(code=1) from None
     except Exception as e:
-        rich.print(f"[bold red]An unexpected error occurred while showing profile '{profile_key_or_path}': {e}[/bold red]")
+        rich.print(
+            f"[bold red]An unexpected error occurred while showing profile '{profile_key_or_path}': {e}[/bold red]"
+        )
         raise typer.Exit(code=1) from None
 
 
 @profile_app.command("validate")
 def validate_profiles(
-    profiles_path: Annotated[Path, typer.Argument(help="Path to a directory of profiles or a single profile file.")]
+    profiles_path: Annotated[
+        Path, typer.Argument(help="Path to a directory of profiles or a single profile file.")
+    ],
 ):
     """Validates YAML profiles against their corresponding Pydantic models."""
     if not profiles_path.exists():
@@ -341,12 +392,16 @@ def validate_profiles(
             rich.print(f"  [green]✔[/green] [cyan]{profile_file.name}[/cyan] - Valid")
             success_count += 1
         except Exception as e:
-            rich.print(f"  [bold red]✖[/bold red] [cyan]{profile_file.name}[/cyan] - [red]Invalid[/red]")
+            rich.print(
+                f"  [bold red]✖[/bold red] [cyan]{profile_file.name}[/cyan] - [red]Invalid[/red]"
+            )
             rich.print(f"    [dim]Reason: {e}[/dim]")
             error_count += 1
 
     if error_count > 0:
-        rich.print(f"\n[bold]Validation complete:[/bold] [green]{success_count} valid[/green], [red]{error_count} invalid[/red].")
+        rich.print(
+            f"\n[bold]Validation complete:[/bold] [green]{success_count} valid[/green], [red]{error_count} invalid[/red]."
+        )
         raise typer.Exit(code=1)
     else:
         rich.print(f"\n[bold green]All {success_count} profiles are valid.[/bold green]")
@@ -356,8 +411,10 @@ def validate_profiles(
 @instrument_app.command("idn")
 def instrument_idn(
     profile_key_or_path: Annotated[str, typer.Option(help="Profile key or path.")],
-    address: Annotated[str | None, typer.Option(help="VISA address. Overrides profile if provided.")] = None,
-    simulate: Annotated[bool, typer.Option(help="Run in simulation mode.")] = False
+    address: Annotated[
+        str | None, typer.Option(help="VISA address. Overrides profile if provided.")
+    ] = None,
+    simulate: Annotated[bool, typer.Option(help="Run in simulation mode.")] = False,
 ):
     """Connects to an instrument and prints its *IDN? response."""
     instrument = None  # Initialize instrument to None
@@ -365,9 +422,7 @@ def instrument_idn(
         inst_config_model = load_profile(profile_key_or_path)
 
         instrument = AutoInstrument.from_config(
-            config_source=inst_config_model,
-            simulate=simulate,
-            address_override=address
+            config_source=inst_config_model, simulate=simulate, address_override=address
         )
         instrument.connect_backend()
         idn_response = instrument.id()
@@ -404,23 +459,34 @@ def bench_ls(bench_yaml_path: Annotated[Path, typer.Argument(help="Path to the b
         for alias, entry in config.instruments.items():
             sim_status = "Global" if entry.simulate is None else str(entry.simulate)
             addr = entry.address or "N/A (simulated)"
-            backend_type = (entry.backend.get("type") if entry.backend and entry.backend.get("type") else
-                          config.backend_defaults.get("type", "visa") if config.backend_defaults else "visa")
+            backend_type = (
+                entry.backend.get("type")
+                if entry.backend and entry.backend.get("type")
+                else config.backend_defaults.get("type", "visa")
+                if config.backend_defaults
+                else "visa"
+            )
             table.add_row(alias, entry.profile, addr, backend_type, sim_status)
         rich.print(table)
     except FileNotFoundError:
-        rich.print(f"[bold red]Error: Bench configuration file not found at '{bench_yaml_path}'.[/bold red]")
+        rich.print(
+            f"[bold red]Error: Bench configuration file not found at '{bench_yaml_path}'.[/bold red]"
+        )
         raise typer.Exit(code=1) from None
     except yaml.YAMLError as e:
         rich.print(f"[bold red]Error parsing YAML file '{bench_yaml_path}': {e}[/bold red]")
         raise typer.Exit(code=1) from None
     except Exception as e:
-        rich.print(f"[bold red]An unexpected error occurred while listing the bench instruments: {e}[/bold red]")
+        rich.print(
+            f"[bold red]An unexpected error occurred while listing the bench instruments: {e}[/bold red]"
+        )
         raise typer.Exit(code=1) from None
 
 
 @bench_app.command("validate")
-def bench_validate_cli(bench_yaml_path: Annotated[Path, typer.Argument(help="Path to the bench.yaml file.")]):
+def bench_validate_cli(
+    bench_yaml_path: Annotated[Path, typer.Argument(help="Path to the bench.yaml file.")],
+):
     """Validates a bench configuration file (dry-run)."""
     try:
         with open(bench_yaml_path) as f:
@@ -433,7 +499,9 @@ def bench_validate_cli(bench_yaml_path: Annotated[Path, typer.Argument(help="Pat
         for alias, entry in config.instruments.items():
             try:
                 load_profile(entry.profile)
-                rich.print(f"  [green]✔[/green] Profile '[magenta]{entry.profile}[/magenta]' for alias '[cyan]{alias}[/cyan]' loaded successfully.")
+                rich.print(
+                    f"  [green]✔[/green] Profile '[magenta]{entry.profile}[/magenta]' for alias '[cyan]{alias}[/cyan]' loaded successfully."
+                )
             except FileNotFoundError:
                 all_profiles_valid = False
                 rich.print(
@@ -441,29 +509,39 @@ def bench_validate_cli(bench_yaml_path: Annotated[Path, typer.Argument(help="Pat
                 )
             except Exception as e_profile:
                 all_profiles_valid = False
-                rich.print(f"  [bold red]✖ Error:[/bold red] Failed to load profile '[magenta]{entry.profile}[/magenta]' for alias '[cyan]{alias}[/cyan]': {e_profile}")
+                rich.print(
+                    f"  [bold red]✖ Error:[/bold red] Failed to load profile '[magenta]{entry.profile}[/magenta]' for alias '[cyan]{alias}[/cyan]': {e_profile}"
+                )
 
         if not all_profiles_valid:
             raise typer.Exit(code=1)
 
     except FileNotFoundError:
-        rich.print(f"[bold red]Error: Bench configuration file not found at '{bench_yaml_path}'.[/bold red]")
+        rich.print(
+            f"[bold red]Error: Bench configuration file not found at '{bench_yaml_path}'.[/bold red]"
+        )
         raise typer.Exit(code=1) from None
     except yaml.YAMLError as e:
         rich.print(f"[bold red]Error parsing YAML file '{bench_yaml_path}': {e}[/bold red]")
         raise typer.Exit(code=1) from None
     except Exception as e:
-        rich.print(f"[bold red]An unexpected error occurred during bench validation: {e}[/bold red]")
+        rich.print(
+            f"[bold red]An unexpected error occurred during bench validation: {e}[/bold red]"
+        )
         raise typer.Exit(code=1) from None
 
 
 @bench_app.command("id")
-def bench_id_cli(bench_yaml_path: Annotated[Path, typer.Argument(help="Path to the bench.yaml file.")]):
+def bench_id_cli(
+    bench_yaml_path: Annotated[Path, typer.Argument(help="Path to the bench.yaml file.")],
+):
     """Connects to real instruments in a bench and prints their *IDN? responses."""
     bench = None
     try:
         bench = Bench.open(bench_yaml_path)
-        rich.print(f"Querying *IDN? for instruments in bench: [bold]{bench.config.bench_name}[/bold]")
+        rich.print(
+            f"Querying *IDN? for instruments in bench: [bold]{bench.config.bench_name}[/bold]"
+        )
 
         table = Table(title="Instrument IDN Responses")
         table.add_column("Alias", style="cyan")
@@ -481,16 +559,22 @@ def bench_id_cli(bench_yaml_path: Annotated[Path, typer.Argument(help="Path to t
                     idn_str = instrument.id()
                     table.add_row(alias, entry.profile, idn_str)
                 except Exception as e_idn:
-                    table.add_row(alias, entry.profile, f"[bold red]Error querying IDN - {e_idn}[/bold red]")
+                    table.add_row(
+                        alias, entry.profile, f"[bold red]Error querying IDN - {e_idn}[/bold red]"
+                    )
             else:
                 table.add_row(alias, entry.profile, "[blue]Simulated[/blue]")
 
         rich.print(table)
     except FileNotFoundError:
-        rich.print(f"[bold red]Error: Bench configuration file not found at '{bench_yaml_path}'.[/bold red]")
+        rich.print(
+            f"[bold red]Error: Bench configuration file not found at '{bench_yaml_path}'.[/bold red]"
+        )
         raise typer.Exit(code=1) from None
     except Exception as e:
-        rich.print(f"[bold red]An unexpected error occurred during the bench ID query: {e}[/bold red]")
+        rich.print(
+            f"[bold red]An unexpected error occurred during the bench ID query: {e}[/bold red]"
+        )
         raise typer.Exit(code=1) from None
     finally:
         if bench:
@@ -498,42 +582,55 @@ def bench_id_cli(bench_yaml_path: Annotated[Path, typer.Argument(help="Path to t
 
 
 @bench_app.command("sim")
-def bench_sim_cli(bench_yaml_path: Annotated[Path, typer.Argument(help="Path to the bench.yaml file.")],
-                  output_path: Annotated[Path | None, typer.Option(help="Output path for the simulated descriptor.")] = None):
+def bench_sim_cli(
+    bench_yaml_path: Annotated[Path, typer.Argument(help="Path to the bench.yaml file.")],
+    output_path: Annotated[
+        Path | None, typer.Option(help="Output path for the simulated descriptor.")
+    ] = None,
+):
     """Converts a bench descriptor to full simulation mode."""
     try:
         with open(bench_yaml_path) as f:
             data = yaml.safe_load(f)
         config = BenchConfigExtended.model_validate(data)
 
-        sim_config_data = config.model_dump(mode='python')
-        sim_config_data['simulate'] = True
-        for alias_key in sim_config_data['instruments']:
-            sim_config_data['instruments'][alias_key]['simulate'] = True
-            sim_config_data['instruments'][alias_key]['address'] = "sim"
-            if sim_config_data['instruments'][alias_key].get('backend'):
-               sim_config_data['instruments'][alias_key]['backend']['type'] = "sim"
+        sim_config_data = config.model_dump(mode="python")
+        sim_config_data["simulate"] = True
+        for alias_key in sim_config_data["instruments"]:
+            sim_config_data["instruments"][alias_key]["simulate"] = True
+            sim_config_data["instruments"][alias_key]["address"] = "sim"
+            if sim_config_data["instruments"][alias_key].get("backend"):
+                sim_config_data["instruments"][alias_key]["backend"]["type"] = "sim"
             else:
-               sim_config_data['instruments'][alias_key]['backend'] = {'type': 'sim', 'timeout_ms': 5000}
+                sim_config_data["instruments"][alias_key]["backend"] = {
+                    "type": "sim",
+                    "timeout_ms": 5000,
+                }
 
         sim_yaml = yaml.dump(sim_config_data, sort_keys=False)
 
         if output_path:
-            with open(output_path, 'w') as f_out:
+            with open(output_path, "w") as f_out:
                 f_out.write(sim_yaml)
-            rich.print(f"[bold green]Simulated bench descriptor saved to:[/bold green] {output_path}")
+            rich.print(
+                f"[bold green]Simulated bench descriptor saved to:[/bold green] {output_path}"
+            )
         else:
             syntax = Syntax(sim_yaml, "yaml", theme="monokai", line_numbers=True)
             rich.print(syntax)
 
     except FileNotFoundError:
-        rich.print(f"[bold red]Error: Bench configuration file not found at '{bench_yaml_path}'.[/bold red]")
+        rich.print(
+            f"[bold red]Error: Bench configuration file not found at '{bench_yaml_path}'.[/bold red]"
+        )
         raise typer.Exit(code=1) from None
     except yaml.YAMLError as e:
         rich.print(f"[bold red]Error parsing YAML file '{bench_yaml_path}': {e}[/bold red]")
         raise typer.Exit(code=1) from None
     except Exception as e:
-        rich.print(f"[bold red]An unexpected error occurred while converting the bench to simulation mode: {e}[/bold red]")
+        rich.print(
+            f"[bold red]An unexpected error occurred while converting the bench to simulation mode: {e}[/bold red]"
+        )
         raise typer.Exit(code=1) from None
 
 
@@ -541,8 +638,12 @@ def bench_sim_cli(bench_yaml_path: Annotated[Path, typer.Argument(help="Path to 
 @replay_app.command("record")
 def replay_record(
     script: Annotated[Path, typer.Argument(help="Path to the Python script to execute.")],
-    bench_config: Annotated[Path, typer.Option("--bench", help="Path to the bench.yaml configuration file.")],
-    output: Annotated[Path, typer.Option("--output", help="Path to save the recorded session YAML file.")],
+    bench_config: Annotated[
+        Path, typer.Option("--bench", help="Path to the bench.yaml configuration file.")
+    ],
+    output: Annotated[
+        Path, typer.Option("--output", help="Path to save the recorded session YAML file.")
+    ],
 ):
     """Records a measurement session by running a script against a real bench."""
     rich.print("[bold cyan]Starting recording session...[/bold cyan]")
@@ -580,6 +681,7 @@ def replay_record(
     except Exception as e:
         rich.print(f"[bold red]An error occurred during recording: {e}[/bold red]")
         import traceback
+
         traceback.print_exc()
         raise typer.Exit(code=1) from None
     finally:
@@ -595,7 +697,9 @@ def replay_record(
 @replay_app.command("run")
 def replay_run(
     script: Annotated[Path, typer.Argument(help="Path to the Python script to execute.")],
-    session: Annotated[Path, typer.Option("--session", help="Path to the recorded session YAML file.")],
+    session: Annotated[
+        Path, typer.Option("--session", help="Path to the recorded session YAML file.")
+    ],
 ):
     """Replays a recorded measurement session against a simulated bench."""
     if isinstance(script, str):
@@ -628,8 +732,7 @@ def replay_run(
             replay_backend = ReplayBackend(session_log, model_name=alias)  # type: ignore[arg-type]
 
             instrument = AutoInstrument.from_config(
-                config_source=profile_key,
-                backend_override=replay_backend
+                config_source=profile_key, backend_override=replay_backend
             )
             instrument.connect_backend()
 
@@ -656,6 +759,7 @@ def replay_run(
     except Exception as e:
         rich.print(f"[bold red]An error occurred during replay: {e}[/bold red]")
         import traceback
+
         traceback.print_exc()
         raise typer.Exit(code=1) from None
     finally:
@@ -668,9 +772,13 @@ def replay_run(
 @app.command("run")
 def run_command(
     script: Annotated[Path, typer.Argument(help="Path to the Python script to execute.")],
-    bench_config: Annotated[Path, typer.Option("--bench", help="Path to the bench.yaml configuration file.")],
+    bench_config: Annotated[
+        Path, typer.Option("--bench", help="Path to the bench.yaml configuration file.")
+    ],
     simulate: Annotated[bool, typer.Option("--simulate", help="Force simulation mode.")] = False,
-    output: Annotated[Path | None, typer.Option("--output", help="Path to save measurement results.")] = None,
+    output: Annotated[
+        Path | None, typer.Option("--output", help="Path to save measurement results.")
+    ] = None,
 ):
     """Execute a measurement script against a bench configuration."""
     rich.print("[bold cyan]Running measurement script...[/bold cyan]")
@@ -691,9 +799,10 @@ def run_command(
         if simulate:
             with open(bench_config) as f:
                 config_data = yaml.safe_load(f)
-            config_data['simulate'] = True
+            config_data["simulate"] = True
             import tempfile
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as temp_file:
+
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as temp_file:
                 yaml.dump(config_data, temp_file)
                 temp_bench_config = Path(temp_file.name)
             bench = Bench.open(temp_bench_config)
@@ -701,7 +810,9 @@ def run_command(
         else:
             bench = Bench.open(bench_config)
 
-        rich.print(f"[bold green]Bench '{bench.config.bench_name}' loaded successfully[/bold green]")
+        rich.print(
+            f"[bold green]Bench '{bench.config.bench_name}' loaded successfully[/bold green]"
+        )
 
         spec = importlib.util.spec_from_file_location("measurement_script", script)
         if not spec or not spec.loader:
@@ -716,7 +827,7 @@ def run_command(
 
             if output and result:
                 rich.print(f"[bold]Saving results to {output}...[/bold]")
-                with open(output, 'w') as f:
+                with open(output, "w") as f:
                     if isinstance(result, dict):
                         yaml.dump(result, f)
                     else:
@@ -726,11 +837,14 @@ def run_command(
             rich.print("[bold green]Script execution completed successfully[/bold green]")
         else:
             rich.print(f"[bold yellow]Warning: No 'main' function found in {script}[/bold yellow]")
-            rich.print("[bold yellow]Script was loaded but no main function was executed[/bold yellow]")
+            rich.print(
+                "[bold yellow]Script was loaded but no main function was executed[/bold yellow]"
+            )
 
     except Exception as e:
         rich.print(f"[bold red]Error during execution: {e}[/bold red]")
         import traceback
+
         traceback.print_exc()
         raise typer.Exit(code=1) from None
     finally:
@@ -740,7 +854,9 @@ def run_command(
 
 @app.command("list")
 def list_command(
-    resource: Annotated[str, typer.Argument(help="Resource type to list: 'profiles', 'benches', 'examples'")] = "profiles"
+    resource: Annotated[
+        str, typer.Argument(help="Resource type to list: 'profiles', 'benches', 'examples'")
+    ] = "profiles",
 ):
     """List available resources (profiles, bench configs, examples)."""
 
@@ -777,7 +893,7 @@ def list_command(
             Path.cwd(),
             Path.cwd() / "examples",
             Path.cwd() / "configs",
-            Path.cwd() / "benches"
+            Path.cwd() / "benches",
         ]
         for search_path in search_paths:
             if search_path.exists():
@@ -817,7 +933,7 @@ def list_command(
                             lines = f.readlines()
                             for line in lines[:10]:
                                 if '"""' in line and len(line.strip()) > 3:
-                                    description = line.strip().replace('"""', '').strip()
+                                    description = line.strip().replace('"""', "").strip()
                                     if description:
                                         break
                     except Exception:
@@ -825,7 +941,7 @@ def list_command(
 
                     table.add_row(
                         script_file.name,
-                        description[:60] + "..." if len(description) > 60 else description
+                        description[:60] + "..." if len(description) > 60 else description,
                     )
 
                 rich.print(table)
@@ -849,6 +965,7 @@ def run_app():
 def main():
     if "sim-profile" in sys.argv and "record" in sys.argv:
         from pytestlab.cli import sim_profile_record
+
         kwargs = {}
         for i, arg in enumerate(sys.argv):
             if arg.startswith("--"):
@@ -857,13 +974,11 @@ def main():
                 else:
                     kwargs[arg[2:].replace("-", "_")] = True
 
-        sim_profile_record(
-            profile_key=sys.argv[3],
-            **kwargs
-        )
+        sim_profile_record(profile_key=sys.argv[3], **kwargs)
     elif "replay" in sys.argv and ("record" in sys.argv or "run" in sys.argv):
         if "record" in sys.argv:
             from pytestlab.cli import replay_record
+
             script_path = Path(sys.argv[3]) if len(sys.argv) > 3 else None
             bench_config = None
             output = None
@@ -877,11 +992,14 @@ def main():
             if script_path and bench_config and output:
                 replay_record(script_path, bench_config, output)
             else:
-                rich.print("[bold red]Error: Missing required arguments for replay record[/bold red]")
+                rich.print(
+                    "[bold red]Error: Missing required arguments for replay record[/bold red]"
+                )
                 sys.exit(1)
 
         elif "run" in sys.argv:
             from pytestlab.cli import replay_run
+
             script_path = Path(sys.argv[3]) if len(sys.argv) > 3 else None
             session = None
 

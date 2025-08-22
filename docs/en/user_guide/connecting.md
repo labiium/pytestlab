@@ -9,7 +9,7 @@ PyTestLab provides a unified and straightforward way to connect to both real and
 The `pytestlab.AutoInstrument` factory is the primary way to create a single instrument instance. You need to provide a configuration source, which can be a profile key (e.g., `"keysight/DSOX1204G"`) or a path to a YAML file.
 
 !!! note "Connection Process"
-    Creating an instrument instance with `AutoInstrument.from_config()` does **not** establish the connection.  
+    Creating an instrument instance with `AutoInstrument.from_config()` does **not** establish the connection.
     You must always call the `connect_backend()` method on the created instrument object.
 
 ---

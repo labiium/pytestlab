@@ -49,12 +49,7 @@ class NotebookStylingValidator:
     def log(self, message: str, level: str = "INFO") -> None:
         """Log a message if verbose mode is enabled."""
         if self.verbose or level in ["ERROR", "WARNING"]:
-            prefix = {
-                "INFO": "ℹ️ ",
-                "SUCCESS": "✅",
-                "WARNING": "⚠️ ",
-                "ERROR": "❌"
-            }.get(level, "")
+            prefix = {"INFO": "ℹ️ ", "SUCCESS": "✅", "WARNING": "⚠️ ", "ERROR": "❌"}.get(level, "")
             print(f"{prefix} {message}")
 
     def test_css_files(self) -> bool:
@@ -68,7 +63,7 @@ class NotebookStylingValidator:
             return False
 
         # Read and validate CSS content
-        css_content = main_css.read_text(encoding='utf-8')
+        css_content = main_css.read_text(encoding="utf-8")
 
         # Check for key CSS classes and variables
         required_elements = [
@@ -81,7 +76,7 @@ class NotebookStylingValidator:
             ".copy-button",
             ".jp-InputArea",
             ".jp-OutputArea",
-            "glassmorphism"
+            "glassmorphism",
         ]
 
         missing_elements = []
@@ -103,7 +98,7 @@ class NotebookStylingValidator:
             "prefers-reduced-motion",
             "prefers-contrast",
             "focus-within",
-            "aria-"
+            "aria-",
         ]
 
         found_accessibility = sum(1 for feature in accessibility_features if feature in css_content)
@@ -125,7 +120,7 @@ class NotebookStylingValidator:
             return False
 
         # Read and validate JavaScript content
-        js_content = main_js.read_text(encoding='utf-8')
+        js_content = main_js.read_text(encoding="utf-8")
 
         # Check for key functions and features
         required_features = [
@@ -135,7 +130,7 @@ class NotebookStylingValidator:
             "responsiveEnhancements",
             "addEventListener",
             "querySelector",
-            "clipboard"
+            "clipboard",
         ]
 
         missing_features = []
@@ -169,13 +164,10 @@ class NotebookStylingValidator:
             self.log("MkDocs config file not found", "ERROR")
             return False
 
-        config_content = mkdocs_config.read_text(encoding='utf-8')
+        config_content = mkdocs_config.read_text(encoding="utf-8")
 
         # Check for required plugins
-        required_plugins = [
-            "mkdocs-jupyter",
-            "awesome-pages"
-        ]
+        required_plugins = ["mkdocs-jupyter", "awesome-pages"]
 
         missing_plugins = []
         for plugin in required_plugins:
@@ -215,28 +207,27 @@ class NotebookStylingValidator:
 
         for notebook_path in notebook_files[:3]:  # Test first 3 notebooks
             try:
-                with open(notebook_path, encoding='utf-8') as f:
+                with open(notebook_path, encoding="utf-8") as f:
                     notebook = json.load(f)
 
                 # Check basic structure
-                if 'cells' not in notebook:
+                if "cells" not in notebook:
                     structural_issues.append(f"{notebook_path.name}: Missing cells")
 
-                if 'metadata' not in notebook:
+                if "metadata" not in notebook:
                     structural_issues.append(f"{notebook_path.name}: Missing metadata")
 
                 # Check for professional structure
-                cells = notebook.get('cells', [])
+                cells = notebook.get("cells", [])
                 if cells:
                     first_cell = cells[0]
-                    if first_cell.get('cell_type') != 'markdown':
-                        structural_issues.append(f"{notebook_path.name}: Should start with markdown title")
+                    if first_cell.get("cell_type") != "markdown":
+                        structural_issues.append(
+                            f"{notebook_path.name}: Should start with markdown title"
+                        )
 
                 # Check for proper cell metadata
-                has_tagged_cells = any(
-                    cell.get('metadata', {}).get('tags')
-                    for cell in cells
-                )
+                has_tagged_cells = any(cell.get("metadata", {}).get("tags") for cell in cells)
 
                 if not has_tagged_cells:
                     self.log(f"{notebook_path.name}: No tagged cells found", "WARNING")
@@ -262,14 +253,14 @@ class NotebookStylingValidator:
         if not css_file.exists():
             return False
 
-        css_content = css_file.read_text(encoding='utf-8')
+        css_content = css_file.read_text(encoding="utf-8")
 
         # Check for required color variables
         required_colors = [
             "--lab-violet: #5333ed",
             "--lab-aqua: #04e2dc",
             "--photon-white: #f5f7fa",
-            "--photon-black: #0b0e11"
+            "--photon-black: #0b0e11",
         ]
 
         missing_colors = []
@@ -297,10 +288,10 @@ class NotebookStylingValidator:
         if not css_file.exists():
             return False
 
-        css_content = css_file.read_text(encoding='utf-8')
+        css_content = css_file.read_text(encoding="utf-8")
 
         # Check for media queries
-        media_queries = re.findall(r'@media[^{]+{', css_content)
+        media_queries = re.findall(r"@media[^{]+{", css_content)
 
         if len(media_queries) < 2:
             self.log("Insufficient responsive breakpoints", "ERROR")
@@ -329,8 +320,8 @@ class NotebookStylingValidator:
         if not css_file.exists() or not js_file.exists():
             return False
 
-        css_content = css_file.read_text(encoding='utf-8')
-        js_content = js_file.read_text(encoding='utf-8')
+        css_content = css_file.read_text(encoding="utf-8")
+        js_content = js_file.read_text(encoding="utf-8")
 
         # Check CSS accessibility features
         css_accessibility = [
@@ -338,19 +329,13 @@ class NotebookStylingValidator:
             "prefers-contrast",
             "focus-within",
             ":focus",
-            "outline"
+            "outline",
         ]
 
         css_score = sum(1 for feature in css_accessibility if feature in css_content)
 
         # Check JavaScript accessibility features
-        js_accessibility = [
-            "aria-label",
-            "tabindex",
-            "keyboard",
-            "focus",
-            "role"
-        ]
+        js_accessibility = ["aria-label", "tabindex", "keyboard", "focus", "role"]
 
         js_score = sum(1 for feature in js_accessibility if feature in js_content)
 
@@ -376,26 +361,16 @@ class NotebookStylingValidator:
         if not js_file.exists() or not css_file.exists():
             return False
 
-        js_content = js_file.read_text(encoding='utf-8')
-        css_content = css_file.read_text(encoding='utf-8')
+        js_content = js_file.read_text(encoding="utf-8")
+        css_content = css_file.read_text(encoding="utf-8")
 
         # Check JavaScript performance features
-        js_optimizations = [
-            "debounce",
-            "IntersectionObserver",
-            "requestAnimationFrame",
-            "passive"
-        ]
+        js_optimizations = ["debounce", "IntersectionObserver", "requestAnimationFrame", "passive"]
 
         js_score = sum(1 for opt in js_optimizations if opt in js_content)
 
         # Check CSS performance features
-        css_optimizations = [
-            "transform",
-            "will-change",
-            "contain",
-            "opacity"
-        ]
+        css_optimizations = ["transform", "will-change", "contain", "opacity"]
 
         css_score = sum(1 for opt in css_optimizations if opt in css_content)
 
@@ -464,7 +439,10 @@ class NotebookStylingValidator:
         if self.failed_tests == 0:
             self.log("🎉 All validations passed!", "SUCCESS")
             if self.warnings > 0:
-                self.log(f"Note: {self.warnings} warning(s) - consider addressing these for optimal experience", "WARNING")
+                self.log(
+                    f"Note: {self.warnings} warning(s) - consider addressing these for optimal experience",
+                    "WARNING",
+                )
             return True
         else:
             self.log("❌ Some validations failed. Please review and fix the issues above.", "ERROR")
@@ -481,20 +459,15 @@ Examples:
   python docs/scripts/validate_styling.py
   python docs/scripts/validate_styling.py --verbose
   python docs/scripts/validate_styling.py --check-all --verbose
-        """
+        """,
     )
 
     parser.add_argument(
-        "--verbose",
-        "-v",
-        action="store_true",
-        help="Print detailed validation information"
+        "--verbose", "-v", action="store_true", help="Print detailed validation information"
     )
 
     parser.add_argument(
-        "--check-all",
-        action="store_true",
-        help="Run all tests including extended validations"
+        "--check-all", action="store_true", help="Run all tests including extended validations"
     )
 
     args = parser.parse_args()

@@ -42,6 +42,7 @@ class DCActiveLoad(Instrument):
     - Measuring voltage, current, and power with uncertainty.
     - Configuring and controlling transient and battery test modes.
     """
+
     config: DCActiveLoadConfig  # Type hint for the specific config
     current_mode: str | None = None
 
@@ -51,10 +52,7 @@ class DCActiveLoad(Instrument):
 
     @classmethod
     def from_config(
-        cls,
-        config: InstrumentConfig,
-        backend: InstrumentIO,
-        **kwargs: Any
+        cls, config: InstrumentConfig, backend: InstrumentIO, **kwargs: Any
     ) -> DCActiveLoad:  # type: ignore[override]
         """
         Factory method for DCActiveLoad that requires a backend argument.
@@ -87,8 +85,10 @@ class DCActiveLoad(Instrument):
         valid_modes = ["CC", "CV", "CP", "CR"]
         if mode_upper not in valid_modes:
             raise InstrumentParameterError(
-                parameter="mode", value=mode, valid_range=valid_modes,
-                message=f"Unsupported mode '{mode}'. Valid modes are: {', '.join(valid_modes)}."
+                parameter="mode",
+                value=mode,
+                valid_range=valid_modes,
+                message=f"Unsupported mode '{mode}'. Valid modes are: {', '.join(valid_modes)}.",
             )
         for cmd in self.scpi_engine.build("set_mode", mode=mode_upper):
             self._send_command(cmd)
@@ -127,9 +127,13 @@ class DCActiveLoad(Instrument):
             cmd_name, _legacy_prefix = mapping
             for cmd in self.scpi_engine.build(cmd_name, value=value):
                 self._send_command(cmd)
-            self._logger.info(f"Load value set to {value} in mode {self.current_mode} via SCPIEngine.")
+            self._logger.info(
+                f"Load value set to {value} in mode {self.current_mode} via SCPIEngine."
+            )
         else:
-            raise InstrumentParameterError(f"Internal error: Unknown current_mode '{self.current_mode}'.")
+            raise InstrumentParameterError(
+                f"Internal error: Unknown current_mode '{self.current_mode}'."
+            )
 
     def enable_input(self, state: bool, channel: int = 1) -> None:
         """Enables or disables the load's input.
@@ -175,9 +179,13 @@ class DCActiveLoad(Instrument):
         if self.current_mode is None:
             raise InstrumentParameterError("Mode must be set before setting slew rate.")
 
-        for cmd in self.scpi_engine.build("mode_set_slew", mode=self.current_mode, rate=rate, channel=channel):
+        for cmd in self.scpi_engine.build(
+            "mode_set_slew", mode=self.current_mode, rate=rate, channel=channel
+        ):
             self._send_command(cmd)
-        self._logger.info(f"Slew rate for mode {self.current_mode} on channel {channel} set to {rate}.")
+        self._logger.info(
+            f"Slew rate for mode {self.current_mode} on channel {channel} set to {rate}."
+        )
 
     def set_range(self, value: float | str, channel: int = 1) -> None:
         """Sets the operating range for the current mode.
@@ -188,9 +196,13 @@ class DCActiveLoad(Instrument):
         """
         if self.current_mode is None:
             raise InstrumentParameterError("Mode must be set before setting range.")
-        for cmd in self.scpi_engine.build("mode_set_range", mode=self.current_mode, value=value, channel=channel):
+        for cmd in self.scpi_engine.build(
+            "mode_set_range", mode=self.current_mode, value=value, channel=channel
+        ):
             self._send_command(cmd)
-        self._logger.info(f"Range for mode {self.current_mode} on channel {channel} set for value {value}.")
+        self._logger.info(
+            f"Range for mode {self.current_mode} on channel {channel} set for value {value}."
+        )
 
     def _get_readback_spec(self, mode: str, unit: str) -> ReadbackAccuracySpec | None:
         """Helper to find the correct readback accuracy spec from the config."""
@@ -214,13 +226,13 @@ class DCActiveLoad(Instrument):
 
         # Find the best matching range spec from the config
         best_match_spec = None
-        min_delta = float('inf')
+        min_delta = float("inf")
 
         for r_spec in mode_spec.ranges:
             spec_max_val = 0.0
-            if unit == 'A' and r_spec.max_current_A is not None:
+            if unit == "A" and r_spec.max_current_A is not None:
                 spec_max_val = r_spec.max_current_A
-            elif unit == 'V' and r_spec.max_voltage_V is not None:
+            elif unit == "V" and r_spec.max_voltage_V is not None:
                 spec_max_val = r_spec.max_voltage_V
 
             if spec_max_val > 0:
@@ -235,7 +247,11 @@ class DCActiveLoad(Instrument):
         self, measurement_type: Literal["current", "voltage", "power"], channel: int = 1
     ) -> MeasurementResult:
         """Internal helper to perform a measurement and calculate uncertainty."""
-        scpi_map = {"current": ("CURRent", "A"), "voltage": ("VOLTage", "V"), "power": ("POWer", "W")}
+        scpi_map = {
+            "current": ("CURRent", "A"),
+            "voltage": ("VOLTage", "V"),
+            "power": ("POWer", "W"),
+        }
         _scpi_cmd, unit = scpi_map[measurement_type]
 
         # Use SCPI engine to measure atomically
@@ -253,13 +269,16 @@ class DCActiveLoad(Instrument):
                     value_to_return = ufloat(reading, std_dev)
                     self._logger.info(f"Measured {measurement_type}: {value_to_return} {unit}")
             else:
-                self._logger.info(f"Warning: No matching accuracy spec found for {measurement_type}. Returning float.")
+                self._logger.info(
+                    f"Warning: No matching accuracy spec found for {measurement_type}. Returning float."
+                )
         else:
             self._logger.info("Warning: Mode not set, cannot determine measurement uncertainty.")
 
         # Ensure value_to_return is a float or UFloat, not Variable
         try:
             from uncertainties import Variable
+
             if isinstance(value_to_return, Variable):
                 # If not already a UFloat, cast to float
                 if not isinstance(value_to_return, UFloat):
@@ -273,7 +292,7 @@ class DCActiveLoad(Instrument):
             values=value_to_return,
             instrument=self.config.model,
             units=unit,
-            measurement_type=measurement_type.capitalize()
+            measurement_type=measurement_type.capitalize(),
         )
 
     def measure_current(self) -> MeasurementResult:
@@ -289,7 +308,9 @@ class DCActiveLoad(Instrument):
         return self._measure_with_uncertainty("power")
 
     # --- Transient System Methods ---
-    def configure_transient_mode(self, mode: Literal['CONTinuous', 'PULSe', 'TOGGle', 'LIST'], channel: int = 1) -> None:
+    def configure_transient_mode(
+        self, mode: Literal["CONTinuous", "PULSe", "TOGGle", "LIST"], channel: int = 1
+    ) -> None:
         """Sets the operating mode of the transient generator."""
         for cmd in self.scpi_engine.build("transient_set_mode", mode=mode.upper(), channel=channel):
             self._send_command(cmd)
@@ -298,12 +319,16 @@ class DCActiveLoad(Instrument):
         """Sets the secondary (transient) level for the current operating mode."""
         if self.current_mode is None:
             raise InstrumentParameterError("Mode must be set before setting transient level.")
-        for cmd in self.scpi_engine.build("transient_set_level", mode=self.current_mode, value=value, channel=channel):
+        for cmd in self.scpi_engine.build(
+            "transient_set_level", mode=self.current_mode, value=value, channel=channel
+        ):
             self._send_command(cmd)
 
     def start_transient(self, continuous: bool = False, channel: int = 1) -> None:
         """Initiates the transient trigger system."""
-        for cmd in self.scpi_engine.build("transient_start", continuous=continuous, channel=channel):
+        for cmd in self.scpi_engine.build(
+            "transient_start", continuous=continuous, channel=channel
+        ):
             self._send_command(cmd)
 
     def stop_transient(self, channel: int = 1) -> None:
@@ -317,40 +342,62 @@ class DCActiveLoad(Instrument):
         for cmd in self.scpi_engine.build("battery_enable", state=state, channel=channel):
             self._send_command(cmd)
 
-    def set_battery_cutoff_voltage(self, voltage: float, state: bool = True, channel: int = 1) -> None:
+    def set_battery_cutoff_voltage(
+        self, voltage: float, state: bool = True, channel: int = 1
+    ) -> None:
         """Configures the voltage cutoff condition for the battery test."""
-        for cmd in self.scpi_engine.build("battery_cutoff_voltage_state", state=state, channel=channel):
+        for cmd in self.scpi_engine.build(
+            "battery_cutoff_voltage_state", state=state, channel=channel
+        ):
             self._send_command(cmd)
         if state:
-            for cmd in self.scpi_engine.build("battery_cutoff_voltage", voltage=voltage, channel=channel):
+            for cmd in self.scpi_engine.build(
+                "battery_cutoff_voltage", voltage=voltage, channel=channel
+            ):
                 self._send_command(cmd)
 
-    def set_battery_cutoff_capacity(self, capacity: float, state: bool = True, channel: int = 1) -> None:
+    def set_battery_cutoff_capacity(
+        self, capacity: float, state: bool = True, channel: int = 1
+    ) -> None:
         """Configures the capacity (Ah) cutoff condition for the battery test."""
-        for cmd in self.scpi_engine.build("battery_cutoff_capacity_state", state=state, channel=channel):
+        for cmd in self.scpi_engine.build(
+            "battery_cutoff_capacity_state", state=state, channel=channel
+        ):
             self._send_command(cmd)
         if state:
-            for cmd in self.scpi_engine.build("battery_cutoff_capacity", capacity=capacity, channel=channel):
+            for cmd in self.scpi_engine.build(
+                "battery_cutoff_capacity", capacity=capacity, channel=channel
+            ):
                 self._send_command(cmd)
 
     def set_battery_cutoff_timer(self, time_s: float, state: bool = True, channel: int = 1) -> None:
         """Configures the timer (seconds) cutoff condition for the battery test."""
-        for cmd in self.scpi_engine.build("battery_cutoff_timer_state", state=state, channel=channel):
+        for cmd in self.scpi_engine.build(
+            "battery_cutoff_timer_state", state=state, channel=channel
+        ):
             self._send_command(cmd)
         if state:
-            for cmd in self.scpi_engine.build("battery_cutoff_timer", time_s=time_s, channel=channel):
+            for cmd in self.scpi_engine.build(
+                "battery_cutoff_timer", time_s=time_s, channel=channel
+            ):
                 self._send_command(cmd)
 
-    def get_battery_test_measurement(self, metric: Literal["capacity", "power", "time"], channel: int = 1) -> float:
+    def get_battery_test_measurement(
+        self, metric: Literal["capacity", "power", "time"], channel: int = 1
+    ) -> float:
         """Queries a measurement from the ongoing battery test."""
         q = self.scpi_engine.build("battery_measure", metric=metric, channel=channel)[0]
         return float(self.scpi_engine.parse("battery_measure", self._query(q)))
 
     # --- Data Acquisition Methods ---
-    def fetch_scope_data(self, measurement: Literal["current", "voltage", "power"], channel: int = 1) -> np.ndarray:
+    def fetch_scope_data(
+        self, measurement: Literal["current", "voltage", "power"], channel: int = 1
+    ) -> np.ndarray:
         """Fetches the captured waveform (scope) data as a NumPy array."""
         # Removed unused scpi_map (mapping was unused).
-        raw_block = self._query_raw(self.scpi_engine.build("fetch_array", quantity=measurement, channel=channel)[0])
+        raw_block = self._query_raw(
+            self.scpi_engine.build("fetch_array", quantity=measurement, channel=channel)[0]
+        )
         data_bytes = self.scpi_engine.parse("fetch_array", raw_block)
         return np.frombuffer(data_bytes, dtype=np.float32)
 

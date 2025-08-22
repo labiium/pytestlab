@@ -2018,6 +2018,11 @@ plot = [
     { name = "plotly" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "ruff" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "aiofiles" },
@@ -2065,6 +2070,9 @@ requires-dist = [
     { name = "watchdog", marker = "extra == 'docs'", specifier = ">=6.0.0" },
 ]
 provides-extras = ["dev", "docs", "full", "plot"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "ruff", specifier = ">=0.12.9" }]
 
 [[package]]
 name = "python-dateutil"

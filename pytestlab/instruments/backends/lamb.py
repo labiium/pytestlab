@@ -13,10 +13,13 @@ from ..instrument import InstrumentIO
 
 try:
     from ..._log import get_logger
+
     lamb_logger = get_logger("lamb.backend")
 except ImportError:
     lamb_logger = logging.getLogger("lamb.backend_fallback")
-    lamb_logger.warning("Could not import pytestlab's get_logger; LambBackend using fallback logger.")
+    lamb_logger.warning(
+        "Could not import pytestlab's get_logger; LambBackend using fallback logger."
+    )
 
 
 class LambBackend(InstrumentIO):  # Implements InstrumentIO
@@ -24,6 +27,7 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
     An backend for communicating with instruments via a Lamb server.
     Supports both direct visa_string and auto-connect via model/serial_number.
     """
+
     def __init__(
         self,
         address: str | None = None,
@@ -40,7 +44,7 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
             model_name: Model name for auto-connect.
             serial_number: Serial number for auto-connect.
         """
-        self.base_url: str = url.rstrip('/')
+        self.base_url: str = url.rstrip("/")
         self.instrument_address: str | None = address  # visa_string
         self.model_name: str | None = model_name
         self.serial_number: str | None = serial_number
@@ -74,7 +78,7 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
                 response = client.post(
                     f"{self.base_url}/add",
                     json=payload,
-                    headers={"Accept": "application/json", 'Accept-Charset': 'utf-8'}
+                    headers={"Accept": "application/json", "Accept-Charset": "utf-8"},
                 )
                 if response.status_code != 200:
                     raise InstrumentConnectionError(
@@ -92,9 +96,7 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
                     f"LambBackend auto-connected: model={self.model_name}, serial={self.serial_number} -> visa_string={visa_string}"
                 )
         except httpx.RequestError as e:
-            raise InstrumentConnectionError(
-                f"Network error during Lamb auto-connect: {e}"
-            ) from e
+            raise InstrumentConnectionError(f"Network error during Lamb auto-connect: {e}") from e
 
     def connect(self) -> None:
         """
@@ -105,7 +107,9 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
         lamb_logger.info(f"Connected to Lamb instrument '{self.instrument_address}'.")
 
     def disconnect(self) -> None:
-        lamb_logger.info(f"LambBackend for '{self.instrument_address}' disconnected (simulated, as client is per-request or context-managed).")
+        lamb_logger.info(
+            f"LambBackend for '{self.instrument_address}' disconnected (simulated, as client is per-request or context-managed)."
+        )
         pass
 
     def write(self, cmd: str) -> None:
@@ -116,7 +120,7 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
                 response = client.post(
                     f"{self.base_url}/instrument/write",
                     json={"visa_string": self.instrument_address, "command": cmd},
-                    headers={"Accept": "application/json", 'Accept-Charset': 'utf-8'}
+                    headers={"Accept": "application/json", "Accept-Charset": "utf-8"},
                 )
                 response.raise_for_status()
         except httpx.HTTPStatusError as e:
@@ -124,9 +128,7 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
                 f"Lamb server write failed: {e.response.status_code} - {e.response.text}"
             ) from e
         except httpx.RequestError as e:
-            raise InstrumentCommunicationError(
-                f"Network error during Lamb write: {e}"
-            ) from e
+            raise InstrumentCommunicationError(f"Network error during Lamb write: {e}") from e
 
     def query(self, cmd: str, delay: float | None = None) -> str:
         self._ensure_connected()
@@ -136,19 +138,17 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
                 response = client.post(
                     f"{self.base_url}/instrument/query",
                     json={"visa_string": self.instrument_address, "command": cmd},
-                    headers={"Accept": "application/json", 'Accept-Charset': 'utf-8'}
+                    headers={"Accept": "application/json", "Accept-Charset": "utf-8"},
                 )
                 response.raise_for_status()
-                content: str = response.content.decode('utf-8')
+                content: str = response.content.decode("utf-8")
                 return content.strip()
         except httpx.HTTPStatusError as e:
             raise InstrumentCommunicationError(
                 f"Lamb server query failed: {e.response.status_code} - {e.response.text}"
             ) from e
         except httpx.RequestError as e:
-            raise InstrumentCommunicationError(
-                f"Network error during Lamb query: {e}"
-            ) from e
+            raise InstrumentCommunicationError(f"Network error during Lamb query: {e}") from e
 
     def query_raw(self, cmd: str, delay: float | None = None) -> bytes:
         self._ensure_connected()
@@ -158,7 +158,7 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
                 response = client.post(
                     f"{self.base_url}/instrument/query_raw",
                     json={"visa_string": self.instrument_address, "command": cmd},
-                    headers={"Accept": "application/octet-stream"}
+                    headers={"Accept": "application/octet-stream"},
                 )
                 response.raise_for_status()
                 return response.content
@@ -167,9 +167,7 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
                 f"Lamb server query_raw failed: {e.response.status_code} - {e.response.text}"
             ) from e
         except httpx.RequestError as e:
-            raise InstrumentCommunicationError(
-                f"Network error during Lamb query_raw: {e}"
-            ) from e
+            raise InstrumentCommunicationError(f"Network error during Lamb query_raw: {e}") from e
 
     def close(self) -> None:
         self.disconnect()
@@ -187,6 +185,9 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
 
 # Static type checking helper
 if TYPE_CHECKING:
+
     def _check_lamb_backend_protocol(backend: InstrumentIO) -> None: ...
     def _test_lamb() -> None:
-        _check_lamb_backend_protocol(LambBackend(address="GPIB0::1::INSTR", url="http://localhost:8000"))
+        _check_lamb_backend_protocol(
+            LambBackend(address="GPIB0::1::INSTR", url="http://localhost:8000")
+        )

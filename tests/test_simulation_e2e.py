@@ -150,17 +150,21 @@ def main(instrument):
 
     # 2. Programmatically call the `pytestlab sim-profile record` command
     recorded_profile_path = temp_dir / "recorded_virtual_instrument.yaml"
-    process = subprocess.Popen([
-        "pytestlab",
-        "sim-profile",
-        "record",
-        "pytestlab/virtual_instrument",
-        "--simulate",
-        "--script",
-        str(recording_script_path),
-        "--output-path",
-        str(recorded_profile_path)
-    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    process = subprocess.Popen(
+        [
+            "pytestlab",
+            "sim-profile",
+            "record",
+            "pytestlab/virtual_instrument",
+            "--simulate",
+            "--script",
+            str(recording_script_path),
+            "--output-path",
+            str(recorded_profile_path),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
 
     # Wait for the process to complete
     stdout, stderr = process.communicate()
@@ -169,10 +173,7 @@ def main(instrument):
     assert recorded_profile_path.exists()
 
     # 3. Load the newly generated profile into a new `VirtualInstrument` instance.
-    instrument = AutoInstrument.from_config(
-        config_source=str(recorded_profile_path),
-        simulate=True
-    )
+    instrument = AutoInstrument.from_config(config_source=str(recorded_profile_path), simulate=True)
     instrument.connect_backend()
 
     # 4. Run the replay script against the simulated instrument.

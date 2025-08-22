@@ -206,7 +206,7 @@ scpi:
       validators:
         channel: { min: 1, max: 4 }
       enums:
-        state: { on: "ON", off: "OFF", true: "ON", false: "OFF", 1: "ON", 0: "OFF" }
+        state: { on: "ON", off: "OFF", true: "ON", false: "OFF", "1": "ON", "0": "OFF" }
     set_channel_coupling:
       template: ":CHANnel{channel}:COUPling {coupling}"
       validators:

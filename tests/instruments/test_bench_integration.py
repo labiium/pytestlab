@@ -77,7 +77,7 @@ def check_hardware_available():
         # Create a minimal bench config for testing
         test_config = TEST_BENCH_CONFIG_WITH_DB.format(db_path="/tmp/test.db")
         with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as f:
-            f.write(test_config.encode('utf-8'))
+            f.write(test_config.encode("utf-8"))
             config_path = f.name
 
         try:
@@ -108,7 +108,7 @@ def bench_config_file_with_db(db_path):
     """Create a temporary bench configuration file with a database path."""
     config_content = TEST_BENCH_CONFIG_WITH_DB.format(db_path=db_path)
     with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as f:
-        f.write(config_content.encode('utf-8'))
+        f.write(config_content.encode("utf-8"))
         config_path = f.name
     yield config_path
     if os.path.exists(config_path):

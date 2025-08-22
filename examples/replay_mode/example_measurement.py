@@ -19,8 +19,8 @@ def main(bench):
     print("Starting comprehensive measurement script...")
 
     # Get instrument references from bench
-    psu = bench.psu if hasattr(bench, 'psu') else bench.instruments['psu']
-    osc = bench.osc if hasattr(bench, 'osc') else bench.instruments['osc']
+    psu = bench.psu if hasattr(bench, "psu") else bench.instruments["psu"]
+    osc = bench.osc if hasattr(bench, "osc") else bench.instruments["osc"]
 
     print("Initializing instruments...")
 
@@ -88,21 +88,25 @@ def main(bench):
 
             # Store measurement data
             measurement = {
-                'step': i + 1,
-                'set_voltage': voltage,
-                'actual_voltage': actual_voltage,
-                'actual_current': actual_current,
-                'osc_vpp': vpp,
-                'osc_vmax': vmax,
-                'osc_vmin': vmin,
-                'osc_frequency': frequency,
-                'timestamp': time.time()
+                "step": i + 1,
+                "set_voltage": voltage,
+                "actual_voltage": actual_voltage,
+                "actual_current": actual_current,
+                "osc_vpp": vpp,
+                "osc_vmax": vmax,
+                "osc_vmin": vmin,
+                "osc_frequency": frequency,
+                "timestamp": time.time(),
             }
             measurements.append(measurement)
 
             # Print measurement results
-            print(f"  PSU: Set={voltage}V, Actual={actual_voltage:.3f}V, Current={actual_current:.3f}A")
-            print(f"  OSC: Vpp={vpp:.3f}V, Vmax={vmax:.3f}V, Vmin={vmin:.3f}V, Freq={frequency:.1f}Hz")
+            print(
+                f"  PSU: Set={voltage}V, Actual={actual_voltage:.3f}V, Current={actual_current:.3f}A"
+            )
+            print(
+                f"  OSC: Vpp={vpp:.3f}V, Vmax={vmax:.3f}V, Vmin={vmin:.3f}V, Freq={frequency:.1f}Hz"
+            )
 
             # Small delay between measurements
             time.sleep(0.2)
@@ -120,16 +124,18 @@ def main(bench):
     print("=" * 60)
 
     for result in measurements:
-        voltage_error = abs(result['actual_voltage'] - result['set_voltage'])
-        print(f"Step {result['step']:2d}: "
-              f"Set={result['set_voltage']:4.1f}V → "
-              f"Actual={result['actual_voltage']:6.3f}V "
-              f"(err={voltage_error:5.3f}V), "
-              f"I={result['actual_current']:6.3f}A, "
-              f"OSC_Vpp={result['osc_vpp']:6.3f}V")
+        voltage_error = abs(result["actual_voltage"] - result["set_voltage"])
+        print(
+            f"Step {result['step']:2d}: "
+            f"Set={result['set_voltage']:4.1f}V → "
+            f"Actual={result['actual_voltage']:6.3f}V "
+            f"(err={voltage_error:5.3f}V), "
+            f"I={result['actual_current']:6.3f}A, "
+            f"OSC_Vpp={result['osc_vpp']:6.3f}V"
+        )
 
     # Calculate statistics
-    voltage_errors = [abs(m['actual_voltage'] - m['set_voltage']) for m in measurements]
+    voltage_errors = [abs(m["actual_voltage"] - m["set_voltage"]) for m in measurements]
     avg_error = np.mean(voltage_errors)
     max_error = max(voltage_errors)
 
@@ -139,7 +145,9 @@ def main(bench):
     print(f"  RMS error: {np.sqrt(np.mean([e**2 for e in voltage_errors])):.3f}V")
 
     # Power consumption analysis
-    powers = [m['actual_voltage'] * m['actual_current'] for m in measurements if m['set_voltage'] > 0]
+    powers = [
+        m["actual_voltage"] * m["actual_current"] for m in measurements if m["set_voltage"] > 0
+    ]
     if powers:
         print("\nPower Consumption:")
         print(f"  Average power: {np.mean(powers):.3f}W")
@@ -152,8 +160,8 @@ def main(bench):
 # Additional helper functions for more complex scenarios
 def stress_test_sequence(bench):
     """Extended stress test sequence for thorough validation."""
-    psu = bench.psu if hasattr(bench, 'psu') else bench.instruments['psu']
-    osc = bench.osc if hasattr(bench, 'osc') else bench.instruments['osc']
+    psu = bench.psu if hasattr(bench, "psu") else bench.instruments["psu"]
+    osc = bench.osc if hasattr(bench, "osc") else bench.instruments["osc"]
 
     print("Running stress test sequence...")
 
@@ -183,7 +191,9 @@ if __name__ == "__main__":
     print("")
     print("Usage examples:")
     print("  # Record with real hardware:")
-    print("  pytestlab replay record example_measurement.py --bench bench.yaml --output session.yaml")
+    print(
+        "  pytestlab replay record example_measurement.py --bench bench.yaml --output session.yaml"
+    )
     print("")
     print("  # Replay recorded session:")
     print("  pytestlab replay run example_measurement.py --session session.yaml")

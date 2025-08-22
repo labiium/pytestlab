@@ -44,6 +44,7 @@ def apply_patches(homedir):
 
     # Patch MeasurementResult
     from ..experiments import results as _results_mod
+
     _OriginalMR = _results_mod.MeasurementResult
 
     class _SignedResult(_OriginalMR):
@@ -55,9 +56,7 @@ def apply_patches(homedir):
                 "instrument": self.instrument,
                 "measurement_type": self.measurement_type,
                 "units": self.units,
-                "values_sha256": hashlib.sha256(
-                    str(self.values).encode()
-                ).hexdigest(),
+                "values_sha256": hashlib.sha256(str(self.values).encode()).hexdigest(),
                 "timestamp": self.timestamp,
             }
             # Sign the payload and create the full envelope.
@@ -69,9 +68,9 @@ def apply_patches(homedir):
                         "prov:type": "ex:MeasurementResult",
                         "prov:label": self.measurement_type,
                         "prov:value": payload["values_sha256"],
-                        "prov:generatedAtTime": datetime.fromtimestamp(
-                            self.timestamp, UTC
-                        ).isoformat().replace('+00:00', 'Z'),
+                        "prov:generatedAtTime": datetime.fromtimestamp(self.timestamp, UTC)
+                        .isoformat()
+                        .replace("+00:00", "Z"),
                     }
                 }
             }
@@ -90,14 +89,16 @@ def apply_patches(homedir):
                 json.dump(self.envelope, fh, indent=2)
 
     _results_mod.MeasurementResult = _SignedResult
-    
+
     # Also patch the top-level pytestlab namespace to ensure the patched class is used.
     import pytestlab
+
     pytestlab.MeasurementResult = _SignedResult
     _LOG.info("MeasurementResult patched with compliance envelope.")
 
     # Patch MeasurementDatabase
     from ..experiments.database import MeasurementDatabase as _MDB
+
     _ORIG_STORE = _MDB.store_measurement
 
     def _store_with_env(self: _MDB, codename, meas, **kw):

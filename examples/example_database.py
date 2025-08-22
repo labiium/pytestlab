@@ -28,28 +28,32 @@ from pytestlab.experiments.results import MeasurementResult
 def main():
     # Create a sample Experiment with detailed notes.
     exp = Experiment("Test Experiment", "An experiment to test database storage functionality.")
-    exp.notes = "Conducted on 2025-02-19, this experiment validates database storage with detailed notes."
+    exp.notes = (
+        "Conducted on 2025-02-19, this experiment validates database storage with detailed notes."
+    )
     exp.add_parameter("Temperature", "°C", "Ambient temperature during measurement")
-    
+
     # Create sample trial data using a dictionary.
     trial_data = {
         "Time (s)": [0.0, 1.0, 2.0, 3.0],
         "Voltage (V)": [0.0, 1.0, 2.0, 3.0],
-        "Current (A)": [0.0, 0.05, 0.10, 0.15]
+        "Current (A)": [0.0, 0.05, 0.10, 0.15],
     }
     exp.add_trial(trial_data, Temperature=25)
-    
+
     # Add another trial using a Polars DataFrame.
-    df_trial = pl.DataFrame({
-        "Time (s)": [0.0, 1.0, 2.0, 3.0],
-        "Voltage (V)": [0.0, 1.2, 2.4, 3.6],
-        "Current (A)": [0.0, 0.06, 0.12, 0.18]
-    })
+    df_trial = pl.DataFrame(
+        {
+            "Time (s)": [0.0, 1.0, 2.0, 3.0],
+            "Voltage (V)": [0.0, 1.2, 2.4, 3.6],
+            "Current (A)": [0.0, 0.06, 0.12, 0.18],
+        }
+    )
     exp.add_trial(df_trial, Temperature=26)
-    
+
     # Initialize the database (creates "test_experiment.db" in the current directory).
     db = Database("test_experiment")
-    
+
     # Define a unique codename for the experiment.
     exp_codename = "EXP001"
     # Store the experiment.
@@ -58,30 +62,27 @@ def main():
         print("Experiment stored in database.")
     except ValueError as e:
         print(e)
-    
+
     # Attempt to store the same experiment under the same codename to demonstrate error raising.
     try:
         db.store_experiment(exp_codename, exp)
     except ValueError as e:
         print("\nError on duplicate experiment storage:", e)
-    
+
     # Create a sample measurement result.
     meas_value = np.array([1.23, 4.56, 7.89])
     measurement = MeasurementResult(
-        values=meas_value,
-        instrument="Multimeter_X",
-        units="V",
-        measurement_type="Voltage"
+        values=meas_value, instrument="Multimeter_X", units="V", measurement_type="Voltage"
     )
     measurement.timestamp = datetime.now().timestamp()
-    
+
     meas_codename = "MEAS001"
     try:
         db.store_measurement(meas_codename, measurement)
         print("\nMeasurement stored in database.")
     except Exception as e:
         print(e)
-    
+
     # Retrieve and display the experiment from the database.
     try:
         retrieved_exp = db.retrieve_experiment(exp_codename)
@@ -93,7 +94,7 @@ def main():
         print(retrieved_exp.data.head(5))
     except Exception as e:
         print(e)
-    
+
     # Retrieve and display the measurement from the database.
     try:
         retrieved_meas = db.retrieve_measurement(meas_codename)
@@ -104,7 +105,7 @@ def main():
         print("Values:", retrieved_meas.values)
     except Exception as e:
         print(e)
-    
+
     # Close the database connection.
     db.close()
     print("\nDatabase connection closed.")

@@ -34,15 +34,18 @@ class MultimeterConfigResult:
         resolution: The configured resolution.
         units: The units for the measurement range (e.g., "V", "A").
     """
+
     measurement_mode: str
     range_value: float
     resolution: str
     units: str = ""
 
     def __str__(self) -> str:
-        return (f"Measurement Mode: {self.measurement_mode}\n"
-                f"Range: {self.range_value} {self.units}\n"
-                f"Resolution: {self.resolution}")
+        return (
+            f"Measurement Mode: {self.measurement_mode}\n"
+            f"Range: {self.range_value} {self.units}\n"
+            f"Resolution: {self.resolution}"
+        )
 
 
 class Multimeter(Instrument[MultimeterConfig]):
@@ -58,6 +61,7 @@ class Multimeter(Instrument[MultimeterConfig]):
         config: The Pydantic configuration object (`MultimeterConfig`)
                 containing settings specific to this DMM.
     """
+
     config: MultimeterConfig
 
     # The base class `__init__` is sufficient and will be used.
@@ -65,7 +69,9 @@ class Multimeter(Instrument[MultimeterConfig]):
 
     # from_config is handled by AutoInstrument, so we don't need a custom implementation here.
     @classmethod
-    def from_config(cls: type["Multimeter"], config: InstrumentConfig, debug_mode: bool = False) -> "Multimeter":
+    def from_config(
+        cls: type["Multimeter"], config: InstrumentConfig, debug_mode: bool = False
+    ) -> "Multimeter":
         # This method is generally handled by the `AutoInstrument` factory.
         # It's provided here for completeness but direct instantiation is preferred
         # when not using the factory.
@@ -74,7 +80,9 @@ class Multimeter(Instrument[MultimeterConfig]):
         # If config is already a MultimeterConfig instance:
         # Creation of concrete instrument drivers is handled by AutoInstrument.from_config().
         # Keep this stub for legacy API compatibility while matching the base signature expectations.
-        raise NotImplementedError("Instantiate via AutoInstrument.from_config(); direct construction is disabled.")
+        raise NotImplementedError(
+            "Instantiate via AutoInstrument.from_config(); direct construction is disabled."
+        )
 
     def get_config(self) -> MultimeterConfigResult:
         """Retrieves the current measurement configuration from the DMM.
@@ -93,7 +101,7 @@ class Multimeter(Instrument[MultimeterConfig]):
         """
         # Query the instrument for its current configuration. The response is typically
         # a string like '"VOLT:DC 10,0.0001"'.
-        config_str: str = (self._query("CONFigure?")).replace('"', '').strip()
+        config_str: str = (self._query("CONFigure?")).replace('"', "").strip()
         try:
             # Handle cases where resolution is not returned, e.g., "FRES 1.000000E+02"
             parts = config_str.split()
@@ -101,7 +109,7 @@ class Multimeter(Instrument[MultimeterConfig]):
 
             # Settings part can be complex, find first comma
             settings_part = " ".join(parts[1:])
-            if ',' in settings_part:
+            if "," in settings_part:
                 range_str, resolution_str = settings_part.split(",", 1)
             else:
                 range_str = settings_part
@@ -110,7 +118,9 @@ class Multimeter(Instrument[MultimeterConfig]):
             # Parse the string to extract the mode, range, and resolution.
             range_value_float: float = float(range_str)
         except (ValueError, IndexError) as e:
-            raise InstrumentDataError(self.config.model, f"Failed to parse configuration string: '{config_str}'") from e
+            raise InstrumentDataError(
+                self.config.model, f"Failed to parse configuration string: '{config_str}'"
+            ) from e
 
         # Determine human-friendly measurement mode and assign units based on mode
         measurement_mode_str: str = ""  # Renamed
@@ -138,7 +148,7 @@ class Multimeter(Instrument[MultimeterConfig]):
             measurement_mode=measurement_mode_str,
             range_value=range_value_float,
             resolution=resolution_str.strip(),
-            units=unit_str
+            units=unit_str,
         )
 
     def set_measurement_function(self, function: DMMFunction) -> None:
@@ -156,14 +166,18 @@ class Multimeter(Instrument[MultimeterConfig]):
             cmds = self.scpi_engine.build("set_function", function=function.value)
             for c in cmds:
                 self._send_command(c)
-            self._logger.info(f"Set measurement function to {function.name} ({function.value}) via SCPIEngine")
+            self._logger.info(
+                f"Set measurement function to {function.name} ({function.value}) via SCPIEngine"
+            )
             return
         except Exception:
             pass
 
         # Legacy path
         self._send_command(f'SENSe:FUNCtion "{function.value}"')
-        self._logger.info(f"Set measurement function to {function.name} ({function.value}) (legacy)")
+        self._logger.info(
+            f"Set measurement function to {function.name} ({function.value}) (legacy)"
+        )
 
     def set_trigger_source(self, source: Literal["IMM", "EXT", "BUS"]) -> None:
         """Sets the trigger source for initiating a measurement.
@@ -223,7 +237,9 @@ class Multimeter(Instrument[MultimeterConfig]):
             return "Ω", nice_name
         return "", nice_name
 
-    def measure(self, function: DMMFunction, range_val: str | None = None, resolution: str | None = None) -> MeasurementResult:
+    def measure(
+        self, function: DMMFunction, range_val: str | None = None, resolution: str | None = None
+    ) -> MeasurementResult:
         """Performs a measurement and returns the result.
 
         This is the primary method for acquiring data from the DMM. It configures
@@ -257,12 +273,18 @@ class Multimeter(Instrument[MultimeterConfig]):
             self.set_measurement_function(function)
             # Try SCPI engine for autorange and resolution, fall back otherwise
             try:
-                for c in self.scpi_engine.build("set_range_auto", function=function.value, state=True):
+                for c in self.scpi_engine.build(
+                    "set_range_auto", function=function.value, state=True
+                ):
                     self._send_command(c)
                 if resolution:
-                    for c in self.scpi_engine.build("set_resolution", function=function.value, resolution=resolution.upper()):
+                    for c in self.scpi_engine.build(
+                        "set_resolution", function=function.value, resolution=resolution.upper()
+                    ):
                         self._send_command(c)
-                response_str = self.scpi_engine.parse("read", self._query(self.scpi_engine.build("read")[0]))
+                response_str = self.scpi_engine.parse(
+                    "read", self._query(self.scpi_engine.build("read")[0])
+                )
             except Exception:
                 self._send_command(f"{function.value}:RANGe:AUTO ON")
                 if resolution:
@@ -284,14 +306,18 @@ class Multimeter(Instrument[MultimeterConfig]):
                 response_str = self._query(q)
                 # Parsing handled below as float
             except Exception:
-                query_command = f"MEASURE:{scpi_function_val}? {range_for_query},{resolution_for_query}"
+                query_command = (
+                    f"MEASURE:{scpi_function_val}? {range_for_query},{resolution_for_query}"
+                )
                 self._logger.debug(f"Executing DMM measure query (legacy): {query_command}")
                 response_str = self._query(query_command)
 
         try:
             reading = float(response_str)
         except ValueError as e:
-            raise InstrumentDataError(self.config.model, f"Could not parse measurement reading: '{response_str}'") from e
+            raise InstrumentDataError(
+                self.config.model, f"Could not parse measurement reading: '{response_str}'"
+            ) from e
 
         value_to_return: float | UFloat = reading
 
@@ -307,7 +333,11 @@ class Multimeter(Instrument[MultimeterConfig]):
                 matching_range_spec = None
                 # Find the smallest nominal range that is >= the actual range used.
                 # Assumes specs in YAML are sorted by nominal value, which is typical.
-                sorted_ranges = sorted(function_spec.ranges, key=lambda r: r.nominal) if function_spec.ranges else []
+                sorted_ranges = (
+                    sorted(function_spec.ranges, key=lambda r: r.nominal)
+                    if function_spec.ranges
+                    else []
+                )
                 for r_spec in sorted_ranges:
                     if r_spec.nominal >= actual_instrument_range:
                         matching_range_spec = r_spec
@@ -325,18 +355,26 @@ class Multimeter(Instrument[MultimeterConfig]):
                         std_dev = accuracy_spec.calculate_std_dev(reading, range_for_calc)
                         if std_dev > 0:
                             value_to_return = ufloat(reading, std_dev)
-                            self._logger.debug(f"Applied accuracy spec for range {range_for_calc}, value: {value_to_return}")
+                            self._logger.debug(
+                                f"Applied accuracy spec for range {range_for_calc}, value: {value_to_return}"
+                            )
                         else:
-                             self._logger.debug("Calculated uncertainty is zero. Returning float.")
+                            self._logger.debug("Calculated uncertainty is zero. Returning float.")
                     else:
-                        self._logger.warning(f"No applicable accuracy specification found for function '{function.name}' at range {actual_instrument_range}. Returning float.")
+                        self._logger.warning(
+                            f"No applicable accuracy specification found for function '{function.name}' at range {actual_instrument_range}. Returning float."
+                        )
                 else:
-                    self._logger.warning(f"Could not find a matching range specification for function '{function.name}' at range {actual_instrument_range}. Returning float.")
+                    self._logger.warning(
+                        f"Could not find a matching range specification for function '{function.name}' at range {actual_instrument_range}. Returning float."
+                    )
 
             except Exception as e:
                 self._logger.error(f"Error during uncertainty calculation: {e}. Returning float.")
         else:
-            self._logger.debug(f"No measurement function specification in config for '{function.name}'. Returning float.")
+            self._logger.debug(
+                f"No measurement function specification in config for '{function.name}'. Returning float."
+            )
 
         units_val, measurement_name_val = self._get_measurement_unit_and_type(function)
 
@@ -347,7 +385,9 @@ class Multimeter(Instrument[MultimeterConfig]):
             measurement_type=measurement_name_val,
         )
 
-    def configure_measurement(self, function: DMMFunction, range_val: str | None = None, resolution: str | None = None):
+    def configure_measurement(
+        self, function: DMMFunction, range_val: str | None = None, resolution: str | None = None
+    ):
         """Configures the instrument for a measurement without triggering it."""
         scpi_function_val = function.value
         range_for_query = range_val.upper() if range_val is not None else "AUTO"
@@ -355,4 +395,6 @@ class Multimeter(Instrument[MultimeterConfig]):
         # Using CONFigure command as per programming guide page 44
         cmd = f"CONFigure:{scpi_function_val} {range_for_query},{resolution_for_query}"
         self._send_command(cmd)
-        self._logger.info(f"Configured DMM for {function.name} with range={range_for_query}, resolution={resolution_for_query}")
+        self._logger.info(
+            f"Configured DMM for {function.name} with range={range_for_query}, resolution={resolution_for_query}"
+        )

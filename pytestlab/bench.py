@@ -23,11 +23,13 @@ logger = logging.getLogger("pytestlab.bench")
 
 class SafetyLimitError(Exception):
     """Raised when an operation violates safety limits."""
+
     pass
 
 
 class InstrumentMacroError(Exception):
     """Raised when an automation macro fails to execute."""
+
     pass
 
 
@@ -45,11 +47,9 @@ class SafeInstrumentWrapper:
         _safety_limits: The safety limit configuration for this instrument.
         _instrument_type: Type of instrument being wrapped (e.g., 'power_supply', 'waveform_generator').
     """
+
     def __init__(
-        self,
-        instrument: Instrument,
-        safety_limits: Any,
-        instrument_type: str | None = None
+        self, instrument: Instrument, safety_limits: Any, instrument_type: str | None = None
     ):
         self._inst = instrument
         self._safety_limits = safety_limits
@@ -93,6 +93,7 @@ class SafeInstrumentWrapper:
 
     def _safe_set_voltage_wrapper(self, orig_method):
         """Wraps set_voltage method with safety checks."""
+
         def safe_set_voltage(channel, voltage, *a, **k):
             max_v = None
             # Check if channel-specific voltage limits are defined
@@ -107,10 +108,12 @@ class SafeInstrumentWrapper:
                 )
             # If safe, call the original method
             return orig_method(channel, voltage, *a, **k)
+
         return safe_set_voltage
 
     def _safe_set_current_wrapper(self, orig_method):
         """Wraps set_current method with safety checks."""
+
         def safe_set_current(channel, current, *a, **k):
             max_c = None
             if self._safety_limits and self._safety_limits.channels:
@@ -122,10 +125,12 @@ class SafeInstrumentWrapper:
                     f"Refusing to set current {current}A, which is above the safety limit of {max_c}A."
                 )
             return orig_method(channel, current, *a, **k)
+
         return safe_set_current
 
     def _safe_set_amplitude_wrapper(self, orig_method):
         """Wraps set_amplitude method with safety checks."""
+
         def safe_set_amplitude(channel, amplitude, *a, **k):
             max_amp = None
             if self._safety_limits and self._safety_limits.channels:
@@ -137,10 +142,12 @@ class SafeInstrumentWrapper:
                     f"Refusing to set amplitude {amplitude}V, which is above the safety limit of {max_amp}V."
                 )
             return orig_method(channel, amplitude, *a, **k)
+
         return safe_set_amplitude
 
     def _safe_set_frequency_wrapper(self, orig_method):
         """Wraps set_frequency method with safety checks."""
+
         def safe_set_frequency(channel, frequency, *a, **k):
             max_freq = None
             if self._safety_limits and self._safety_limits.channels:
@@ -152,19 +159,26 @@ class SafeInstrumentWrapper:
                     f"Refusing to set frequency {frequency}Hz, which is above the safety limit of {max_freq}Hz."
                 )
             return orig_method(channel, frequency, *a, **k)
+
         return safe_set_frequency
 
     def _safe_set_load_wrapper(self, orig_method):
         """Wraps set_load method with safety checks for DC Active Loads."""
+
         def safe_set_load(value, *a, **k):
             max_load = None
-            if self._safety_limits and self._safety_limits.load and "max" in self._safety_limits.load:
+            if (
+                self._safety_limits
+                and self._safety_limits.load
+                and "max" in self._safety_limits.load
+            ):
                 max_load = self._safety_limits.load["max"]
             if max_load is not None and value > max_load:
                 raise SafetyLimitError(
                     f"Refusing to set load to {value}, which is above the safety limit of {max_load}."
                 )
             return orig_method(value, *a, **k)
+
         return safe_set_load
 
 
@@ -180,6 +194,7 @@ class Bench:
     - Providing easy access to instruments by their aliases (e.g., `bench.psu1`).
     - Exposing traceability and planning information from the config.
     """
+
     def __init__(self, config: BenchConfigExtended):
         self.config = config
         self._instrument_instances: dict[str, Instrument] = {}
@@ -244,7 +259,7 @@ class Bench:
                 connection_errors.append(error_msg)
 
                 # Continue with other instruments even if one fails
-                if getattr(self.config, 'continue_on_instrument_error', False):
+                if getattr(self.config, "continue_on_instrument_error", False):
                     warnings.warn(
                         f"Failed to initialize instrument '{alias}'. Continuing with other instruments.",
                         UserWarning,
@@ -281,7 +296,7 @@ class Bench:
             backend_type_hint=backend_type_hint,
             address_override=entry.address,
             serial_number=entry.serial_number,  # <-- Pass serial_number to factory
-            timeout_override_ms=timeout_override_ms
+            timeout_override_ms=timeout_override_ms,
         )
 
         # Connect to the backend
@@ -347,7 +362,7 @@ class Bench:
             except Exception as e:
                 error_msg = f"Failed to execute automation hook: {cmd}. Error: {str(e)}"
                 logger.error(error_msg)
-                if not getattr(self.config, 'continue_on_automation_error', False):
+                if not getattr(self.config, "continue_on_automation_error", False):
                     raise
 
     def _run_python_script(self, cmd: str):
@@ -357,10 +372,7 @@ class Bench:
 
         try:
             result = subprocess.run(
-                [sys.executable, script],
-                check=True,
-                capture_output=True,
-                text=True
+                [sys.executable, script], check=True, capture_output=True, text=True
             )
             logger.debug(f"Script output: {result.stdout.strip()}")
             if result.stderr:
@@ -378,13 +390,7 @@ class Bench:
         logger.info(f"[Automation] Running shell command: {cmd}")
 
         try:
-            result = subprocess.run(
-                cmd,
-                shell=True,
-                check=True,
-                capture_output=True,
-                text=True
-            )
+            result = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
             logger.debug(f"Command output: {result.stdout.strip()}")
             if result.stderr:
                 logger.warning(f"Command stderr: {result.stderr.strip()}")
@@ -442,7 +448,7 @@ class Bench:
 
         if errors:
             logger.warning(f"{len(errors)} errors occurred while turning off outputs")
-            if not getattr(self.config, 'continue_on_automation_error', False):
+            if not getattr(self.config, "continue_on_automation_error", False):
                 raise InstrumentMacroError(f"Failed to turn off all outputs for '{alias}'")
 
     def _execute_autoscale(self, inst, alias: str):
@@ -476,8 +482,7 @@ class Bench:
         # Close all instrument connections
         logger.debug("Closing instrument connections")
         close_tasks = [
-            inst.close() for inst in self._instrument_instances.values()
-            if hasattr(inst, "close")
+            inst.close() for inst in self._instrument_instances.values() if hasattr(inst, "close")
         ]
 
         if close_tasks:
@@ -515,8 +520,7 @@ class Bench:
                 except Exception as e:
                     logger.error(f"Health check failed for {alias}: {str(e)}")
                     health_reports[alias] = HealthReport(
-                        status=HealthStatus.ERROR,
-                        errors=[f"Health check failed: {str(e)}"]
+                        status=HealthStatus.ERROR, errors=[f"Health check failed: {str(e)}"]
                     )
             else:
                 logger.debug(f"Instrument {alias} does not support health checks")
@@ -569,13 +573,15 @@ class Bench:
             self._experiment = Experiment(
                 name=self.config.experiment.title,
                 description=self.config.experiment.description,
-                notes=self.config.experiment.notes or ""
+                notes=self.config.experiment.notes or "",
             )
             logger.info(f"Initialized experiment '{self.config.experiment.title}'")
 
     def initialize_database(self, db_path: str | Path | None = None):
         """Initialize the database if a path is provided in the config or arguments."""
-        db_path = db_path or (self.config.experiment.database_path if self.config.experiment else None)
+        db_path = db_path or (
+            self.config.experiment.database_path if self.config.experiment else None
+        )
         if db_path:
             self._db = MeasurementDatabase(db_path)
             logger.info(f"Connected to database at '{db_path}'")

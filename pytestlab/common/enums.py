@@ -37,8 +37,8 @@ class TriggerSlope(str, Enum):
 
 
 class AcquisitionType(str, Enum):
-    NORMAL = "NORM"    # NORMal in SCPI
-    AVERAGE = "AVER"   # AVERage
+    NORMAL = "NORM"  # NORMal in SCPI
+    AVERAGE = "AVER"  # AVERage
     HIGH_RES = "HRES"  # HRESolution
     PEAK = "PEAK"
 

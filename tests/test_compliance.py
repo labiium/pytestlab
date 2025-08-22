@@ -20,11 +20,7 @@ class MockInstrument:
 
     def to_dict(self):
         """Convert instrument state to dictionary for signing."""
-        return {
-            "name": self.name,
-            "settings": self.settings,
-            "type": "mock_instrument"
-        }
+        return {"name": self.name, "settings": self.settings, "type": "mock_instrument"}
 
 
 @pytest.fixture
@@ -55,8 +51,8 @@ def test_signer_initialization(temp_signer_dir):
     assert private_key_path.exists()
 
     # Check that signer has public key
-    assert hasattr(signer, '_pub_b')
-    assert signer._pub_b.startswith('-----BEGIN PUBLIC KEY-----')
+    assert hasattr(signer, "_pub_b")
+    assert signer._pub_b.startswith("-----BEGIN PUBLIC KEY-----")
 
 
 def test_measurement_has_envelope(mock_instrument, signer):
@@ -67,7 +63,7 @@ def test_measurement_has_envelope(mock_instrument, signer):
         "measurement": "voltage_dc",
         "value": 5.23,
         "units": "V",
-        "timestamp": "2024-01-15T10:30:00Z"
+        "timestamp": "2024-01-15T10:30:00Z",
     }
 
     # Sign the measurement
@@ -96,8 +92,8 @@ def test_measurement_has_prov(mock_instrument, signer):
         "provenance": {
             "operator": "test_user",
             "environment": {"temperature": 23.5, "humidity": 45},
-            "calibration_date": "2024-01-01"
-        }
+            "calibration_date": "2024-01-01",
+        },
     }
 
     # Sign the measurement
@@ -118,7 +114,7 @@ def test_database_stores_measurement_and_envelope(mock_instrument, signer):
         "instrument": mock_instrument.to_dict(),
         "measurement": "resistance",
         "value": 1000.0,
-        "units": "Ω"
+        "units": "Ω",
     }
 
     # Create envelope
@@ -129,7 +125,7 @@ def test_database_stores_measurement_and_envelope(mock_instrument, signer):
         "id": "test_measurement_001",
         "data": measurement_data,
         "signature": envelope,
-        "stored_at": "2024-01-15T10:30:00Z"
+        "stored_at": "2024-01-15T10:30:00Z",
     }
 
     # Verify we can extract and verify the signature
@@ -148,7 +144,7 @@ def test_audit_trail_exists():
         {"action": "instrument_connected", "timestamp": "2024-01-15T10:00:00Z"},
         {"action": "measurement_started", "timestamp": "2024-01-15T10:01:00Z"},
         {"action": "measurement_completed", "timestamp": "2024-01-15T10:01:05Z"},
-        {"action": "instrument_disconnected", "timestamp": "2024-01-15T10:02:00Z"}
+        {"action": "instrument_disconnected", "timestamp": "2024-01-15T10:02:00Z"},
     ]
 
     # Verify audit trail structure
@@ -173,8 +169,8 @@ def test_hsm_private_key_exists(temp_signer_dir):
     # Verify it's a PEM file
     with open(private_key_path) as f:
         content = f.read()
-        assert content.startswith('-----BEGIN PRIVATE KEY-----')
-        assert content.endswith('-----END PRIVATE KEY-----\n')
+        assert content.startswith("-----BEGIN PRIVATE KEY-----")
+        assert content.endswith("-----END PRIVATE KEY-----\n")
 
     # Verify key can be used for signing
     test_payload = {"test": "data"}

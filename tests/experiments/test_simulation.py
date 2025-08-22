@@ -7,8 +7,7 @@ from pytestlab.instruments import PowerSupply
 def main():
     """A simple script to test the simulation functionality."""
     psu: PowerSupply = AutoInstrument.from_config(
-        "pytestlab/profiles/keysight/EDU36311A_recorded.yaml",
-        simulate=True
+        "pytestlab/profiles/keysight/EDU36311A_recorded.yaml", simulate=True
     )
     psu.connect_backend()
     psu.set_voltage(3.3)

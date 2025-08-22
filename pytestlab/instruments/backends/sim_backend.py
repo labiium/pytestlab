@@ -26,6 +26,7 @@ package if desired.
 
 License: Apache License 2.0
 """
+
 from __future__ import annotations
 
 import copy
@@ -54,9 +55,7 @@ from ..instrument import InstrumentIO
 logger = logging.getLogger("pytestlab.sim.v2")
 if not logger.handlers:
     handler = logging.StreamHandler()
-    handler.setFormatter(
-        logging.Formatter("%(asctime)s %(levelname)-7s [%(name)s] %(message)s")
-    )
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)-7s [%(name)s] %(message)s"))
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)  # move to DEBUG for deep inspection
 
@@ -129,7 +128,9 @@ _ALLOWED_GLOBALS: dict[str, Any] = MappingProxyType(
 )
 
 
-def safe_eval(expr: str, /, state: dotdict, groups: tuple[str, ...] = (), initial_state: dict[str, Any] = None) -> Any:
+def safe_eval(
+    expr: str, /, state: dotdict, groups: tuple[str, ...] = (), initial_state: dict[str, Any] = None
+) -> Any:
     """
     Evaluate *expr* inside a hardened namespace.
 
@@ -148,14 +149,17 @@ def safe_eval(expr: str, /, state: dotdict, groups: tuple[str, ...] = (), initia
         # Try eval first for expressions
         # Check for dangerous statement keywords, but allow conditional expressions
         import re
-        # Allow 'if' in conditional expressions (x if condition else y) but block statement forms
-        statement_keywords = r'\b(?:import|def|class|for|while|try|exec|eval|__import__|compile)\b'
-        # Block 'if' only when it appears to be a statement (not in ternary expressions)
-        if_statement = r'\bif\b(?!.*\belse\b)'  # 'if' without 'else' suggests a statement
 
-        if (';' not in expr and
-            not re.search(statement_keywords, expr) and
-            not re.search(if_statement, expr)):
+        # Allow 'if' in conditional expressions (x if condition else y) but block statement forms
+        statement_keywords = r"\b(?:import|def|class|for|while|try|exec|eval|__import__|compile)\b"
+        # Block 'if' only when it appears to be a statement (not in ternary expressions)
+        if_statement = r"\bif\b(?!.*\belse\b)"  # 'if' without 'else' suggests a statement
+
+        if (
+            ";" not in expr
+            and not re.search(statement_keywords, expr)
+            and not re.search(if_statement, expr)
+        ):
             result = eval(expr, dict(_ALLOWED_GLOBALS), local_ns)  # nosec
             return result
         else:
@@ -193,17 +197,9 @@ def _merge_dict(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
     """
     out = dict(a)
     for k, v in b.items():
-        if (
-            k in out
-            and isinstance(out[k], dict)
-            and isinstance(v, dict)
-        ):
+        if k in out and isinstance(out[k], dict) and isinstance(v, dict):
             out[k] = _merge_dict(out[k], v)
-        elif (
-            k in out
-            and isinstance(out[k], list)
-            and isinstance(v, list)
-        ):
+        elif k in out and isinstance(out[k], list) and isinstance(v, list):
             out[k] = v + out[k]  # user override before originals
         else:
             out[k] = v
@@ -213,6 +209,7 @@ def _merge_dict(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
 ###############################################################################
 # Regex pattern cache – compile once, reuse
 ###############################################################################
+
 
 class _PatternRule:
     __slots__ = ("pattern", "template", "actions")
@@ -231,6 +228,7 @@ class _PatternRule:
 ###############################################################################
 # Main backend class
 ###############################################################################
+
 
 class SimBackend(InstrumentIO):  # implements InstrumentIO
     """
@@ -325,7 +323,10 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
         except Exception as e:
             logger.debug(f"User override check failed: {e}")
         if "simulation" not in main:
-            logger.warning("Profile %s is missing a `simulation` section. Defaulting to empty.", self.profile_path)
+            logger.warning(
+                "Profile %s is missing a `simulation` section. Defaulting to empty.",
+                self.profile_path,
+            )
             main["simulation"] = {}
         return main
 
@@ -383,8 +384,13 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
                 return self._execute_entry(rule.template, cmd, m.groups())
 
         # 3. Built-in commands (fallback)
-        if upper.endswith("SYST:ERR?") or upper.endswith("SYSTEM:ERROR?") or upper.endswith(":SYSTEM:ERROR?") or ":SYSTEM:ERR" in upper:
-             return self._builtin_error_query()
+        if (
+            upper.endswith("SYST:ERR?")
+            or upper.endswith("SYSTEM:ERROR?")
+            or upper.endswith(":SYSTEM:ERROR?")
+            or ":SYSTEM:ERR" in upper
+        ):
+            return self._builtin_error_query()
         if upper == "*CLS":
             self._clear_errors()
             return ""
@@ -429,17 +435,17 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
                         # Parse value - remove quotes and convert types
                         if value.startswith(("'", '"')) and value.endswith(("'", '"')):
                             value = value[1:-1]  # Remove quotes
-                        elif value in ('True', 'False'):
-                            value = value == 'True'
-                        elif value.isdigit() or (value.startswith('-') and value[1:].isdigit()):
+                        elif value in ("True", "False"):
+                            value = value == "True"
+                        elif value.isdigit() or (value.startswith("-") and value[1:].isdigit()):
                             value = int(value)
-                        elif '.' in value:
+                        elif "." in value:
                             try:
                                 value = float(value)
                             except ValueError:
                                 pass
 
-                        if '.' in key:
+                        if "." in key:
                             self._set_nested_state_value(key, value)
                         else:
                             self._state[key] = value
@@ -484,7 +490,7 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
                         self._state.update(copy.deepcopy(self._initial_state))
                     else:
                         # Always use nested state setting for dot notation keys
-                        if '.' in substituted_key:
+                        if "." in substituted_key:
                             self._set_nested_state_value(substituted_key, value)
                         else:
                             self._state[substituted_key] = value
@@ -502,7 +508,9 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
                 func: Callable[..., Any] = safe_eval(entry, self._state, groups)
                 response = str(func(*groups))
             elif entry.startswith("py:"):
-                response = str(safe_eval(entry[3:].strip(), self._state, groups, self._initial_state))
+                response = str(
+                    safe_eval(entry[3:].strip(), self._state, groups, self._initial_state)
+                )
             else:
                 response = self._substitute(entry, groups)
         else:
@@ -539,11 +547,11 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
             return self._state[key]
 
         # If no dot, it's definitely a flat key
-        if '.' not in key:
+        if "." not in key:
             return self._state.get(key)
 
         # Try nested access
-        parts = key.split('.')
+        parts = key.split(".")
         current = self._state
         for part in parts:
             if isinstance(current, dict) and part in current:
@@ -560,12 +568,12 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
             return
 
         # If no dot, it's definitely a flat key
-        if '.' not in key:
+        if "." not in key:
             self._state[key] = value
             return
 
         # Try nested setting
-        parts = key.split('.')
+        parts = key.split(".")
         current = self._state
 
         # Navigate to the parent of the target key
@@ -590,9 +598,9 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
 
     def _builtin_error_query(self) -> str:
         if not self._error_queue:
-            return "+0,\"No error\""
+            return '+0,"No error"'
         code, msg = self._error_queue.pop(0)
-        return f"{code},\"{msg}\""
+        return f'{code},"{msg}"'
 
     def _evaluate_error_rules(
         self,
@@ -609,6 +617,7 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
                     # Apply placeholder substitution to error message
                     error_message = self._substitute(rule["message"], groups)
                     self._push_error(int(rule["code"]), error_message)
+
 
 ###############################################################################
 # CLI helpers – OPTIONAL

@@ -10,9 +10,9 @@ from .instrument_config import InstrumentConfig
 
 
 class SpectrumAnalyzerConfig(InstrumentConfig):
-    model_config = ConfigDict(validate_assignment=True, extra='forbid')
+    model_config = ConfigDict(validate_assignment=True, extra="forbid")
     device_type: Literal["spectrum_analyzer", "SA"] = "spectrum_analyzer"
-    
+
     # Basic trace grab related fields
     frequency_center: float | None = Field(None, description="Center frequency in Hz")
     frequency_span: float | None = Field(None, description="Frequency span in Hz")

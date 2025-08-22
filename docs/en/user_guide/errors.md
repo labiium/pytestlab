@@ -8,22 +8,22 @@ PyTestLab provides robust error handling through a set of custom exception types
 
 Here are the most important exception types you may encounter:
 
-- **`InstrumentConnectionError`**  
+- **`InstrumentConnectionError`**
   Raised when PyTestLab fails to connect to an instrument. Causes include an incorrect address, network issues, or the instrument being offline.
 
-- **`InstrumentCommunicationError`**  
+- **`InstrumentCommunicationError`**
   Raised when an error occurs during communication with an instrument after a connection is established. Examples: timeouts, malformed commands, or unexpected responses.
 
-- **`InstrumentParameterError`**  
+- **`InstrumentParameterError`**
   Raised when an invalid parameter is passed to an instrument method. For example, setting a voltage outside the allowed range.
 
-- **`InstrumentConfigurationError`**  
+- **`InstrumentConfigurationError`**
   Raised when there is an error in an instrument's profile or bench configuration file. This can happen if required fields are missing or the file does not conform to the expected schema.
 
-- **`SafetyLimitError`**  
+- **`SafetyLimitError`**
   Raised when an operation would violate a safety limit defined in your `bench.yaml` file. This prevents accidental damage to equipment or DUTs.
 
-- **`InstrumentNotFoundError`**  
+- **`InstrumentNotFoundError`**
   Raised when you try to access an instrument alias that is not defined in your bench configuration.
 
 ---

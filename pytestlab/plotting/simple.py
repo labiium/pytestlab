@@ -50,6 +50,7 @@ class PlotSpec:
         legend: Show legend if multiple y-series
         grid: Enable background grid
     """
+
     kind: str = "line"
     title: str | None = None
     x: str | None = None
@@ -102,7 +103,9 @@ def _select_x_column(df: pl.DataFrame, explicit: str | None) -> str:
     return df.columns[0]
 
 
-def _select_y_columns(df: pl.DataFrame, x_col: str, y_spec: str | Sequence[str] | None) -> list[str]:
+def _select_y_columns(
+    df: pl.DataFrame, x_col: str, y_spec: str | Sequence[str] | None
+) -> list[str]:
     """
     Determine y-series list based on user spec or auto numeric selection.
     """
@@ -205,6 +208,7 @@ def plot_ndarray(
         ValueError for unsupported dimensions.
     """
     import numpy as np  # Local import avoids unconditional dependency
+
     plt = _require_backend()
     if spec.preserve_points:
         try:

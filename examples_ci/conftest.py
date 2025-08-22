@@ -19,7 +19,7 @@ def simulated_dmm_profile(tmp_path: Path) -> str:
                 "*IDN?": "PyTestLab,SimulatedDMM-CI,1.0",
                 ":MEASure:VOLTage:DC?": "5.001",
             }
-        }
+        },
     }
     profile_path = tmp_path / "sim_dmm_ci.yaml"
     with open(profile_path, "w") as f:
@@ -27,24 +27,24 @@ def simulated_dmm_profile(tmp_path: Path) -> str:
     return str(profile_path)
 
 
-@pytest.fixture  
+@pytest.fixture
 def simulated_psu_profile(tmp_path: Path) -> str:
     """
     Creates a temporary YAML profile for a simulated PSU for CI testing.
     """
     profile_content = {
         "device_type": "power_supply",
-        "model": "SimPSUCI", 
+        "model": "SimPSUCI",
         "channels": [{"channel_id": 1}],
         "simulation": {
             "scpi": {
                 "*IDN?": "PyTestLab,SimulatedPSU-CI,1.0",
                 ":OUTP1:STAT ON": "",  # Write commands can have empty responses
-                ":SOUR1:VOLT 5.0": ""
+                ":SOUR1:VOLT 5.0": "",
             }
-        }
+        },
     }
-    profile_path = tmp_path / "sim_psu_ci.yaml" 
+    profile_path = tmp_path / "sim_psu_ci.yaml"
     with open(profile_path, "w") as f:
         yaml.dump(profile_content, f)
     return str(profile_path)

@@ -53,7 +53,7 @@ class ReplayBackend(InstrumentIO):
 
             # Extract command log and initialize tracking
             profile_data = self.session_data[profile_key]
-            self._command_log = profile_data.get('log', [])
+            self._command_log = profile_data.get("log", [])
 
         self._log_index = 0
         self._model_name = profile_key
@@ -69,7 +69,7 @@ class ReplayBackend(InstrumentIO):
         return self._command_log
 
     @classmethod
-    def from_session_file(cls, session_file: str | Path, profile_key: str) -> 'ReplayBackend':
+    def from_session_file(cls, session_file: str | Path, profile_key: str) -> "ReplayBackend":
         """Create a ReplayBackend from a session file."""
         return cls(session_file, profile_key)
 
@@ -83,9 +83,7 @@ class ReplayBackend(InstrumentIO):
         """Get the next log entry and validate it matches expectations."""
         if self._log_index >= len(self._command_log):
             raise ReplayMismatchError(
-                message="No more commands in replay log",
-                instrument=self._model_name,
-                command=cmd
+                message="No more commands in replay log", instrument=self._model_name, command=cmd
             )
 
         entry = self._command_log[self._log_index]
@@ -112,7 +110,7 @@ class ReplayBackend(InstrumentIO):
                 command=received_cmd,
                 expected_command=expected_cmd,
                 actual_command=received_cmd,
-                log_index=self._log_index
+                log_index=self._log_index,
             )
 
         # Check for command mismatch
@@ -128,7 +126,7 @@ class ReplayBackend(InstrumentIO):
                 command=received_cmd,
                 expected_command=expected_cmd,
                 actual_command=received_cmd,
-                log_index=self._log_index
+                log_index=self._log_index,
             )
 
         self._log_index += 1
@@ -147,7 +145,7 @@ class ReplayBackend(InstrumentIO):
         """Execute a raw query command and return bytes response."""
         entry = self._get_next_log_entry("query_raw", cmd)
         # Assuming the response is stored as a string that needs encoding
-        return str(entry.get("response", "")).encode('utf-8')
+        return str(entry.get("response", "")).encode("utf-8")
 
     def close(self) -> None:
         """Close the backend connection."""

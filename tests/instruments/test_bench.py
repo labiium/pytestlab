@@ -113,7 +113,7 @@ measurement_plan:
 @pytest.fixture
 def bench_config_file():
     with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as f:
-        f.write(TEST_BENCH_CONFIG.encode('utf-8'))
+        f.write(TEST_BENCH_CONFIG.encode("utf-8"))
         config_path = f.name
 
     yield config_path
@@ -129,7 +129,7 @@ def check_hardware_available():
         # Create a minimal bench config for testing
         test_config = TEST_BENCH_CONFIG
         with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as f:
-            f.write(test_config.encode('utf-8'))
+            f.write(test_config.encode("utf-8"))
             config_path = f.name
 
         try:
@@ -315,7 +315,10 @@ def test_dmm_functionality(bench_config_file):
         # Get configuration
         config = bench.dmm.get_config()
         assert hasattr(config, "measurement_mode")
-        assert config.measurement_mode.lower() == "voltage" or "volt" in config.measurement_mode.lower()
+        assert (
+            config.measurement_mode.lower() == "voltage"
+            or "volt" in config.measurement_mode.lower()
+        )
 
         # Take a measurement
         measurement = bench.dmm.measure(function=DMMFunction.VOLTAGE_DC)
@@ -503,10 +506,10 @@ def test_instrument_type_detection(bench_config_file):
 
     with Bench.open(bench_config_file) as bench:
         # Check if the bench correctly identifies instrument types
-        psu_type = bench._detect_instrument_type(bench._instrument_instances['psu'])
+        psu_type = bench._detect_instrument_type(bench._instrument_instances["psu"])
         assert psu_type == "power_supply"
 
-        dmm_type = bench._detect_instrument_type(bench._instrument_instances['dmm'])
+        dmm_type = bench._detect_instrument_type(bench._instrument_instances["dmm"])
         assert dmm_type in ["multimeter", "unknown"]
 
 
@@ -516,7 +519,7 @@ def test_automation_error_handling():
     test_config = TEST_BENCH_CONFIG + "\ncontinue_on_automation_error: true"
 
     with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as f:
-        f.write(test_config.encode('utf-8'))
+        f.write(test_config.encode("utf-8"))
         config_path = f.name
 
     try:
@@ -540,7 +543,7 @@ def simulation_bench_config_file():
     simulation_config = TEST_BENCH_CONFIG.replace("simulate: false", "simulate: true")
 
     with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as f:
-        f.write(simulation_config.encode('utf-8'))
+        f.write(simulation_config.encode("utf-8"))
         config_path = f.name
 
     yield config_path
@@ -586,13 +589,13 @@ def test_bench_hardware_vs_simulation_config_difference():
     """Test that we can differentiate between hardware and simulation configurations."""
     # Create hardware config
     with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as f:
-        f.write(TEST_BENCH_CONFIG.encode('utf-8'))
+        f.write(TEST_BENCH_CONFIG.encode("utf-8"))
         hardware_config_path = f.name
 
     # Create simulation config
     simulation_config = TEST_BENCH_CONFIG.replace("simulate: false", "simulate: true")
     with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as f:
-        f.write(simulation_config.encode('utf-8'))
+        f.write(simulation_config.encode("utf-8"))
         simulation_config_path = f.name
 
     try:

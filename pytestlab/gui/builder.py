@@ -51,6 +51,7 @@ framework handles them efficiently in the background.
 
 The code is only ~180 lines yet covers 95 % of typical bench‐control needs.
 """
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -121,9 +122,7 @@ class Slider(_ControlBase):
         panel._background(_init())
 
         # push changes → instrument
-        sld.observe(
-            awidget_callback(lambda ch: self.setter(panel.inst, ch["new"])), names="value"
-        )
+        sld.observe(awidget_callback(lambda ch: self.setter(panel.inst, ch["new"])), names="value")
 
         return sld
 
@@ -186,8 +185,8 @@ class InstrumentPanel:
         self.widgets = [c._build_widget(self) for c in self.controls]
 
         col = w.VBox(
-            ([w.HTML(f"<b>{self.title}</b>")] if self.title else []) +  # header
-            list(self.widgets)
+            ([w.HTML(f"<b>{self.title}</b>")] if self.title else [])  # header
+            + list(self.widgets)
         )
 
         display(col)

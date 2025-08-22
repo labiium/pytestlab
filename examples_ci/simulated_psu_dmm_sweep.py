@@ -8,7 +8,12 @@ from pytestlab.config.power_supply_config import PowerSupplyConfig  # Adjust as 
 from pytestlab.instruments import AutoInstrument
 
 # Minimal Pydantic configs for simulation
-PSU_CFG_DATA = {"device_type": "power_supply", "model": "SimPSUCI", "address": "SIM_PSU", "channels": [{"channel_id": 1}]}  # Added minimal channel for PSU
+PSU_CFG_DATA = {
+    "device_type": "power_supply",
+    "model": "SimPSUCI",
+    "address": "SIM_PSU",
+    "channels": [{"channel_id": 1}],
+}  # Added minimal channel for PSU
 
 
 @pytest.mark.ci_example  # Mark test for CI
@@ -46,6 +51,7 @@ def test_simulated_psu_dmm_sweep(simulated_psu_profile, simulated_dmm_profile): 
     psu.close()
     dmm.close()
     print("CI Example: PSU-DMM sweep ran successfully.")
+
 
 # If running script directly (not via pytest)
 # def main():

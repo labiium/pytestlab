@@ -26,6 +26,7 @@ class PSUChannelFacade:
         _psu: The parent `PowerSupply` instance.
         _channel: The channel number (1-based) this facade controls.
     """
+
     def __init__(self, psu: PowerSupply, channel_num: int):
         self._psu = psu
         self._channel = channel_num
@@ -100,7 +101,9 @@ class PSUChannelFacade:
             return True
         if s in {"0", "OFF", "FALSE"}:
             return False
-        raise InstrumentParameterError(f"Unexpected output state '{state_str}' for channel {self._channel}")
+        raise InstrumentParameterError(
+            f"Unexpected output state '{state_str}' for channel {self._channel}"
+        )
 
 
 class PSUChannelConfig:
@@ -115,6 +118,7 @@ class PSUChannelConfig:
         current: The measured current of the channel.
         state: The output state of the channel ("ON" or "OFF").
     """
+
     def __init__(self, voltage: float | UFloat, current: float | UFloat, state: int | str) -> None:
         """Initializes the PSUChannelConfig.
 
@@ -137,7 +141,7 @@ class PSUChannelConfig:
             else:
                 raise ValueError(f"Invalid string state value: {state}")
         elif isinstance(state, int | float):  # float for query results that might be like 1.0
-             self.state = SCPIOnOff.ON.value if int(state) == 1 else SCPIOnOff.OFF.value
+            self.state = SCPIOnOff.ON.value if int(state) == 1 else SCPIOnOff.OFF.value
         else:
             raise ValueError(f"Invalid state value type: {type(state)}, value: {state}")
 
@@ -161,6 +165,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
                 containing settings specific to this PSU.
         scpi_engine: The SCPI engine for building and parsing commands.
     """
+
     model_config = {"arbitrary_types_allowed": True}
     config: PowerSupplyConfig
 
@@ -168,7 +173,9 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         super().__init__(config=config, **kwargs)
         # Initialize SCPI engine from the config if available (reusing base if present)
         if getattr(self, "scpi_engine", None) is None:
-            self.scpi_engine = SCPIEngine(config.scpi, variant=config.scpi_variant) if config.scpi else None
+            self.scpi_engine = (
+                SCPIEngine(config.scpi, variant=config.scpi_variant) if config.scpi else None
+            )
 
         # Initialize safety limit properties
         self._voltage_limit = None
@@ -180,7 +187,9 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
 
     def _eng(self) -> SCPIEngine:
         if not self.scpi_engine:
-            raise InstrumentConfigurationError(self.config.model, "No SCPI mapping configured for this PSU.")
+            raise InstrumentConfigurationError(
+                self.config.model, "No SCPI mapping configured for this PSU."
+            )
         return self.scpi_engine
 
     @validate_call
@@ -199,7 +208,9 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         # Validate that the channel number is within the configured range
         if not self.config.channels or not (1 <= channel <= len(self.config.channels)):
             num_ch = len(self.config.channels) if self.config.channels else 0
-            raise InstrumentParameterError(f"Channel number {channel} is out of range (1-{num_ch}).")
+            raise InstrumentParameterError(
+                f"Channel number {channel} is out of range (1-{num_ch})."
+            )
 
         # Validate the voltage against the limits defined in the configuration
         channel_config = self.config.channels[channel - 1]
@@ -207,6 +218,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
 
         # Enforce safety limit, if any
         from ..bench import SafetyLimitError
+
         if self._voltage_limit is not None and voltage > self._voltage_limit:
             raise SafetyLimitError(f"{voltage}V exceeds safety limit {self._voltage_limit}V")
 
@@ -232,12 +244,17 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         """
         if not self.config.channels or not (1 <= channel <= len(self.config.channels)):
             num_ch = len(self.config.channels) if self.config.channels else 0
-            raise InstrumentParameterError(f"Channel number {channel} is out of range (1-{num_ch}).")
+            raise InstrumentParameterError(
+                f"Channel number {channel} is out of range (1-{num_ch})."
+            )
 
         channel_config = self.config.channels[channel - 1]  # channel is 1-based
-        channel_config.current_limit_range.assert_in_range(current, name=f"Current for channel {channel}")
+        channel_config.current_limit_range.assert_in_range(
+            current, name=f"Current for channel {channel}"
+        )
 
         from ..bench import SafetyLimitError
+
         if self._current_limit is not None and current > self._current_limit:
             raise SafetyLimitError(f"{current}A exceeds safety limit {self._current_limit}A")
 
@@ -256,7 +273,9 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         """
         if not self.config.channels or not (1 <= channel <= len(self.config.channels)):
             num_ch = len(self.config.channels) if self.config.channels else 0
-            raise InstrumentParameterError(f"Channel number {channel} is out of range (1-{num_ch}).")
+            raise InstrumentParameterError(
+                f"Channel number {channel} is out of range (1-{num_ch})."
+            )
 
         duration_ms = int(duration_s * 1000)
         cmd = self._eng().build("set_slew_rate", channel=channel, duration_ms=duration_ms)[0]
@@ -272,7 +291,9 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         """
         if not self.config.channels or not (1 <= channel <= len(self.config.channels)):
             num_ch = len(self.config.channels) if self.config.channels else 0
-            raise InstrumentParameterError(f"Channel number {channel} is out of range (1-{num_ch}).")
+            raise InstrumentParameterError(
+                f"Channel number {channel} is out of range (1-{num_ch})."
+            )
 
         command_name = "enable_slew_rate" if state else "disable_slew_rate"
         cmd = self._eng().build(command_name, channel=channel)[0]
@@ -306,7 +327,9 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         num_configured_channels = len(self.config.channels) if self.config.channels else 0
         for ch_num in channels_to_process:
             if not (1 <= ch_num <= num_configured_channels):
-                raise InstrumentParameterError(f"Channel number {ch_num} is out of range (1-{num_configured_channels}).")
+                raise InstrumentParameterError(
+                    f"Channel number {ch_num} is out of range (1-{num_configured_channels})."
+                )
 
         # Send command for each channel individually
         for ch_num in channels_to_process:
@@ -338,7 +361,9 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         """
         if not self.config.channels or not (1 <= channel <= len(self.config.channels)):
             num_ch = len(self.config.channels) if self.config.channels else 0
-            raise InstrumentParameterError(f"Channel number {channel} is out of range (1-{num_ch}).")
+            raise InstrumentParameterError(
+                f"Channel number {channel} is out of range (1-{num_ch})."
+            )
         cmd = self._eng().build("measure_voltage", channel=channel)[0]
         reading = float(self._eng().parse("measure_voltage", self._query(cmd)))
 
@@ -346,7 +371,9 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
 
         if self.config.measurement_accuracy:
             mode_key = f"read_voltage_ch{channel}"
-            self._logger.debug(f"Attempting to find accuracy spec for read_voltage on channel {channel} with key: '{mode_key}'")
+            self._logger.debug(
+                f"Attempting to find accuracy spec for read_voltage on channel {channel} with key: '{mode_key}'"
+            )
             spec = self.config.measurement_accuracy.get(mode_key)
 
             if spec:
@@ -356,13 +383,21 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
                         value_to_return = ufloat(reading, sigma)
                     except Exception:
                         value_to_return = reading
-                    self._logger.debug(f"Applied accuracy spec '{mode_key}', value: {value_to_return}")
+                    self._logger.debug(
+                        f"Applied accuracy spec '{mode_key}', value: {value_to_return}"
+                    )
                 else:
-                    self._logger.debug(f"Accuracy spec '{mode_key}' resulted in sigma=0. Returning float.")
+                    self._logger.debug(
+                        f"Accuracy spec '{mode_key}' resulted in sigma=0. Returning float."
+                    )
             else:
-                self._logger.debug(f"No accuracy spec found for read_voltage on channel {channel} with key '{mode_key}'. Returning float.")
+                self._logger.debug(
+                    f"No accuracy spec found for read_voltage on channel {channel} with key '{mode_key}'. Returning float."
+                )
         else:
-            self._logger.debug(f"No measurement_accuracy configuration in instrument for read_voltage on channel {channel}. Returning float.")
+            self._logger.debug(
+                f"No measurement_accuracy configuration in instrument for read_voltage on channel {channel}. Returning float."
+            )
 
         return value_to_return
 
@@ -381,7 +416,9 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         """
         if not self.config.channels or not (1 <= channel <= len(self.config.channels)):
             num_ch = len(self.config.channels) if self.config.channels else 0
-            raise InstrumentParameterError(f"Channel number {channel} is out of range (1-{num_ch}).")
+            raise InstrumentParameterError(
+                f"Channel number {channel} is out of range (1-{num_ch})."
+            )
         cmd = self._eng().build("measure_current", channel=channel)[0]
         reading = float(self._eng().parse("measure_current", self._query(cmd)))
 
@@ -389,7 +426,9 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
 
         if self.config.measurement_accuracy:
             mode_key = f"read_current_ch{channel}"
-            self._logger.debug(f"Attempting to find accuracy spec for read_current on channel {channel} with key: '{mode_key}'")
+            self._logger.debug(
+                f"Attempting to find accuracy spec for read_current on channel {channel} with key: '{mode_key}'"
+            )
             spec = self.config.measurement_accuracy.get(mode_key)
 
             if spec:
@@ -399,13 +438,21 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
                         value_to_return = ufloat(reading, sigma)
                     except Exception:
                         value_to_return = reading
-                    self._logger.debug(f"Applied accuracy spec '{mode_key}', value: {value_to_return}")
+                    self._logger.debug(
+                        f"Applied accuracy spec '{mode_key}', value: {value_to_return}"
+                    )
                 else:
-                    self._logger.debug(f"Accuracy spec '{mode_key}' resulted in sigma=0. Returning float.")
+                    self._logger.debug(
+                        f"Accuracy spec '{mode_key}' resulted in sigma=0. Returning float."
+                    )
             else:
-                self._logger.debug(f"No accuracy spec found for read_current on channel {channel} with key '{mode_key}'. Returning float.")
+                self._logger.debug(
+                    f"No accuracy spec found for read_current on channel {channel} with key '{mode_key}'. Returning float."
+                )
         else:
-            self._logger.debug(f"No measurement_accuracy configuration in instrument for read_current on channel {channel}. Returning float.")
+            self._logger.debug(
+                f"No measurement_accuracy configuration in instrument for read_current on channel {channel}. Returning float."
+            )
 
         return value_to_return
 
@@ -423,12 +470,15 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         """
         results: dict[int, PSUChannelConfig] = {}
         if not self.config.channels:
-            self._logger.warning("No channels defined in the PowerSupplyConfig. Cannot get configuration.")
+            self._logger.warning(
+                "No channels defined in the PowerSupplyConfig. Cannot get configuration."
+            )
             return results
 
         num_channels = len(self.config.channels)
 
         for channel_num in range(1, num_channels + 1):  # Iterate 1-indexed channel numbers
+
             def _nominal(x: Any) -> float:
                 return x.nominal_value if hasattr(x, "nominal_value") else float(x)
 
@@ -439,9 +489,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
             state_str: str = self._eng().parse("get_output_state", self._query(cmd))
 
             results[channel_num] = PSUChannelConfig(
-                voltage=voltage_val,
-                current=current_val,
-                state=state_str.strip()
+                voltage=voltage_val, current=current_val, state=state_str.strip()
             )
         return results
 
@@ -497,7 +545,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
             raise SafetyLimitError(f"Voltage limit cannot be negative: {value}V")
 
         # Check against current voltage setting
-        if hasattr(self, '_voltage_value') and self._voltage_value > value:
+        if hasattr(self, "_voltage_value") and self._voltage_value > value:
             raise SafetyLimitError(
                 f"Cannot set voltage limit {value}V below current voltage setting {self._voltage_value}V"
             )
@@ -518,7 +566,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
             raise SafetyLimitError(f"Current limit cannot be negative: {value}A")
 
         # Check against current setting
-        if hasattr(self, '_current_value') and self._current_value > value:
+        if hasattr(self, "_current_value") and self._current_value > value:
             raise SafetyLimitError(
                 f"Cannot set current limit {value}A below current setting {self._current_value}A"
             )

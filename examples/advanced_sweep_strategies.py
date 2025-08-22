@@ -16,6 +16,7 @@ Each approach has different advantages:
 - grid_sweep: More flexible parameter control
 - gwass: Adaptively focuses measurements where they matter most
 """
+
 import time
 
 import matplotlib.pyplot as plt
@@ -29,7 +30,7 @@ from pytestlab.measurements.session import MeasurementSession
 # Define a sample function to test - a 2D sinusoidal pattern with peaks
 def sample_function(x: float, y: float) -> float:
     """Sample function with interesting gradients for testing sweep strategies."""
-    return np.sin(x * 3) * np.sin(y * 2) * np.exp(-((x - 2)**2 + (y - 2)**2) / 4)
+    return np.sin(x * 3) * np.sin(y * 2) * np.exp(-((x - 2) ** 2 + (y - 2) ** 2) / 4)
 
 
 def run_measurement_session_sweep():
@@ -97,9 +98,7 @@ def run_grid_sweep():
     results = grid_sweep(wrapper_func, param_ranges, points_per_dim)
 
     # Format results for comparison
-    result_array = np.array([
-        [x, y, z] for ([x, y], z) in results
-    ])
+    result_array = np.array([[x, y, z] for ([x, y], z) in results])
 
     return result_array
 
@@ -131,17 +130,13 @@ def run_gwass_sweep():
     results = gwass(wrapper_func, param_ranges, total_points)
 
     # Format results for comparison
-    result_array = np.array([
-        [x, y, z] for ([x, y], z) in results
-    ])
+    result_array = np.array([[x, y, z] for ([x, y], z) in results])
 
     return result_array
 
 
 def plot_results(
-    grid_results: np.ndarray,
-    grid_sweep_results: np.ndarray,
-    gwass_results: np.ndarray
+    grid_results: np.ndarray, grid_sweep_results: np.ndarray, gwass_results: np.ndarray
 ):
     """Plot and compare the results from different sweep strategies."""
     plt.figure(figsize=(18, 6))
@@ -151,36 +146,36 @@ def plot_results(
     x = grid_results[:, 0]
     y = grid_results[:, 1]
     z = grid_results[:, 2]
-    plt.scatter(x, y, c=z, cmap='viridis', s=30)
-    plt.colorbar(label='z value')
-    plt.title('MeasurementSession Grid Sweep\n(Regular Grid)')
-    plt.xlabel('x')
-    plt.ylabel('y')
+    plt.scatter(x, y, c=z, cmap="viridis", s=30)
+    plt.colorbar(label="z value")
+    plt.title("MeasurementSession Grid Sweep\n(Regular Grid)")
+    plt.xlabel("x")
+    plt.ylabel("y")
 
     # Plot grid_sweep results
     plt.subplot(132)
     x = grid_sweep_results[:, 0]
     y = grid_sweep_results[:, 1]
     z = grid_sweep_results[:, 2]
-    plt.scatter(x, y, c=z, cmap='viridis', s=30)
-    plt.colorbar(label='z value')
-    plt.title('grid_sweep Results\n(Regular Grid)')
-    plt.xlabel('x')
-    plt.ylabel('y')
+    plt.scatter(x, y, c=z, cmap="viridis", s=30)
+    plt.colorbar(label="z value")
+    plt.title("grid_sweep Results\n(Regular Grid)")
+    plt.xlabel("x")
+    plt.ylabel("y")
 
     # Plot gwass results
     plt.subplot(133)
     x = gwass_results[:, 0]
     y = gwass_results[:, 1]
     z = gwass_results[:, 2]
-    plt.scatter(x, y, c=z, cmap='viridis', s=30)
-    plt.colorbar(label='z value')
-    plt.title('GWASS Results\n(Adaptive Sampling)')
-    plt.xlabel('x')
-    plt.ylabel('y')
+    plt.scatter(x, y, c=z, cmap="viridis", s=30)
+    plt.colorbar(label="z value")
+    plt.title("GWASS Results\n(Adaptive Sampling)")
+    plt.xlabel("x")
+    plt.ylabel("y")
 
     plt.tight_layout()
-    plt.savefig('sweep_comparison.png')
+    plt.savefig("sweep_comparison.png")
     print("Results visualization saved to 'sweep_comparison.png'")
 
     # Create a figure for function visualization
@@ -190,12 +185,12 @@ def plot_results(
     X, Y = np.meshgrid(x, y)
     Z = sample_function(X, Y)
 
-    plt.contourf(X, Y, Z, 50, cmap='viridis')
-    plt.colorbar(label='z value')
-    plt.title('Sample Function Visualization')
-    plt.xlabel('x')
-    plt.ylabel('y')
-    plt.savefig('function_visualization.png')
+    plt.contourf(X, Y, Z, 50, cmap="viridis")
+    plt.colorbar(label="z value")
+    plt.title("Sample Function Visualization")
+    plt.xlabel("x")
+    plt.ylabel("y")
+    plt.savefig("function_visualization.png")
     print("Function visualization saved to 'function_visualization.png'")
 
 
@@ -234,4 +229,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n❌ Error: {e}")
         import traceback
+
         traceback.print_exc()

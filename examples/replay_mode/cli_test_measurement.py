@@ -66,15 +66,19 @@ def main(bench):
             # Read oscilloscope measurement
             osc_measurement = osc._backend.query("MEAS:VPP? CHAN1")
 
-            measurements.append({
-                'set_voltage': voltage,
-                'measured_voltage': float(measured_voltage),
-                'measured_current': float(measured_current),
-                'osc_vpp': float(osc_measurement),
-                'step': i + 1
-            })
+            measurements.append(
+                {
+                    "set_voltage": voltage,
+                    "measured_voltage": float(measured_voltage),
+                    "measured_current": float(measured_current),
+                    "osc_vpp": float(osc_measurement),
+                    "step": i + 1,
+                }
+            )
 
-            print(f"  Set: {voltage}V, PSU: {measured_voltage}V, {measured_current}A, OSC VPP: {osc_measurement}V")
+            print(
+                f"  Set: {voltage}V, PSU: {measured_voltage}V, {measured_current}A, OSC VPP: {osc_measurement}V"
+            )
 
     finally:
         # Always disable output for safety
@@ -84,12 +88,16 @@ def main(bench):
     print("\nMeasurement complete!")
     print("Results summary:")
     for result in measurements:
-        psu_error = abs(result['measured_voltage'] - result['set_voltage'])
-        print(f"  Step {result['step']}: {result['set_voltage']}V → PSU: {result['measured_voltage']:.3f}V (error: {psu_error:.3f}V), Current: {result['measured_current']:.3f}A, OSC VPP: {result['osc_vpp']:.3f}V")
+        psu_error = abs(result["measured_voltage"] - result["set_voltage"])
+        print(
+            f"  Step {result['step']}: {result['set_voltage']}V → PSU: {result['measured_voltage']:.3f}V (error: {psu_error:.3f}V), Current: {result['measured_current']:.3f}A, OSC VPP: {result['osc_vpp']:.3f}V"
+        )
 
     return measurements
 
 
 if __name__ == "__main__":
     print("This script is designed to be run via PyTestLab replay commands.")
-    print("Use: pytestlab replay run cli_test_measurement.py --session real_instrument_session.yaml")
+    print(
+        "Use: pytestlab replay run cli_test_measurement.py --session real_instrument_session.yaml"
+    )

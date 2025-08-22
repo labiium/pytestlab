@@ -1,4 +1,3 @@
-
 class InstrumentConnectionError(Exception):
     """Exception raised for SCPI instrument connection errors."""
 
@@ -84,12 +83,15 @@ class InstrumentConfigurationError(Exception):
 
 # WARNINGS
 
+
 class CommunicationError(Warning):
     """For SCPI communication warnings."""
+
     pass
 
 
 # Database errors
+
 
 class DatabaseError(Exception):
     """Exception raised for database errors."""
@@ -133,7 +135,15 @@ class InstrumentDataError(Exception):
 class ReplayMismatchError(Exception):
     """Raised when a command during replay does not match the recorded log."""
 
-    def __init__(self, message, instrument=None, command=None, expected_command=None, actual_command=None, log_index=None):
+    def __init__(
+        self,
+        message,
+        instrument=None,
+        command=None,
+        expected_command=None,
+        actual_command=None,
+        log_index=None,
+    ):
         # Store additional attributes
         self.instrument = instrument
         self.command = command

@@ -23,6 +23,7 @@ class ConfigLoader:
     This is not used in runtime code, but allows mkdocstrings to resolve
     'pytestlab.config.ConfigLoader' for API docs.
     """
+
     pass
 
 
@@ -38,7 +39,11 @@ def _discover_models() -> dict[str, type[InstrumentConfig]]:
         if name.startswith("_"):
             continue
 
-        if inspect.isclass(member) and issubclass(member, InstrumentConfig) and member is not InstrumentConfig:
+        if (
+            inspect.isclass(member)
+            and issubclass(member, InstrumentConfig)
+            and member is not InstrumentConfig
+        ):
             cls = member
 
             if "device_type" in cls.model_fields:
@@ -58,11 +63,13 @@ def _discover_models() -> dict[str, type[InstrumentConfig]]:
                                 if isinstance(literal_val, str):
                                     possible_device_types.add(literal_val)
                 elif origin_annotation is Literal:
-                     for literal_val in args_annotation:
+                    for literal_val in args_annotation:
                         if isinstance(literal_val, str):
                             possible_device_types.add(literal_val)
 
-                if field_info.default is not PydanticUndefined and isinstance(field_info.default, str):
+                if field_info.default is not PydanticUndefined and isinstance(
+                    field_info.default, str
+                ):
                     possible_device_types.add(field_info.default)
 
                 for dt_str in possible_device_types:
@@ -103,8 +110,7 @@ def resolve_profile_key_to_path(key: str) -> Path:
 
     if not profile_path.is_file():
         raise FileNotFoundError(
-            f"Profile with key '{key}' not found. "
-            f"Looked for '{profile_path}'."
+            f"Profile with key '{key}' not found. " f"Looked for '{profile_path}'."
         )
     return profile_path
 
@@ -145,9 +151,7 @@ def load_profile(key_or_path_or_dict: str | Path | dict[str, Any]) -> Instrument
             with open(profile_path) as f:
                 data = yaml.safe_load(f)
     else:
-        raise TypeError(
-            "Input must be a profile key (str), a Path object, or a dictionary."
-        )
+        raise TypeError("Input must be a profile key (str), a Path object, or a dictionary.")
 
     if not isinstance(data, dict):
         raise ValueError("Loaded profile data is not a dictionary.")
@@ -177,6 +181,8 @@ def load_profile(key_or_path_or_dict: str | Path | dict[str, Any]) -> Instrument
         raise ValueError(f"Profile for device_type '{device_type}' is invalid: {e}") from e
 
     if not isinstance(validated_model, InstrumentConfig):
-        raise TypeError(f"Validated model for {device_type} is not an instance of InstrumentConfig.")
+        raise TypeError(
+            f"Validated model for {device_type} is not an instance of InstrumentConfig."
+        )
 
     return validated_model

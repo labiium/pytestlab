@@ -40,30 +40,26 @@ if __name__ == "__main__":
 '''
 
     # Create a simple bench config
-    bench_content = '''
+    bench_content = """
 bench_name: "Test Bench"
 simulate: true
 instruments:
   psu:
     profile: "keysight/EDU36311A"
     address: "SIM::power_supply::1"
-'''
+"""
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as script_file:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as script_file:
         script_file.write(script_content)
         script_path = script_file.name
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as bench_file:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as bench_file:
         bench_file.write(bench_content)
         bench_path = bench_file.name
 
     try:
         # Test the run command
-        result = runner.invoke(app, [
-            "run", script_path,
-            "--bench", bench_path,
-            "--simulate"
-        ])
+        result = runner.invoke(app, ["run", script_path, "--bench", bench_path, "--simulate"])
 
         # Clean up
         Path(script_path).unlink()

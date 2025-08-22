@@ -43,7 +43,6 @@ def bench_configuration_example():
     """Using Bench with YAML configuration and safety limits."""
 
     with pytestlab.Bench.open("examples/bench_config.yaml") as bench:
-
         # Test safety limits
         try:
             bench.psu.channel(1).set_voltage(7.0)  # Above configured limit
@@ -72,7 +71,6 @@ def parameter_sweep_measurement():
     """Complex measurement session with parameter sweeps."""
 
     with MeasurementSession("Diode I-V Characterization") as meas:
-
         # Configure instruments
         meas.instrument("psu", "keysight/EDU36311A", address="TCPIP0::192.168.1.100::INSTR")
         meas.instrument("dmm", "keysight/34470A", address="USB0::2391::9479::INSTR")
@@ -102,9 +100,9 @@ def parameter_sweep_measurement():
             actual_voltage = dmm.measure_voltage_dc()
 
             return {
-                'current': current.values,
-                'voltage_measured': actual_voltage.values,
-                'temperature': temperature,
+                "current": current.values,
+                "voltage_measured": actual_voltage.values,
+                "temperature": temperature,
             }
 
         # Run the measurement
@@ -131,7 +129,9 @@ def advanced_measurement_patterns():
         scope.connect_backend()
         instruments.append(scope)
 
-        psu = AutoInstrument.from_config("keysight/EDU36311A", address="TCPIP0::192.168.1.11::INSTR")
+        psu = AutoInstrument.from_config(
+            "keysight/EDU36311A", address="TCPIP0::192.168.1.11::INSTR"
+        )
         psu.connect_backend()
         instruments.append(psu)
 
@@ -164,10 +164,7 @@ def advanced_measurement_patterns():
                 # Use instrument's built-in timeout mechanism
                 scope.wait_for_trigger(timeout=5.0)
                 trace = scope.read_channels([1, 2])
-                measurements.append({
-                    'trigger_level': trigger_level,
-                    'trace': trace
-                })
+                measurements.append({"trigger_level": trigger_level, "trace": trace})
             except TimeoutError:
                 print(f"Trigger timeout at level {trigger_level}")
 
@@ -189,7 +186,6 @@ def measurement_with_data_processing():
     """Measurement with real-time data processing."""
 
     with MeasurementSession("FFT Analysis") as meas:
-
         meas.instrument("scope", "tek/MSO64", address="...")
         meas.instrument("fgen", "keysight/33500B", address="...")
 
@@ -211,8 +207,8 @@ def measurement_with_data_processing():
             trace = scope.read_channels([1, 2])
 
             # Calculate amplitude and phase
-            input_signal = trace['CH1'].values
-            output_signal = trace['CH2'].values
+            input_signal = trace["CH1"].values
+            output_signal = trace["CH2"].values
 
             # FFT processing
             input_fft = np.fft.fft(input_signal)
@@ -225,11 +221,7 @@ def measurement_with_data_processing():
             amplitude = np.abs(output_fft[freq_idx]) / np.abs(input_fft[freq_idx])
             phase = np.angle(output_fft[freq_idx]) - np.angle(input_fft[freq_idx])
 
-            return {
-                'amplitude': amplitude,
-                'phase': np.degrees(phase),
-                'frequency': frequency
-            }
+            return {"amplitude": amplitude, "phase": np.degrees(phase), "frequency": frequency}
 
         # Run measurement
         results = meas.run()
@@ -250,7 +242,7 @@ def test_basic_connection():
     scope.connect_backend()
 
     status = scope.get_status()
-    assert status['connected'] is True
+    assert status["connected"] is True
 
     scope.close()
 
@@ -263,7 +255,7 @@ def test_measurement_session():
 
         @meas.acquire
         def simple_measurement(dmm, voltage):
-            return {'reading': voltage * 1.1}  # Simulated reading
+            return {"reading": voltage * 1.1}  # Simulated reading
 
         results = meas.run()
         assert len(results) == 3
@@ -295,18 +287,10 @@ def batch_operations_example():
 
     try:
         # Batch channel configuration - more efficient than individual calls
-        scope.channels([1, 2, 3, 4]).setup(
-            scale=0.5,
-            offset=0,
-            coupling="DC"
-        ).enable()
+        scope.channels([1, 2, 3, 4]).setup(scale=0.5, offset=0, coupling="DC").enable()
 
         # Batch trigger setup
-        scope.trigger.setup_edge(
-            source="CH1",
-            level=0.2,
-            slope="positive"
-        )
+        scope.trigger.setup_edge(source="CH1", level=0.2, slope="positive")
 
         # Single call to read multiple channels
         traces = scope.read_channels([1, 2, 3, 4])

@@ -88,7 +88,7 @@ measurement_plan:
       range: "10V"
       resolution: "6.5"
     notes: "Measure input voltage characteristics"
-    
+
   - name: "Power Supply Monitoring"
     instrument: "dmm"
     probe_location: "DUT Vdd rail"
@@ -97,7 +97,7 @@ measurement_plan:
       range: "10V"
       resolution: "6.5"
     notes: "Monitor supply voltage stability during test"
-    
+
   - name: "Waveform Capture"
     instrument: "osc"
     probe_location: "Output signal"

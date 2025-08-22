@@ -20,7 +20,7 @@ This project and everyone participating in it is governed by the [PyTestLab Code
         ```
     *   Install dependencies, including development tools:
         ```bash
-        pip install -e .[dev,full] 
+        pip install -e .[dev,full]
         ```
     *   Install pre-commit hooks (this will run linters/formatters before each commit):
         ```bash

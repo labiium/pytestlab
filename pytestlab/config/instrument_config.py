@@ -10,14 +10,20 @@ from .accuracy import AccuracySpec
 
 
 class InstrumentConfig(BaseModel):
-    model_config = ConfigDict(validate_assignment=True, extra='ignore')  # Added model_config
+    model_config = ConfigDict(validate_assignment=True, extra="ignore")  # Added model_config
 
     manufacturer: str = Field(..., description="Manufacturer of the instrument")
     model: str = Field(..., description="Model number of the instrument")
-    device_type: str = Field(..., description="Type of the device (e.g., 'PSU', 'Oscilloscope')")  # This is used by loader
+    device_type: str = Field(
+        ..., description="Type of the device (e.g., 'PSU', 'Oscilloscope')"
+    )  # This is used by loader
     serial_number: str | None = Field(None, description="Serial number of the instrument")
-    address: str | None = Field(None, description="Instrument connection address (e.g., VISA resource string)")  # Example common field
-    measurement_accuracy: dict[str, AccuracySpec] | None = Field(default_factory=dict, description="Measurement accuracy specifications")
+    address: str | None = Field(
+        None, description="Instrument connection address (e.g., VISA resource string)"
+    )  # Example common field
+    measurement_accuracy: dict[str, AccuracySpec] | None = Field(
+        default_factory=dict, description="Measurement accuracy specifications"
+    )
     # further complex yaml
     # ------------------------- NEW  (SCPI) ------------------------------ #
     scpi: dict[str, Any] | None = Field(

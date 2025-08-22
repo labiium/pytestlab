@@ -1,6 +1,7 @@
 """
 Tests for the MeasurementDatabase (auto-codename, store/retrieve/search).
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -21,7 +22,9 @@ def test_store_and_retrieve_experiment(tmp_db_file, simple_experiment):
 
 
 def test_store_and_retrieve_measurement(tmp_db_file):
-    meas = MeasurementResult(values=np.array([1.23]), instrument="DMM_X", units="V", measurement_type="Voltage")
+    meas = MeasurementResult(
+        values=np.array([1.23]), instrument="DMM_X", units="V", measurement_type="Voltage"
+    )
 
     with MeasurementDatabase(tmp_db_file) as db:
         key = db.store_measurement(None, meas)

@@ -18,9 +18,9 @@ from .threading_utils import awidget_callback
 
 __all__ = [
     "awidget_callback",
-    "run_coro_safely", 
+    "run_coro_safely",
     "InstrumentPanel",
     "Slider",
-    "Toggle", 
+    "Toggle",
     "Button",
 ]

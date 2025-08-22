@@ -13,11 +13,13 @@ def test_channel_reading_result_split_and_plot(monkeypatch):
 
     # Build a fake two-channel DataFrame
     t = np.linspace(0, 0.01, 1000)
-    df = pl.DataFrame({
-        "Time (s)": t,
-        "Channel 1 (V)": np.sin(2 * np.pi * 1000 * t),
-        "Channel 2 (V)": np.cos(2 * np.pi * 1000 * t),
-    })
+    df = pl.DataFrame(
+        {
+            "Time (s)": t,
+            "Channel 1 (V)": np.sin(2 * np.pi * 1000 * t),
+            "Channel 2 (V)": np.cos(2 * np.pi * 1000 * t),
+        }
+    )
 
     res = ChannelReadingResult(
         values=df,
@@ -40,5 +42,3 @@ def test_channel_reading_result_split_and_plot(monkeypatch):
     assert hasattr(fig_all, "savefig")
     fig_ch1 = ch1.plot(PlotSpec(title="CH1"))
     assert hasattr(fig_ch1, "savefig")
-
-

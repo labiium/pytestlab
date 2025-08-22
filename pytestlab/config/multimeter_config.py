@@ -20,6 +20,7 @@ except ImportError:
 
 class DMMFunction(str, Enum):
     """Enum for DMM measurement functions corresponding to SCPI commands."""
+
     VOLTAGE_DC = "VOLT:DC"
     VOLTAGE_AC = "VOLT:AC"
     CURRENT_DC = "CURR:DC"
@@ -42,7 +43,8 @@ class DMMFunction(str, Enum):
 
 class RangeSpec(BaseModel):
     """Models a single measurement range with its specifications."""
-    model_config = ConfigDict(extra='allow')  # Allow other fields like test_current_A
+
+    model_config = ConfigDict(extra="allow")  # Allow other fields like test_current_A
 
     nominal_V: float | None = None
     nominal_ohm: float | None = None
@@ -54,7 +56,7 @@ class RangeSpec(BaseModel):
     accuracy_45Hz_10kHz: AccuracySpec | None = None
     accuracy_45Hz_1kHz: AccuracySpec | None = None
 
-    @field_validator('nominal_V', 'nominal_ohm', 'nominal_A', 'nominal_F', mode='before')
+    @field_validator("nominal_V", "nominal_ohm", "nominal_A", "nominal_F", mode="before")
     @classmethod
     def validate_float_notation(cls, v):
         if v is None:
@@ -75,18 +77,25 @@ class RangeSpec(BaseModel):
     @property
     def default_accuracy(self) -> AccuracySpec | None:
         """Returns the primary accuracy spec available."""
-        return self.accuracy or self.typical_accuracy or self.accuracy_45Hz_10kHz or self.accuracy_45Hz_1kHz
+        return (
+            self.accuracy
+            or self.typical_accuracy
+            or self.accuracy_45Hz_10kHz
+            or self.accuracy_45Hz_1kHz
+        )
 
 
 class FunctionSpec(BaseModel):
     """Models the specifications for a single measurement function."""
-    model_config = ConfigDict(extra='allow')
+
+    model_config = ConfigDict(extra="allow")
     ranges: list[RangeSpec] | None = None
 
 
 class MeasurementFunctionsSpec(BaseModel):
     """Container for all measurement function specifications from the YAML."""
-    model_config = ConfigDict(extra='allow')
+
+    model_config = ConfigDict(extra="allow")
     dc_voltage: FunctionSpec | None = None
     resistance_4wire: FunctionSpec | None = None
     dc_current: FunctionSpec | None = None
@@ -101,28 +110,28 @@ class MeasurementFunctionsSpec(BaseModel):
 
 class MultimeterConfig(InstrumentConfig):
     """Pydantic model for Multimeter configuration, designed to load from a device spec YAML."""
-    model_config = ConfigDict(validate_assignment=True, extra='ignore')
+
+    model_config = ConfigDict(validate_assignment=True, extra="ignore")
 
     # Relaxed to plain str to maintain compatibility with base class (avoids variance issues).
-    device_type: str = Field(
-        "multimeter", description="Device type identifier for multimeters."
-    )
+    device_type: str = Field("multimeter", description="Device type identifier for multimeters.")
     # Runtime/Session settings
     default_measurement_function: DMMFunction = Field(
         default=DMMFunction.VOLTAGE_DC,
-        description="Primary or default measurement function for the DMM."
+        description="Primary or default measurement function for the DMM.",
     )
     trigger_source: Literal["IMM", "EXT", "BUS"] = Field(
         default="IMM",
-        description="Default trigger source: IMM (Immediate), EXT (External), BUS (Software/System)."
+        description="Default trigger source: IMM (Immediate), EXT (External), BUS (Software/System).",
     )
     autorange: bool = Field(
-        default=True,
-        description="Enable (True) or disable (False) autoranging for measurements."
+        default=True, description="Enable (True) or disable (False) autoranging for measurements."
     )
 
     # Fields mapping directly to the YAML specification file
     limits: dict[str, Any] | None = Field(default_factory=dict)
-    measurement_functions: MeasurementFunctionsSpec | None = Field(default_factory=MeasurementFunctionsSpec)
+    measurement_functions: MeasurementFunctionsSpec | None = Field(
+        default_factory=MeasurementFunctionsSpec
+    )
     math_functions: list[str] | None = Field(default_factory=list)
     sampling_rates_rps: dict[str, Any] | None = Field(default_factory=dict)

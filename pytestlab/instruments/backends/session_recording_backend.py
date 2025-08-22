@@ -17,7 +17,12 @@ class SessionRecordingBackend(InstrumentIO):
     This is used by the `pytestlab replay record` command.
     """
 
-    def __init__(self, original_backend: InstrumentIO, output_file_or_log: str | list[dict[str, Any]], profile_key: str | None = None):
+    def __init__(
+        self,
+        original_backend: InstrumentIO,
+        output_file_or_log: str | list[dict[str, Any]],
+        profile_key: str | None = None,
+    ):
         self.original_backend = original_backend
 
         # Handle both file output and direct log recording
@@ -59,11 +64,7 @@ class SessionRecordingBackend(InstrumentIO):
             # Fallback for backends that don't support delay parameter
             response = self.original_backend.query(cmd)
 
-        self._log_event({
-            "type": "query",
-            "command": cmd.strip(),
-            "response": response.strip()
-        })
+        self._log_event({"type": "query", "command": cmd.strip(), "response": response.strip()})
         return response
 
     def query_raw(self, cmd: str, delay: float | None = None) -> bytes:
@@ -75,15 +76,11 @@ class SessionRecordingBackend(InstrumentIO):
         # Note: Storing raw bytes in YAML is tricky. Consider base64 encoding for robustness.
         # For simplicity here, we'll decode assuming it's representable as a string.
         try:
-            response_str = response.decode('utf-8', errors='ignore')
+            response_str = response.decode("utf-8", errors="ignore")
         except Exception:
             response_str = f"<binary data of length {len(response)}>"
 
-        self._log_event({
-            "type": "query_raw",
-            "command": cmd.strip(),
-            "response": response_str
-        })
+        self._log_event({"type": "query_raw", "command": cmd.strip(), "response": response_str})
         return response
 
     def save_session(self, profile_key: str):
@@ -95,12 +92,7 @@ class SessionRecordingBackend(InstrumentIO):
         # Map profile keys to instrument types for test compatibility
         instrument_key = self._get_instrument_key(profile_key)
 
-        session_data = {
-            instrument_key: {
-                "profile": profile_key,
-                "log": self._command_log
-            }
-        }
+        session_data = {instrument_key: {"profile": profile_key, "log": self._command_log}}
 
         # Load existing session data if file exists
         existing_data = {}
@@ -122,20 +114,20 @@ class SessionRecordingBackend(InstrumentIO):
             raise FileNotFoundError(f"Cannot create directory for {self.output_file}: {e}") from e
 
         # Write to file
-        with open(self.output_file, 'w') as f:
+        with open(self.output_file, "w") as f:
             yaml.dump(existing_data, f, default_flow_style=False)
 
     def _get_instrument_key(self, profile_key: str) -> str:
         """Map profile keys to instrument type keys for test compatibility."""
-        if 'EDU36311A' in profile_key or 'psu' in profile_key.lower():
-            return 'psu'
-        elif 'DSOX1204G' in profile_key or 'osc' in profile_key.lower():
-            return 'osc'
-        elif 'dmm' in profile_key.lower():
-            return 'dmm'
+        if "EDU36311A" in profile_key or "psu" in profile_key.lower():
+            return "psu"
+        elif "DSOX1204G" in profile_key or "osc" in profile_key.lower():
+            return "osc"
+        elif "dmm" in profile_key.lower():
+            return "dmm"
         else:
             # For other profiles, use 'psu' as default for test compatibility
-            return 'psu'
+            return "psu"
 
     def close(self):
         # The file writing is now handled by save_session or CLI command

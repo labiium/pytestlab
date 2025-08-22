@@ -16,6 +16,7 @@ and handles any potential threading concerns for GUI interactions.
 
 This file is completely generic and can be reused in other projects.
 """
+
 from __future__ import annotations
 
 import threading
@@ -28,12 +29,14 @@ def run_safely(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> None:
     Run a function safely in a background thread to keep the widget UI responsive
     while hardware communication happens.
     """
+
     def _thread_target():
         try:
             fn(*args, **kwargs)
         except Exception as e:
             print(f"Error in widget callback: {e}")
             import traceback
+
             traceback.print_exc()
 
     t = threading.Thread(target=_thread_target, daemon=True, name="pytestlab-widget-callback")
@@ -51,6 +54,7 @@ def widget_callback(fn: Callable[..., Any]) -> Callable[[Any], None]:
     ...     widget_callback(my_voltage_setter), names="value"
     ... )
     """
+
     def _wrapper(*args: Any, **kwargs: Any) -> None:  # noqa: D401
         run_safely(fn, *args, **kwargs)
 

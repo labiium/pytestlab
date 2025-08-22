@@ -30,6 +30,7 @@ from pathlib import Path
 try:
     import nbformat
     from nbformat.validator import normalize
+
     NBFORMAT_AVAILABLE = True
 except ImportError:
     NBFORMAT_AVAILABLE = False
@@ -71,6 +72,7 @@ class NotebookNormalizer:
         """
         # Generate a UUID4 and take the first 8 characters for readability
         import uuid
+
         return str(uuid.uuid4())[:8]
 
     def normalize_cell(self, cell: dict, nbformat_version: int = 4) -> bool:
@@ -85,10 +87,10 @@ class NotebookNormalizer:
             True if the cell was modified, False otherwise
         """
         # Only add IDs for nbformat 4.5+
-        if nbformat_version >= 4 and ('id' not in cell or not cell['id']):
+        if nbformat_version >= 4 and ("id" not in cell or not cell["id"]):
             # Generate a meaningful ID based on cell type and content
             cell_id = self.generate_meaningful_id(cell)
-            cell['id'] = cell_id
+            cell["id"] = cell_id
             self.log(f"  Added ID '{cell_id}' to {cell.get('cell_type', 'unknown')} cell")
             return True
         return False
@@ -103,36 +105,38 @@ class NotebookNormalizer:
         Returns:
             A descriptive cell ID
         """
-        cell_type = cell.get('cell_type', 'unknown')
+        cell_type = cell.get("cell_type", "unknown")
 
-        if cell_type == 'markdown':
+        if cell_type == "markdown":
             # For markdown cells, try to use the first heading
             source = self.get_cell_source(cell)
-            if source.startswith('#'):
+            if source.startswith("#"):
                 # Extract heading text and create ID
-                heading = source.split('\n')[0].strip('#').strip()
-                heading_id = ''.join(c for c in heading.lower().replace(' ', '-')
-                                   if c.isalnum() or c == '-')[:20]
+                heading = source.split("\n")[0].strip("#").strip()
+                heading_id = "".join(
+                    c for c in heading.lower().replace(" ", "-") if c.isalnum() or c == "-"
+                )[:20]
                 if heading_id:
                     return f"md-{heading_id}"
             return f"md-{self.generate_cell_id()}"
 
-        elif cell_type == 'code':
+        elif cell_type == "code":
             # For code cells, try to identify the content type
             source = self.get_cell_source(cell)
 
             # Check for common patterns
-            if 'import' in source[:100]:
+            if "import" in source[:100]:
                 return f"imports-{self.generate_cell_id()}"
-            elif 'def ' in source[:100]:
+            elif "def " in source[:100]:
                 return f"function-{self.generate_cell_id()}"
-            elif 'class ' in source[:100]:
+            elif "class " in source[:100]:
                 return f"class-{self.generate_cell_id()}"
-            elif source.strip().startswith('#'):
+            elif source.strip().startswith("#"):
                 # Comment-based identification
-                comment = source.split('\n')[0].strip('# ').lower()
-                comment_id = ''.join(c for c in comment.replace(' ', '-')
-                                   if c.isalnum() or c == '-')[:20]
+                comment = source.split("\n")[0].strip("# ").lower()
+                comment_id = "".join(
+                    c for c in comment.replace(" ", "-") if c.isalnum() or c == "-"
+                )[:20]
                 if comment_id:
                     return f"code-{comment_id}"
 
@@ -151,9 +155,9 @@ class NotebookNormalizer:
         Returns:
             Source text as a string
         """
-        source = cell.get('source', '')
+        source = cell.get("source", "")
         if isinstance(source, list):
-            return ''.join(source)
+            return "".join(source)
         return str(source)
 
     def normalize_notebook(self, notebook_path: Path) -> bool:
@@ -178,7 +182,7 @@ class NotebookNormalizer:
 
             # Create backup if requested
             if self.backup:
-                backup_path = notebook_path.with_suffix('.ipynb.bak')
+                backup_path = notebook_path.with_suffix(".ipynb.bak")
                 shutil.copy2(notebook_path, backup_path)
                 self.log(f"  Created backup: {backup_path}")
 
@@ -278,51 +282,36 @@ Examples:
   python scripts/normalize_notebooks.py --directory docs/en/tutorials/ --verbose
   python scripts/normalize_notebooks.py --all --no-backup
   python scripts/normalize_notebooks.py --validate docs/en/tutorials/
-        """
+        """,
     )
 
     parser.add_argument(
-        "--notebook",
-        type=Path,
-        help="Path to a specific notebook file to normalize"
+        "--notebook", type=Path, help="Path to a specific notebook file to normalize"
     )
 
     parser.add_argument(
-        "--directory",
-        type=Path,
-        help="Path to a directory containing notebooks to normalize"
+        "--directory", type=Path, help="Path to a directory containing notebooks to normalize"
     )
 
     parser.add_argument(
-        "--all",
-        action="store_true",
-        help="Normalize all notebooks in the docs directory"
+        "--all", action="store_true", help="Normalize all notebooks in the docs directory"
+    )
+
+    parser.add_argument("--validate", type=Path, help="Validate notebook(s) without modifying them")
+
+    parser.add_argument(
+        "--no-backup", action="store_true", help="Don't create backup files before modification"
     )
 
     parser.add_argument(
-        "--validate",
-        type=Path,
-        help="Validate notebook(s) without modifying them"
-    )
-
-    parser.add_argument(
-        "--no-backup",
-        action="store_true",
-        help="Don't create backup files before modification"
-    )
-
-    parser.add_argument(
-        "--verbose",
-        "-v",
-        action="store_true",
-        help="Print detailed progress information"
+        "--verbose", "-v", action="store_true", help="Print detailed progress information"
     )
 
     parser.add_argument(
         "--recursive",
         action="store_true",
         default=True,
-        help="Search subdirectories recursively (default: True)"
+        help="Search subdirectories recursively (default: True)",
     )
 
     args = parser.parse_args()
@@ -332,10 +321,7 @@ Examples:
         parser.error("Must specify --notebook, --directory, --all, or --validate")
 
     # Initialize normalizer
-    normalizer = NotebookNormalizer(
-        backup=not args.no_backup,
-        verbose=args.verbose
-    )
+    normalizer = NotebookNormalizer(backup=not args.no_backup, verbose=args.verbose)
 
     try:
         if args.validate:

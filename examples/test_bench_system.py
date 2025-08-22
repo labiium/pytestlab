@@ -30,9 +30,13 @@ def test_bench_configuration_loading():
         print(f"   Version: {config.version}")
         print(f"   Experiment: {config.experiment.title}")
         print(f"   Instruments: {list(config.instruments.keys())}")
-        print(f"   Safety limits configured: {len([name for name, inst in config.instruments.items() if inst.safety_limits])}")
+        print(
+            f"   Safety limits configured: {len([name for name, inst in config.instruments.items() if inst.safety_limits])}"
+        )
         print(f"   Custom validations: {len(config.custom_validations)}")
-        print(f"   Automation hooks: pre={len(config.automation.pre_experiment)}, post={len(config.automation.post_experiment)}")
+        print(
+            f"   Automation hooks: pre={len(config.automation.pre_experiment)}, post={len(config.automation.post_experiment)}"
+        )
 
         # Validate minimally
         assert isinstance(config.bench_name, str)
@@ -58,7 +62,11 @@ def test_bench_opening():
         print(f"   Available instruments: {list(bench.instruments.keys())}")
 
         # Test properties
-        print(f"   Experiment notes: {bench.experiment_notes[:50]}..." if bench.experiment_notes else "   No experiment notes")
+        print(
+            f"   Experiment notes: {bench.experiment_notes[:50]}..."
+            if bench.experiment_notes
+            else "   No experiment notes"
+        )
         print(f"   Version: {bench.version}")
         if bench.traceability:
             tr = bench.traceability
@@ -68,7 +76,11 @@ def test_bench_opening():
             print(f"   Traceability info: {calib_count + env_count + dut_count} items")
         else:
             print("   No traceability info")
-        print(f"   Measurement plan: {len(bench.measurement_plan)} steps" if bench.measurement_plan else "   No measurement plan")
+        print(
+            f"   Measurement plan: {len(bench.measurement_plan)} steps"
+            if bench.measurement_plan
+            else "   No measurement plan"
+        )
 
         assert bench is not None
 
@@ -91,8 +103,12 @@ def test_instrument_access():
             # Test instrument access
             for name, instrument in bench.instruments.items():
                 print(f"   Instrument '{name}': {type(instrument).__name__}")
-                print(f"     Profile: {instrument.profile if hasattr(instrument, 'profile') else 'N/A'}")
-                print(f"     Address: {instrument.address if hasattr(instrument, 'address') else 'N/A'}")
+                print(
+                    f"     Profile: {instrument.profile if hasattr(instrument, 'profile') else 'N/A'}"
+                )
+                print(
+                    f"     Address: {instrument.address if hasattr(instrument, 'address') else 'N/A'}"
+                )
 
         print("✅ Context manager cleanup completed")
 
@@ -111,7 +127,7 @@ def test_safety_limits():
     try:
         with Bench.open(config_file) as bench:
             # Get PSU instrument
-            psu = bench.instruments.get('psu1')
+            psu = bench.instruments.get("psu1")
             if not psu:
                 print("⚠️ PSU not available for safety testing")
                 pytest.skip("PSU not available for safety testing")
@@ -120,6 +136,7 @@ def test_safety_limits():
 
             # Test that safety wrapper is applied
             from pytestlab.bench import SafeInstrumentWrapper
+
             if isinstance(psu, SafeInstrumentWrapper):
                 print("✅ Safety wrapper applied to PSU")
                 print(f"   Safety limits: {psu.safety_limits}")

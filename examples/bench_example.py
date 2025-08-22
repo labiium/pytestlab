@@ -19,7 +19,7 @@ from pytestlab.bench import SafetyLimitError
 def main():
     """Main example function."""
     bench_file = Path(__file__).parent / "bench.yaml"
-    
+
     try:
         # Open the bench configuration
         # This will:
@@ -33,18 +33,18 @@ def main():
             print(f"👤 Operator: {bench.config.experiment.operator}")
             print(f"🔬 DUT: {bench.config.traceability.dut.description}")
             print()
-            
+
             # Access experiment metadata
             print("📊 Experiment Notes:")
             print(bench.experiment_notes)
             print()
-            
+
             # Access traceability information
             print("🔍 Calibration Status:")
             for instrument, cal_info in bench.traceability.calibration.items():
                 print(f"  {instrument}: {cal_info}")
             print()
-            
+
             # Access measurement plan
             print("📋 Measurement Plan:")
             for i, step in enumerate(bench.measurement_plan, 1):
@@ -52,10 +52,10 @@ def main():
                 if step.notes:
                     print(f"     Notes: {step.notes}")
             print()
-            
+
             # Demonstrate instrument access
             print("🔧 Instrument Operations:")
-            
+
             # Access instruments by their aliases
             print("  Getting instrument IDs...")
             try:
@@ -63,13 +63,13 @@ def main():
                 print(f"  VNA ID: {vna_id}")
             except Exception as e:
                 print(f"  VNA (simulated): {e}")
-            
+
             try:
                 dmm_id = bench.dmm.id()
                 print(f"  DMM ID: {dmm_id}")
             except Exception as e:
                 print(f"  DMM (simulated): {e}")
-            
+
             # Demonstrate safety limit enforcement
             print("\n⚠️  Safety Limit Testing:")
             try:
@@ -80,7 +80,7 @@ def main():
                 print(f"  ❌ Safety limit violation: {e}")
             except Exception as e:
                 print(f"  ℹ️  PSU operation (simulated): {e}")
-            
+
             try:
                 # This should fail (exceeds safety limits)
                 bench.psu1.set_voltage(1, 6.0)
@@ -89,24 +89,25 @@ def main():
                 print(f"  ✅ Safety limit enforced: {e}")
             except Exception as e:
                 print(f"  ℹ️  PSU operation (simulated): {e}")
-            
+
             # List available instruments
             print(f"\n🎛️  Available instruments: {list(bench._instrument_instances.keys())}")
-            
+
             # Demonstrate measurement plan access
             if bench.measurement_plan:
                 first_measurement = bench.measurement_plan[0]
                 print(f"\n📊 First measurement: {first_measurement.name}")
                 print(f"   Instrument: {first_measurement.instrument}")
                 print(f"   Settings: {first_measurement.settings}")
-        
+
         # When exiting the context manager, post-experiment hooks run
         # and all instruments are closed automatically
         print("\n✅ Bench closed successfully. Post-experiment hooks executed.")
-        
+
     except Exception as e:
         print(f"❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
 
 

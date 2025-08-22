@@ -96,7 +96,7 @@ def main():
 
                 return {
                     "vpp_ripple": vpp_result.values,
-                    "waveform_data": waveform_result.values  # Store the full waveform
+                    "waveform_data": waveform_result.values,  # Store the full waveform
                 }
 
             # Run the session in parallel mode for 5 seconds,

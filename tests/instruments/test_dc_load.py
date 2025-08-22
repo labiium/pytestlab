@@ -123,7 +123,7 @@ def test_dc_load_full_real():
     print("Uncertainty-aware measurements tested.")
 
     # --- Transient System ---
-    dcl.configure_transient_mode('PULSe')
+    dcl.configure_transient_mode("PULSe")
     dcl.set_transient_level(0.5)
     dcl.start_transient()
     dcl.stop_transient()
@@ -172,72 +172,78 @@ def test_dc_load_full_real():
 
 @pytest.mark.requires_real_hw
 def test_dc_load_advanced_features_real():
-   """
-   Tests the advanced features of the DC Electronic Load driver.
-   """
-   is_available, error_msg = check_hardware_available()
-   if not is_available:
-       pytest.skip(f"DC Load hardware not available: {error_msg}")
-   dcl: DCActiveLoad = AutoInstrument.from_config(DC_LOAD_CONFIG_KEY)
-   dcl.connect_backend()
+    """
+    Tests the advanced features of the DC Electronic Load driver.
+    """
+    is_available, error_msg = check_hardware_available()
+    if not is_available:
+        pytest.skip(f"DC Load hardware not available: {error_msg}")
+    dcl: DCActiveLoad = AutoInstrument.from_config(DC_LOAD_CONFIG_KEY)
+    dcl.connect_backend()
 
-   # --- Advanced Transient Control ---
-   print("\n--- Testing Advanced Transient Control ---")
-   dcl.set_mode("CC")
-   dcl.configure_transient_mode('CONTinuous')
-   dcl.set_transient_frequency(1000)  # 1 kHz
-   dcl.set_transient_duty_cycle(75.0)  # 75%
-   # Verification would require an oscilloscope, but we check that commands run
-   print("Advanced transient control commands executed.")
+    # --- Advanced Transient Control ---
+    print("\n--- Testing Advanced Transient Control ---")
+    dcl.set_mode("CC")
+    dcl.configure_transient_mode("CONTinuous")
+    dcl.set_transient_frequency(1000)  # 1 kHz
+    dcl.set_transient_duty_cycle(75.0)  # 75%
+    # Verification would require an oscilloscope, but we check that commands run
+    print("Advanced transient control commands executed.")
 
-   # --- LIST Subsystem ---
-   print("\n--- Testing LIST Subsystem ---")
-   dcl.set_mode("CC")
-   # Create a 3-step current ramp
-   (dcl.list(1)
-          .set_levels("current", [0.1, 0.2, 0.3])
-          .set_dwells([0.1, 0.1, 0.1])
-          .configure(count=2))
-   print("LIST subsystem configured.")
-   # To run the list:
-   dcl.configure_transient_mode('LIST')
-   # dcl.start_transient() # This would start the actual list execution
-   # time.sleep(1)
-   # dcl.stop_transient()
+    # --- LIST Subsystem ---
+    print("\n--- Testing LIST Subsystem ---")
+    dcl.set_mode("CC")
+    # Create a 3-step current ramp
+    (
+        dcl.list(1)
+        .set_levels("current", [0.1, 0.2, 0.3])
+        .set_dwells([0.1, 0.1, 0.1])
+        .configure(count=2)
+    )
+    print("LIST subsystem configured.")
+    # To run the list:
+    dcl.configure_transient_mode("LIST")
+    # dcl.start_transient() # This would start the actual list execution
+    # time.sleep(1)
+    # dcl.stop_transient()
 
-   # --- Datalogger and Scope Configuration ---
-   print("\n--- Testing Data Acquisition Configuration ---")
-   # Configure datalogger
-   dcl.configure_datalogger(duration_s=10, period_s=0.1, log_voltage=True, log_current=True)
-   print("Datalogger configured.")
-   # dcl.start_datalogger()
-   # time.sleep(2)
-   # dcl.stop_datalogger()
+    # --- Datalogger and Scope Configuration ---
+    print("\n--- Testing Data Acquisition Configuration ---")
+    # Configure datalogger
+    dcl.configure_datalogger(duration_s=10, period_s=0.1, log_voltage=True, log_current=True)
+    print("Datalogger configured.")
+    # dcl.start_datalogger()
+    # time.sleep(2)
+    # dcl.stop_datalogger()
 
-   # Configure scope
-   dcl.configure_scope(points=512, interval_s=1e-4)
-   print("Scope configured.")
+    # Configure scope
+    dcl.configure_scope(points=512, interval_s=1e-4)
+    print("Scope configured.")
 
-   # --- Triggering System ---
-   print("\n--- Testing Triggering System ---")
-   # Configure acquisition to trigger when voltage crosses 1V (rising)
-   dcl.configure_acquisition_trigger(source=DCActiveLoad.TriggerSource.VOLTAGE, level=1.0, slope_positive=True)
-   print("Acquisition trigger configured.")
+    # --- Triggering System ---
+    print("\n--- Testing Triggering System ---")
+    # Configure acquisition to trigger when voltage crosses 1V (rising)
+    dcl.configure_acquisition_trigger(
+        source=DCActiveLoad.TriggerSource.VOLTAGE, level=1.0, slope_positive=True
+    )
+    print("Acquisition trigger configured.")
 
-   # Configure transient to trigger on an external signal
-   dcl.configure_transient_trigger(source=DCActiveLoad.TriggerSource.EXTERNAL)
-   print("Transient trigger configured.")
+    # Configure transient to trigger on an external signal
+    dcl.configure_transient_trigger(source=DCActiveLoad.TriggerSource.EXTERNAL)
+    print("Transient trigger configured.")
 
-   # --- Digital I/O ---
-   print("\n--- Testing Digital I/O ---")
-   # Configure Pin 1 as a Trigger Output with positive polarity
-   dcl.configure_digital_pin(1, DCActiveLoad.DigitalPinFunction.TRIGGER_OUTPUT, DCActiveLoad.DigitalPinPolarity.POSITIVE)
-   print("Digital Pin 1 configured as trigger output.")
+    # --- Digital I/O ---
+    print("\n--- Testing Digital I/O ---")
+    # Configure Pin 1 as a Trigger Output with positive polarity
+    dcl.configure_digital_pin(
+        1, DCActiveLoad.DigitalPinFunction.TRIGGER_OUTPUT, DCActiveLoad.DigitalPinPolarity.POSITIVE
+    )
+    print("Digital Pin 1 configured as trigger output.")
 
-   # --- Final Cleanup ---
-   dcl.reset()
-   dcl.close()
-   print("Advanced features test completed.")
+    # --- Final Cleanup ---
+    dcl.reset()
+    dcl.close()
+    print("Advanced features test completed.")
 
 
 @pytest.mark.requires_real_hw

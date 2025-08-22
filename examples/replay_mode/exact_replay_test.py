@@ -26,7 +26,7 @@ def main(bench):
 
     # PSU sequence: Set current, enable output, then voltage sweep
     psu.set_current(1, 0.1)  # CURR 0.1, (@1)
-    psu.output(1, True)      # OUTP:STAT ON, (@1)
+    psu.output(1, True)  # OUTP:STAT ON, (@1)
 
     # OSC configuration sequence (matches recorded exactly)
     osc._backend.write(":TIMebase:SCALe 0.001")
@@ -62,25 +62,29 @@ def main(bench):
         # Read oscilloscope measurement
         osc_measurement = osc._backend.query("MEAS:VPP? CHAN1")
 
-        measurements.append({
-            'set_voltage': voltage,
-            'measured_voltage': float(measured_voltage),
-            'measured_current': float(measured_current),
-            'osc_vpp': float(osc_measurement),
-            'step': i + 1
-        })
+        measurements.append(
+            {
+                "set_voltage": voltage,
+                "measured_voltage": float(measured_voltage),
+                "measured_current": float(measured_current),
+                "osc_vpp": float(osc_measurement),
+                "step": i + 1,
+            }
+        )
 
         print(f"  PSU: {measured_voltage}V, {measured_current}A, OSC VPP: {osc_measurement}V")
 
     # Shutdown sequence (exact)
-    psu.output(1, False)     # OUTP:STAT OFF, (@1)
+    psu.output(1, False)  # OUTP:STAT OFF, (@1)
     psu.set_voltage(1, 0.0)  # VOLT 0.0, (@1)
 
     print("\n✓ Exact replay sequence completed successfully!")
     print("Results summary:")
     for result in measurements:
-        psu_error = abs(result['measured_voltage'] - result['set_voltage'])
-        print(f"  Step {result['step']}: {result['set_voltage']}V → PSU: {result['measured_voltage']:.3f}V (error: {psu_error:.3f}V), Current: {result['measured_current']:.6f}A, OSC VPP: {result['osc_vpp']:.3f}V")
+        psu_error = abs(result["measured_voltage"] - result["set_voltage"])
+        print(
+            f"  Step {result['step']}: {result['set_voltage']}V → PSU: {result['measured_voltage']:.3f}V (error: {psu_error:.3f}V), Current: {result['measured_current']:.6f}A, OSC VPP: {result['osc_vpp']:.3f}V"
+        )
 
     return measurements
 

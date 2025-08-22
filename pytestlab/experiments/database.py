@@ -5,6 +5,7 @@ MeasurementDatabase – drop-in replacement for the old Database
 Implements auto-generated codenames, FTS search, NumPy+Polars BLOB handling,
 and a convenience, thread-safe API.
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -32,7 +33,9 @@ class DatabaseBackup:
     This is not used in runtime code, but allows mkdocstrings to resolve
     'pytestlab.experiments.DatabaseBackup' for API docs.
     """
+
     pass
+
 
 __all__ = ["Database", "MeasurementDatabase"]
 
@@ -98,9 +101,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
         with self._conn_lock:
             if self._conn is None:
                 self._conn = sqlite3.connect(
-                    self.db_path,
-                    detect_types=sqlite3.PARSE_DECLTYPES,
-                    check_same_thread=False
+                    self.db_path, detect_types=sqlite3.PARSE_DECLTYPES, check_same_thread=False
                 )
                 self._conn.execute("PRAGMA foreign_keys = ON")
                 self._conn.execute("PRAGMA journal_mode = WAL")  # Better concurrency
@@ -120,27 +121,21 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
         if not isinstance(arr, np.ndarray):
             raise TypeError(f"Expected numpy array, got {type(arr)}")
 
-        metadata = {
-            "dtype": str(arr.dtype),
-            "shape": arr.shape,
-            "compressed": True
-        }
+        metadata = {"dtype": str(arr.dtype), "shape": arr.shape, "compressed": True}
 
         data_bytes = lzma.compress(arr.tobytes())
         metadata_bytes = pickle.dumps(metadata)
 
         # Format: [metadata_length:4][metadata][data]
         return sqlite3.Binary(
-            len(metadata_bytes).to_bytes(4, "little") +
-            metadata_bytes +
-            data_bytes
+            len(metadata_bytes).to_bytes(4, "little") + metadata_bytes + data_bytes
         )
 
     @staticmethod
     def _convert_numpy(blob: bytes) -> np.ndarray:
         """Deserialize binary data back to NumPy array."""
         # Check if this is an LZMA file (XZ signature)
-        if blob[:7] == b'\xfd\x37\x7a\x58\x5a\x00\x00':
+        if blob[:7] == b"\xfd\x37\x7a\x58\x5a\x00\x00":
             try:
                 # Direct LZMA compressed data without our metadata header
                 decompressed = lzma.decompress(blob)
@@ -155,8 +150,8 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
 
         try:
             metadata_len = int.from_bytes(blob[:4], "little")
-            metadata = pickle.loads(blob[4:4 + metadata_len])
-            data_bytes = blob[4 + metadata_len:]
+            metadata = pickle.loads(blob[4 : 4 + metadata_len])
+            data_bytes = blob[4 + metadata_len :]
 
             if metadata.get("compressed", False):
                 data_bytes = lzma.decompress(data_bytes)
@@ -170,7 +165,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
             except Exception:
                 # Try one more approach - direct decompression if it's just compressed data
                 try:
-                    if blob[:7] == b'\xfd\x37\x7a\x58\x5a\x00\x00':
+                    if blob[:7] == b"\xfd\x37\x7a\x58\x5a\x00\x00":
                         decompressed = lzma.decompress(blob)
                         # Try as simple numpy array
                         return np.frombuffer(decompressed, dtype=np.float64)
@@ -191,7 +186,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
     def _convert_polars(blob: bytes) -> pl.DataFrame:
         """Deserialize compressed Arrow IPC back to Polars DataFrame."""
         # Check if this is an LZMA file (XZ signature)
-        if blob[:7] == b'\xfd\x37\x7a\x58\x5a\x00\x00':
+        if blob[:7] == b"\xfd\x37\x7a\x58\x5a\x00\x00":
             try:
                 # Direct LZMA compressed data
                 decompressed = lzma.decompress(blob)
@@ -349,13 +344,19 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
 
             # Indices for performance
             conn.execute("CREATE INDEX IF NOT EXISTS idx_exp_created ON experiments(created_at);")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_meas_timestamp ON measurements(timestamp);")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_meas_type ON measurements(measurement_type);")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_meas_timestamp ON measurements(timestamp);"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_meas_type ON measurements(measurement_type);"
+            )
 
     # Instrument management
     def _get_or_create_instrument_id(self, conn: sqlite3.Connection, instrument_name: str) -> int:
         """Get or create instrument ID."""
-        cursor = conn.execute("SELECT instrument_id FROM instruments WHERE name = ?", (instrument_name,))
+        cursor = conn.execute(
+            "SELECT instrument_id FROM instruments WHERE name = ?", (instrument_name,)
+        )
         row = cursor.fetchone()
         if row:
             return row[0]
@@ -370,7 +371,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
         experiment: Experiment,
         *,
         overwrite: bool = True,
-        notes: str = ""
+        notes: str = "",
     ) -> str:
         """
         Store an experiment in the database.
@@ -398,27 +399,33 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
                 raise ValueError(f"Experiment '{codename}' already exists")
 
             # Store experiment
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT OR REPLACE INTO experiments
                 (codename, name, description, notes, data, created_at)
                 VALUES (?, ?, ?, ?, ?, ?)
-            """, (
-                codename,
-                experiment.name,
-                experiment.description,
-                notes,
-                experiment.data,
-                dt.datetime.now()
-            ))
+            """,
+                (
+                    codename,
+                    experiment.name,
+                    experiment.description,
+                    notes,
+                    experiment.data,
+                    dt.datetime.now(),
+                ),
+            )
 
             # Store parameters
             conn.execute("DELETE FROM experiment_parameters WHERE codename = ?", (codename,))
             for param in experiment.parameters.values():
                 param_notes = getattr(param, "notes", "")
-                conn.execute("""
+                conn.execute(
+                    """
                     INSERT INTO experiment_parameters (codename, param_name, param_unit, param_notes)
                     VALUES (?, ?, ?, ?)
-                """, (codename, param.name, param.units, param_notes))
+                """,
+                    (codename, param.name, param.units, param_notes),
+                )
 
         return codename
 
@@ -436,11 +443,14 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
             ValueError: If experiment not found
         """
         conn = self._get_connection()
-        cursor = conn.execute("""
+        cursor = conn.execute(
+            """
             SELECT name, description, notes, data
             FROM experiments
             WHERE codename = ?
-        """, (codename,))
+        """,
+            (codename,),
+        )
 
         row = cursor.fetchone()
         if not row:
@@ -454,11 +464,14 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
         experiment.notes = notes
 
         # Load parameters
-        cursor = conn.execute("""
+        cursor = conn.execute(
+            """
             SELECT param_name, param_unit, param_notes
             FROM experiment_parameters
             WHERE codename = ?
-        """, (codename,))
+        """,
+            (codename,),
+        )
 
         for param_name, param_unit, param_notes in cursor.fetchall():
             experiment.add_parameter(param_name, param_unit, param_notes)
@@ -487,14 +500,17 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
             List of dicts with experiment metadata
         """
         conn = self._get_connection()
-        cursor = conn.execute("""
+        cursor = conn.execute(
+            """
             SELECT e.codename, e.name, e.description, e.notes, e.created_at
             FROM experiments_fts f
             JOIN experiments e ON f.codename = e.codename
             WHERE experiments_fts MATCH ?
             ORDER BY rank
             LIMIT ?
-        """, (query, limit))
+        """,
+            (query, limit),
+        )
 
         return [
             {
@@ -502,7 +518,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
                 "name": row[1],
                 "description": row[2],
                 "notes": row[3],
-                "created_at": row[4]
+                "created_at": row[4],
             }
             for row in cursor.fetchall()
         ]
@@ -514,7 +530,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
         measurement: MeasurementResult,
         *,
         overwrite: bool = True,
-        notes: str = ""
+        notes: str = "",
     ) -> str:
         """
         Store a measurement result.
@@ -545,19 +561,22 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
             instrument_id = self._get_or_create_instrument_id(conn, measurement.instrument)
 
             # Store measurement
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT OR REPLACE INTO measurements
                 (codename, instrument_id, timestamp, value_data, units, measurement_type, notes)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                codename,
-                instrument_id,
-                dt.datetime.fromtimestamp(measurement.timestamp),
-                measurement.values,
-                measurement.units,
-                measurement.measurement_type,
-                notes
-            ))
+            """,
+                (
+                    codename,
+                    instrument_id,
+                    dt.datetime.fromtimestamp(measurement.timestamp),
+                    measurement.values,
+                    measurement.units,
+                    measurement.measurement_type,
+                    notes,
+                ),
+            )
 
         return codename
 
@@ -575,12 +594,15 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
             ValueError: If measurement not found
         """
         conn = self._get_connection()
-        cursor = conn.execute("""
+        cursor = conn.execute(
+            """
             SELECT i.name, m.timestamp, m.value_data, m.units, m.measurement_type
             FROM measurements m
             JOIN instruments i ON m.instrument_id = i.instrument_id
             WHERE m.codename = ?
-        """, (codename,))
+        """,
+            (codename,),
+        )
 
         row = cursor.fetchone()
         if not row:
@@ -593,13 +615,11 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
             instrument=instrument,
             units=units,
             measurement_type=measurement_type,
-            timestamp=timestamp.timestamp() if hasattr(timestamp, 'timestamp') else time.time()
+            timestamp=timestamp.timestamp() if hasattr(timestamp, "timestamp") else time.time(),
         )
 
     def list_measurements(
-        self,
-        instrument: str | None = None,
-        limit: int | None = None
+        self, instrument: str | None = None, limit: int | None = None
     ) -> list[str]:
         """
         List measurement codenames, optionally filtered by instrument.
@@ -646,7 +666,8 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
         conn = self._get_connection()
 
         # First try the FTS table
-        cursor = conn.execute("""
+        cursor = conn.execute(
+            """
             SELECT m.codename, i.name, m.measurement_type, m.units, m.timestamp, m.notes
             FROM measurements_fts f
             JOIN measurements m ON f.codename = m.codename
@@ -654,7 +675,9 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
             WHERE measurements_fts MATCH ?
             ORDER BY rank
             LIMIT ?
-        """, (query, limit))
+        """,
+            (query, limit),
+        )
 
         results = [
             {
@@ -663,21 +686,24 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
                 "measurement_type": row[2],
                 "units": row[3],
                 "timestamp": row[4],
-                "notes": row[5]
+                "notes": row[5],
             }
             for row in cursor.fetchall()
         ]
 
         # If no results from FTS, try direct instrument name matching
         if not results:
-            cursor = conn.execute("""
+            cursor = conn.execute(
+                """
                 SELECT m.codename, i.name, m.measurement_type, m.units, m.timestamp, m.notes
                 FROM measurements m
                 JOIN instruments i ON m.instrument_id = i.instrument_id
                 WHERE i.name LIKE ? OR m.measurement_type LIKE ?
                 ORDER BY m.timestamp DESC
                 LIMIT ?
-            """, (f"%{query}%", f"%{query}%", limit))
+            """,
+                (f"%{query}%", f"%{query}%", limit),
+            )
 
             results = [
                 {
@@ -686,7 +712,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
                     "measurement_type": row[2],
                     "units": row[3],
                     "timestamp": row[4],
-                    "notes": row[5]
+                    "notes": row[5],
                 }
                 for row in cursor.fetchall()
             ]

@@ -7,6 +7,7 @@ identical to the version already reviewed, only **one tiny improvement** was
 added: the internal `_data_rows` list is now pre-allocated for speed when the
 parameter grid is known in advance.
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -136,7 +137,9 @@ class MeasurementSession(contextlib.AbstractContextManager):
         return inst
 
     # ─── Parameters ────────────────────────────────────────────────────
-    def parameter(self, name: str, values: T_ParamIterable, /, *, unit: str | None = None, notes: str = "") -> None:
+    def parameter(
+        self, name: str, values: T_ParamIterable, /, *, unit: str | None = None, notes: str = ""
+    ) -> None:
         if name in self._parameters:
             raise ValueError(f"Parameter '{name}' already exists.")
         if callable(values) and not isinstance(values, list | tuple | np.ndarray):
@@ -201,7 +204,12 @@ class MeasurementSession(contextlib.AbstractContextManager):
         combinations = list(itertools.product(*value_lists))
 
         self._data_rows = [None] * len(combinations)  # pre-allocate with None for type safety
-        iterator = tqdm(enumerate(combinations), total=len(combinations), desc="Measurement sweep", disable=not show_progress)
+        iterator = tqdm(
+            enumerate(combinations),
+            total=len(combinations),
+            desc="Measurement sweep",
+            disable=not show_progress,
+        )
 
         for idx, combo in iterator:
             param_ctx = dict(zip(names, combo, strict=True))
@@ -217,7 +225,9 @@ class MeasurementSession(contextlib.AbstractContextManager):
                     kwargs["ctx"] = row
                 res = func(**kwargs)
                 if not isinstance(res, Mapping):
-                    raise TypeError(f"Measurement '{meas_name}' returned {type(res)}, expected Mapping.")
+                    raise TypeError(
+                        f"Measurement '{meas_name}' returned {type(res)}, expected Mapping."
+                    )
                 for key, val in res.items():
                     col = key if key not in row else f"{meas_name}.{key}"
                     row[col] = val
@@ -237,13 +247,9 @@ class MeasurementSession(contextlib.AbstractContextManager):
     ) -> Experiment:
         """Executes registered background tasks and acquisition loops concurrently."""
         if not self._meas_funcs:
-            raise RuntimeError(
-                "Parallel execution mode requires at least one @acquire function."
-            )
+            raise RuntimeError("Parallel execution mode requires at least one @acquire function.")
         if duration is None or duration <= 0:
-            raise ValueError(
-                "Parallel execution mode requires a positive 'duration' in seconds."
-            )
+            raise ValueError("Parallel execution mode requires a positive 'duration' in seconds.")
 
         self._data_rows = []
         running_threads = []
@@ -302,12 +308,18 @@ class MeasurementSession(contextlib.AbstractContextManager):
             row: dict[str, Any] = {"timestamp": time.time()}
             for meas_name, func in self._meas_funcs:
                 sig = inspect.signature(func)
-                kwargs = {alias: rec.instance for alias, rec in self._instruments.items() if alias in sig.parameters}
+                kwargs = {
+                    alias: rec.instance
+                    for alias, rec in self._instruments.items()
+                    if alias in sig.parameters
+                }
                 if "ctx" in sig.parameters:
                     kwargs["ctx"] = row
                 res = func(**kwargs)
                 if not isinstance(res, Mapping):
-                    raise TypeError(f"Measurement '{meas_name}' returned {type(res)}, expected Mapping.")
+                    raise TypeError(
+                        f"Measurement '{meas_name}' returned {type(res)}, expected Mapping."
+                    )
                 for key, val in res.items():
                     row[key] = val
             self._data_rows.append(row)
@@ -380,7 +392,9 @@ class MeasurementSession(contextlib.AbstractContextManager):
 
         df = self.data
         if df.is_empty():
-            raise ValueError("Session has no data yet. Call run() first or ensure measurements produced rows.")
+            raise ValueError(
+                "Session has no data yet. Call run() first or ensure measurements produced rows."
+            )
 
         spec_to_use = spec or (PlotSpec(**kwargs) if kwargs else PlotSpec())
         return plot_dataframe(df, spec_to_use)

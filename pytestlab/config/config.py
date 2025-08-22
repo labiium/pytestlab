@@ -6,6 +6,7 @@ from pydantic import BaseModel
 # The old Config class and ChannelsConfig are removed as Pydantic handles this.
 # Individual instrument configs will use List[SpecificChannelModel]
 
+
 # --- DUMMY Config class for mkdocstrings compatibility ---
 class Config(BaseModel):
     """
@@ -13,4 +14,5 @@ class Config(BaseModel):
     This is not used in runtime code, but allows mkdocstrings to resolve
     'pytestlab.config.Config' for API docs.
     """
+
     pass

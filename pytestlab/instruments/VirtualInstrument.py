@@ -73,7 +73,7 @@ class VirtualInstrument(Instrument[VirtualInstrumentConfig]):
     def check_error(self) -> tuple[int, str]:
         """Checks for a custom error."""
         response = self._query("ERROR:CHECK?")
-        code_str, msg_str = response.split(',', 1)
+        code_str, msg_str = response.split(",", 1)
         return int(code_str), msg_str.strip().strip('"')
 
     def fetch_waveform(self) -> np.ndarray:

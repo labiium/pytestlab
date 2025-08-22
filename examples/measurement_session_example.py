@@ -11,6 +11,7 @@ This example demonstrates the basic usage of MeasurementSession class:
 
 This example runs in simulation mode.
 """
+
 import time
 
 import numpy as np
@@ -22,8 +23,7 @@ def main():
     # Create a measurement session
     print("Creating a measurement session...")
     with MeasurementSession(
-        name="Voltage Sweep Test",
-        description="Testing voltage response of a simulated device"
+        name="Voltage Sweep Test", description="Testing voltage response of a simulated device"
     ) as session:
         print(f"Session created: {session.name}")
 
@@ -58,10 +58,7 @@ def main():
             psu.output(1, False)
 
             # Return a dictionary of measurements
-            return {
-                "measured_voltage": result.values.nominal_value,
-                "timestamp": time.time()
-            }
+            return {"measured_voltage": result.values.nominal_value, "timestamp": time.time()}
 
         # Run the measurement sweep
         print("\nStarting measurement sweep...")

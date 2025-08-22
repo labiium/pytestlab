@@ -18,7 +18,7 @@ def power_supply_example():
     # Load a power supply configuration
     psu = AutoInstrument.from_config(
         config_source="keysight/E36312A",  # Example PSU
-        debug_mode=True
+        debug_mode=True,
     )
 
     try:
@@ -57,7 +57,7 @@ def waveform_generator_example():
     # Load a waveform generator configuration
     awg = AutoInstrument.from_config(
         config_source="keysight/EDU33212A",  # Example AWG
-        debug_mode=True
+        debug_mode=True,
     )
 
     try:
@@ -69,9 +69,7 @@ def waveform_generator_example():
 
         # Different waveform types with chaining:
         awg.channel(2).setup_square(
-            frequency=500,
-            amplitude=1.0,
-            duty_cycle=25.0
+            frequency=500, amplitude=1.0, duty_cycle=25.0
         ).set_load_impedance(50).enable()
         print("✓ Channel 2: 500Hz square wave, 25% duty cycle, 50Ω load, enabled")
 
@@ -93,7 +91,7 @@ def oscilloscope_example():
     # Load an oscilloscope configuration
     scope = AutoInstrument.from_config(
         config_source="keysight/DSO1024A",  # Example scope
-        debug_mode=True
+        debug_mode=True,
     )
 
     try:
@@ -101,10 +99,10 @@ def oscilloscope_example():
 
         # Setup multiple channels with chaining:
         scope.channel(1).setup(
-            scale=0.5,          # 500mV/div
-            offset=0.0,         # No offset
-            coupling="DC",      # DC coupling
-            probe_attenuation=10  # 10x probe
+            scale=0.5,  # 500mV/div
+            offset=0.0,  # No offset
+            coupling="DC",  # DC coupling
+            probe_attenuation=10,  # 10x probe
         ).enable()
         print("✓ Channel 1: 500mV/div, DC coupled, 10x probe, enabled")
 
@@ -112,12 +110,7 @@ def oscilloscope_example():
         print("✓ Channel 2: 1V/div, AC coupled, enabled")
 
         # Setup trigger with chaining:
-        scope.trigger.setup_edge(
-            source="CH1",
-            level=0.0,
-            slope="POSITIVE",
-            coupling="DC"
-        )
+        scope.trigger.setup_edge(source="CH1", level=0.0, slope="POSITIVE", coupling="DC")
         print("✓ Trigger: Edge trigger on CH1, 0V level, positive slope")
 
         # Setup acquisition with chaining:

@@ -11,6 +11,7 @@ This example demonstrates the integration between:
 The example performs a transistor characterization using a bench configuration
 loaded from YAML, and executes a parameter sweep with the session.
 """
+
 import os
 import time
 from pathlib import Path
@@ -45,7 +46,9 @@ def main():
             session.parameter("V_base", np.linspace(0.6, 1.0, 5), unit="V", notes="Base voltage")
 
             # Collector voltage parameter - sweep from 0V to 5V in 10 steps
-            session.parameter("V_collector", np.linspace(0, 5, 10), unit="V", notes="Collector voltage")
+            session.parameter(
+                "V_collector", np.linspace(0, 5, 10), unit="V", notes="Collector voltage"
+            )
 
             # Define a measurement function using bench instruments
             @session.acquire
@@ -59,7 +62,7 @@ def main():
 
                 # Set up collector voltage on channel 2
                 psu.set_voltage(2, V_collector)
-                psu.set_current(2, 0.5)   # 500mA limit for collector
+                psu.set_current(2, 0.5)  # 500mA limit for collector
 
                 # Turn on outputs
                 psu.output(1, True)
@@ -80,7 +83,7 @@ def main():
                 return {
                     "I_collector": collector_current,
                     "V_ce": V_collector,  # Collector-emitter voltage
-                    "V_be": V_base,       # Base-emitter voltage
+                    "V_be": V_base,  # Base-emitter voltage
                 }
 
             # Run the measurement sweep

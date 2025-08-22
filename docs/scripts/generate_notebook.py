@@ -39,26 +39,26 @@ class NotebookGenerator:
             "title_prefix": "PyTestLab Tutorial:",
             "description": "Learn how to use PyTestLab effectively with this hands-on tutorial.",
             "tags": ["tutorial", "pytestlab", "measurement", "automation"],
-            "category": "educational"
+            "category": "educational",
         },
         "example": {
             "title_prefix": "PyTestLab Example:",
             "description": "Practical example demonstrating PyTestLab capabilities.",
             "tags": ["example", "pytestlab", "demo", "practical"],
-            "category": "demonstration"
+            "category": "demonstration",
         },
         "documentation": {
             "title_prefix": "PyTestLab Documentation:",
             "description": "Technical documentation and reference material.",
             "tags": ["documentation", "pytestlab", "reference", "technical"],
-            "category": "reference"
+            "category": "reference",
         },
         "guide": {
             "title_prefix": "PyTestLab Guide:",
             "description": "Step-by-step guide for specific PyTestLab workflows.",
             "tags": ["guide", "pytestlab", "workflow", "how-to"],
-            "category": "instructional"
-        }
+            "category": "instructional",
+        },
     }
 
     def __init__(self):
@@ -84,7 +84,7 @@ class NotebookGenerator:
             "kernelspec": {
                 "display_name": "Python 3 (PyTestLab)",
                 "language": "python",
-                "name": "python3"
+                "name": "python3",
             },
             "language_info": {
                 "codemirror_mode": {"name": "ipython", "version": 3},
@@ -93,7 +93,7 @@ class NotebookGenerator:
                 "name": "python",
                 "nbconvert_exporter": "python",
                 "pygments_lexer": "ipython3",
-                "version": self.python_version
+                "version": self.python_version,
             },
             "toc": {
                 "base_numbering": 1,
@@ -106,7 +106,7 @@ class NotebookGenerator:
                 "toc_cell": False,
                 "toc_position": {},
                 "toc_section_display": True,
-                "toc_window_display": False
+                "toc_window_display": False,
             },
             "pytestlab": {
                 "version": "latest",
@@ -116,11 +116,13 @@ class NotebookGenerator:
                 "created": datetime.now().isoformat(),
                 "author": author,
                 "license": "MIT",
-                "repository": "https://github.com/labiium/pytestlab"
-            }
+                "repository": "https://github.com/labiium/pytestlab",
+            },
         }
 
-    def create_title_cell(self, notebook_type: str, title: str, description: str | None = None) -> dict:
+    def create_title_cell(
+        self, notebook_type: str, title: str, description: str | None = None
+    ) -> dict:
         """
         Create a professional title cell with PyTestLab branding.
 
@@ -170,10 +172,8 @@ This notebook demonstrates PyTestLab's capabilities in a professional, reproduci
 
         return {
             "cell_type": "markdown",
-            "metadata": {
-                "tags": ["title", "header"]
-            },
-            "source": markdown_content.split('\n')
+            "metadata": {"tags": ["title", "header"]},
+            "source": markdown_content.split("\n"),
         }
 
     def create_setup_cell(self, imports: list[str] | None = None) -> dict:
@@ -214,7 +214,7 @@ This notebook demonstrates PyTestLab's capabilities in a professional, reproduci
             "",
             "print('🚀 PyTestLab environment initialized successfully!')",
             "print(f'📍 Working directory: {os.getcwd()}')",
-            "print(f'🐍 Python version: {sys.version.split()[0]}')"
+            "print(f'🐍 Python version: {sys.version.split()[0]}')",
         ]
 
         if imports:
@@ -223,12 +223,9 @@ This notebook demonstrates PyTestLab's capabilities in a professional, reproduci
         return {
             "cell_type": "code",
             "execution_count": None,
-            "metadata": {
-                "tags": ["setup", "imports"],
-                "collapse": False
-            },
+            "metadata": {"tags": ["setup", "imports"], "collapse": False},
             "outputs": [],
-            "source": standard_imports
+            "source": standard_imports,
         }
 
     def create_section_cell(self, section_number: int, title: str, description: str = "") -> dict:
@@ -252,14 +249,17 @@ This notebook demonstrates PyTestLab's capabilities in a professional, reproduci
 
         return {
             "cell_type": "markdown",
-            "metadata": {
-                "tags": ["section", f"section-{section_number}"]
-            },
-            "source": markdown_content.split('\n')
+            "metadata": {"tags": ["section", f"section-{section_number}"]},
+            "source": markdown_content.split("\n"),
         }
 
-    def create_code_cell(self, code: str | list[str], description: str = "",
-                        execution_count: int | None = None, outputs: list | None = None) -> dict:
+    def create_code_cell(
+        self,
+        code: str | list[str],
+        description: str = "",
+        execution_count: int | None = None,
+        outputs: list | None = None,
+    ) -> dict:
         """
         Create a code cell with optional description and outputs.
 
@@ -273,7 +273,7 @@ This notebook demonstrates PyTestLab's capabilities in a professional, reproduci
             Code cell dictionary
         """
         if isinstance(code, str):
-            code_lines = code.split('\n')
+            code_lines = code.split("\n")
         else:
             code_lines = code
 
@@ -283,15 +283,12 @@ This notebook demonstrates PyTestLab's capabilities in a professional, reproduci
         return {
             "cell_type": "code",
             "execution_count": execution_count,
-            "metadata": {
-                "tags": ["code"]
-            },
+            "metadata": {"tags": ["code"]},
             "outputs": outputs or [],
-            "source": code_lines
+            "source": code_lines,
         }
 
-    def create_markdown_cell(self, content: str | list[str],
-                           cell_type: str = "content") -> dict:
+    def create_markdown_cell(self, content: str | list[str], cell_type: str = "content") -> dict:
         """
         Create a markdown cell with content.
 
@@ -303,16 +300,14 @@ This notebook demonstrates PyTestLab's capabilities in a professional, reproduci
             Markdown cell dictionary
         """
         if isinstance(content, str):
-            content_lines = content.split('\n')
+            content_lines = content.split("\n")
         else:
             content_lines = content
 
         return {
             "cell_type": "markdown",
-            "metadata": {
-                "tags": ["markdown", cell_type]
-            },
-            "source": content_lines
+            "metadata": {"tags": ["markdown", cell_type]},
+            "source": content_lines,
         }
 
     def create_conclusion_cell(self, notebook_type: str) -> dict:
@@ -366,16 +361,19 @@ Congratulations! You've successfully completed this PyTestLab notebook.
 
         return {
             "cell_type": "markdown",
-            "metadata": {
-                "tags": ["conclusion", "footer"]
-            },
-            "source": markdown_content.split('\n')
+            "metadata": {"tags": ["conclusion", "footer"]},
+            "source": markdown_content.split("\n"),
         }
 
-    def generate_notebook(self, notebook_type: str, title: str, output_path: Path,
-                         sections: list[dict] | None = None,
-                         author: str = "LABIIUM",
-                         additional_imports: list[str] | None = None) -> dict:
+    def generate_notebook(
+        self,
+        notebook_type: str,
+        title: str,
+        output_path: Path,
+        sections: list[dict] | None = None,
+        author: str = "LABIIUM",
+        additional_imports: list[str] | None = None,
+    ) -> dict:
         """
         Generate a complete professional notebook.
 
@@ -401,53 +399,69 @@ Congratulations! You've successfully completed this PyTestLab notebook.
         # Add custom sections or default structure
         if sections:
             for i, section in enumerate(sections, 1):
-                cells.append(self.create_section_cell(
-                    i, section["title"], section.get("description", "")
-                ))
+                cells.append(
+                    self.create_section_cell(i, section["title"], section.get("description", ""))
+                )
 
                 if "content" in section:
                     if section["content"]["type"] == "code":
-                        cells.append(self.create_code_cell(
-                            section["content"]["source"],
-                            section["content"].get("description", "")
-                        ))
+                        cells.append(
+                            self.create_code_cell(
+                                section["content"]["source"],
+                                section["content"].get("description", ""),
+                            )
+                        )
                     elif section["content"]["type"] == "markdown":
-                        cells.append(self.create_markdown_cell(
-                            section["content"]["source"]
-                        ))
+                        cells.append(self.create_markdown_cell(section["content"]["source"]))
         else:
             # Default structure for tutorials
-            cells.append(self.create_section_cell(
-                1, "Basic Setup",
-                "Let's start with the fundamental PyTestLab setup and configuration."
-            ))
+            cells.append(
+                self.create_section_cell(
+                    1,
+                    "Basic Setup",
+                    "Let's start with the fundamental PyTestLab setup and configuration.",
+                )
+            )
 
-            cells.append(self.create_code_cell([
-                "# Connect to a simulated instrument for demonstration",
-                "instrument = AutoInstrument.from_config('generic/dmm', backend='sim')",
-                "",
-                "# Verify connection",
-                "print(f'Connected to: {instrument.id()}')",
-                "print(f'Instrument type: {type(instrument).__name__}')"
-            ], "Connect to a simulated instrument"))
+            cells.append(
+                self.create_code_cell(
+                    [
+                        "# Connect to a simulated instrument for demonstration",
+                        "instrument = AutoInstrument.from_config('generic/dmm', backend='sim')",
+                        "",
+                        "# Verify connection",
+                        "print(f'Connected to: {instrument.id()}')",
+                        "print(f'Instrument type: {type(instrument).__name__}')",
+                    ],
+                    "Connect to a simulated instrument",
+                )
+            )
 
-            cells.append(self.create_section_cell(
-                2, "Basic Operations",
-                "Explore basic instrument operations and measurement capabilities."
-            ))
+            cells.append(
+                self.create_section_cell(
+                    2,
+                    "Basic Operations",
+                    "Explore basic instrument operations and measurement capabilities.",
+                )
+            )
 
-            cells.append(self.create_code_cell([
-                "# Perform a basic measurement",
-                "try:",
-                "    measurement = instrument.measure()",
-                "    print(f'Measurement result: {measurement}')",
-                "except Exception as e:",
-                "    print(f'Measurement error: {e}')",
-                "",
-                "# Clean up",
-                "instrument.close()",
-                "print('✅ Instrument disconnected successfully')"
-            ], "Perform basic measurement and cleanup"))
+            cells.append(
+                self.create_code_cell(
+                    [
+                        "# Perform a basic measurement",
+                        "try:",
+                        "    measurement = instrument.measure()",
+                        "    print(f'Measurement result: {measurement}')",
+                        "except Exception as e:",
+                        "    print(f'Measurement error: {e}')",
+                        "",
+                        "# Clean up",
+                        "instrument.close()",
+                        "print('✅ Instrument disconnected successfully')",
+                    ],
+                    "Perform basic measurement and cleanup",
+                )
+            )
 
         # Conclusion
         cells.append(self.create_conclusion_cell(notebook_type))
@@ -457,7 +471,7 @@ Congratulations! You've successfully completed this PyTestLab notebook.
             "cells": cells,
             "metadata": self.create_metadata(notebook_type, title, author),
             "nbformat": 4,
-            "nbformat_minor": 5
+            "nbformat_minor": 5,
         }
 
         return notebook
@@ -472,7 +486,7 @@ Congratulations! You've successfully completed this PyTestLab notebook.
         """
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             json.dump(notebook, f, indent=2, ensure_ascii=False)
 
         print(f"✅ Notebook saved to: {output_path}")
@@ -489,44 +503,28 @@ def main():
 Examples:
   python docs/scripts/generate_notebook.py --type tutorial --title "Getting Started" --output en/tutorials/getting_started.ipynb
   python docs/scripts/generate_notebook.py --type example --title "DMM Measurements" --output en/tutorials/dmm_example.ipynb --author "Your Name"
-        """
+        """,
     )
 
     parser.add_argument(
         "--type",
         choices=list(NotebookGenerator.TEMPLATES.keys()),
         default="tutorial",
-        help="Type of notebook to generate"
+        help="Type of notebook to generate",
     )
 
-    parser.add_argument(
-        "--title",
-        required=True,
-        help="Title of the notebook"
-    )
+    parser.add_argument("--title", required=True, help="Title of the notebook")
 
     parser.add_argument(
-        "--output",
-        type=Path,
-        required=True,
-        help="Output path for the notebook file"
+        "--output", type=Path, required=True, help="Output path for the notebook file"
     )
 
-    parser.add_argument(
-        "--author",
-        default="LABIIUM",
-        help="Author name for the notebook metadata"
-    )
+    parser.add_argument("--author", default="LABIIUM", help="Author name for the notebook metadata")
+
+    parser.add_argument("--description", help="Custom description for the notebook")
 
     parser.add_argument(
-        "--description",
-        help="Custom description for the notebook"
-    )
-
-    parser.add_argument(
-        "--imports",
-        nargs="*",
-        help="Additional import statements to include in setup cell"
+        "--imports", nargs="*", help="Additional import statements to include in setup cell"
     )
 
     args = parser.parse_args()
@@ -542,7 +540,7 @@ Examples:
             title=args.title,
             output_path=args.output,
             author=args.author,
-            additional_imports=args.imports
+            additional_imports=args.imports,
         )
 
         generator.save_notebook(notebook, args.output)

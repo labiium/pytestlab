@@ -143,15 +143,15 @@ Customize the appearance using CSS custom properties:
   /* Adjust primary colors */
   --lab-violet: #6366f1;
   --lab-aqua: #06b6d4;
-  
+
   /* Modify spacing */
   --spacing-md: 1.25rem;
   --spacing-lg: 2rem;
-  
+
   /* Update border radius */
   --border-radius-md: 12px;
   --border-radius-lg: 20px;
-  
+
   /* Code readability improvements */
   --code-bg: #f8fafc;
   --code-text: #1e293b;
@@ -195,8 +195,8 @@ Create custom cell styling for specific content:
 /* Research note cells */
 .cell[data-type="research-note"] {
   border-left: 4px solid var(--status-warning);
-  background: linear-gradient(135deg, 
-    rgba(255, 176, 46, 0.05) 0%, 
+  background: linear-gradient(135deg,
+    rgba(255, 176, 46, 0.05) 0%,
     rgba(255, 176, 46, 0.02) 100%);
 }
 
@@ -385,7 +385,7 @@ print(f"✅ Oscilloscope configured: {osc.id()}")
 /* Professional hover states */
 .nb-cell:hover {
   transform: translateY(-2px);
-  box-shadow: 
+  box-shadow:
     0 8px 40px rgba(83, 51, 237, 0.12),
     0 4px 20px rgba(0, 0, 0, 0.03);
 }

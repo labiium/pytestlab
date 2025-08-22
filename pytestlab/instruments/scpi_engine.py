@@ -122,8 +122,7 @@ class _Validator:
             except KeyError:
                 valid = ", ".join(self.enum_map.keys())
                 raise ValidationError(
-                    f"Parameter '{name}'={value!r} not in allowed set "
-                    f"{{{valid}}}."
+                    f"Parameter '{name}'={value!r} not in allowed set " f"{{{valid}}}."
                 ) from None
 
         raise AssertionError(f"Unknown validator kind '{self.kind}'")
@@ -295,9 +294,7 @@ class SCPIEngine:
         # -------- commands / queries ---------------------------------- #
         commands_block = scpi_section.get("commands", {}) or {}
         queries_block = scpi_section.get("queries", {}) or {}
-        if not isinstance(commands_block, Mapping) or not isinstance(
-            queries_block, Mapping
-        ):
+        if not isinstance(commands_block, Mapping) or not isinstance(queries_block, Mapping):
             raise SCPIEngineError("'commands'/'queries' must map to objects")
 
         self._specs: dict[str, _CommandSpec] = {}
@@ -329,9 +326,7 @@ class SCPIEngine:
 
         missing = self._find_missing_placeholders(spec.sequence, merged)
         if missing:
-            raise ValidationError(
-                f"Missing parameter(s) {', '.join(missing)} for '{cmd_name}'."
-            )
+            raise ValidationError(f"Missing parameter(s) {', '.join(missing)} for '{cmd_name}'.")
 
         # run validation
         for pname, validator in spec.validators.items():
@@ -363,15 +358,12 @@ class SCPIEngine:
         parser = _PARSER_REGISTRY.get(spec.response.type)
         if parser is None:
             raise ParseError(
-                f"No parser registered for type '{spec.response.type}' "
-                f"(command '{cmd_name}')."
+                f"No parser registered for type '{spec.response.type}' " f"(command '{cmd_name}')."
             )
         try:
             return parser(raw_response, spec.response)
         except Exception as exc:
-            raise ParseError(
-                f"Failed to parse response for '{cmd_name}': {exc}"
-            ) from exc
+            raise ParseError(f"Failed to parse response for '{cmd_name}': {exc}") from exc
 
     # ------------------------------------------------------------------ #
     # Private helpers
@@ -409,9 +401,7 @@ class SCPIEngine:
             elif isinstance(seq_raw, list) and all(isinstance(s, str) for s in seq_raw):
                 sequence = list(seq_raw)
             else:
-                raise SCPIEngineError(
-                    f"Command '{name}' '{key}' must be string or list of strings"
-                )
+                raise SCPIEngineError(f"Command '{name}' '{key}' must be string or list of strings")
         else:
             raise SCPIEngineError(f"Command '{name}' must be string or mapping")
 

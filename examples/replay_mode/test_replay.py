@@ -50,7 +50,7 @@ def test_replay_backend():
 
     except Exception as e:
         print(f"✗ Error in successful replay test: {e}")
-        raise AssertionError(f"Error in successful replay test: {e}")
+        raise AssertionError(f"Error in successful replay test: {e}") from e
 
     # Test mismatch detection
     try:
@@ -64,7 +64,9 @@ def test_replay_backend():
         try:
             backend2.query("WRONG:CMD?")
             print("✗ Mismatch detection failed - should have raised ReplayMismatchError")
-            raise AssertionError("Mismatch detection failed - should have raised ReplayMismatchError")
+            raise AssertionError(
+                "Mismatch detection failed - should have raised ReplayMismatchError"
+            )
         except ReplayMismatchError as e:
             print(f"✓ Correctly caught mismatch: {e}")
 
@@ -72,7 +74,7 @@ def test_replay_backend():
 
     except Exception as e:
         print(f"✗ Error in mismatch test: {e}")
-        raise AssertionError(f"Error in mismatch test: {e}")
+        raise AssertionError(f"Error in mismatch test: {e}") from e
 
 
 def test_session_files():
@@ -84,17 +86,27 @@ def test_session_files():
         "psu": {
             "profile": "test/psu",
             "log": [
-                {"type": "query", "command": "*IDN?", "response": "PSU,Model,456,2.0", "timestamp": 0.1},
+                {
+                    "type": "query",
+                    "command": "*IDN?",
+                    "response": "PSU,Model,456,2.0",
+                    "timestamp": 0.1,
+                },
                 {"type": "write", "command": "VOLT 3.3", "timestamp": 0.2},
-            ]
+            ],
         },
         "dmm": {
             "profile": "test/dmm",
             "log": [
-                {"type": "query", "command": "*IDN?", "response": "DMM,Model,789,1.5", "timestamp": 0.1},
+                {
+                    "type": "query",
+                    "command": "*IDN?",
+                    "response": "DMM,Model,789,1.5",
+                    "timestamp": 0.1,
+                },
                 {"type": "query", "command": "READ?", "response": "3.301", "timestamp": 0.3},
-            ]
-        }
+            ],
+        },
     }
 
     # Write to temporary file
@@ -125,13 +137,14 @@ def test_session_files():
 
     except Exception as e:
         print(f"✗ Session file test failed: {e}")
-        raise AssertionError(f"Session file test failed: {e}")
+        raise AssertionError(f"Session file test failed: {e}") from e
     finally:
         if session_file.exists():
             session_file.unlink()
 
 
 if __name__ == "__main__":
+
     def main():
         test_replay_backend()
         test_session_files()
@@ -139,4 +152,5 @@ if __name__ == "__main__":
         return 0
 
     import sys
+
     sys.exit(main())

@@ -14,7 +14,7 @@ The replay system consists of two main backends:
 ### 🎯 Reproducible Measurements
 Execute the exact same SCPI command sequences every time, ensuring consistent results across different runs and environments.
 
-### 🛡️ Measurement Integrity  
+### 🛡️ Measurement Integrity
 Scripts cannot deviate from validated sequences. Any attempt to execute different commands triggers immediate error detection.
 
 ### 🔬 Offline Analysis
@@ -30,7 +30,7 @@ Validate that measurement procedures remain unchanged over time. Catch unintende
 2. All commands, responses, and timestamps are logged to a structured YAML file
 3. Your script runs normally against real instruments while being recorded
 
-### Replay Phase  
+### Replay Phase
 1. The `ReplayBackend` loads the recorded session file
 2. Your script runs against the replay backend instead of real instruments
 3. Each command is validated against the recorded sequence
@@ -62,42 +62,42 @@ from pytestlab.instruments.backends import ReplayBackend, SessionRecordingBacken
 def record_session():
     # Create real backend
     real_backend = VisaBackend("TCPIP0::192.168.1.100::inst0::INSTR")
-    
+
     # Wrap with recording backend
     recording_backend = SessionRecordingBackend(real_backend, "session.yaml")
-    
+
     # Create instrument with recording backend
     psu = AutoInstrument.from_config(
         "keysight/EDU36311A",
         backend_override=recording_backend
     )
-    
+
     psu.connect_backend()
-    
+
     # Perform measurements (will be recorded)
     psu.set_voltage(1, 5.0)
     voltage = psu.read_voltage(1)
     print(f"Recorded voltage: {voltage}")
-    
+
     psu.close()
 
 def replay_session():
     # Create replay backend
     replay_backend = ReplayBackend("session.yaml")
-    
+
     # Create instrument with replay backend
     psu = AutoInstrument.from_config(
         "keysight/EDU36311A",
         backend_override=replay_backend
     )
-    
+
     psu.connect_backend()
-    
+
     # This will replay the exact recorded sequence
     psu.set_voltage(1, 5.0)  # Must match recorded command
     voltage = psu.read_voltage(1)  # Returns recorded response
     print(f"Replayed voltage: {voltage}")
-    
+
     psu.close()
 
 # Record first, then replay
@@ -111,7 +111,7 @@ Session files are stored in YAML format with a clear structure:
 
 ```yaml
 instrument_key:
-  profile: profile/name  
+  profile: profile/name
   log:
   - type: query|write
     command: "SCPI command"
@@ -174,7 +174,7 @@ psu.set_current(1, 0.1)  # Records: "CURR 0.1, (@1)"
 psu.set_voltage(1, 5.0)  # ✓ Matches recorded sequence
 psu.set_current(1, 0.1)  # ✓ Matches recorded sequence
 
-# During replay - this fails  
+# During replay - this fails
 psu.set_voltage(1, 3.0)  # ✗ ReplayMismatchError!
 ```
 
@@ -205,7 +205,7 @@ instruments:
     profile: "keysight/EDU36311A"
     address: "TCPIP0::192.168.1.100::inst0::INSTR"
   oscilloscope:
-    profile: "keysight/DSOX1204G" 
+    profile: "keysight/DSOX1204G"
     address: "TCPIP0::192.168.1.101::inst0::INSTR"
   dmm:
     profile: "keysight/34470A"
@@ -237,7 +237,7 @@ for entry in session["psu"]["log"]:
 The replay system works with all PyTestLab backends:
 
 - **VISA Backend** - Traditional SCPI over VISA
-- **LAMB Backend** - Network-based instrument control  
+- **LAMB Backend** - Network-based instrument control
 - **Simulation Backend** - Can record simulation results for testing
 - **Custom Backends** - Any `InstrumentIO` implementation
 
@@ -253,10 +253,10 @@ def measurement_with_bench():
         psu_voltage = bench.psu.read_voltage(1)
         osc_measurement = bench.oscilloscope.measure_vpp(1)
         dmm_reading = bench.dmm.measure_voltage_dc()
-        
+
         return {
             'psu': psu_voltage,
-            'osc': osc_measurement, 
+            'osc': osc_measurement,
             'dmm': dmm_reading
         }
 ```
@@ -301,13 +301,13 @@ except ReplayMismatchError as e:
 
 ### Common Issues
 
-**Problem**: `ReplayMismatchError` on first command  
+**Problem**: `ReplayMismatchError` on first command
 **Solution**: Ensure you're using the same instrument profile during replay as during recording.
 
-**Problem**: Session file not found  
+**Problem**: Session file not found
 **Solution**: Check file paths and ensure session files are in the expected location.
 
-**Problem**: Unexpected command sequence  
+**Problem**: Unexpected command sequence
 **Solution**: Review the session file to understand the recorded sequence and ensure your script matches exactly.
 
 ### Debugging Tips
@@ -330,7 +330,7 @@ diff -u expected_session.yaml actual_session.yaml
 Complete working examples are available in the `examples/replay_mode/` directory:
 
 - `basic_recording.py` - Simple PSU recording example
-- `multi_instrument_session.py` - Complex measurement with multiple instruments  
+- `multi_instrument_session.py` - Complex measurement with multiple instruments
 - `replay_validation.py` - Demonstration of error detection
 - `cli_workflow_demo.sh` - Complete CLI workflow example
 
@@ -339,5 +339,5 @@ Complete working examples are available in the `examples/replay_mode/` directory
 For detailed API documentation, see:
 
 - [`ReplayBackend`](../api/backends.md#replaybackend)
-- [`SessionRecordingBackend`](../api/backends.md#sessionrecordingbackend) 
+- [`SessionRecordingBackend`](../api/backends.md#sessionrecordingbackend)
 - [`ReplayMismatchError`](../api/errors.md#replaymismatcherror)

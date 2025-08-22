@@ -37,7 +37,7 @@ This page lists available instrument profiles.
             # Extract information (handle potential missing keys gracefully)
             # The top-level key is often the model or a unique identifier
             # For profiles like keysight/E36313A.yaml, the data is nested under a key like 'E36313A'
-            
+
             # Try to find the main data block if it's nested
             main_key = None
             if len(profile_data) == 1 and isinstance(list(profile_data.values())[0], dict):
@@ -47,18 +47,20 @@ This page lists available instrument profiles.
                 # Assume flat structure or try to find common keys at root
                 data_to_extract_from = profile_data
 
-            manufacturer = data_to_extract_from.get('manufacturer', 'N/A')
-            model = data_to_extract_from.get('model', profile_file.stem)  # Fallback to filename stem
-            device_type = data_to_extract_from.get('device_type', 'N/A')
-            code_owners = data_to_extract_from.get('code_owners', ['N/A'])
-            last_updated = data_to_extract_from.get('last_updated', 'N/A')
+            manufacturer = data_to_extract_from.get("manufacturer", "N/A")
+            model = data_to_extract_from.get(
+                "model", profile_file.stem
+            )  # Fallback to filename stem
+            device_type = data_to_extract_from.get("device_type", "N/A")
+            code_owners = data_to_extract_from.get("code_owners", ["N/A"])
+            last_updated = data_to_extract_from.get("last_updated", "N/A")
 
             # Create a relative path to the profile from the docs directory
             # gallery.md is in docs/profiles/
             # profile_file is like /path/to/project/pytestlab/profiles/keysight/E36313A.yaml
             # We want ../../pytestlab/profiles/keysight/E36313A.yaml
             relative_profile_path = Path("../../") / profile_file.relative_to(PROJECT_ROOT)
-            
+
             snippet = f"""### {manufacturer} {model}
 
 - **Device Type:** `{device_type}`

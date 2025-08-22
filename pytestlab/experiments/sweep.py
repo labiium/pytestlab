@@ -18,12 +18,13 @@ class Sweep:
     This is not used in runtime code, but allows mkdocstrings to resolve
     'pytestlab.experiments.Sweep' for API docs.
     """
+
     pass
 
 
 # Type variables for better typing
-T = TypeVar('T')
-R = TypeVar('R')
+T = TypeVar("T")
+R = TypeVar("R")
 
 # ==========================================
 # Helper Functions (Moved to Top Level)
@@ -42,10 +43,12 @@ class ParameterSpace:
     including parameter ranges, constraints, and integration with MeasurementSession.
     """
 
-    def __init__(self,
-                 ranges: list[tuple[float, float]] | str | dict[str, tuple[float, float]] = "auto",
-                 names: list[str] | None = None,
-                 constraint: Callable[[dict[str, float]], bool] | None = None):
+    def __init__(
+        self,
+        ranges: list[tuple[float, float]] | str | dict[str, tuple[float, float]] = "auto",
+        names: list[str] | None = None,
+        constraint: Callable[[dict[str, float]], bool] | None = None,
+    ):
         """
         Initialize a parameter space.
 
@@ -73,7 +76,9 @@ class ParameterSpace:
             self.ranges = [ranges[name] for name in self.names]
 
     @classmethod
-    def from_session(cls, session: MeasurementSession, constraint: Callable | None = None) -> ParameterSpace:
+    def from_session(
+        cls, session: MeasurementSession, constraint: Callable | None = None
+    ) -> ParameterSpace:
         """
         Create a ParameterSpace from a MeasurementSession.
 
@@ -164,19 +169,22 @@ class ParameterSpace:
             # Apply constraint if any
             if self.constraint and not self.constraint(param_dict):
                 # Return a default value for invalid combinations
-                return float('nan')
+                return float("nan")
 
             # Call the original function with named parameters
             return func(**param_dict)
 
         return wrapped_func
 
+
 # ==========================================
 # Monte Carlo Sweep
 # ==========================================
 
 
-def _monte_carlo_sweep_impl(f: Callable[..., Any], param_ranges: list[tuple[float, float]], n_samples_list: list[int]) -> list[tuple[list[float], Any]]:
+def _monte_carlo_sweep_impl(
+    f: Callable[..., Any], param_ranges: list[tuple[float, float]], n_samples_list: list[int]
+) -> list[tuple[list[float], Any]]:
     """
     Perform a Monte Carlo sweep by randomly sampling the parameter space.
 
@@ -189,7 +197,9 @@ def _monte_carlo_sweep_impl(f: Callable[..., Any], param_ranges: list[tuple[floa
         List[Tuple[List[float], Any]]: Parameter combinations and corresponding function outputs.
     """
     if len(param_ranges) != len(n_samples_list):
-        raise ValueError("Each parameter range should have a corresponding number of samples in n_samples_list.")
+        raise ValueError(
+            "Each parameter range should have a corresponding number of samples in n_samples_list."
+        )
 
     samples: list[tuple[list[float], Any]] = []
 
@@ -203,7 +213,9 @@ def _monte_carlo_sweep_impl(f: Callable[..., Any], param_ranges: list[tuple[floa
     if not param_samples_list:
         return []  # Or handle as an error if appropriate
 
-    param_combinations: np.ndarray = np.array(np.meshgrid(*param_samples_list)).T.reshape(-1, len(param_ranges))
+    param_combinations: np.ndarray = np.array(np.meshgrid(*param_samples_list)).T.reshape(
+        -1, len(param_ranges)
+    )
 
     # Evaluate the function for each parameter combination
     for params_np in param_combinations:
@@ -224,7 +236,10 @@ def _monte_carlo_sweep_impl(f: Callable[..., Any], param_ranges: list[tuple[floa
 # Grid Sweep
 # ==========================================
 
-def _grid_sweep_impl(f: Callable[..., Any], param_ranges: list[tuple[float, float]], q_n: int | list[int]) -> list[tuple[list[float], Any]]:
+
+def _grid_sweep_impl(
+    f: Callable[..., Any], param_ranges: list[tuple[float, float]], q_n: int | list[int]
+) -> list[tuple[list[float], Any]]:
     """
     Perform a simple grid sweep over the parameter space.
     Args:
@@ -239,16 +254,25 @@ def _grid_sweep_impl(f: Callable[..., Any], param_ranges: list[tuple[float, floa
     # Ensure q_n is a list of integers, one per parameter
     if isinstance(q_n, int):
         q_n_list = [q_n] * num_params
-    elif isinstance(q_n, list) and len(q_n) == num_params and all(isinstance(item, int) for item in q_n):
+    elif (
+        isinstance(q_n, list)
+        and len(q_n) == num_params
+        and all(isinstance(item, int) for item in q_n)
+    ):
         q_n_list = q_n
     else:
-        raise ValueError("q_n must be an integer or a list of integers with length equal to the number of parameters.")
+        raise ValueError(
+            "q_n must be an integer or a list of integers with length equal to the number of parameters."
+        )
 
-    grids: list[np.ndarray] = [np.linspace(min_val, max_val, q_n_list[i]) for i, (min_val, max_val) in enumerate(param_ranges)]
+    grids: list[np.ndarray] = [
+        np.linspace(min_val, max_val, q_n_list[i])
+        for i, (min_val, max_val) in enumerate(param_ranges)
+    ]
     if not grids:  # Handle empty param_ranges
         return []
 
-    param_mesh: list[np.ndarray] = np.meshgrid(*grids, indexing='ij')
+    param_mesh: list[np.ndarray] = np.meshgrid(*grids, indexing="ij")
     params_list_np: np.ndarray = np.array([p.flatten() for p in param_mesh]).T
 
     results: list[tuple[list[float], Any]] = []
@@ -264,7 +288,13 @@ def _grid_sweep_impl(f: Callable[..., Any], param_ranges: list[tuple[float, floa
 # Gradient-Weighted Adaptive Sampling
 # ==========================================
 
-def _gwass_impl(f: Callable[..., Any], param_ranges: list[tuple[float, float]], budget: int, initial_percentage: float = 0.1) -> list[tuple[list[float], Any]]:
+
+def _gwass_impl(
+    f: Callable[..., Any],
+    param_ranges: list[tuple[float, float]],
+    budget: int,
+    initial_percentage: float = 0.1,
+) -> list[tuple[list[float], Any]]:
     """
     Gradient-weighted adaptive stochastic sampling for function evaluation.
 
@@ -286,17 +316,21 @@ def _gwass_impl(f: Callable[..., Any], param_ranges: list[tuple[float, float]], 
 
     n_initial = max(int(initial_percentage * budget), num_params + 1)
 
-    def compute_n_points_per_dim_local(n_init: int, n_params: int) -> int:  # Renamed to avoid conflict
+    def compute_n_points_per_dim_local(
+        n_init: int, n_params: int
+    ) -> int:  # Renamed to avoid conflict
         n_points = max(2, int(n_init ** (1 / n_params)))
-        while n_points ** n_params > n_init and n_points > 2:
+        while n_points**n_params > n_init and n_points > 2:
             n_points -= 1
         return n_points
 
     n_points_per_dim_val = compute_n_points_per_dim_local(n_initial, num_params)
     # total_initial_points = n_points_per_dim_val ** num_params # Unused
 
-    grids_list: list[np.ndarray] = [np.linspace(r[0], r[1], n_points_per_dim_val) for r in param_ranges]
-    param_mesh_gwass: list[np.ndarray] = np.meshgrid(*grids_list, indexing='ij')  # Renamed
+    grids_list: list[np.ndarray] = [
+        np.linspace(r[0], r[1], n_points_per_dim_val) for r in param_ranges
+    ]
+    param_mesh_gwass: list[np.ndarray] = np.meshgrid(*grids_list, indexing="ij")  # Renamed
     initial_params_np: np.ndarray = np.array([p.flatten() for p in param_mesh_gwass]).T  # Renamed
 
     for params_row_np in initial_params_np:
@@ -306,8 +340,12 @@ def _gwass_impl(f: Callable[..., Any], param_ranges: list[tuple[float, float]], 
             total_evaluations += 1
 
     shape_list: list[int] = [len(g) for g in grids_list]  # Renamed
-    values_np: np.ndarray = np.array([evaluated_points[tuple(p)] for p in initial_params_np]).reshape(*shape_list)  # Renamed
-    spacing_list: list[float] = [g[1] - g[0] if len(g) > 1 else 1.0 for g in grids_list]  # Renamed, ensure float
+    values_np: np.ndarray = np.array(
+        [evaluated_points[tuple(p)] for p in initial_params_np]
+    ).reshape(*shape_list)  # Renamed
+    spacing_list: list[float] = [
+        g[1] - g[0] if len(g) > 1 else 1.0 for g in grids_list
+    ]  # Renamed, ensure float
 
     gradients_list: np.ndarray | list[np.ndarray]  # Renamed
     if num_params == 1:  # np.gradient returns a single array if only one variable
@@ -323,10 +361,14 @@ def _gwass_impl(f: Callable[..., Any], param_ranges: list[tuple[float, float]], 
         grad_magnitude_np = np.sqrt(sum([g**2 for g in gradients_list]))  # type: ignore
 
     cell_shape_list: list[int] = [s - 1 for s in shape_list]  # Renamed
-    if any(s < 0 for s in cell_shape_list):  # Check for invalid cell shapes (e.g. if n_points_per_dim_val was 1)
+    if any(
+        s < 0 for s in cell_shape_list
+    ):  # Check for invalid cell shapes (e.g. if n_points_per_dim_val was 1)
         # This case means no cells can be formed, likely due to too few initial points.
         # Fallback to random sampling for remaining evaluations.
-        results_list: list[tuple[list[float], Any]] = [(list(k), v) for k, v in evaluated_points.items()]
+        results_list: list[tuple[list[float], Any]] = [
+            (list(k), v) for k, v in evaluated_points.items()
+        ]
         while len(results_list) < budget:
             params_rand = [np.random.uniform(r[0], r[1]) for r in param_ranges]
             key_rand = tuple(params_rand)
@@ -342,7 +384,9 @@ def _gwass_impl(f: Callable[..., Any], param_ranges: list[tuple[float, float]], 
         corner_indices_nd: list[tuple[int, ...]] = list(np.ndindex(*([2] * num_params)))  # Renamed
         corner_gradients_vals: list[float] = []  # Renamed
         for corner_tuple in corner_indices_nd:  # Renamed
-            corner_idx_tuple: tuple[int, ...] = tuple(idx_tuple[d] + corner_tuple[d] for d in range(num_params))  # Renamed
+            corner_idx_tuple: tuple[int, ...] = tuple(
+                idx_tuple[d] + corner_tuple[d] for d in range(num_params)
+            )  # Renamed
             corner_grad_val: float = grad_magnitude_np[corner_idx_tuple]  # Renamed
             corner_gradients_vals.append(corner_grad_val)
         cell_grad_val: float = np.mean(corner_gradients_vals)  # Renamed
@@ -354,9 +398,9 @@ def _gwass_impl(f: Callable[..., Any], param_ranges: list[tuple[float, float]], 
     cell_probabilities_np: np.ndarray  # Renamed
     if total_gradient_val == 0 or len(cell_gradients_np) == 0:
         if len(cell_indices_list) > 0:  # Check if there are cells to assign probability to
-             cell_probabilities_np = np.ones(len(cell_indices_list)) / len(cell_indices_list)
+            cell_probabilities_np = np.ones(len(cell_indices_list)) / len(cell_indices_list)
         else:  # No cells, no probabilities to assign (e.g. if n_points_per_dim_val was 1)
-             cell_probabilities_np = np.array([])
+            cell_probabilities_np = np.array([])
     else:
         cell_probabilities_np = cell_gradients_np / total_gradient_val
 
@@ -368,7 +412,9 @@ def _gwass_impl(f: Callable[..., Any], param_ranges: list[tuple[float, float]], 
     else:
         allocations_np = np.array([])
 
-    for alloc_val, idx_tuple_alloc in zip(allocations_np, cell_indices_list, strict=False):  # Renamed
+    for alloc_val, idx_tuple_alloc in zip(
+        allocations_np, cell_indices_list, strict=False
+    ):  # Renamed
         if alloc_val > 0:
             cell_ranges_list: list[tuple[float, float]] = []  # Renamed
             for d_idx in range(num_params):  # Renamed
@@ -376,7 +422,9 @@ def _gwass_impl(f: Callable[..., Any], param_ranges: list[tuple[float, float]], 
                 max_val_cell = grids_list[d_idx][idx_tuple_alloc[d_idx] + 1]  # Renamed
                 cell_ranges_list.append((min_val_cell, max_val_cell))
             for _ in range(int(alloc_val)):  # Ensure alloc_val is int for range
-                params_alloc: list[float] = [np.random.uniform(low, high) for (low, high) in cell_ranges_list]  # Renamed
+                params_alloc: list[float] = [
+                    np.random.uniform(low, high) for (low, high) in cell_ranges_list
+                ]  # Renamed
                 key_alloc: tuple[float, ...] = tuple(params_alloc)  # Renamed
                 if key_alloc not in evaluated_points:
                     evaluated_points[key_alloc] = f(*params_alloc)
@@ -386,7 +434,9 @@ def _gwass_impl(f: Callable[..., Any], param_ranges: list[tuple[float, float]], 
             if total_evaluations >= budget:
                 break
 
-    results_final: list[tuple[list[float], Any]] = [(list(k), v) for k, v in evaluated_points.items()]  # Renamed
+    results_final: list[tuple[list[float], Any]] = [
+        (list(k), v) for k, v in evaluated_points.items()
+    ]  # Renamed
 
     if len(results_final) < budget:
         # Add more samples randomly if q_n not reached
@@ -416,7 +466,15 @@ gwass_impl = _gwass_impl
 # New decorator-based API
 # ==========================================
 
-def grid_sweep(param_space: ParameterSpace | list[tuple[float, float]] | dict[str, tuple[float, float]] | str | None = None, points: int | list[int] = 10) -> Callable:
+
+def grid_sweep(
+    param_space: ParameterSpace
+    | list[tuple[float, float]]
+    | dict[str, tuple[float, float]]
+    | str
+    | None = None,
+    points: int | list[int] = 10,
+) -> Callable:
     """
     Apply a grid sweep to a measurement function.
 
@@ -469,7 +527,7 @@ def grid_sweep(param_space: ParameterSpace | list[tuple[float, float]] | dict[st
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             # Handle session as first argument
-            if args and hasattr(args[0], '_parameters') and hasattr(args[0], 'acquire'):
+            if args and hasattr(args[0], "_parameters") and hasattr(args[0], "acquire"):
                 session = args[0]
                 local_space = ParameterSpace.from_session(session, param_space.constraint)
 
@@ -497,11 +555,20 @@ def grid_sweep(param_space: ParameterSpace | list[tuple[float, float]] | dict[st
 
                 # Run the original grid_sweep function
                 return grid_sweep_impl(wrapped_func, ranges, points)
+
         return wrapper
+
     return decorator
 
 
-def monte_carlo_sweep(param_space: ParameterSpace | list[tuple[float, float]] | dict[str, tuple[float, float]] | str | None = None, samples: int | list[int] = 50) -> Callable:
+def monte_carlo_sweep(
+    param_space: ParameterSpace
+    | list[tuple[float, float]]
+    | dict[str, tuple[float, float]]
+    | str
+    | None = None,
+    samples: int | list[int] = 50,
+) -> Callable:
     """
     Apply a Monte Carlo sweep to a measurement function.
 
@@ -547,7 +614,7 @@ def monte_carlo_sweep(param_space: ParameterSpace | list[tuple[float, float]] | 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             # Handle session as first argument
-            if args and hasattr(args[0], '_parameters') and hasattr(args[0], 'acquire'):
+            if args and hasattr(args[0], "_parameters") and hasattr(args[0], "acquire"):
                 session = args[0]
                 local_space = ParameterSpace.from_session(session, param_space.constraint)
 
@@ -563,7 +630,7 @@ def monte_carlo_sweep(param_space: ParameterSpace | list[tuple[float, float]] | 
                 samples_list = samples
                 if isinstance(samples, int):
                     # Equal distribution among parameters
-                    samples_list = [int(samples**(1 / len(ranges)))] * len(ranges)
+                    samples_list = [int(samples ** (1 / len(ranges)))] * len(ranges)
 
                 # Run the original Monte Carlo sweep function
                 return monte_carlo_sweep_impl(wrapped_func, ranges, samples_list)
@@ -580,14 +647,24 @@ def monte_carlo_sweep(param_space: ParameterSpace | list[tuple[float, float]] | 
                 samples_list = samples
                 if isinstance(samples, int):
                     # Equal distribution among parameters
-                    samples_list = [int(samples**(1 / len(ranges)))] * len(ranges)
+                    samples_list = [int(samples ** (1 / len(ranges)))] * len(ranges)
 
                 return monte_carlo_sweep_impl(wrapped_func, ranges, samples_list)
+
         return wrapper
+
     return decorator
 
 
-def gwass(param_space: ParameterSpace | list[tuple[float, float]] | dict[str, tuple[float, float]] | str | None = None, budget: int = 100, initial_percentage: float = 0.1) -> Callable:
+def gwass(
+    param_space: ParameterSpace
+    | list[tuple[float, float]]
+    | dict[str, tuple[float, float]]
+    | str
+    | None = None,
+    budget: int = 100,
+    initial_percentage: float = 0.1,
+) -> Callable:
     """
     Apply gradient-weighted adaptive stochastic sampling to a measurement function.
 
@@ -633,7 +710,7 @@ def gwass(param_space: ParameterSpace | list[tuple[float, float]] | dict[str, tu
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             # Handle session as first argument
-            if args and hasattr(args[0], '_parameters') and hasattr(args[0], 'acquire'):
+            if args and hasattr(args[0], "_parameters") and hasattr(args[0], "acquire"):
                 session = args[0]
                 local_space = ParameterSpace.from_session(session, param_space.constraint)
 
@@ -657,5 +734,7 @@ def gwass(param_space: ParameterSpace | list[tuple[float, float]] | dict[str, tu
                 wrapped_func = param_space.wrap_function(func)
 
                 return gwass_impl(wrapped_func, ranges, budget, initial_percentage)
+
         return wrapper
+
     return decorator

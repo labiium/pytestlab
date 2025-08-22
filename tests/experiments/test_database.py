@@ -30,7 +30,7 @@ class TestDatabase(unittest.TestCase):
             values=values,
             measurement_type="voltage",
             units="V",
-            timestamp=datetime.now().timestamp()
+            timestamp=datetime.now().timestamp(),
         )
         codename = self.db.store_measurement(None, meas)
         retrieved = self.db.retrieve_measurement(codename)
@@ -47,7 +47,7 @@ class TestDatabase(unittest.TestCase):
             values=values,
             measurement_type="current",
             units="A",
-            timestamp=datetime.now().timestamp()
+            timestamp=datetime.now().timestamp(),
         )
         codename = self.db.store_measurement(None, meas)
         all_codes = self.db.list_measurements()
@@ -58,8 +58,13 @@ class TestDatabase(unittest.TestCase):
     def test_experiment_storage(self):
         """Test storing and retrieving an Experiment."""
         experiment = Experiment("Test", "test experiment")
-        data_values = pl.DataFrame({"a": np.arange(1, 1000), "b": np.arange(1, 1000)}, schema={"a": pl.UInt64, "b": pl.UInt64})
-        data = MeasurementResult(instrument="fake", values=data_values, measurement_type="fake", units="l")
+        data_values = pl.DataFrame(
+            {"a": np.arange(1, 1000), "b": np.arange(1, 1000)},
+            schema={"a": pl.UInt64, "b": pl.UInt64},
+        )
+        data = MeasurementResult(
+            instrument="fake", values=data_values, measurement_type="fake", units="l"
+        )
         experiment.add_trial(data)
         codename = self.db.store_experiment(None, experiment)
         retrieved = self.db.retrieve_experiment(codename)

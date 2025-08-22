@@ -17,6 +17,7 @@ The MeasurementSession class automatically:
 - Collects and organizes results
 - Creates an Experiment object with the data
 """
+
 import time
 
 import matplotlib.pyplot as plt
@@ -30,7 +31,7 @@ def run_transistor_iv_sweep():
     # Create a measurement session
     with MeasurementSession(
         name="Transistor IV Characterization",
-        description="Measure IV curves of a transistor at different base currents"
+        description="Measure IV curves of a transistor at different base currents",
     ) as session:
         print(f"📊 Session created: {session.name}")
 
@@ -40,7 +41,7 @@ def run_transistor_iv_sweep():
             "I_base",
             np.logspace(-6, -3, 5),  # 1µA to 1mA in 5 steps
             unit="A",
-            notes="Base current"
+            notes="Base current",
         )
 
         # 2. Collector-emitter voltages - linear spacing
@@ -48,7 +49,7 @@ def run_transistor_iv_sweep():
             "V_ce",
             np.linspace(0, 5, 11),  # 0V to 5V in 0.5V steps
             unit="V",
-            notes="Collector-emitter voltage"
+            notes="Collector-emitter voltage",
         )
 
         # 3. Temperature points - discrete values
@@ -56,7 +57,7 @@ def run_transistor_iv_sweep():
             "temperature",
             [25, 50, 75],  # 25°C, 50°C, and 75°C
             unit="°C",
-            notes="Ambient temperature"
+            notes="Ambient temperature",
         )
 
         print("Parameters defined: I_base, V_ce, temperature")
@@ -70,8 +71,9 @@ def run_transistor_iv_sweep():
 
         # Define a measurement function using the @session.acquire decorator
         @session.acquire
-        def measure_collector_current(I_base: float, V_ce: float, temperature: float,
-                                           psu_base, psu_collector, dmm):
+        def measure_collector_current(
+            I_base: float, V_ce: float, temperature: float, psu_base, psu_collector, dmm
+        ):
             """Measure transistor collector current with the given parameters."""
             # In a real scenario, we might also control a temperature chamber here
             print(f"Setting: I_base={I_base * 1e6:.2f}µA, V_ce={V_ce:.1f}V, T={temperature}°C")
@@ -108,7 +110,7 @@ def run_transistor_iv_sweep():
 
             # Collector current calculation with some randomness for simulation
             I_collector = beta * I_base * (1 - np.exp(-V_ce / V_thermal))
-            I_collector *= (0.9 + 0.2 * np.random.random())  # Add ±10% randomness
+            I_collector *= 0.9 + 0.2 * np.random.random()  # Add ±10% randomness
 
             # 6. Turn off power supplies
             psu_base.output(1, False)
@@ -118,7 +120,7 @@ def run_transistor_iv_sweep():
             return {
                 "I_collector": I_collector,
                 "hFE": I_collector / I_base if I_base > 0 else 0,
-                "power": I_collector * V_ce
+                "power": I_collector * V_ce,
             }
 
         # Run the measurement sweep with a progress bar
@@ -158,8 +160,9 @@ def analyze_results(experiment):
     plt.subplot(221)
     for i_base in sorted(df["I_base"].unique()):
         data = df[(df["temperature"] == 25) & (df["I_base"] == i_base)]
-        plt.plot(data["V_ce"], data["I_collector"] * 1000,
-                 marker='o', label=f'Ib={i_base * 1e6:.1f}µA')
+        plt.plot(
+            data["V_ce"], data["I_collector"] * 1000, marker="o", label=f"Ib={i_base * 1e6:.1f}µA"
+        )
 
     plt.title("Transistor IV Curves at 25°C")
     plt.xlabel("Collector-Emitter Voltage (V)")
@@ -172,8 +175,7 @@ def analyze_results(experiment):
     max_i_base = max(df["I_base"].unique())
     for temp in sorted(df["temperature"].unique()):
         data = df[(df["I_base"] == max_i_base) & (df["temperature"] == temp)]
-        plt.plot(data["V_ce"], data["I_collector"] * 1000,
-                 marker='o', label=f'T={temp}°C')
+        plt.plot(data["V_ce"], data["I_collector"] * 1000, marker="o", label=f"T={temp}°C")
 
     plt.title(f"Temperature Effect (Ib={max_i_base * 1e6:.1f}µA)")
     plt.xlabel("Collector-Emitter Voltage (V)")
@@ -185,8 +187,13 @@ def analyze_results(experiment):
     plt.subplot(223)
     for temp in sorted(df["temperature"].unique()):
         data = df[df["temperature"] == temp]
-        plt.semilogx(data["I_collector"] * 1000, data["hFE"],
-                    marker='.', linestyle='none', label=f'T={temp}°C')
+        plt.semilogx(
+            data["I_collector"] * 1000,
+            data["hFE"],
+            marker=".",
+            linestyle="none",
+            label=f"T={temp}°C",
+        )
 
     plt.title("Transistor Gain vs Collector Current")
     plt.xlabel("Collector Current (mA)")
@@ -198,8 +205,7 @@ def analyze_results(experiment):
     plt.subplot(224)
     for temp in sorted(df["temperature"].unique()):
         power_data = df[df["temperature"] == temp].groupby("I_base")["power"].max() * 1000
-        plt.plot(power_data.index * 1e6, power_data,
-                marker='o', label=f'T={temp}°C')
+        plt.plot(power_data.index * 1e6, power_data, marker="o", label=f"T={temp}°C")
 
     plt.title("Maximum Power vs Base Current")
     plt.xlabel("Base Current (µA)")
