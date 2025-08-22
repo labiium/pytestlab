@@ -1,7 +1,7 @@
 class InstrumentConnectionError(Exception):
     """Exception raised for SCPI instrument connection errors."""
 
-    def __init__(self, instrument=None, message=""):
+    def __init__(self, instrument: str | None = None, message: str = "") -> None:
         self.instrument = instrument
         self.message = message
         if instrument:
@@ -13,7 +13,9 @@ class InstrumentConnectionError(Exception):
 class InstrumentCommunicationError(Exception):
     """Exception raised for SCPI communication errors."""
 
-    def __init__(self, instrument=None, command=None, message=""):
+    def __init__(
+        self, instrument: str | None = None, command: str | None = None, message: str = ""
+    ) -> None:
         self.instrument = instrument
         self.command = command
         self.message = message

@@ -142,9 +142,10 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
                 # Try to read as a pickled numpy array
                 return pickle.loads(decompressed)
             except Exception:
-                # If that fails, try polars DataFrame
+                # If that fails, try polars DataFrame and convert to NumPy
                 try:
-                    return pl.read_ipc(decompressed)
+                    df = pl.read_ipc(decompressed)
+                    return df.to_numpy()
                 except Exception:
                     pass
 
@@ -193,9 +194,12 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
                 # Try to read as Arrow IPC
                 return pl.read_ipc(decompressed)
             except Exception:
-                # If that fails, try to unpickle the decompressed data
+                # If that fails, try to unpickle the decompressed data and ensure DataFrame
                 try:
-                    return pickle.loads(decompressed)
+                    obj = pickle.loads(decompressed)
+                    if isinstance(obj, pl.DataFrame):
+                        return obj
+                    raise ValueError("Unpickled object is not a Polars DataFrame")
                 except Exception:
                     pass
 

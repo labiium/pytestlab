@@ -195,7 +195,7 @@ class Instrument(Generic[ConfigType]):
         # The first character must be '#' to indicate a binary block.
         if not data.startswith(b"#"):
             self._logger.debug(
-                f"Warning: Data for _read_to_np does not start with '#'. Attempting direct conversion. Raw data (first 20 bytes): {data[:20]}"
+                f"Warning: Data for _read_to_np does not start with '#'. Attempting direct conversion. Raw data (first 20 bytes): {data[:20]!r}"
             )
             # Fallback for non-standard data, which might be a simple header-less stream.
             # This is a best-effort attempt and may not work for all instruments.
@@ -237,7 +237,7 @@ class Instrument(Generic[ConfigType]):
             return np_array
         except Exception as e:
             self._logger.debug(
-                f"Error parsing SCPI binary block in _read_to_np: {e}. Raw data (first 50 bytes): {data[:50]}"
+                f"Error parsing SCPI binary block in _read_to_np: {e}. Raw data (first 50 bytes): {data[:50]!r}"
             )
             raise InstrumentDataError(
                 self.config.model, "Failed to parse binary data from instrument."

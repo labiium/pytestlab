@@ -1,3 +1,5 @@
+from typing import get_args
+
 from ..config.power_meter_config import PowerMeterConfig
 from .instrument import Instrument
 
@@ -43,10 +45,21 @@ class PowerMeter(Instrument[PowerMeterConfig]):
 
         # Set the units for the power measurement.
         if units is not None:
-            # Validate that the requested units are supported by the config model.
-            if units in PowerMeterConfig.model_fields["power_units"].annotation.__args__:
+            # Validate against config-declared choices when available; otherwise accept.
+            allowed: set[str] = set()
+            field = PowerMeterConfig.model_fields.get("power_units")
+            ann = getattr(field, "annotation", None)
+            if ann is not None:
+                try:
+                    args = get_args(ann)
+                    if args:
+                        allowed = {str(x) for x in args}
+                except Exception:
+                    allowed = set()
+
+            if not allowed or units in allowed:
                 self._send_command(f"UNIT:POW {units.upper()}")
-                self.config.power_units = units  # type: ignore
+                self.config.power_units = units  # type: ignore[assignment]
             else:
                 self._logger.warning(
                     f"Invalid power units '{units}' specified. Using config default '{self.config.power_units}'."

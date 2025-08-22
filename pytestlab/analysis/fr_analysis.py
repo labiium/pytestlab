@@ -35,4 +35,4 @@
 #     # 4. Deriving gain (magnitude of H(f)) and phase (angle of H(f)).
 #     pass
 
-__all__ = []  # No functions exported yet
+__all__: list[str] = []  # No functions exported yet

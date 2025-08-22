@@ -4,10 +4,10 @@ import logging
 import os
 import sys
 
-_root_logger = logging.getLogger("pytestlab")
+_root_logger: logging.Logger = logging.getLogger("pytestlab")
 
 
-def setup_logging():
+def setup_logging() -> None:
     """
     Set up logging for pytestlab.
     This function is called automatically when the first logger is requested.
@@ -18,30 +18,30 @@ def setup_logging():
     log_file = os.getenv("PYTESTLAB_LOG_FILE")
 
     # Remove all handlers from our logger to reconfigure
-    for handler in _root_logger.handlers[:]:
-        _root_logger.removeHandler(handler)
+    for h in _root_logger.handlers[:]:
+        _root_logger.removeHandler(h)
 
     if log_file:
-        handler: logging.Handler = logging.FileHandler(log_file)
+        handler_obj: logging.Handler = logging.FileHandler(log_file)
     else:
-        handler = logging.StreamHandler(sys.stderr)
+        handler_obj = logging.StreamHandler(sys.stderr)
 
     formatter = logging.Formatter("%(asctime)s %(name)s %(levelname)s – %(message)s")
-    handler.setFormatter(formatter)
-    _root_logger.addHandler(handler)
+    handler_obj.setFormatter(formatter)
+    _root_logger.addHandler(handler_obj)
     _root_logger.setLevel(log_level)
     # Enable propagation so pytest caplog can capture logs
     _root_logger.propagate = True
 
 
-def reinitialize_logging():
+def reinitialize_logging() -> None:
     """
     Reinitialize logging configuration, useful for tests that modify environment variables.
     """
     setup_logging()
 
 
-def set_log_level(level: int | str):
+def set_log_level(level: int | str) -> None:
     """
     Sets the logging level for the pytestlab logger.
     :param level: The logging level, e.g., "DEBUG", "INFO", logging.DEBUG, logging.INFO.

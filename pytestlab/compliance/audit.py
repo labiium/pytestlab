@@ -77,7 +77,10 @@ class AuditTrail:
                 (tok["ts"], actor, action, envelope["sha"], tok["idx"]),
             )
             # Return the auto-incremented ID of the new record.
-            return int(cur.lastrowid)
+            rowid = cur.lastrowid
+            if rowid is None:
+                raise RuntimeError("Failed to obtain lastrowid after INSERT")
+            return int(rowid)
 
     # ------------------------------------------------------------------ #
     def verify(self) -> bool:

@@ -206,7 +206,7 @@ def _parse_csv_dict(data: str | bytes, spec: _ResponseSpec):
     if spec.fields and len(parts) != len(spec.fields):
         raise ParseError(
             f"csv_dict: expected {len(spec.fields)} fields ({spec.fields}), "
-            f"got {len(parts)} in response '{data}'."
+            f"got {len(parts)} in response {data!r}."
         )
     return dict(zip(spec.fields, parts, strict=False))
 
@@ -221,7 +221,7 @@ def _parse_binblock(data: str | bytes, spec: _ResponseSpec):
     bytes
     """
     if isinstance(data, str):
-        data = data.encode()
+        data = data.encode("utf-8")
 
     if not data.startswith(b"#"):
         raise ParseError("binblock: data does not start with '#' header")

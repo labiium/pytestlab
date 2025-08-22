@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING
 from typing import Any
+from typing import Literal
 
 import numpy as np
 import polars as pl
@@ -111,7 +112,7 @@ class MeasurementSession(contextlib.AbstractContextManager):
         """Synchronous context manager entry."""
         return self
 
-    def __exit__(self, exc_type, exc, tb) -> bool:  # noqa: D401
+    def __exit__(self, exc_type, exc, tb) -> Literal[False]:  # noqa: D401
         """Synchronous context manager exit."""
         # Directly call the synchronous disconnect method
         try:
