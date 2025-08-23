@@ -4,6 +4,8 @@ from pydantic import ConfigDict  # Added Field, ConfigDict
 from pydantic import Field  # Added Field, ConfigDict
 from pydantic import field_validator  # Added Field, ConfigDict
 
+from ..errors import InstrumentParameterError
+
 
 class EnumMapMixin(BaseModel):
     model_config = ConfigDict(validate_assignment=True, extra="forbid")
@@ -43,7 +45,10 @@ class RangeMixin(BaseModel):
             # from ..errors import InstrumentParameterError # Lazy import or move error definition
             # For now, using ValueError as per the mixin's original context.
             # Consider making this more specific, e.g. OutOfRangeError
-            raise ValueError(
-                f"{name} '{x}' is outside the valid range [{self.min_val}…{self.max_val}]"
+            raise InstrumentParameterError(
+                parameter=name,
+                value=x,
+                valid_range=(self.min_val, self.max_val),
+                message=f"{name} must be between {self.min_val} and {self.max_val}.",
             )
         return x

@@ -1,0 +1,754 @@
+{
+  "$defs": {
+    "CommandSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "template": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Template"
+        },
+        "sequence": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sequence"
+        },
+        "defaults": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "title": "Defaults",
+          "type": "object"
+        },
+        "validators": {
+          "additionalProperties": {
+            "$ref": "#/$defs/RangeValidator"
+          },
+          "title": "Validators",
+          "type": "object"
+        },
+        "enums": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "type": "object"
+          },
+          "title": "Enums",
+          "type": "object"
+        },
+        "response": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResponseSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "CommandSpec",
+      "type": "object"
+    },
+    "CommandsQueries": {
+      "additionalProperties": false,
+      "properties": {
+        "commands": {
+          "additionalProperties": {
+            "$ref": "#/$defs/CommandSpec"
+          },
+          "title": "Commands",
+          "type": "object"
+        },
+        "queries": {
+          "additionalProperties": {
+            "$ref": "#/$defs/CommandSpec"
+          },
+          "title": "Queries",
+          "type": "object"
+        }
+      },
+      "title": "CommandsQueries",
+      "type": "object"
+    },
+    "DMMFunction": {
+      "description": "Enum for DMM measurement functions corresponding to SCPI commands.",
+      "enum": [
+        "VOLT:DC",
+        "VOLT:AC",
+        "CURR:DC",
+        "CURR:AC",
+        "RES",
+        "FRES",
+        "FREQ",
+        "TEMP",
+        "DIOD",
+        "CONT",
+        "CAP"
+      ],
+      "title": "DMMFunction",
+      "type": "string"
+    },
+    "FunctionSpec": {
+      "additionalProperties": true,
+      "description": "Models the specifications for a single measurement function.",
+      "properties": {
+        "ranges": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/RangeSpec"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ranges"
+        }
+      },
+      "title": "FunctionSpec",
+      "type": "object"
+    },
+    "MeasurementFunctionsSpec": {
+      "additionalProperties": true,
+      "description": "Container for all measurement function specifications from the YAML.",
+      "properties": {
+        "dc_voltage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FunctionSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "resistance_4wire": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FunctionSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "dc_current": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FunctionSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "ac_voltage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FunctionSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "ac_current": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FunctionSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "frequency": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FunctionSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "temperature": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FunctionSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "capacitance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FunctionSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "resistance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FunctionSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "MeasurementFunctionsSpec",
+      "type": "object"
+    },
+    "RangeSpec": {
+      "additionalProperties": true,
+      "description": "Models a single measurement range with its specifications.",
+      "properties": {
+        "nominal_V": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nominal V"
+        },
+        "nominal_ohm": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nominal Ohm"
+        },
+        "nominal_A": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nominal A"
+        },
+        "nominal_F": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nominal F"
+        },
+        "accuracy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/pytestlab__config__multimeter_config__AccuracySpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "typical_accuracy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/pytestlab__config__multimeter_config__AccuracySpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "accuracy_45Hz_10kHz": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/pytestlab__config__multimeter_config__AccuracySpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "accuracy_45Hz_1kHz": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/pytestlab__config__multimeter_config__AccuracySpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "RangeSpec",
+      "type": "object"
+    },
+    "RangeValidator": {
+      "additionalProperties": false,
+      "properties": {
+        "min": {
+          "title": "Min",
+          "type": "number"
+        },
+        "max": {
+          "title": "Max",
+          "type": "number"
+        }
+      },
+      "required": [
+        "min",
+        "max"
+      ],
+      "title": "RangeValidator",
+      "type": "object"
+    },
+    "ResponseSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "default": "raw",
+          "enum": [
+            "raw",
+            "str",
+            "int",
+            "float",
+            "csv",
+            "csv_int",
+            "csv_float",
+            "csv_dict",
+            "binblock"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "units": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Units"
+        },
+        "delimiter": {
+          "default": ",",
+          "title": "Delimiter",
+          "type": "string"
+        },
+        "fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fields",
+          "type": "array"
+        }
+      },
+      "title": "ResponseSpec",
+      "type": "object"
+    },
+    "SCPISection": {
+      "properties": {
+        "commands": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/CommandSpec"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Commands"
+        },
+        "queries": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/CommandSpec"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Queries"
+        },
+        "variants": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/CommandsQueries"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variants"
+        },
+        "default_variant": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Default Variant"
+        },
+        "feature_mappings": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "additionalProperties": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "type": "object"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Declarative feature mapping: { feature_name: { required_scpi: [...], optional_scpi: [...] } }",
+          "title": "Feature Mappings"
+        }
+      },
+      "title": "SCPISection",
+      "type": "object"
+    },
+    "pytestlab__config__accuracy__AccuracySpec": {
+      "additionalProperties": false,
+      "description": "Represents a single accuracy specification for a measurement mode.\nThe standard deviation (sigma) is typically calculated as:\nsqrt((percent_reading * reading)^2 + (offset_value)^2)\nor other forms depending on how specs are given (e.g., % of range).",
+      "properties": {
+        "percent_reading": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Accuracy as a percentage of the reading (e.g., 0.0001 for 0.01%)",
+          "title": "Percent Reading"
+        },
+        "offset_value": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Fixed offset accuracy in units of the measurement (e.g., 0.005 V)",
+          "title": "Offset Value"
+        }
+      },
+      "title": "AccuracySpec",
+      "type": "object"
+    },
+    "pytestlab__config__multimeter_config__AccuracySpec": {
+      "description": "Models the accuracy specification for a given measurement range.",
+      "properties": {
+        "percent_reading": {
+          "description": "Accuracy component as a percentage of the reading.",
+          "title": "Percent Reading",
+          "type": "number"
+        },
+        "percent_range": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Accuracy component as a percentage of the range.",
+          "title": "Percent Range"
+        },
+        "counts": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Accuracy component as a fixed number of counts of the least significant digit.",
+          "title": "Counts"
+        }
+      },
+      "required": [
+        "percent_reading"
+      ],
+      "title": "AccuracySpec",
+      "type": "object"
+    }
+  },
+  "description": "Pydantic model for Multimeter configuration, designed to load from a device spec YAML.",
+  "properties": {
+    "manufacturer": {
+      "description": "Manufacturer of the instrument",
+      "title": "Manufacturer",
+      "type": "string"
+    },
+    "model": {
+      "description": "Model number of the instrument",
+      "title": "Model",
+      "type": "string"
+    },
+    "device_type": {
+      "default": "multimeter",
+      "description": "Device type identifier for multimeters.",
+      "enum": [
+        "multimeter",
+        "DMM"
+      ],
+      "title": "Device Type",
+      "type": "string"
+    },
+    "serial_number": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Serial number of the instrument",
+      "title": "Serial Number"
+    },
+    "address": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Instrument connection address (e.g., VISA resource string)",
+      "title": "Address"
+    },
+    "measurement_accuracy": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/pytestlab__config__accuracy__AccuracySpec"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Measurement accuracy specifications",
+      "title": "Measurement Accuracy"
+    },
+    "scpi": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SCPISection"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "SCPI section typed by Pydantic. Supports direct commands/queries or variants."
+    },
+    "scpi_variant": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Name of the variant inside scpi.variants to be used with this instrument.  Leave empty if not using the multi-variant feature.",
+      "title": "Scpi Variant"
+    },
+    "default_measurement_function": {
+      "$ref": "#/$defs/DMMFunction",
+      "default": "VOLT:DC",
+      "description": "Primary or default measurement function for the DMM."
+    },
+    "trigger_source": {
+      "default": "IMM",
+      "description": "Default trigger source: IMM (Immediate), EXT (External), BUS (Software/System).",
+      "enum": [
+        "IMM",
+        "EXT",
+        "BUS"
+      ],
+      "title": "Trigger Source",
+      "type": "string"
+    },
+    "autorange": {
+      "default": true,
+      "description": "Enable (True) or disable (False) autoranging for measurements.",
+      "title": "Autorange",
+      "type": "boolean"
+    },
+    "limits": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Limits"
+    },
+    "measurement_functions": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MeasurementFunctionsSpec"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "math_functions": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Math Functions"
+    },
+    "sampling_rates_rps": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Sampling Rates Rps"
+    }
+  },
+  "required": [
+    "manufacturer",
+    "model"
+  ],
+  "title": "MultimeterConfig",
+  "type": "object"
+}

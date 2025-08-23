@@ -25,6 +25,10 @@ class AccuracySpec(BaseModel):
     )
     # Add other common ways accuracy is specified if needed, e.g., percent_range
 
+    percent_range: float | None = Field(
+        None, ge=0, description="Accuracy as a percentage of the range (e.g., 0.0001 for 0.01%)"
+    )
+
     def calculate_std_dev(self, reading_value: float, range_value: float | None = None) -> float:
         """
         Calculates the standard deviation (sigma) for a given reading.
@@ -48,14 +52,12 @@ class AccuracySpec(BaseModel):
                 raise ValueError("offset_value must be non-negative.")
             variance += self.offset_value**2
 
-        # Example for percent_range if it were added:
-        # percent_range: Optional[float] = Field(None, ge=0, description="Accuracy as a percentage of the range")
-        # if self.percent_range is not None and range_value is not None:
-        #     if self.percent_range < 0:
-        #         raise ValueError("percent_range must be non-negative.")
-        #     if range_value <= 0: # Range should be positive
-        #         raise ValueError("range_value must be positive for percent_range calculation.")
-        #     variance += (self.percent_range * range_value)**2
+        if self.percent_range is not None and range_value is not None:
+            if self.percent_range < 0:
+                raise ValueError("percent_range must be non-negative.")
+            if range_value <= 0:  # Range should be positive
+                raise ValueError("range_value must be positive for percent_range calculation.")
+            variance += (self.percent_range * range_value) ** 2
 
         if variance < 0.0:  # Should not happen with non-negative inputs and squaring
             raise ValueError("Calculated variance is negative, check inputs and logic.")

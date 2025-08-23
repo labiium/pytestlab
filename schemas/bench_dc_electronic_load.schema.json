@@ -1,0 +1,723 @@
+{
+  "$defs": {
+    "AccuracySpec": {
+      "additionalProperties": false,
+      "description": "Represents a single accuracy specification for a measurement mode.\nThe standard deviation (sigma) is typically calculated as:\nsqrt((percent_reading * reading)^2 + (offset_value)^2)\nor other forms depending on how specs are given (e.g., % of range).",
+      "properties": {
+        "percent_reading": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Accuracy as a percentage of the reading (e.g., 0.0001 for 0.01%)",
+          "title": "Percent Reading"
+        },
+        "offset_value": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Fixed offset accuracy in units of the measurement (e.g., 0.005 V)",
+          "title": "Offset Value"
+        }
+      },
+      "title": "AccuracySpec",
+      "type": "object"
+    },
+    "CommandSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "template": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Template"
+        },
+        "sequence": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sequence"
+        },
+        "defaults": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "title": "Defaults",
+          "type": "object"
+        },
+        "validators": {
+          "additionalProperties": {
+            "$ref": "#/$defs/RangeValidator"
+          },
+          "title": "Validators",
+          "type": "object"
+        },
+        "enums": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "type": "object"
+          },
+          "title": "Enums",
+          "type": "object"
+        },
+        "response": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResponseSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "CommandSpec",
+      "type": "object"
+    },
+    "CommandsQueries": {
+      "additionalProperties": false,
+      "properties": {
+        "commands": {
+          "additionalProperties": {
+            "$ref": "#/$defs/CommandSpec"
+          },
+          "title": "Commands",
+          "type": "object"
+        },
+        "queries": {
+          "additionalProperties": {
+            "$ref": "#/$defs/CommandSpec"
+          },
+          "title": "Queries",
+          "type": "object"
+        }
+      },
+      "title": "CommandsQueries",
+      "type": "object"
+    },
+    "DataAcquisitionConfig": {
+      "additionalProperties": false,
+      "description": "Container for data acquisition feature configurations.",
+      "properties": {
+        "datalogger": {
+          "$ref": "#/$defs/DataloggerConfig"
+        },
+        "scope": {
+          "$ref": "#/$defs/ScopeConfig"
+        }
+      },
+      "title": "DataAcquisitionConfig",
+      "type": "object"
+    },
+    "DataloggerConfig": {
+      "additionalProperties": false,
+      "description": "Configuration for the datalogger feature.",
+      "properties": {
+        "default_period_s": {
+          "default": 0.2,
+          "description": "Default sample period in seconds.",
+          "title": "Default Period S",
+          "type": "number"
+        },
+        "default_duration_s": {
+          "default": 30.0,
+          "description": "Default logging duration in seconds.",
+          "title": "Default Duration S",
+          "type": "number"
+        }
+      },
+      "title": "DataloggerConfig",
+      "type": "object"
+    },
+    "ModeRangeSpec": {
+      "additionalProperties": true,
+      "description": "Models a single measurement range with its specifications.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "max_current_A": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Current A"
+        },
+        "max_voltage_V": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Voltage V"
+        },
+        "range_ohm": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Range Ohm"
+        },
+        "range_W": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Range W"
+        },
+        "programming_accuracy": {
+          "$ref": "#/$defs/ProgrammingAccuracySpec"
+        },
+        "readback_accuracy": {
+          "$ref": "#/$defs/ReadbackAccuracySpec"
+        }
+      },
+      "required": [
+        "name",
+        "programming_accuracy",
+        "readback_accuracy"
+      ],
+      "title": "ModeRangeSpec",
+      "type": "object"
+    },
+    "ModeSpec": {
+      "additionalProperties": true,
+      "description": "Models the specifications for a single operating mode (e.g., CC, CV).",
+      "properties": {
+        "ranges": {
+          "items": {
+            "$ref": "#/$defs/ModeRangeSpec"
+          },
+          "title": "Ranges",
+          "type": "array"
+        }
+      },
+      "required": [
+        "ranges"
+      ],
+      "title": "ModeSpec",
+      "type": "object"
+    },
+    "OperatingModesSpec": {
+      "description": "Container for all operating mode specifications.",
+      "properties": {
+        "constant_current_CC": {
+          "$ref": "#/$defs/ModeSpec"
+        },
+        "constant_voltage_CV": {
+          "$ref": "#/$defs/ModeSpec"
+        },
+        "constant_resistance_CR": {
+          "$ref": "#/$defs/ModeSpec"
+        },
+        "constant_power_CP": {
+          "$ref": "#/$defs/ModeSpec"
+        }
+      },
+      "required": [
+        "constant_current_CC",
+        "constant_voltage_CV",
+        "constant_resistance_CR",
+        "constant_power_CP"
+      ],
+      "title": "OperatingModesSpec",
+      "type": "object"
+    },
+    "ProgrammingAccuracySpec": {
+      "additionalProperties": false,
+      "description": "Models the programming accuracy specification for a given range.",
+      "properties": {
+        "percent_of_setting": {
+          "title": "Percent Of Setting",
+          "type": "number"
+        },
+        "offset_A": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Offset A"
+        },
+        "offset_V": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Offset V"
+        },
+        "offset_W": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Offset W"
+        },
+        "offset_S": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Offset S"
+        }
+      },
+      "required": [
+        "percent_of_setting"
+      ],
+      "title": "ProgrammingAccuracySpec",
+      "type": "object"
+    },
+    "RangeValidator": {
+      "additionalProperties": false,
+      "properties": {
+        "min": {
+          "title": "Min",
+          "type": "number"
+        },
+        "max": {
+          "title": "Max",
+          "type": "number"
+        }
+      },
+      "required": [
+        "min",
+        "max"
+      ],
+      "title": "RangeValidator",
+      "type": "object"
+    },
+    "ReadbackAccuracySpec": {
+      "additionalProperties": false,
+      "description": "Models the readback accuracy specification for a given range.",
+      "properties": {
+        "percent_of_reading": {
+          "title": "Percent Of Reading",
+          "type": "number"
+        },
+        "offset_A": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Offset A"
+        },
+        "offset_V": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Offset V"
+        },
+        "offset_W": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Offset W"
+        }
+      },
+      "required": [
+        "percent_of_reading"
+      ],
+      "title": "ReadbackAccuracySpec",
+      "type": "object"
+    },
+    "ResponseSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "default": "raw",
+          "enum": [
+            "raw",
+            "str",
+            "int",
+            "float",
+            "csv",
+            "csv_int",
+            "csv_float",
+            "csv_dict",
+            "binblock"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "units": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Units"
+        },
+        "delimiter": {
+          "default": ",",
+          "title": "Delimiter",
+          "type": "string"
+        },
+        "fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fields",
+          "type": "array"
+        }
+      },
+      "title": "ResponseSpec",
+      "type": "object"
+    },
+    "SCPISection": {
+      "properties": {
+        "commands": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/CommandSpec"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Commands"
+        },
+        "queries": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/CommandSpec"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Queries"
+        },
+        "variants": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/CommandsQueries"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variants"
+        },
+        "default_variant": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Default Variant"
+        },
+        "feature_mappings": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "additionalProperties": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "type": "object"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Declarative feature mapping: { feature_name: { required_scpi: [...], optional_scpi: [...] } }",
+          "title": "Feature Mappings"
+        }
+      },
+      "title": "SCPISection",
+      "type": "object"
+    },
+    "ScopeConfig": {
+      "additionalProperties": false,
+      "description": "Configuration for the scope (digitizer) feature.",
+      "properties": {
+        "max_points": {
+          "default": 131072,
+          "description": "Maximum number of acquisition points.",
+          "title": "Max Points",
+          "type": "integer"
+        },
+        "default_points": {
+          "default": 2440,
+          "description": "Default number of points.",
+          "title": "Default Points",
+          "type": "integer"
+        },
+        "min_interval_s": {
+          "default": 5.12e-06,
+          "description": "Fastest possible sample interval.",
+          "title": "Min Interval S",
+          "type": "number"
+        }
+      },
+      "title": "ScopeConfig",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Pydantic model for DC Active Load configuration, parsed from a device spec YAML.",
+  "properties": {
+    "manufacturer": {
+      "description": "Manufacturer of the instrument",
+      "title": "Manufacturer",
+      "type": "string"
+    },
+    "model": {
+      "description": "Model number of the instrument",
+      "title": "Model",
+      "type": "string"
+    },
+    "device_type": {
+      "enum": [
+        "bench_dc_electronic_load",
+        "dc_active_load"
+      ],
+      "title": "Device Type",
+      "type": "string"
+    },
+    "serial_number": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Serial number of the instrument",
+      "title": "Serial Number"
+    },
+    "address": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Instrument connection address (e.g., VISA resource string)",
+      "title": "Address"
+    },
+    "measurement_accuracy": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/AccuracySpec"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Measurement accuracy specifications",
+      "title": "Measurement Accuracy"
+    },
+    "scpi": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SCPISection"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "SCPI section typed by Pydantic. Supports direct commands/queries or variants."
+    },
+    "scpi_variant": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Name of the variant inside scpi.variants to be used with this instrument.  Leave empty if not using the multi-variant feature.",
+      "title": "Scpi Variant"
+    },
+    "general_specifications": {
+      "additionalProperties": true,
+      "title": "General Specifications",
+      "type": "object"
+    },
+    "features": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Features",
+      "type": "array"
+    },
+    "operating_modes": {
+      "$ref": "#/$defs/OperatingModesSpec"
+    },
+    "data_acquisition": {
+      "$ref": "#/$defs/DataAcquisitionConfig"
+    },
+    "protection": {
+      "additionalProperties": true,
+      "title": "Protection",
+      "type": "object"
+    },
+    "other_characteristics_typical": {
+      "additionalProperties": true,
+      "title": "Other Characteristics Typical",
+      "type": "object"
+    },
+    "environmental": {
+      "additionalProperties": true,
+      "title": "Environmental",
+      "type": "object"
+    }
+  },
+  "required": [
+    "manufacturer",
+    "model",
+    "device_type",
+    "general_specifications",
+    "features",
+    "operating_modes",
+    "protection",
+    "other_characteristics_typical",
+    "environmental"
+  ],
+  "title": "DCActiveLoadConfig",
+  "type": "object"
+}

@@ -7,15 +7,11 @@ from pytestlab.instruments import AutoInstrument
 # Use the built-in Keysight EDU33212A AWG profile for testing
 AWG_PROFILE_KEY = "keysight/EDU33212A"
 
-
 def check_hardware_available():
     """Check if AWG hardware is available for testing."""
     try:
-        awg = AutoInstrument.from_config(config_source=AWG_PROFILE_KEY, debug_mode=True)
-        awg.connect_backend()
-        # Try to get IDN to verify connection
+        awg = AutoInstrument.from_config(AWG_PROFILE_KEY)
         _ = awg.id()
-        awg.close()
         return True, None
     except Exception as e:
         return False, str(e)
@@ -27,7 +23,6 @@ def test_awg_basic_idn_and_connect():
     is_available, error_msg = check_hardware_available()
     if not is_available:
         pytest.skip(f"AWG hardware not available: {error_msg}")
-
     awg = AutoInstrument.from_config(config_source=AWG_PROFILE_KEY, debug_mode=True)
     awg.connect_backend()
     idn = awg.id()
@@ -41,7 +36,6 @@ def test_awg_channel_facade_sine_wave():
     is_available, error_msg = check_hardware_available()
     if not is_available:
         pytest.skip(f"AWG hardware not available: {error_msg}")
-
     awg = AutoInstrument.from_config(config_source=AWG_PROFILE_KEY, debug_mode=True)
     awg.connect_backend()
     ch = awg.channel(1)
@@ -65,7 +59,6 @@ def test_awg_set_and_get_frequency_amplitude_offset():
     is_available, error_msg = check_hardware_available()
     if not is_available:
         pytest.skip(f"AWG hardware not available: {error_msg}")
-
     awg = AutoInstrument.from_config(config_source=AWG_PROFILE_KEY, debug_mode=True)
     awg.connect_backend()
     ch = 1
@@ -91,7 +84,6 @@ def test_awg_set_square_wave_and_duty_cycle():
     is_available, error_msg = check_hardware_available()
     if not is_available:
         pytest.skip(f"AWG hardware not available: {error_msg}")
-
     awg = AutoInstrument.from_config(config_source=AWG_PROFILE_KEY, debug_mode=True)
     awg.connect_backend()
     ch = 2
@@ -110,7 +102,6 @@ def test_awg_arbitrary_waveform_download_and_select():
     is_available, error_msg = check_hardware_available()
     if not is_available:
         pytest.skip(f"AWG hardware not available: {error_msg}")
-
     awg = AutoInstrument.from_config(config_source=AWG_PROFILE_KEY, debug_mode=True)
     awg.connect_backend()
     ch = 1
@@ -131,7 +122,6 @@ def test_awg_error_handling_on_invalid_channel():
     is_available, error_msg = check_hardware_available()
     if not is_available:
         pytest.skip(f"AWG hardware not available: {error_msg}")
-
     awg = AutoInstrument.from_config(config_source=AWG_PROFILE_KEY, debug_mode=True)
     awg.connect_backend()
     # The EDU33212A has 2 channels; channel 3 should be invalid
@@ -146,7 +136,6 @@ def test_awg_facade_chain_methods():
     is_available, error_msg = check_hardware_available()
     if not is_available:
         pytest.skip(f"AWG hardware not available: {error_msg}")
-
     awg = AutoInstrument.from_config(config_source=AWG_PROFILE_KEY, debug_mode=True)
     awg.connect_backend()
     ch2 = awg.channel(2)
@@ -165,7 +154,6 @@ def test_awg_config_snapshot_and_limits():
     is_available, error_msg = check_hardware_available()
     if not is_available:
         pytest.skip(f"AWG hardware not available: {error_msg}")
-
     awg = AutoInstrument.from_config(config_source=AWG_PROFILE_KEY, debug_mode=True)
     awg.connect_backend()
     ch = 1
@@ -187,7 +175,6 @@ def test_awg_reset_and_selftest():
     is_available, error_msg = check_hardware_available()
     if not is_available:
         pytest.skip(f"AWG hardware not available: {error_msg}")
-
     awg = AutoInstrument.from_config(config_source=AWG_PROFILE_KEY, debug_mode=True)
     awg.connect_backend()
     awg.reset()

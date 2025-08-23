@@ -8,6 +8,7 @@ pytestlab.json
 .env
 *.out
 cache
+.venv
 
 # Coverage reports
 htmlcov/

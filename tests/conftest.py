@@ -4,12 +4,10 @@ Shared pytest fixtures for the PyTestLab test suite.
 
 from __future__ import annotations
 
-import types
 from pathlib import Path
 
 import pytest
 
-import pytestlab.measurements.session as msession
 from pytestlab.instruments import AutoInstrument
 from pytestlab.instruments import Oscilloscope
 
@@ -34,9 +32,8 @@ def _patch_autoinstrument(monkeypatch):
     Auto-Instrument stub – always returns a dummy to avoid VISA calls.
     """
     monkeypatch.setattr(
-        msession,
-        "AutoInstrument",
-        types.SimpleNamespace(from_config=lambda *a, **k: _DummyInstrument()),
+        "pytestlab.instruments.AutoInstrument.__init__",
+        lambda *a, **k: None,
     )
     yield
 

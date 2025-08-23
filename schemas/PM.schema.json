@@ -1,0 +1,432 @@
+{
+  "$defs": {
+    "AccuracySpec": {
+      "additionalProperties": false,
+      "description": "Represents a single accuracy specification for a measurement mode.\nThe standard deviation (sigma) is typically calculated as:\nsqrt((percent_reading * reading)^2 + (offset_value)^2)\nor other forms depending on how specs are given (e.g., % of range).",
+      "properties": {
+        "percent_reading": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Accuracy as a percentage of the reading (e.g., 0.0001 for 0.01%)",
+          "title": "Percent Reading"
+        },
+        "offset_value": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Fixed offset accuracy in units of the measurement (e.g., 0.005 V)",
+          "title": "Offset Value"
+        }
+      },
+      "title": "AccuracySpec",
+      "type": "object"
+    },
+    "CommandSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "template": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Template"
+        },
+        "sequence": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sequence"
+        },
+        "defaults": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "title": "Defaults",
+          "type": "object"
+        },
+        "validators": {
+          "additionalProperties": {
+            "$ref": "#/$defs/RangeValidator"
+          },
+          "title": "Validators",
+          "type": "object"
+        },
+        "enums": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "type": "object"
+          },
+          "title": "Enums",
+          "type": "object"
+        },
+        "response": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResponseSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "CommandSpec",
+      "type": "object"
+    },
+    "CommandsQueries": {
+      "additionalProperties": false,
+      "properties": {
+        "commands": {
+          "additionalProperties": {
+            "$ref": "#/$defs/CommandSpec"
+          },
+          "title": "Commands",
+          "type": "object"
+        },
+        "queries": {
+          "additionalProperties": {
+            "$ref": "#/$defs/CommandSpec"
+          },
+          "title": "Queries",
+          "type": "object"
+        }
+      },
+      "title": "CommandsQueries",
+      "type": "object"
+    },
+    "RangeValidator": {
+      "additionalProperties": false,
+      "properties": {
+        "min": {
+          "title": "Min",
+          "type": "number"
+        },
+        "max": {
+          "title": "Max",
+          "type": "number"
+        }
+      },
+      "required": [
+        "min",
+        "max"
+      ],
+      "title": "RangeValidator",
+      "type": "object"
+    },
+    "ResponseSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "default": "raw",
+          "enum": [
+            "raw",
+            "str",
+            "int",
+            "float",
+            "csv",
+            "csv_int",
+            "csv_float",
+            "csv_dict",
+            "binblock"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "units": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Units"
+        },
+        "delimiter": {
+          "default": ",",
+          "title": "Delimiter",
+          "type": "string"
+        },
+        "fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fields",
+          "type": "array"
+        }
+      },
+      "title": "ResponseSpec",
+      "type": "object"
+    },
+    "SCPISection": {
+      "properties": {
+        "commands": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/CommandSpec"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Commands"
+        },
+        "queries": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/CommandSpec"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Queries"
+        },
+        "variants": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/CommandsQueries"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variants"
+        },
+        "default_variant": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Default Variant"
+        },
+        "feature_mappings": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "additionalProperties": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "type": "object"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Declarative feature mapping: { feature_name: { required_scpi: [...], optional_scpi: [...] } }",
+          "title": "Feature Mappings"
+        }
+      },
+      "title": "SCPISection",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "manufacturer": {
+      "description": "Manufacturer of the instrument",
+      "title": "Manufacturer",
+      "type": "string"
+    },
+    "model": {
+      "description": "Model number of the instrument",
+      "title": "Model",
+      "type": "string"
+    },
+    "device_type": {
+      "default": "power_meter",
+      "enum": [
+        "power_meter",
+        "PM"
+      ],
+      "title": "Device Type",
+      "type": "string"
+    },
+    "serial_number": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Serial number of the instrument",
+      "title": "Serial Number"
+    },
+    "address": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Instrument connection address (e.g., VISA resource string)",
+      "title": "Address"
+    },
+    "measurement_accuracy": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/AccuracySpec"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Measurement accuracy specifications",
+      "title": "Measurement Accuracy"
+    },
+    "scpi": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SCPISection"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "SCPI section typed by Pydantic. Supports direct commands/queries or variants."
+    },
+    "scpi_variant": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Name of the variant inside scpi.variants to be used with this instrument.  Leave empty if not using the multi-variant feature.",
+      "title": "Scpi Variant"
+    },
+    "frequency_compensation_value": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Frequency for sensor compensation in Hz",
+      "title": "Frequency Compensation Value"
+    },
+    "averaging_count": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Number of readings to average for a measurement",
+      "title": "Averaging Count"
+    },
+    "power_units": {
+      "default": "dBm",
+      "description": "Units for power measurement",
+      "enum": [
+        "dBm",
+        "W",
+        "mW",
+        "uW"
+      ],
+      "title": "Power Units",
+      "type": "string"
+    }
+  },
+  "required": [
+    "manufacturer",
+    "model"
+  ],
+  "title": "PowerMeterConfig",
+  "type": "object"
+}

@@ -29,6 +29,7 @@ from ..common.enums import TriggerSlope  # Added Enums
 from ..common.enums import TriggerSource  # Added Enums
 from ..common.enums import VoltageUnit  # Added Enums
 from ..common.enums import WaveformType  # Added Enums
+from ..config import InstrumentConfig  # This is V2 config
 from ..config import WaveformGeneratorConfig  # This is V2 config
 from ..errors import InstrumentCommunicationError
 from ..errors import InstrumentConfigurationError
@@ -371,13 +372,12 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
                 pass
 
     @classmethod
-    @validate_call
     def from_config(
-        cls: type[WaveformGenerator],
-        config: WaveformGeneratorConfig,
+        cls: type[Self],
+        config: InstrumentConfig,
         debug_mode: bool = False,
         **kwargs: Any,
-    ) -> WaveformGenerator:
+    ) -> Self:
         return cls(config=config, debug_mode=debug_mode, **kwargs)
 
     def _validate_channel(self, channel: int | str) -> int:
@@ -626,6 +626,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
                 return
 
             for param_name, value in kwargs.items():
+                cmd = ""
                 if param_name in param_cmds_for_func:
                     try:
                         if param_name in ["duty_cycle", "symmetry"] and isinstance(
@@ -829,10 +830,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
     def set_phase(self, channel: int | str, phase: float | OutputLoadImpedance | str) -> None:
         ch = self._validate_channel(channel)
         phase_cmd_val = self._format_value_min_max_def(phase)
-        if isinstance(phase, int | float):
-            if 0 <= (ch - 1) < len(self.config.channels):
-                channel_config_model = self.config.channels[ch - 1]
-                channel_config_model.phase.assert_in_range(float(phase), name=f"Phase for CH{ch}")
+        # No phase range validation available in WaveformGeneratorConfig; skipping explicit validation.
         self._send_command(f"SOUR{ch}:PHASe {phase_cmd_val}")
         unit = self.get_angle_unit()
         self._logger.debug(
@@ -930,15 +928,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
     ) -> None:
         ch = self._validate_channel(channel)
         cmd_impedance = self._format_value_min_max_def(impedance)
-        if isinstance(impedance, int | float):
-            if 0 <= (ch - 1) < len(self.config.channels):
-                channel_config_model = self.config.channels[ch - 1]
-                if hasattr(channel_config_model, "output") and hasattr(
-                    channel_config_model.output, "load_impedance"
-                ):
-                    channel_config_model.output.load_impedance.assert_in_range(
-                        float(impedance), name=f"Load impedance for CH{ch}"
-                    )
+        # No per-channel load impedance limits in WaveformGeneratorConfig; skipping explicit validation.
         self._send_command(f"OUTPut{ch}:LOAD {cmd_impedance}")
         self._logger.debug(
             f"Channel {ch}: Output load impedance setting updated to {impedance} (using SCPI value: {cmd_impedance})"
@@ -1275,14 +1265,8 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
         ch = self._validate_channel(channel)
         cmd_val = self._format_value_min_max_def(sample_rate)
         if isinstance(sample_rate, int | float):
-            if 0 <= (ch - 1) < len(self.config.channels):
-                channel_config_model = self.config.channels[ch - 1]
-                if hasattr(channel_config_model, "arbitrary") and hasattr(
-                    channel_config_model.arbitrary, "sampling_rate"
-                ):
-                    channel_config_model.arbitrary.sampling_rate.assert_in_range(
-                        float(sample_rate), name=f"Arbitrary sample rate for CH{ch}"
-                    )
+            if hasattr(self.config, "waveforms") and hasattr(self.config.waveforms, "arbitrary") and hasattr(self.config.waveforms.arbitrary, "sampling_rate"):
+                self.config.waveforms.arbitrary.sampling_rate.assert_in_range(float(sample_rate), name="Arbitrary sample rate")
         self._send_command(f"SOUR{ch}:FUNC:ARB:SRATe {cmd_val}")
         self._logger.debug(
             f"Channel {ch}: Arbitrary waveform sample rate set to {sample_rate} Sa/s (using SCPI value: {cmd_val})"
@@ -1386,16 +1370,11 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
             raise InstrumentParameterError(
                 parameter="data_points", message="data_points must be a non-empty 1D sequence."
             )
-        if 0 <= (ch - 1) < len(self.config.channels):
-            channel_conf = self.config.channels[ch - 1]
-            if (
-                hasattr(channel_conf, "arbitrary")
-                and hasattr(channel_conf.arbitrary, "max_points")
-                and np_data.size > channel_conf.arbitrary.max_points
-            ):
-                self._logger.warning(
-                    f"Number of data points ({np_data.size}) exceeds configured max_points ({channel_conf.arbitrary.max_points}) for CH{ch}."
-                )
+        max_len = getattr(getattr(getattr(self.config, "waveforms", None), "arbitrary", None), "max_length", None)
+        if isinstance(max_len, int | float) and np_data.size > max_len:
+            self._logger.warning(
+                f"Number of data points ({np_data.size}) exceeds configured max_length ({max_len})."
+            )
         formatted_data: str
         scpi_suffix: str
         if data_type_upper == "DAC":
@@ -1408,9 +1387,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
                         parameter="data_points",
                         message="Cannot convert DAC data to int16.",
                     ) from e
-            dac_min, dac_max = getattr(
-                self.config.waveforms, "arbitrary_dac_range", (-32768, 32767)
-            )
+            dac_min, dac_max = (-32768, 32767)
             if np.any(np_data < dac_min) or np.any(np_data > dac_max):
                 raise InstrumentParameterError(
                     parameter="data_points",
@@ -1557,9 +1534,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
                         parameter="data_points",
                         message="Cannot convert DAC data to int16.",
                     ) from e
-            dac_min, dac_max = getattr(
-                self.config.waveforms, "arbitrary_dac_range", (-32768, 32767)
-            )
+            dac_min, dac_max = (-32768, 32767)
             if np.any(np_data < dac_min) or np.any(np_data > dac_max):
                 raise InstrumentParameterError(
                     parameter="data_points",

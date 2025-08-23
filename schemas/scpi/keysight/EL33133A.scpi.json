@@ -1,0 +1,454 @@
+{
+  "profile": "keysight/EL33133A.yaml",
+  "variant": null,
+  "names": [
+    "battery_cutoff_capacity",
+    "battery_cutoff_capacity_state",
+    "battery_cutoff_timer",
+    "battery_cutoff_timer_state",
+    "battery_cutoff_voltage",
+    "battery_cutoff_voltage_state",
+    "battery_enable",
+    "fetch_array",
+    "fetch_datalogger",
+    "get_input_state",
+    "input_short_state",
+    "measure",
+    "mode_get_range",
+    "mode_set_range",
+    "mode_set_slew",
+    "set_current_level",
+    "set_input_state",
+    "set_mode",
+    "set_power_level",
+    "set_resistance_level",
+    "set_voltage_level",
+    "transient_abort",
+    "transient_set_level",
+    "transient_set_mode",
+    "transient_start"
+  ],
+  "specs": {
+    "battery_cutoff_capacity": {
+      "sequence": [
+        "BATTery:CUTOff:CAPacity {capacity}, (@{channel})"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {},
+      "response": null
+    },
+    "battery_cutoff_capacity_state": {
+      "sequence": [
+        "BATTery:CUTOff:CAPacity:STATe {state}, (@{channel})"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "state": {
+          "kind": "enum",
+          "min": null,
+          "max": null,
+          "enum_map": {
+            "true": "ON",
+            "false": "OFF"
+          }
+        }
+      },
+      "response": null
+    },
+    "battery_cutoff_timer": {
+      "sequence": [
+        "BATTery:CUTOff:TIMer {time_s}, (@{channel})"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {},
+      "response": null
+    },
+    "battery_cutoff_timer_state": {
+      "sequence": [
+        "BATTery:CUTOff:TIMer:STATe {state}, (@{channel})"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "state": {
+          "kind": "enum",
+          "min": null,
+          "max": null,
+          "enum_map": {
+            "true": "ON",
+            "false": "OFF"
+          }
+        }
+      },
+      "response": null
+    },
+    "battery_cutoff_voltage": {
+      "sequence": [
+        "BATTery:CUTOff:VOLTage {voltage}, (@{channel})"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {},
+      "response": null
+    },
+    "battery_cutoff_voltage_state": {
+      "sequence": [
+        "BATTery:CUTOff:VOLTage:STATe {state}, (@{channel})"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "state": {
+          "kind": "enum",
+          "min": null,
+          "max": null,
+          "enum_map": {
+            "true": "ON",
+            "false": "OFF"
+          }
+        }
+      },
+      "response": null
+    },
+    "battery_enable": {
+      "sequence": [
+        "BATTery:ENABle {state}, (@{channel})"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "state": {
+          "kind": "enum",
+          "min": null,
+          "max": null,
+          "enum_map": {
+            "true": "ON",
+            "false": "OFF"
+          }
+        }
+      },
+      "response": null
+    },
+    "fetch_array": {
+      "sequence": [
+        "FETCh:ARRay:{quantity}? (@{channel})"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "quantity": {
+          "kind": "enum",
+          "min": null,
+          "max": null,
+          "enum_map": {
+            "current": "CURRent",
+            "voltage": "VOLTage",
+            "power": "POWer"
+          }
+        }
+      },
+      "response": {
+        "type": "binblock",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "fetch_datalogger": {
+      "sequence": [
+        "FETCh:SCALar:DLOG? {points}, (@{channel})"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {},
+      "response": {
+        "type": "csv_float",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "get_input_state": {
+      "sequence": [
+        "INPut:STATe? (@{channel})"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {},
+      "response": {
+        "type": "str",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "input_short_state": {
+      "sequence": [
+        "INPut:SHORt:STATe {state}, (@{channel})"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "state": {
+          "kind": "enum",
+          "min": null,
+          "max": null,
+          "enum_map": {
+            "true": "ON",
+            "false": "OFF"
+          }
+        }
+      },
+      "response": null
+    },
+    "measure": {
+      "sequence": [
+        "MEASure:{quantity}? (@{channel})"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "quantity": {
+          "kind": "enum",
+          "min": null,
+          "max": null,
+          "enum_map": {
+            "current": "CURRent",
+            "voltage": "VOLTage",
+            "power": "POWer"
+          }
+        }
+      },
+      "response": {
+        "type": "float",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "mode_get_range": {
+      "sequence": [
+        "{quantity}:RANGe?"
+      ],
+      "defaults": {},
+      "validators": {
+        "quantity": {
+          "kind": "enum",
+          "min": null,
+          "max": null,
+          "enum_map": {
+            "a": "CURRent",
+            "v": "VOLTage",
+            "w": "POWer",
+            "ohm": "RESistance"
+          }
+        }
+      },
+      "response": {
+        "type": "float",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "mode_set_range": {
+      "sequence": [
+        "{mode}:RANGe {value}, (@{channel})"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "mode": {
+          "kind": "enum",
+          "min": null,
+          "max": null,
+          "enum_map": {
+            "cc": "CURRent",
+            "cv": "VOLTage",
+            "cp": "POWer",
+            "cr": "RESistance"
+          }
+        }
+      },
+      "response": null
+    },
+    "mode_set_slew": {
+      "sequence": [
+        "{mode}:{slew} {rate}, (@{channel})"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "mode": {
+          "kind": "enum",
+          "min": null,
+          "max": null,
+          "enum_map": {
+            "cc": "CURRent",
+            "cv": "VOLTage",
+            "cp": "POWer",
+            "cr": "RESistance"
+          }
+        }
+      },
+      "response": null
+    },
+    "set_current_level": {
+      "sequence": [
+        "CURRent:LEVel:IMMediate:AMPLitude {value}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "set_input_state": {
+      "sequence": [
+        "INPut:STATe {state}, (@{channel})"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "state": {
+          "kind": "enum",
+          "min": null,
+          "max": null,
+          "enum_map": {
+            "true": "ON",
+            "false": "OFF"
+          }
+        }
+      },
+      "response": null
+    },
+    "set_mode": {
+      "sequence": [
+        "FUNC {mode}"
+      ],
+      "defaults": {},
+      "validators": {
+        "mode": {
+          "kind": "enum",
+          "min": null,
+          "max": null,
+          "enum_map": {
+            "cc": "CURR",
+            "cv": "VOLTage",
+            "cp": "POWer",
+            "cr": "RESistance"
+          }
+        }
+      },
+      "response": null
+    },
+    "set_power_level": {
+      "sequence": [
+        "POWer:LEVel:IMMediate:AMPLitude {value}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "set_resistance_level": {
+      "sequence": [
+        "RESistance:LEVel:IMMediate:AMPLitude {value}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "set_voltage_level": {
+      "sequence": [
+        "VOLTage:LEVel:IMMediate:AMPLitude {value}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "transient_abort": {
+      "sequence": [
+        "ABORt:TRANsient (@{channel})"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {},
+      "response": null
+    },
+    "transient_set_level": {
+      "sequence": [
+        "{mode}:TLEVel {value}, (@{channel})"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "mode": {
+          "kind": "enum",
+          "min": null,
+          "max": null,
+          "enum_map": {
+            "cc": "CURRent",
+            "cv": "VOLTage",
+            "cp": "POWer",
+            "cr": "RESistance"
+          }
+        }
+      },
+      "response": null
+    },
+    "transient_set_mode": {
+      "sequence": [
+        "TRANsient:MODE {mode}, (@{channel})"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {},
+      "response": null
+    },
+    "transient_start": {
+      "sequence": [
+        "INITiate:CONTinuous:TRANsient {state}, (@{channel})",
+        "INITiate:TRANsient (@{channel})"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "state": {
+          "kind": "enum",
+          "min": null,
+          "max": null,
+          "enum_map": {
+            "true": "ON",
+            "false": "OFF"
+          }
+        }
+      },
+      "response": null
+    }
+  }
+}

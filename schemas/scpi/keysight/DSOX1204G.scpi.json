@@ -1,0 +1,923 @@
+{
+  "profile": "keysight/DSOX1204G.yaml",
+  "variant": null,
+  "names": [
+    "acq_get_count",
+    "acq_get_mode",
+    "acq_get_type",
+    "acq_set_count",
+    "acq_set_mode",
+    "acq_set_type",
+    "acquire_points",
+    "acquire_sample_rate",
+    "acquire_set_rate",
+    "acquire_setup",
+    "auto_scale",
+    "channel_bandwidth",
+    "channel_display",
+    "configure_trigger",
+    "digitize",
+    "display_channel",
+    "fft_display",
+    "fft_offset",
+    "fft_scale",
+    "fft_source",
+    "fft_span",
+    "fft_vtype",
+    "fft_window",
+    "fran_amplitude",
+    "fran_disable",
+    "fran_enable",
+    "fran_fetch",
+    "fran_load",
+    "fran_points",
+    "fran_start",
+    "fran_stop",
+    "fran_trace",
+    "function_display",
+    "get_channel_offset",
+    "get_channel_scale",
+    "get_sampling_rate",
+    "get_timebase_position",
+    "get_timebase_scale",
+    "measure_vpp",
+    "measure_vrms",
+    "probe_get",
+    "probe_set",
+    "screenshot",
+    "seg_analyze",
+    "seg_get_count",
+    "seg_get_index",
+    "seg_set_count",
+    "seg_set_index",
+    "set_channel_axis",
+    "set_channel_coupling",
+    "set_time_axis",
+    "set_trigger_coupling",
+    "set_wave_format_byte",
+    "set_wave_points_max",
+    "set_wave_points_mode_raw",
+    "set_wave_source",
+    "system_lock",
+    "timebase_main_range",
+    "trigger_level",
+    "trigger_slope",
+    "trigger_source",
+    "wave_data",
+    "wave_preamble",
+    "wgen_output",
+    "wgen_set_freq",
+    "wgen_set_func",
+    "wgen_set_high",
+    "wgen_set_low",
+    "wgen_set_offset",
+    "wgen_set_period",
+    "wgen_set_pulse_width",
+    "wgen_set_ramp_symmetry",
+    "wgen_set_square_duty",
+    "wgen_set_volt"
+  ],
+  "specs": {
+    "acq_get_count": {
+      "sequence": [
+        ":ACQuire:COUNt?"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": {
+        "type": "int",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "acq_get_mode": {
+      "sequence": [
+        ":ACQuire:MODE?"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": {
+        "type": "str",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "acq_get_type": {
+      "sequence": [
+        ":ACQuire:TYPE?"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": {
+        "type": "str",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "acq_set_count": {
+      "sequence": [
+        ":ACQuire:COUNt {count}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "acq_set_mode": {
+      "sequence": [
+        ":ACQuire:MODE {value}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "acq_set_type": {
+      "sequence": [
+        ":ACQuire:TYPE {value}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "acquire_points": {
+      "sequence": [
+        ":ACQuire:POINts?"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": {
+        "type": "int",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "acquire_sample_rate": {
+      "sequence": [
+        ":ACQuire:SRATe?"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": {
+        "type": "float",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "acquire_set_rate": {
+      "sequence": [
+        "ACQuire:SRATe {rate}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "acquire_setup": {
+      "sequence": [
+        ":ACQuire?"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": {
+        "type": "str",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "auto_scale": {
+      "sequence": [
+        ":AUToscale"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "channel_bandwidth": {
+      "sequence": [
+        "CHANnel{channel}:BANDwidth {bandwidth}"
+      ],
+      "defaults": {},
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 4.0,
+          "enum_map": null
+        }
+      },
+      "response": null
+    },
+    "channel_display": {
+      "sequence": [
+        "CHANnel{channel}:DISPlay?"
+      ],
+      "defaults": {},
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 4.0,
+          "enum_map": null
+        }
+      },
+      "response": {
+        "type": "str",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "configure_trigger": {
+      "sequence": [
+        ":TRIG:SOUR {source}",
+        ":TRIGger:LEVel {level}, CHANnel{channel}",
+        ":TRIGger:SLOPe {slope}",
+        ":TRIGger:MODE {mode}"
+      ],
+      "defaults": {},
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 4.0,
+          "enum_map": null
+        }
+      },
+      "response": null
+    },
+    "digitize": {
+      "sequence": [
+        "DIGitize {sources}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "display_channel": {
+      "sequence": [
+        "CHANnel{channel}:DISPlay {state}"
+      ],
+      "defaults": {},
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 4.0,
+          "enum_map": null
+        },
+        "state": {
+          "kind": "enum",
+          "min": null,
+          "max": null,
+          "enum_map": {
+            "true": "ON",
+            "false": "OFF"
+          }
+        }
+      },
+      "response": null
+    },
+    "fft_display": {
+      "sequence": [
+        ":FFT:DISPlay {state}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "fft_offset": {
+      "sequence": [
+        ":FFT:OFFSet {offset}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "fft_scale": {
+      "sequence": [
+        ":FFT:SCALe {scale}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "fft_source": {
+      "sequence": [
+        ":FFT:SOURce1 CHANnel{channel}"
+      ],
+      "defaults": {},
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 4.0,
+          "enum_map": null
+        }
+      },
+      "response": null
+    },
+    "fft_span": {
+      "sequence": [
+        ":FFT:SPAn {span}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "fft_vtype": {
+      "sequence": [
+        ":FFT:VTYPe {units}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "fft_window": {
+      "sequence": [
+        ":FFT:WINDow {window}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "fran_amplitude": {
+      "sequence": [
+        ":AMPLitude {value}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "fran_disable": {
+      "sequence": [
+        ":DISABLE"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "fran_enable": {
+      "sequence": [
+        ":FUNCtion:FRANalysis"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "fran_fetch": {
+      "sequence": [
+        ":FETCH:FRANalysis?"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": {
+        "type": "str",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "fran_load": {
+      "sequence": [
+        ":LOAD {value}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "fran_points": {
+      "sequence": [
+        ":POINTS {value}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "fran_start": {
+      "sequence": [
+        ":FREQuency:START {value}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "fran_stop": {
+      "sequence": [
+        ":FREQuency:STOP {value}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "fran_trace": {
+      "sequence": [
+        ":TRACe:FEED {value}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "function_display": {
+      "sequence": [
+        ":FUNCtion:DISPlay {state}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "get_channel_offset": {
+      "sequence": [
+        ":CHANnel{channel}:OFFSet?"
+      ],
+      "defaults": {},
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 4.0,
+          "enum_map": null
+        }
+      },
+      "response": {
+        "type": "float",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "get_channel_scale": {
+      "sequence": [
+        ":CHANnel{channel}:SCALe?"
+      ],
+      "defaults": {},
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 4.0,
+          "enum_map": null
+        }
+      },
+      "response": {
+        "type": "float",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "get_sampling_rate": {
+      "sequence": [
+        ":ACQuire:SRATe?"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": {
+        "type": "float",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "get_timebase_position": {
+      "sequence": [
+        ":TIMebase:POSition?"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": {
+        "type": "float",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "get_timebase_scale": {
+      "sequence": [
+        ":TIMebase:SCALe?"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": {
+        "type": "float",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "measure_vpp": {
+      "sequence": [
+        "MEAS:VPP? CHAN{channel}"
+      ],
+      "defaults": {},
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 4.0,
+          "enum_map": null
+        }
+      },
+      "response": {
+        "type": "float",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "measure_vrms": {
+      "sequence": [
+        "MEAS:VRMS? CHAN{channel}"
+      ],
+      "defaults": {},
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 4.0,
+          "enum_map": null
+        }
+      },
+      "response": {
+        "type": "float",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "probe_get": {
+      "sequence": [
+        ":CHANnel{channel}:PROBe?"
+      ],
+      "defaults": {},
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 4.0,
+          "enum_map": null
+        }
+      },
+      "response": {
+        "type": "float",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "probe_set": {
+      "sequence": [
+        ":CHANnel{channel}:PROBe {scale}"
+      ],
+      "defaults": {},
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 4.0,
+          "enum_map": null
+        }
+      },
+      "response": null
+    },
+    "screenshot": {
+      "sequence": [
+        ":DISPlay:DATA? PNG, COLor"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": {
+        "type": "binblock",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "seg_analyze": {
+      "sequence": [
+        ":ACQuire:SEGMented:ANALyze"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "seg_get_count": {
+      "sequence": [
+        ":ACQuire:SEGMented:COUNt?"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": {
+        "type": "int",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "seg_get_index": {
+      "sequence": [
+        ":ACQuire:SEGMented:INDex?"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": {
+        "type": "int",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "seg_set_count": {
+      "sequence": [
+        ":ACQuire:SEGMented:COUNt {count}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "seg_set_index": {
+      "sequence": [
+        ":ACQuire:SEGMented:INDex {index}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "set_channel_axis": {
+      "sequence": [
+        ":CHANnel{channel}:SCALe {scale}",
+        ":CHANnel{channel}:OFFSet {offset}"
+      ],
+      "defaults": {},
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 4.0,
+          "enum_map": null
+        }
+      },
+      "response": null
+    },
+    "set_channel_coupling": {
+      "sequence": [
+        ":CHANnel{channel}:COUPling {coupling}"
+      ],
+      "defaults": {},
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 4.0,
+          "enum_map": null
+        }
+      },
+      "response": null
+    },
+    "set_time_axis": {
+      "sequence": [
+        ":TIMebase:SCALe {scale}",
+        ":TIMebase:POSition {position}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "set_trigger_coupling": {
+      "sequence": [
+        ":TRIGger:{mode}:COUPling {coupling}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "set_wave_format_byte": {
+      "sequence": [
+        ":WAVeform:FORMat BYTE"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "set_wave_points_max": {
+      "sequence": [
+        ":WAVeform:POINts MAX"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "set_wave_points_mode_raw": {
+      "sequence": [
+        ":WAVeform:POINts:MODE RAW"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "set_wave_source": {
+      "sequence": [
+        ":WAVeform:SOURce {source}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "system_lock": {
+      "sequence": [
+        ":SYSTem:LOCK {state}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "timebase_main_range": {
+      "sequence": [
+        ":TIMebase:MAIN:RANGe {time}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "trigger_level": {
+      "sequence": [
+        ":TRIGger:LEVel?"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": {
+        "type": "str",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "trigger_slope": {
+      "sequence": [
+        ":TRIGger:SLOPe?"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": {
+        "type": "str",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "trigger_source": {
+      "sequence": [
+        ":TRIGger:SOURce?"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": {
+        "type": "str",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "wave_data": {
+      "sequence": [
+        ":WAVeform:DATA?"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": {
+        "type": "binblock",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "wave_preamble": {
+      "sequence": [
+        ":WAVeform:PREamble?"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": {
+        "type": "csv",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "wgen_output": {
+      "sequence": [
+        "WGEN:OUTP {state}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "wgen_set_freq": {
+      "sequence": [
+        "WGEN:FREQ {frequency}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "wgen_set_func": {
+      "sequence": [
+        "WGEN:FUNC {func}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "wgen_set_high": {
+      "sequence": [
+        ":WGEN:VOLTage:HIGH {value}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "wgen_set_low": {
+      "sequence": [
+        ":WGEN:VOLTage:LOW {value}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "wgen_set_offset": {
+      "sequence": [
+        "WGEN:VOLT:OFFSet {offset}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "wgen_set_period": {
+      "sequence": [
+        ":WGEN:PERiod {period}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "wgen_set_pulse_width": {
+      "sequence": [
+        ":WGEN:FUNCtion:PULSe:WIDTh {width}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "wgen_set_ramp_symmetry": {
+      "sequence": [
+        ":WGEN:FUNCtion:RAMP:SYMMetry {symmetry}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "wgen_set_square_duty": {
+      "sequence": [
+        ":WGEN:FUNCtion:SQUare:DCYCle {duty}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "wgen_set_volt": {
+      "sequence": [
+        "WGEN:VOLT {amplitude}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    }
+  }
+}

@@ -1,0 +1,213 @@
+{
+  "profile": "keysight/EDU36311A.yaml",
+  "variant": null,
+  "names": [
+    "get_output_state",
+    "identify",
+    "measure_current",
+    "measure_voltage",
+    "reset",
+    "set_current",
+    "set_display",
+    "set_output",
+    "set_voltage",
+    "system_error"
+  ],
+  "specs": {
+    "get_output_state": {
+      "sequence": [
+        "OUTP:STAT? (@{channel})"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 3.0,
+          "enum_map": null
+        }
+      },
+      "response": {
+        "type": "str",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "identify": {
+      "sequence": [
+        "*IDN?"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": {
+        "type": "str",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "measure_current": {
+      "sequence": [
+        "MEAS:CURR? (@{channel})"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 3.0,
+          "enum_map": null
+        }
+      },
+      "response": {
+        "type": "float",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "measure_voltage": {
+      "sequence": [
+        "MEAS:VOLT? (@{channel})"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 3.0,
+          "enum_map": null
+        }
+      },
+      "response": {
+        "type": "float",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "reset": {
+      "sequence": [
+        "*RST"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "set_current": {
+      "sequence": [
+        "CURR {current}, (@{channel})"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "current": {
+          "kind": "range",
+          "min": 0.0,
+          "max": 5.0,
+          "enum_map": null
+        },
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 3.0,
+          "enum_map": null
+        }
+      },
+      "response": null
+    },
+    "set_display": {
+      "sequence": [
+        "DISP {state}"
+      ],
+      "defaults": {},
+      "validators": {
+        "state": {
+          "kind": "enum",
+          "min": null,
+          "max": null,
+          "enum_map": {
+            "true": "ON",
+            "false": "OFF"
+          }
+        }
+      },
+      "response": null
+    },
+    "set_output": {
+      "sequence": [
+        "OUTP:STAT {state}, (@{channel})"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 3.0,
+          "enum_map": null
+        },
+        "state": {
+          "kind": "enum",
+          "min": null,
+          "max": null,
+          "enum_map": {
+            "true": "ON",
+            "false": "OFF"
+          }
+        }
+      },
+      "response": null
+    },
+    "set_voltage": {
+      "sequence": [
+        "VOLT {voltage}, (@{channel})"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "voltage": {
+          "kind": "range",
+          "min": 0.0,
+          "max": 30.0,
+          "enum_map": null
+        },
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 3.0,
+          "enum_map": null
+        }
+      },
+      "response": null
+    },
+    "system_error": {
+      "sequence": [
+        "SYST:ERR?"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": {
+        "type": "str",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    }
+  }
+}

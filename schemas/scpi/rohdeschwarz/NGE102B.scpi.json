@@ -1,0 +1,263 @@
+{
+  "profile": "rohdeschwarz/NGE102B.yaml",
+  "variant": null,
+  "names": [
+    "disable_slew_rate",
+    "enable_slew_rate",
+    "get_output_state",
+    "identify",
+    "measure_current",
+    "measure_voltage",
+    "reset",
+    "set_current",
+    "set_output",
+    "set_slew_rate",
+    "set_voltage",
+    "system_error"
+  ],
+  "specs": {
+    "disable_slew_rate": {
+      "sequence": [
+        "INST:NSEL {channel}",
+        "VOLT:RAMP:STAT OFF"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 2.0,
+          "enum_map": null
+        }
+      },
+      "response": null
+    },
+    "enable_slew_rate": {
+      "sequence": [
+        "INST:NSEL {channel}",
+        "VOLT:RAMP:STAT ON"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 2.0,
+          "enum_map": null
+        }
+      },
+      "response": null
+    },
+    "get_output_state": {
+      "sequence": [
+        "INST:NSEL {channel}",
+        "OUTP?"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 2.0,
+          "enum_map": null
+        }
+      },
+      "response": {
+        "type": "str",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "identify": {
+      "sequence": [
+        "*IDN?"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": {
+        "type": "str",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "measure_current": {
+      "sequence": [
+        "INST:NSEL {channel}",
+        "MEAS:CURR?"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 2.0,
+          "enum_map": null
+        }
+      },
+      "response": {
+        "type": "float",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "measure_voltage": {
+      "sequence": [
+        "INST:NSEL {channel}",
+        "MEAS:VOLT?"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 2.0,
+          "enum_map": null
+        }
+      },
+      "response": {
+        "type": "float",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "reset": {
+      "sequence": [
+        "*RST"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "set_current": {
+      "sequence": [
+        "INST:NSEL {channel}",
+        "CURR {current}"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 2.0,
+          "enum_map": null
+        },
+        "current": {
+          "kind": "range",
+          "min": 0.0,
+          "max": 3.0,
+          "enum_map": null
+        }
+      },
+      "response": null
+    },
+    "set_output": {
+      "sequence": [
+        "INST:NSEL {channel}",
+        "OUTP:STAT {state}"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 2.0,
+          "enum_map": null
+        },
+        "state": {
+          "kind": "enum",
+          "min": null,
+          "max": null,
+          "enum_map": {
+            "true": "ON",
+            "false": "OFF"
+          }
+        }
+      },
+      "response": null
+    },
+    "set_slew_rate": {
+      "sequence": [
+        "INST:NSEL {channel}",
+        "VOLT:RAMP:DUR {duration_ms}"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 2.0,
+          "enum_map": null
+        },
+        "duration_ms": {
+          "kind": "range",
+          "min": 10.0,
+          "max": 10000.0,
+          "enum_map": null
+        }
+      },
+      "response": null
+    },
+    "set_voltage": {
+      "sequence": [
+        "INST:NSEL {channel}",
+        "VOLT {voltage}"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 2.0,
+          "enum_map": null
+        },
+        "voltage": {
+          "kind": "range",
+          "min": 0.0,
+          "max": 32.0,
+          "enum_map": null
+        }
+      },
+      "response": null
+    },
+    "system_error": {
+      "sequence": [
+        "SYST:ERR?"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": {
+        "type": "str",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    }
+  }
+}

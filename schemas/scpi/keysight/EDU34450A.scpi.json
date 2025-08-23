@@ -1,0 +1,75 @@
+{
+  "profile": "keysight/EDU34450A.yaml",
+  "variant": null,
+  "names": [
+    "measure",
+    "read",
+    "set_function",
+    "set_range_auto",
+    "set_resolution"
+  ],
+  "specs": {
+    "measure": {
+      "sequence": [
+        "MEASURE:{function}? {range},{resolution}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": {
+        "type": "str",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "read": {
+      "sequence": [
+        "READ?"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": {
+        "type": "str",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "set_function": {
+      "sequence": [
+        "SENSe:FUNCtion \"{function}\""
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    },
+    "set_range_auto": {
+      "sequence": [
+        "{function}:RANGe:AUTO {state}"
+      ],
+      "defaults": {},
+      "validators": {
+        "state": {
+          "kind": "enum",
+          "min": null,
+          "max": null,
+          "enum_map": {
+            "true": "ON",
+            "false": "OFF"
+          }
+        }
+      },
+      "response": null
+    },
+    "set_resolution": {
+      "sequence": [
+        "{function}:RESolution {resolution}"
+      ],
+      "defaults": {},
+      "validators": {},
+      "response": null
+    }
+  }
+}

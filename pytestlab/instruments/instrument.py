@@ -133,6 +133,43 @@ class Instrument(Generic[ConfigType]):
         )
         self.scpi_engine = SCPIEngine(scpi_section)
 
+    def _validate_features_against_scpi(self, feature_map: dict[str, dict[str, list[str]]], strict: bool = False) -> None:
+        """
+        Validate feature→SCPI mappings against the loaded SCPI engine.
+
+        Parameters:
+            feature_map: Mapping like
+                { feature_name: { "required_scpi": [...], "optional_scpi": [...] }, ... }
+            strict: When True, raise if any required SCPI names are missing.
+
+        Behavior:
+            - Ensures every entry in "required_scpi" exists in the SCPIEngine.
+            - "optional_scpi" entries are informational and do not affect validation.
+        """
+        # Collect available SCPI names from the engine
+        available = set()
+        try:
+            specs = getattr(self.scpi_engine, "_specs", {})
+            if isinstance(specs, dict):
+                available = set(specs.keys())
+        except Exception:
+            available = set()
+
+        missing: dict[str, list[str]] = {}
+        for feat, spec in (feature_map or {}).items():
+            spec = spec or {}
+            required = list(spec.get("required_scpi", []) or [])
+            missing_req = [name for name in required if name not in available]
+            if missing_req:
+                missing[feat] = missing_req
+
+        if missing:
+            details = "; ".join(f"{feat}: {names}" for feat, names in missing.items())
+            if strict:
+                raise RuntimeError(f"Missing required SCPI for features -> {details}")
+            else:
+                self._logger.warning(f"Missing required SCPI for features -> {details}")
+
     @classmethod
     def from_config(
         cls: type[Instrument], config: InstrumentConfig, debug_mode: bool = False

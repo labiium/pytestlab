@@ -59,6 +59,8 @@ from dataclasses import dataclass
 from dataclasses import field
 from typing import Any
 
+from ..config.scpi_schema import SCPISection
+
 __all__ = [
     "SCPIEngine",
     "SCPIEngineError",
@@ -171,22 +173,26 @@ def _parse_raw(data: str | bytes, spec: _ResponseSpec):  # noqa: D401
 
 @_register_parser("str")
 def _parse_str(data: str | bytes, spec: _ResponseSpec):
-    return str(data).strip()
+    txt = data.decode("utf-8", errors="ignore") if isinstance(data, bytes | bytearray) else str(data)
+    return txt.strip()
 
 
 @_register_parser("int")
 def _parse_int(data: str | bytes, spec: _ResponseSpec):
-    return int(str(data).strip())
+    txt = data.decode("utf-8", errors="ignore") if isinstance(data, bytes | bytearray) else str(data)
+    return int(txt.strip())
 
 
 @_register_parser("float")
 def _parse_float(data: str | bytes, spec: _ResponseSpec):
-    return float(str(data).strip())
+    txt = data.decode("utf-8", errors="ignore") if isinstance(data, bytes | bytearray) else str(data)
+    return float(txt.strip())
 
 
 @_register_parser("csv")
 def _parse_csv(data: str | bytes, spec: _ResponseSpec):
-    txt = str(data).strip()
+    txt = data.decode("utf-8", errors="ignore") if isinstance(data, bytes | bytearray) else str(data)
+    txt = txt.strip()
     return [p.strip() for p in txt.split(spec.delimiter) if p]
 
 
@@ -267,12 +273,17 @@ class SCPIEngine:
     # ------------------------------------------------------------------ #
     # Constructor
     # ------------------------------------------------------------------ #
-    def __init__(self, scpi_section: Mapping[str, Any], *, variant: str | None = None):
+    def __init__(self, scpi_section: SCPISection | Mapping[str, Any], *, variant: str | None = None):
+        if isinstance(scpi_section, SCPISection):
+            scpi_section = scpi_section.model_dump(exclude_none=True)
+
+        if not isinstance(scpi_section, Mapping):
+            raise SCPIEngineError("'scpi_section' must be a mapping")
         if not isinstance(scpi_section, Mapping):
             raise SCPIEngineError("'scpi_section' must be a mapping")
 
         # -------- optional variant lookup ----------------------------- #
-        if "variants" in scpi_section:
+        if isinstance(scpi_section.get("variants"), Mapping):
             variants = scpi_section["variants"]
             if not isinstance(variants, Mapping):
                 raise SCPIEngineError("'variants' must map to an object")
@@ -366,6 +377,68 @@ class SCPIEngine:
             raise ParseError(f"Failed to parse response for '{cmd_name}': {exc}") from exc
 
     # ------------------------------------------------------------------ #
+    # Introspection helpers
+    # ------------------------------------------------------------------ #
+    def list_names(self) -> list[str]:
+        """Return a list of all SCPI command/query names known to the engine."""
+        return list(self._specs.keys())
+
+    def describe(self, cmd_name: str) -> dict[str, Any]:
+        """
+        Return a dictionary describing the SCPI entry:
+        - sequence: list of templates
+        - defaults: mapping of default parameter values
+        - validators: mapping of parameter names to validator kind
+        - response: minimal response spec (type/fields) if present
+        """
+        try:
+            spec = self._specs[cmd_name]
+        except KeyError:
+            raise KeyError(f"SCPI command '{cmd_name}' not defined") from None
+
+        validators = {name: val.kind for name, val in spec.validators.items()}
+        resp = None
+        if spec.response is not None:
+            resp = {"type": spec.response.type, "fields": list(spec.response.fields)}
+        return {
+            "sequence": list(spec.sequence),
+            "defaults": dict(spec.defaults),
+            "validators": validators,
+            "response": resp,
+        }
+
+    def validate_presence(self, names: list[str]) -> dict[str, bool]:
+        """Check presence of each name in the engine."""
+        present = set(self._specs.keys())
+        return {n: (n in present) for n in names}
+
+    def validate_placeholders(
+        self, cmd_name: str, required_params: list[str] | None = None
+    ) -> dict[str, Any]:
+        """
+        Inspect placeholders used by a command sequence and compare with required_params.
+        Returns:
+          - placeholders: sorted unique placeholder names found in templates
+          - missing_required: required params not present in placeholders
+          - extra_params: placeholders not listed in required_params (empty if required_params is None)
+        """
+        try:
+            spec = self._specs[cmd_name]
+        except KeyError:
+            raise KeyError(f"SCPI command '{cmd_name}' not defined") from None
+
+        # With empty params, _find_missing_placeholders returns all placeholders encountered
+        placeholders = self._find_missing_placeholders(spec.sequence, {})
+        req = required_params or []
+        missing_required = sorted([p for p in req if p not in placeholders])
+        extra_params = sorted([p for p in placeholders if req and p not in req])
+        return {
+            "placeholders": placeholders,
+            "missing_required": missing_required,
+            "extra_params": extra_params,
+        }
+
+    # ------------------------------------------------------------------ #
     # Private helpers
     # ------------------------------------------------------------------ #
     @staticmethod
@@ -390,7 +463,7 @@ class SCPIEngine:
         elif isinstance(raw, Mapping):
             mapping = raw
             key = next(
-                (k for k in ("sequence", "template", "command", "query") if k in raw),
+                (k for k in ("sequence", "template", "command", "query") if k in raw and raw[k] is not None),
                 None,
             )
             if key is None:
@@ -427,21 +500,24 @@ class SCPIEngine:
 
         # ---- response ---------------------------------------------- #
         response = None
-        if "response" in mapping:
+        if "response" in mapping and mapping["response"] is not None:
             resp_raw = mapping["response"]
-            if not isinstance(resp_raw, Mapping):
-                raise SCPIEngineError(f"'response' for '{name}' must be mapping")
-            response = _ResponseSpec(
-                type=str(resp_raw.get("type", "raw")).lower(),
-                units=resp_raw.get("units"),
-                delimiter=resp_raw.get("delimiter", ","),
-                fields=list(resp_raw.get("fields", [])),
-                extras={
-                    k: v
-                    for k, v in resp_raw.items()
-                    if k not in {"type", "units", "delimiter", "fields"}
-                },
-            )
+            if isinstance(resp_raw, Mapping):
+                response = _ResponseSpec(
+                    type=str(resp_raw.get("type", "raw")).lower(),
+                    units=resp_raw.get("units"),
+                    delimiter=resp_raw.get("delimiter", ","),
+                    fields=list(resp_raw.get("fields", [])),
+                    extras={
+                        k: v
+                        for k, v in resp_raw.items()
+                        if k not in {"type", "units", "delimiter", "fields"}
+                    },
+                )
+            else:
+                # Tolerate non-mapping response specs (e.g., strings, numbers, None)
+                # by ignoring them instead of raising an error.
+                response = None
 
         return _CommandSpec(
             sequence=sequence,

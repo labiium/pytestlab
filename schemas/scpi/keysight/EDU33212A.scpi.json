@@ -1,0 +1,203 @@
+{
+  "profile": "keysight/EDU33212A.yaml",
+  "variant": null,
+  "names": [
+    "get_amplitude",
+    "get_frequency",
+    "get_offset",
+    "get_output_state",
+    "set_amplitude",
+    "set_frequency",
+    "set_function",
+    "set_offset",
+    "set_output_state"
+  ],
+  "specs": {
+    "get_amplitude": {
+      "sequence": [
+        "SOUR{channel}:VOLTage?"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 2.0,
+          "enum_map": null
+        }
+      },
+      "response": {
+        "type": "float",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "get_frequency": {
+      "sequence": [
+        "SOUR{channel}:FREQ?"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 2.0,
+          "enum_map": null
+        }
+      },
+      "response": {
+        "type": "float",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "get_offset": {
+      "sequence": [
+        "SOUR{channel}:VOLTage:OFFSet?"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 2.0,
+          "enum_map": null
+        }
+      },
+      "response": {
+        "type": "float",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "get_output_state": {
+      "sequence": [
+        "OUTPut{channel}:STATe?"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 2.0,
+          "enum_map": null
+        }
+      },
+      "response": {
+        "type": "str",
+        "units": null,
+        "delimiter": ",",
+        "fields": [],
+        "extras": {}
+      }
+    },
+    "set_amplitude": {
+      "sequence": [
+        "SOUR{channel}:VOLTage {amplitude}"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 2.0,
+          "enum_map": null
+        }
+      },
+      "response": null
+    },
+    "set_frequency": {
+      "sequence": [
+        "SOUR{channel}:FREQ {frequency}"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 2.0,
+          "enum_map": null
+        }
+      },
+      "response": null
+    },
+    "set_function": {
+      "sequence": [
+        "SOUR{channel}:FUNC {function}"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 2.0,
+          "enum_map": null
+        }
+      },
+      "response": null
+    },
+    "set_offset": {
+      "sequence": [
+        "SOUR{channel}:VOLTage:OFFSet {offset}"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 2.0,
+          "enum_map": null
+        }
+      },
+      "response": null
+    },
+    "set_output_state": {
+      "sequence": [
+        "OUTPut{channel}:STATe {state}"
+      ],
+      "defaults": {
+        "channel": 1
+      },
+      "validators": {
+        "channel": {
+          "kind": "range",
+          "min": 1.0,
+          "max": 2.0,
+          "enum_map": null
+        },
+        "state": {
+          "kind": "enum",
+          "min": null,
+          "max": null,
+          "enum_map": {
+            "true": "ON",
+            "false": "OFF"
+          }
+        }
+      },
+      "response": null
+    }
+  }
+}

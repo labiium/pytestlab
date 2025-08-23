@@ -1,0 +1,544 @@
+{
+  "$defs": {
+    "AWGAccuracy": {
+      "additionalProperties": false,
+      "properties": {
+        "amplitude": {
+          "description": "Amplitude accuracy specification (e.g., percentage or absolute value)",
+          "title": "Amplitude",
+          "type": "number"
+        },
+        "frequency": {
+          "description": "Frequency accuracy specification (e.g., ppm or Hz)",
+          "title": "Frequency",
+          "type": "number"
+        }
+      },
+      "required": [
+        "amplitude",
+        "frequency"
+      ],
+      "title": "AWGAccuracy",
+      "type": "object"
+    },
+    "AWGChannelConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "description": "Channel description or identifier",
+          "title": "Description",
+          "type": "string"
+        },
+        "frequency": {
+          "$ref": "#/$defs/Range",
+          "description": "Programmable frequency range for the channel"
+        },
+        "amplitude": {
+          "$ref": "#/$defs/Range",
+          "description": "Programmable amplitude range for the channel"
+        },
+        "dc_offset": {
+          "$ref": "#/$defs/Range",
+          "description": "Programmable DC offset range for the channel"
+        },
+        "accuracy": {
+          "$ref": "#/$defs/AWGAccuracy",
+          "description": "Accuracy specifications for this channel"
+        }
+      },
+      "required": [
+        "description",
+        "frequency",
+        "amplitude",
+        "dc_offset",
+        "accuracy"
+      ],
+      "title": "AWGChannelConfig",
+      "type": "object"
+    },
+    "AccuracySpec": {
+      "additionalProperties": false,
+      "description": "Represents a single accuracy specification for a measurement mode.\nThe standard deviation (sigma) is typically calculated as:\nsqrt((percent_reading * reading)^2 + (offset_value)^2)\nor other forms depending on how specs are given (e.g., % of range).",
+      "properties": {
+        "percent_reading": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Accuracy as a percentage of the reading (e.g., 0.0001 for 0.01%)",
+          "title": "Percent Reading"
+        },
+        "offset_value": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Fixed offset accuracy in units of the measurement (e.g., 0.005 V)",
+          "title": "Offset Value"
+        }
+      },
+      "title": "AccuracySpec",
+      "type": "object"
+    },
+    "ArbitraryWaveformConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "memory": {
+          "description": "Arbitrary waveform memory size (e.g., in points or bytes)",
+          "title": "Memory",
+          "type": "number"
+        },
+        "max_length": {
+          "description": "Maximum length of a single arbitrary waveform segment (in points)",
+          "title": "Max Length",
+          "type": "number"
+        },
+        "sampling_rate": {
+          "$ref": "#/$defs/Range",
+          "description": "Programmable sampling rate range for arbitrary waveforms"
+        },
+        "resolution": {
+          "description": "Vertical resolution for arbitrary waveforms in bits",
+          "exclusiveMinimum": 0,
+          "title": "Resolution",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "memory",
+        "max_length",
+        "sampling_rate",
+        "resolution"
+      ],
+      "title": "ArbitraryWaveformConfig",
+      "type": "object"
+    },
+    "CommandSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "template": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Template"
+        },
+        "sequence": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sequence"
+        },
+        "defaults": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "title": "Defaults",
+          "type": "object"
+        },
+        "validators": {
+          "additionalProperties": {
+            "$ref": "#/$defs/RangeValidator"
+          },
+          "title": "Validators",
+          "type": "object"
+        },
+        "enums": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "type": "object"
+          },
+          "title": "Enums",
+          "type": "object"
+        },
+        "response": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResponseSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "CommandSpec",
+      "type": "object"
+    },
+    "CommandsQueries": {
+      "additionalProperties": false,
+      "properties": {
+        "commands": {
+          "additionalProperties": {
+            "$ref": "#/$defs/CommandSpec"
+          },
+          "title": "Commands",
+          "type": "object"
+        },
+        "queries": {
+          "additionalProperties": {
+            "$ref": "#/$defs/CommandSpec"
+          },
+          "title": "Queries",
+          "type": "object"
+        }
+      },
+      "title": "CommandsQueries",
+      "type": "object"
+    },
+    "Range": {
+      "additionalProperties": false,
+      "properties": {
+        "min_val": {
+          "description": "Minimum value of the range (inclusive)",
+          "title": "Min Val",
+          "type": "number"
+        },
+        "max_val": {
+          "description": "Maximum value of the range (inclusive)",
+          "title": "Max Val",
+          "type": "number"
+        }
+      },
+      "required": [
+        "min_val",
+        "max_val"
+      ],
+      "title": "Range",
+      "type": "object"
+    },
+    "RangeValidator": {
+      "additionalProperties": false,
+      "properties": {
+        "min": {
+          "title": "Min",
+          "type": "number"
+        },
+        "max": {
+          "title": "Max",
+          "type": "number"
+        }
+      },
+      "required": [
+        "min",
+        "max"
+      ],
+      "title": "RangeValidator",
+      "type": "object"
+    },
+    "ResponseSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "default": "raw",
+          "enum": [
+            "raw",
+            "str",
+            "int",
+            "float",
+            "csv",
+            "csv_int",
+            "csv_float",
+            "csv_dict",
+            "binblock"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "units": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Units"
+        },
+        "delimiter": {
+          "default": ",",
+          "title": "Delimiter",
+          "type": "string"
+        },
+        "fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fields",
+          "type": "array"
+        }
+      },
+      "title": "ResponseSpec",
+      "type": "object"
+    },
+    "SCPISection": {
+      "properties": {
+        "commands": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/CommandSpec"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Commands"
+        },
+        "queries": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/CommandSpec"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Queries"
+        },
+        "variants": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/CommandsQueries"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variants"
+        },
+        "default_variant": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Default Variant"
+        },
+        "feature_mappings": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "additionalProperties": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "type": "object"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Declarative feature mapping: { feature_name: { required_scpi: [...], optional_scpi: [...] } }",
+          "title": "Feature Mappings"
+        }
+      },
+      "title": "SCPISection",
+      "type": "object"
+    },
+    "WaveformsConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "built_in": {
+          "description": "List of available built-in waveform shapes (e.g., SINE, SQUARE)",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Built In",
+          "type": "array"
+        },
+        "arbitrary": {
+          "$ref": "#/$defs/ArbitraryWaveformConfig",
+          "description": "Configuration for arbitrary waveform capabilities"
+        }
+      },
+      "required": [
+        "built_in",
+        "arbitrary"
+      ],
+      "title": "WaveformsConfig",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "manufacturer": {
+      "description": "Manufacturer of the instrument",
+      "title": "Manufacturer",
+      "type": "string"
+    },
+    "model": {
+      "description": "Model number of the instrument",
+      "title": "Model",
+      "type": "string"
+    },
+    "device_type": {
+      "default": "waveform_generator",
+      "description": "Type of the device (e.g., 'AWG', 'waveform_generator')",
+      "enum": [
+        "AWG",
+        "waveform_generator"
+      ],
+      "title": "Device Type",
+      "type": "string"
+    },
+    "serial_number": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Serial number of the instrument",
+      "title": "Serial Number"
+    },
+    "address": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Instrument connection address (e.g., VISA resource string)",
+      "title": "Address"
+    },
+    "measurement_accuracy": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/AccuracySpec"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Measurement accuracy specifications",
+      "title": "Measurement Accuracy"
+    },
+    "scpi": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SCPISection"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "SCPI section typed by Pydantic. Supports direct commands/queries or variants."
+    },
+    "scpi_variant": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Name of the variant inside scpi.variants to be used with this instrument.  Leave empty if not using the multi-variant feature.",
+      "title": "Scpi Variant"
+    },
+    "channels": {
+      "description": "List of waveform generator channel configurations",
+      "items": {
+        "$ref": "#/$defs/AWGChannelConfig"
+      },
+      "minItems": 1,
+      "title": "Channels",
+      "type": "array"
+    },
+    "waveforms": {
+      "$ref": "#/$defs/WaveformsConfig",
+      "description": "Waveform capabilities configuration"
+    }
+  },
+  "required": [
+    "manufacturer",
+    "model",
+    "channels",
+    "waveforms"
+  ],
+  "title": "WaveformGeneratorConfig",
+  "type": "object"
+}

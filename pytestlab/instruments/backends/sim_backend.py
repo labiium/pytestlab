@@ -302,10 +302,11 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
         return resp_str
 
     def query_raw(self, cmd: str, delay: float | None = None) -> bytes:
-        resp = self.query(cmd, delay)
-        if isinstance(resp, bytes):
-            return resp
-        return resp.encode()
+        if delay:
+            time.sleep(delay)
+        # Execute in raw mode to preserve binary responses
+        resp = self._handle_command_raw(cmd)
+        return resp
 
     def close(self) -> None:
         self.disconnect()
@@ -420,6 +421,46 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
             return ""
         return ""
 
+    def _handle_command_raw(self, cmd: str) -> bytes:
+        """
+        Handle a SCPI command and return raw bytes, preserving any binary data.
+        """
+        cmd = cmd.strip()
+        upper = cmd.upper()
+
+        # 1. Exact match
+        if upper in self._exact_map:
+            resp = self._execute_entry(self._exact_map[upper], cmd, (), raw=True)
+            return resp if isinstance(resp, bytes | bytearray) else str(resp).encode("utf-8")
+
+        # 2. Pattern-based rules
+        for rule in self._pattern_rules:
+            m = rule.pattern.fullmatch(cmd)
+            if m:
+                resp = self._execute_entry(rule.template, cmd, m.groups(), raw=True)
+                return resp if isinstance(resp, bytes | bytearray) else str(resp).encode("utf-8")
+
+        # 3. Built-in commands (fallback)
+        if (
+            upper.endswith("SYST:ERR?")
+            or upper.endswith("SYSTEM:ERROR?")
+            or upper.endswith(":SYSTEM:ERROR?")
+            or ":SYSTEM:ERR" in upper
+        ):
+            return self._builtin_error_query().encode("utf-8")
+        if upper == "*CLS":
+            self._clear_errors()
+            return b""
+        if upper == "*IDN?":
+            # Check override first
+            if "*IDN?" in self._exact_map:
+                resp = self._execute_entry(self._exact_map["*IDN?"], cmd, (), raw=True)
+                return resp if isinstance(resp, bytes | bytearray) else str(resp).encode("utf-8")
+            return str(self._profile.get("identification", f"Simulated,PyTestLab,{self.model}-SIM,1.0")).encode("utf-8")
+
+        # 4. No match
+        return b""
+
     # ................ execute a mapping/string ........ #
 
     def _execute_entry(
@@ -427,7 +468,9 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
         entry: str | dict[str, Any] | list[str],
         orig_cmd: str,
         groups: tuple[str, ...],
-    ) -> str:
+        *,
+        raw: bool = False,
+    ) -> str | bytes:
         """
         Dispatch *entry* which may be:
 
@@ -489,7 +532,9 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
             elif "binary" in entry:
                 binary_path = self.profile_path.parent / entry["binary"]
                 if binary_path.exists():
-                    response = binary_path.read_bytes()
+                    data = binary_path.read_bytes()
+                    # Strip trailing CR/LF to normalise binary fixtures
+                    response = data.rstrip(b"\r\n")
                 else:
                     logger.warning(f"Binary file not found: {binary_path}")
                     response = b""
@@ -536,8 +581,8 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
         # post: evaluate error rules
         self._evaluate_error_rules(orig_cmd, groups)
 
-        # Ensure textual response for query path
-        if isinstance(response, bytes):
+        # Ensure textual response only for text queries; preserve bytes for raw path
+        if not raw and isinstance(response, bytes | bytearray):
             try:
                 response = response.decode()
             except Exception:

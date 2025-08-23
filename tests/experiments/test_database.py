@@ -37,7 +37,8 @@ class TestDatabase(unittest.TestCase):
         self.assertEqual(retrieved.instrument, meas.instrument)
         self.assertEqual(retrieved.measurement_type, meas.measurement_type)
         self.assertEqual(retrieved.units, meas.units)
-        self.assertTrue(np.allclose(retrieved.values["a"].to_numpy(), values["a"].to_numpy()))
+        retrieved_df = pl.DataFrame(retrieved.values, schema=values.schema)
+        self.assertTrue(np.allclose(retrieved_df["a"].to_numpy(), values["a"].to_numpy()))
 
     def test_list_and_search_measurements(self):
         """Test listing and searching for measurements."""

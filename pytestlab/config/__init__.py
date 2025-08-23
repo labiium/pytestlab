@@ -1,3 +1,4 @@
+from . import scpi_schema
 from .accuracy import AccuracySpec
 from .base import BaseConfig
 from .config import Config
@@ -28,4 +29,5 @@ __all__ = [
     "VirtualInstrumentConfig",
     "VNAConfig",
     "WaveformGeneratorConfig",
+    "scpi_schema",
 ]
