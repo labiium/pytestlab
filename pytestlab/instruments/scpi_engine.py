@@ -303,8 +303,15 @@ class SCPIEngine:
                 ) from None
 
         # -------- commands / queries ---------------------------------- #
-        commands_block = scpi_section.get("commands", {}) or {}
-        queries_block = scpi_section.get("queries", {}) or {}
+        # Ensure scpi_section has the get method by checking if it's a Mapping
+        if hasattr(scpi_section, "get"):
+            commands_block = scpi_section.get("commands", {}) or {}
+            queries_block = scpi_section.get("queries", {}) or {}
+        else:
+            # Fallback for SCPISection objects
+            commands_block = getattr(scpi_section, "commands", {}) or {}
+            queries_block = getattr(scpi_section, "queries", {}) or {}
+        
         if not isinstance(commands_block, Mapping) or not isinstance(queries_block, Mapping):
             raise SCPIEngineError("'commands'/'queries' must map to objects")
 

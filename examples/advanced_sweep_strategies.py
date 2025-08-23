@@ -183,7 +183,8 @@ def plot_results(
     x = np.linspace(0, 4, 100)
     y = np.linspace(0, 4, 100)
     X, Y = np.meshgrid(x, y)
-    Z = sample_function(X, Y)
+    # Vectorize the function to work with numpy arrays
+    Z = np.vectorize(sample_function)(X, Y)
 
     plt.contourf(X, Y, Z, 50, cmap="viridis")
     plt.colorbar(label="z value")

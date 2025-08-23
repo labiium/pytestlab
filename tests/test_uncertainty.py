@@ -17,8 +17,8 @@ UNC_DMM_CONFIG_DICT = {
     "model": "UncertainDMM",
     "address": "SIM_ADDRESS_UNC_DMM",
     "measurement_accuracy": {
-        "voltage_dc_10V": AccuracySpec(percent_reading=0.001, offset_value=0.005),  # 0.1% + 5mV
-        "current_dc_1A": AccuracySpec(offset_value=0.001),  # 1mA fixed
+        "voltage_dc_10V": AccuracySpec(percent_reading=0.001, percent_range=0.001, offset_value=0.005),  # 0.1% + 5mV
+        "current_dc_1A": AccuracySpec(percent_reading=0.001, percent_range=0.001, offset_value=0.001),  # 1mA fixed
     },
     # Add other mandatory fields for MultimeterConfig
 }

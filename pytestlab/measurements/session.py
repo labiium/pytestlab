@@ -226,7 +226,7 @@ class MeasurementSession(contextlib.AbstractContextManager):
                     if alias in sig.parameters:
                         kwargs[alias] = inst_rec.instance
                 if "ctx" in sig.parameters:
-                    kwargs["ctx"] = row
+                    kwargs["ctx"] = row  # type: ignore[assignment]
                 res = func(**kwargs)
                 if not isinstance(res, Mapping):
                     raise TypeError(

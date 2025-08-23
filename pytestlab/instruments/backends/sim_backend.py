@@ -390,13 +390,15 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
 
         # 1. Exact match in user-defined SCPI map (highest priority)
         if upper in self._exact_map:
-            return self._execute_entry(self._exact_map[upper], cmd, ())
+            result = self._execute_entry(self._exact_map[upper], cmd, ())
+            return str(result)
 
         # 2. Pattern-based rules
         for rule in self._pattern_rules:
             m = rule.pattern.fullmatch(cmd)
             if m:
-                return self._execute_entry(rule.template, cmd, m.groups())
+                result = self._execute_entry(rule.template, cmd, m.groups())
+                return str(result)
 
         # 3. Built-in commands (fallback)
         if (
@@ -412,7 +414,8 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
         if upper == "*IDN?":
             # Check if IDN is defined in the profile's exact map first for overrides
             if "*IDN?" in self._exact_map:
-                return self._execute_entry(self._exact_map["*IDN?"], cmd, ())
+                result = self._execute_entry(self._exact_map["*IDN?"], cmd, ())
+                return str(result)
             return self._profile.get("identification", f"Simulated,PyTestLab,{self.model}-SIM,1.0")
 
         # 4. No match found, push an error

@@ -1,5 +1,6 @@
 import tempfile
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -14,7 +15,7 @@ from pytestlab.instruments.instrument import Instrument
 class ProgrammableErrorSimBackend(SimBackend):
     def __init__(self, profile_path: str, *args, **kwargs):
         super().__init__(profile_path, *args, **kwargs)
-        self.command_map = {}
+        self.command_map: dict[str, Any] = {}
         self._error_responses: list[str] = []
         self._syst_err_query_count: int = 0
         # Ensure SYST:ERR? is in the command_map if not already by default

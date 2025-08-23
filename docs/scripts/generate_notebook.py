@@ -34,7 +34,7 @@ class NotebookGenerator:
     """
 
     # Notebook templates for different types
-    TEMPLATES = {
+    TEMPLATES: dict[str, dict[str, str | list[str]]] = {
         "tutorial": {
             "title_prefix": "PyTestLab Tutorial:",
             "description": "Learn how to use PyTestLab effectively with this hands-on tutorial.",
@@ -138,7 +138,11 @@ class NotebookGenerator:
         full_title = f"{template['title_prefix']} {title}"
 
         if description is None:
-            description = template["description"]
+            desc = template["description"]
+            if isinstance(desc, list):
+                description = " ".join(desc)
+            else:
+                description = desc
 
         markdown_content = f"""# {full_title}
 

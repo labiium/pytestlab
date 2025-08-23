@@ -378,6 +378,10 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
         debug_mode: bool = False,
         **kwargs: Any,
     ) -> Self:
+        if not isinstance(config, WaveformGeneratorConfig):
+            raise InstrumentConfigurationError(
+                cls.__name__, "from_config expects a WaveformGeneratorConfig object."
+            )
         return cls(config=config, debug_mode=debug_mode, **kwargs)
 
     def _validate_channel(self, channel: int | str) -> int:

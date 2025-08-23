@@ -8,7 +8,9 @@ from pathlib import Path
 
 import pytest
 
+from typing import Any, Generator
 from pytestlab.instruments import AutoInstrument
+from pytestlab.instruments.instrument import Instrument
 from pytestlab.instruments import Oscilloscope
 
 
@@ -56,7 +58,7 @@ def simple_experiment():
 
 
 @pytest.fixture(scope="module")
-def sim_scope() -> Oscilloscope:
+def sim_scope() -> Generator[Instrument[Any], None, None]:
     """
     Provides a module-scoped, simulated Oscilloscope instance.
 

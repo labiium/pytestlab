@@ -69,7 +69,7 @@ def test_trigger_facade(sim_scope: Oscilloscope):
 
 def test_waveform_acquisition(sim_scope: Oscilloscope):
     """Verify that read_channels returns a correctly structured result."""
-    sim_scope.get_sampling_rate = lambda: 1.0e9
+    # Test without mocking - use the actual method
     result = sim_scope.read_channels(1, 3)  # Read channels 1 and 3
 
     assert isinstance(result.values, pl.DataFrame)

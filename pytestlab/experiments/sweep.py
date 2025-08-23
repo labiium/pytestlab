@@ -278,7 +278,7 @@ def _grid_sweep_impl(
     if not grids:  # Handle empty param_ranges
         return []
 
-    param_mesh: list[np.ndarray] = np.meshgrid(*grids, indexing="ij")
+    param_mesh: tuple[np.ndarray, ...] = np.meshgrid(*grids, indexing="ij")
     params_list_np: np.ndarray = np.array([p.flatten() for p in param_mesh]).T
 
     results: list[tuple[list[float], Any]] = []
@@ -336,7 +336,7 @@ def _gwass_impl(
     grids_list: list[np.ndarray] = [
         np.linspace(r[0], r[1], n_points_per_dim_val) for r in param_ranges
     ]
-    param_mesh_gwass: list[np.ndarray] = np.meshgrid(*grids_list, indexing="ij")  # Renamed
+    param_mesh_gwass: tuple[np.ndarray, ...] = np.meshgrid(*grids_list, indexing="ij")  # Renamed
     initial_params_np: np.ndarray = np.array([p.flatten() for p in param_mesh_gwass]).T  # Renamed
 
     for params_row_np in initial_params_np:
@@ -395,7 +395,7 @@ def _gwass_impl(
             )  # Renamed
             corner_grad_val: float = grad_magnitude_np[corner_idx_tuple]  # Renamed
             corner_gradients_vals.append(corner_grad_val)
-        cell_grad_val: float = np.mean(corner_gradients_vals)  # Renamed
+        cell_grad_val: float = float(np.mean(corner_gradients_vals))  # Renamed
         cell_gradients_list.append(cell_grad_val)
 
     cell_gradients_np: np.ndarray = np.array(cell_gradients_list)  # Renamed

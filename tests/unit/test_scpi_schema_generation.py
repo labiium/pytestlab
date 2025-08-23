@@ -24,3 +24,4 @@ def test_json_schema_generation_includes_commands_and_queries():
     assert "feature_mappings" in props
 
 
+

@@ -6,7 +6,7 @@ import json
 import pathlib
 from datetime import UTC
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 from typing import TypedDict
 
 from cryptography.hazmat.backends import default_backend
@@ -14,6 +14,22 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric import utils
+from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
+from cryptography.hazmat.primitives.asymmetric.dsa import DSAPrivateKey
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.asymmetric.ed448 import Ed448PrivateKey
+from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
+from cryptography.hazmat.primitives.asymmetric.x448 import X448PrivateKey
+from cryptography.hazmat.primitives.asymmetric.dh import DHPrivateKey
+from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicKey
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
+from cryptography.hazmat.primitives.asymmetric.dsa import DSAPublicKey
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+from cryptography.hazmat.primitives.asymmetric.ed448 import Ed448PublicKey
+from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PublicKey
+from cryptography.hazmat.primitives.asymmetric.x448 import X448PublicKey
+from cryptography.hazmat.primitives.asymmetric.dh import DHPublicKey
 
 
 class Envelope(TypedDict):
@@ -58,7 +74,7 @@ class Signer:
             hsm_dir: The directory where the private key file (`private.pem`)
                      is stored. This path can be user-relative (e.g., `~/.myapp`).
         """
-        self._priv_path = pathlib.Path(hsm_dir).expanduser() / "private.pem"
+        self._priv_path: pathlib.Path = pathlib.Path(hsm_dir).expanduser() / "private.pem"
         self._priv_path.parent.mkdir(exist_ok=True, parents=True)
         # If the private key file doesn't exist, create it.
         if not self._priv_path.exists():
@@ -66,11 +82,15 @@ class Signer:
 
         # Load the private key from the PEM file.
         with open(self._priv_path, "rb") as fh:
-            self._priv = serialization.load_pem_private_key(
+            loaded_key = serialization.load_pem_private_key(
                 fh.read(), password=None, backend=default_backend()
             )
+            # Type narrow to ensure we have an ECDSA private key
+            if not isinstance(loaded_key, EllipticCurvePrivateKey):
+                raise ValueError("Expected ECDSA private key, got different key type")
+            self._priv: EllipticCurvePrivateKey = loaded_key
         # Derive and store the corresponding public key in PEM format.
-        self._pub_b = (
+        self._pub_b: str = (
             self._priv.public_key()
             .public_bytes(
                 serialization.Encoding.PEM,
@@ -82,7 +102,7 @@ class Signer:
     # ------------------------------------------------------------------ #
     def _generate(self) -> None:
         """Generates a new ECDSA P-256 private key and saves it to disk."""
-        priv = ec.generate_private_key(ec.SECP256R1(), default_backend())
+        priv: EllipticCurvePrivateKey = ec.generate_private_key(ec.SECP256R1(), default_backend())
         # Serialize the key to PEM format without encryption.
         pem = priv.private_bytes(
             encoding=serialization.Encoding.PEM,
@@ -144,7 +164,11 @@ class Signer:
         if hashlib.sha256(raw).hexdigest() != env["sha"]:
             return False
         # Load the public key from the envelope.
-        pub = serialization.load_pem_public_key(env["pub"].encode(), backend=default_backend())
+        loaded_pub = serialization.load_pem_public_key(env["pub"].encode(), backend=default_backend())
+        # Type narrow to ensure we have an ECDSA public key
+        if not isinstance(loaded_pub, EllipticCurvePublicKey):
+            return False  # Can't verify with non-ECDSA key
+        pub: EllipticCurvePublicKey = loaded_pub
         try:
             # 2. Verify the cryptographic signature.
             pub.verify(

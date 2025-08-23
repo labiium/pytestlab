@@ -25,6 +25,7 @@ from ..common.health import HealthStatus
 
 # from ..config import OscilloscopeConfig, ConfigRequires # OscilloscopeConfig is V2
 from ..config.oscilloscope_config import OscilloscopeConfig  # Import the V2 config
+from ..config.instrument_config import InstrumentConfig  # Import base config
 from ..errors import InstrumentConfigurationError
 from ..errors import InstrumentDataError
 from ..errors import InstrumentParameterError
@@ -193,11 +194,19 @@ class ScopeChannelFacade:
                 if offset is None and position is None
                 else (offset or position or 0.0)
             )
-            self._scope.set_channel_axis(self._channel, scale, current_offset_val)
+            # Ensure current_offset_val is not None before converting to float
+            if current_offset_val is not None:
+                self._scope.set_channel_axis(self._channel, scale, float(current_offset_val))
+            else:
+                self._scope.set_channel_axis(self._channel, scale, 0.0)
         if offset is not None or position is not None:
             val_to_set = position if position is not None else offset
             current_scale_val = self._scope.get_channel_axis(self._channel)[0]
-            self._scope.set_channel_axis(self._channel, current_scale_val, val_to_set)
+            # Ensure val_to_set is not None before converting to float
+            if val_to_set is not None:
+                self._scope.set_channel_axis(self._channel, current_scale_val, float(val_to_set))
+            else:
+                self._scope.set_channel_axis(self._channel, current_scale_val, 0.0)
         if coupling is not None:
             for cmd in self._scope.scpi_engine.build(
                 "set_channel_coupling", channel=self._channel, coupling=coupling.upper()
@@ -555,10 +564,14 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
 
     @classmethod
     def from_config(
-        cls: type[Oscilloscope], config: OscilloscopeConfig, debug_mode: bool = False, **kwargs: Any
+        cls: type[Oscilloscope], config: InstrumentConfig, debug_mode: bool = False
     ) -> Oscilloscope:
         # This method aligns with the new __init__ signature.
-        return cls(config=config, debug_mode=debug_mode, **kwargs)
+        if not isinstance(config, OscilloscopeConfig):
+            raise InstrumentConfigurationError(
+                cls.__name__, "from_config expects an OscilloscopeConfig object."
+            )
+        return cls(config=config, debug_mode=debug_mode)
 
     def health_check(self) -> HealthReport:
         """

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from pytestlab.config.scpi_schema import CommandSpec
+from pytestlab.config.scpi_schema import RangeValidator
 from pytestlab.config.scpi_schema import ResponseSpec
 from pytestlab.config.scpi_schema import SCPISection
 from pytestlab.instruments.scpi_engine import SCPIEngine
@@ -13,7 +14,7 @@ def build_minimal_scpi_section() -> SCPISection:
         "set_voltage": CommandSpec(
             template=":VOLT {voltage}, (@{channel})",
             defaults={"channel": 1},
-            validators={"voltage": {"min": 0.0, "max": 30.0}},
+            validators={"voltage": RangeValidator(min=0.0, max=30.0)},
         ),
         "identify": CommandSpec(
             template="*IDN?",
@@ -67,5 +68,6 @@ def test_placeholder_introspection_and_validation_helpers():
     assert sorted(info["placeholders"]) == ["channel", "voltage"]
     assert info["missing_required"] == []
     assert info["extra_params"] == []
+
 
 
