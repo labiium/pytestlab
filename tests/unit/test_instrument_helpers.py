@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+
 # Attempt to import the target function.
 # _read_to_np is an instance method of Instrument, so we need to test it through an instrument instance
 # or mock it. For now, we'll create a simple test that doesn't rely on the actual method.
@@ -35,6 +36,7 @@ def _read_to_np(
         dt = dt.newbyteorder("<")
 
     return np.frombuffer(data, dtype=dt)
+
 
 # Test cases for _read_to_np
 

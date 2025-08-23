@@ -22,10 +22,10 @@ from ..common.enums import TriggerSlope
 from ..common.enums import WaveformType
 from ..common.health import HealthReport
 from ..common.health import HealthStatus
+from ..config.instrument_config import InstrumentConfig  # Import base config
 
 # from ..config import OscilloscopeConfig, ConfigRequires # OscilloscopeConfig is V2
 from ..config.oscilloscope_config import OscilloscopeConfig  # Import the V2 config
-from ..config.instrument_config import InstrumentConfig  # Import base config
 from ..errors import InstrumentConfigurationError
 from ..errors import InstrumentDataError
 from ..errors import InstrumentParameterError

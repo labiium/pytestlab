@@ -133,7 +133,9 @@ class Instrument(Generic[ConfigType]):
         )
         self.scpi_engine = SCPIEngine(scpi_section)
 
-    def _validate_features_against_scpi(self, feature_map: dict[str, dict[str, list[str]]], strict: bool = False) -> None:
+    def _validate_features_against_scpi(
+        self, feature_map: dict[str, dict[str, list[str]]], strict: bool = False
+    ) -> None:
         """
         Validate feature→SCPI mappings against the loaded SCPI engine.
 

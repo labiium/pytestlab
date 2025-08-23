@@ -4,14 +4,14 @@ Shared pytest fixtures for the PyTestLab test suite.
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from pathlib import Path
+from typing import Any
 
 import pytest
 
-from typing import Any, Generator
 from pytestlab.instruments import AutoInstrument
 from pytestlab.instruments.instrument import Instrument
-from pytestlab.instruments import Oscilloscope
 
 
 class _DummyInstrument:

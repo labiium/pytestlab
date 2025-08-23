@@ -1,11 +1,11 @@
 # tests/instruments/sim/conftest.py
+from collections.abc import Generator
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from pytestlab.instruments import AutoInstrument
-from typing import Any, Generator
-from pytestlab.instruments import Oscilloscope
 from pytestlab.instruments.instrument import Instrument
 
 

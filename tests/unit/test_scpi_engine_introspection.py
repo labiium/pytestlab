@@ -64,10 +64,9 @@ def test_placeholder_introspection_and_validation_helpers():
     assert presence == {"set_voltage": True, "nope": False}
 
     # validate_placeholders finds placeholders
-    info: dict[str, Any] = eng.validate_placeholders("set_voltage", required_params=["voltage", "channel"])
+    info: dict[str, Any] = eng.validate_placeholders(
+        "set_voltage", required_params=["voltage", "channel"]
+    )
     assert sorted(info["placeholders"]) == ["channel", "voltage"]
     assert info["missing_required"] == []
     assert info["extra_params"] == []
-
-
-

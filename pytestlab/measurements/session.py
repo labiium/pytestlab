@@ -84,7 +84,7 @@ class MeasurementSession(contextlib.AbstractContextManager):
         self._instruments: dict[str, _InstrumentRecord] = {}
         self._meas_funcs: list[tuple[str, T_MeasFunc]] = []
         self._tasks: list[tuple[str, T_TaskFunc]] = []
-        self._data_rows: list[Any] = []
+        self._data_rows: list[dict[str, Any]] = []
         self._experiment: Experiment | None = None
         self._has_run = False
         self._bench = bench
@@ -207,7 +207,7 @@ class MeasurementSession(contextlib.AbstractContextManager):
         value_lists = [p.values for p in self._parameters.values()]
         combinations = list(itertools.product(*value_lists))
 
-        self._data_rows = [None] * len(combinations)  # pre-allocate with None for type safety
+        self._data_rows = [{} for _ in range(len(combinations))]  # pre-allocate with empty dicts
         iterator = tqdm(
             enumerate(combinations),
             total=len(combinations),
@@ -217,16 +217,19 @@ class MeasurementSession(contextlib.AbstractContextManager):
 
         for idx, combo in iterator:
             param_ctx = dict(zip(names, combo, strict=True))
-            row: dict[str, Any] = {**param_ctx, "timestamp": time.time()}
+            # Create row with explicit Any typing to allow any measurement values
+            row: dict[str, Any] = {}
+            row.update(param_ctx)
+            row["timestamp"] = time.time()
 
             for meas_name, func in self._meas_funcs:
                 sig = inspect.signature(func)
-                kwargs = {n: v for n, v in param_ctx.items() if n in sig.parameters}
+                kwargs: dict[str, Any] = {n: v for n, v in param_ctx.items() if n in sig.parameters}
                 for alias, inst_rec in self._instruments.items():
                     if alias in sig.parameters:
                         kwargs[alias] = inst_rec.instance
                 if "ctx" in sig.parameters:
-                    kwargs["ctx"] = row  # type: ignore[assignment]
+                    kwargs["ctx"] = row
                 res = func(**kwargs)
                 if not isinstance(res, Mapping):
                     raise TypeError(

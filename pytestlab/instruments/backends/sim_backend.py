@@ -459,7 +459,9 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
             if "*IDN?" in self._exact_map:
                 resp = self._execute_entry(self._exact_map["*IDN?"], cmd, (), raw=True)
                 return resp if isinstance(resp, bytes | bytearray) else str(resp).encode("utf-8")
-            return str(self._profile.get("identification", f"Simulated,PyTestLab,{self.model}-SIM,1.0")).encode("utf-8")
+            return str(
+                self._profile.get("identification", f"Simulated,PyTestLab,{self.model}-SIM,1.0")
+            ).encode("utf-8")
 
         # 4. No match
         return b""

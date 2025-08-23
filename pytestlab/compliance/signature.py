@@ -6,7 +6,7 @@ import json
 import pathlib
 from datetime import UTC
 from datetime import datetime
-from typing import Any, cast
+from typing import Any
 from typing import TypedDict
 
 from cryptography.hazmat.backends import default_backend
@@ -15,21 +15,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric import utils
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
-from cryptography.hazmat.primitives.asymmetric.dsa import DSAPrivateKey
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from cryptography.hazmat.primitives.asymmetric.ed448 import Ed448PrivateKey
-from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
-from cryptography.hazmat.primitives.asymmetric.x448 import X448PrivateKey
-from cryptography.hazmat.primitives.asymmetric.dh import DHPrivateKey
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicKey
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
-from cryptography.hazmat.primitives.asymmetric.dsa import DSAPublicKey
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-from cryptography.hazmat.primitives.asymmetric.ed448 import Ed448PublicKey
-from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PublicKey
-from cryptography.hazmat.primitives.asymmetric.x448 import X448PublicKey
-from cryptography.hazmat.primitives.asymmetric.dh import DHPublicKey
 
 
 class Envelope(TypedDict):
@@ -164,7 +150,9 @@ class Signer:
         if hashlib.sha256(raw).hexdigest() != env["sha"]:
             return False
         # Load the public key from the envelope.
-        loaded_pub = serialization.load_pem_public_key(env["pub"].encode(), backend=default_backend())
+        loaded_pub = serialization.load_pem_public_key(
+            env["pub"].encode(), backend=default_backend()
+        )
         # Type narrow to ensure we have an ECDSA public key
         if not isinstance(loaded_pub, EllipticCurvePublicKey):
             return False  # Can't verify with non-ECDSA key

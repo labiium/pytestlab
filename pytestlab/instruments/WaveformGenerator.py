@@ -1269,8 +1269,14 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
         ch = self._validate_channel(channel)
         cmd_val = self._format_value_min_max_def(sample_rate)
         if isinstance(sample_rate, int | float):
-            if hasattr(self.config, "waveforms") and hasattr(self.config.waveforms, "arbitrary") and hasattr(self.config.waveforms.arbitrary, "sampling_rate"):
-                self.config.waveforms.arbitrary.sampling_rate.assert_in_range(float(sample_rate), name="Arbitrary sample rate")
+            if (
+                hasattr(self.config, "waveforms")
+                and hasattr(self.config.waveforms, "arbitrary")
+                and hasattr(self.config.waveforms.arbitrary, "sampling_rate")
+            ):
+                self.config.waveforms.arbitrary.sampling_rate.assert_in_range(
+                    float(sample_rate), name="Arbitrary sample rate"
+                )
         self._send_command(f"SOUR{ch}:FUNC:ARB:SRATe {cmd_val}")
         self._logger.debug(
             f"Channel {ch}: Arbitrary waveform sample rate set to {sample_rate} Sa/s (using SCPI value: {cmd_val})"
@@ -1374,7 +1380,9 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
             raise InstrumentParameterError(
                 parameter="data_points", message="data_points must be a non-empty 1D sequence."
             )
-        max_len = getattr(getattr(getattr(self.config, "waveforms", None), "arbitrary", None), "max_length", None)
+        max_len = getattr(
+            getattr(getattr(self.config, "waveforms", None), "arbitrary", None), "max_length", None
+        )
         if isinstance(max_len, int | float) and np_data.size > max_len:
             self._logger.warning(
                 f"Number of data points ({np_data.size}) exceeds configured max_length ({max_len})."

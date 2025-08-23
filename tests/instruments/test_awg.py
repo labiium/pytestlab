@@ -7,6 +7,7 @@ from pytestlab.instruments import AutoInstrument
 # Use the built-in Keysight EDU33212A AWG profile for testing
 AWG_PROFILE_KEY = "keysight/EDU33212A"
 
+
 def check_hardware_available():
     """Check if AWG hardware is available for testing."""
     try:

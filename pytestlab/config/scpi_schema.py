@@ -12,18 +12,20 @@ from pydantic import Field
 from pydantic import model_validator
 
 if __name__ != "pytestlab.config.scpi_schema":
-    _sys.modules["pytestlab.config.scpi_schema"] = _sys.modules.get(__name__, None)  # type: ignore[assignment]
+    _sys.modules["pytestlab.config.scpi_schema"] = (
+        _sys.modules.get(__name__) or _sys.modules[__name__]
+    )
     # Note: harmless no-op when already imported under the package path.
 
 
 class RangeValidator(BaseModel):
-    model_config = ConfigDict(validate_assignment=True, extra='forbid')
+    model_config = ConfigDict(validate_assignment=True, extra="forbid")
     min: float
     max: float
 
 
 class ResponseSpec(BaseModel):
-    model_config = ConfigDict(validate_assignment=True, extra='forbid')
+    model_config = ConfigDict(validate_assignment=True, extra="forbid")
     type: Literal[
         "raw",
         "str",
@@ -41,7 +43,7 @@ class ResponseSpec(BaseModel):
 
 
 class CommandSpec(BaseModel):
-    model_config = ConfigDict(validate_assignment=True, extra='forbid')
+    model_config = ConfigDict(validate_assignment=True, extra="forbid")
     # Exactly one of template or sequence is required; we allow both optional for leniency
     template: str | None = None
     sequence: list[str] | None = None
@@ -53,14 +55,14 @@ class CommandSpec(BaseModel):
 
 
 class CommandsQueries(BaseModel):
-    model_config = ConfigDict(validate_assignment=True, extra='forbid')
+    model_config = ConfigDict(validate_assignment=True, extra="forbid")
     commands: dict[str, CommandSpec] = Field(default_factory=dict)
     queries: dict[str, CommandSpec] = Field(default_factory=dict)
 
 
 class SCPISection(BaseModel):
     # Allow unknown keys to preserve backward compatibility with ad-hoc SCPI sections in tests/profiles
-    model_config = ConfigDict(validate_assignment=True, extra='ignore')
+    model_config = ConfigDict(validate_assignment=True, extra="ignore")
     # Either commands/queries directly, or a variants block
     commands: dict[str, CommandSpec] | None = None
     queries: dict[str, CommandSpec] | None = None

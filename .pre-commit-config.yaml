@@ -16,9 +16,8 @@ repos:
     rev: v1.10.1
     hooks:
       - id: mypy
-        stages: [pre-push]
+        stages: [pre-commit]
         pass_filenames: false
-        exclude: ^(examples_ci/|tests/)
         additional_dependencies:
           - types-PyYAML
           - types-requests

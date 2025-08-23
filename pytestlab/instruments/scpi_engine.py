@@ -173,25 +173,33 @@ def _parse_raw(data: str | bytes, spec: _ResponseSpec):  # noqa: D401
 
 @_register_parser("str")
 def _parse_str(data: str | bytes, spec: _ResponseSpec):
-    txt = data.decode("utf-8", errors="ignore") if isinstance(data, bytes | bytearray) else str(data)
+    txt = (
+        data.decode("utf-8", errors="ignore") if isinstance(data, bytes | bytearray) else str(data)
+    )
     return txt.strip()
 
 
 @_register_parser("int")
 def _parse_int(data: str | bytes, spec: _ResponseSpec):
-    txt = data.decode("utf-8", errors="ignore") if isinstance(data, bytes | bytearray) else str(data)
+    txt = (
+        data.decode("utf-8", errors="ignore") if isinstance(data, bytes | bytearray) else str(data)
+    )
     return int(txt.strip())
 
 
 @_register_parser("float")
 def _parse_float(data: str | bytes, spec: _ResponseSpec):
-    txt = data.decode("utf-8", errors="ignore") if isinstance(data, bytes | bytearray) else str(data)
+    txt = (
+        data.decode("utf-8", errors="ignore") if isinstance(data, bytes | bytearray) else str(data)
+    )
     return float(txt.strip())
 
 
 @_register_parser("csv")
 def _parse_csv(data: str | bytes, spec: _ResponseSpec):
-    txt = data.decode("utf-8", errors="ignore") if isinstance(data, bytes | bytearray) else str(data)
+    txt = (
+        data.decode("utf-8", errors="ignore") if isinstance(data, bytes | bytearray) else str(data)
+    )
     txt = txt.strip()
     return [p.strip() for p in txt.split(spec.delimiter) if p]
 
@@ -273,7 +281,9 @@ class SCPIEngine:
     # ------------------------------------------------------------------ #
     # Constructor
     # ------------------------------------------------------------------ #
-    def __init__(self, scpi_section: SCPISection | Mapping[str, Any], *, variant: str | None = None):
+    def __init__(
+        self, scpi_section: SCPISection | Mapping[str, Any], *, variant: str | None = None
+    ):
         if isinstance(scpi_section, SCPISection):
             scpi_section = scpi_section.model_dump(exclude_none=True)
 
@@ -311,7 +321,7 @@ class SCPIEngine:
             # Fallback for SCPISection objects
             commands_block = getattr(scpi_section, "commands", {}) or {}
             queries_block = getattr(scpi_section, "queries", {}) or {}
-        
+
         if not isinstance(commands_block, Mapping) or not isinstance(queries_block, Mapping):
             raise SCPIEngineError("'commands'/'queries' must map to objects")
 
@@ -470,7 +480,11 @@ class SCPIEngine:
         elif isinstance(raw, Mapping):
             mapping = raw
             key = next(
-                (k for k in ("sequence", "template", "command", "query") if k in raw and raw[k] is not None),
+                (
+                    k
+                    for k in ("sequence", "template", "command", "query")
+                    if k in raw and raw[k] is not None
+                ),
                 None,
             )
             if key is None:
