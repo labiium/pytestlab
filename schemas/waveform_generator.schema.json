@@ -1,61 +1,5 @@
 {
   "$defs": {
-    "AWGAccuracy": {
-      "additionalProperties": false,
-      "properties": {
-        "amplitude": {
-          "description": "Amplitude accuracy specification (e.g., percentage or absolute value)",
-          "title": "Amplitude",
-          "type": "number"
-        },
-        "frequency": {
-          "description": "Frequency accuracy specification (e.g., ppm or Hz)",
-          "title": "Frequency",
-          "type": "number"
-        }
-      },
-      "required": [
-        "amplitude",
-        "frequency"
-      ],
-      "title": "AWGAccuracy",
-      "type": "object"
-    },
-    "AWGChannelConfig": {
-      "additionalProperties": false,
-      "properties": {
-        "description": {
-          "description": "Channel description or identifier",
-          "title": "Description",
-          "type": "string"
-        },
-        "frequency": {
-          "$ref": "#/$defs/Range",
-          "description": "Programmable frequency range for the channel"
-        },
-        "amplitude": {
-          "$ref": "#/$defs/Range",
-          "description": "Programmable amplitude range for the channel"
-        },
-        "dc_offset": {
-          "$ref": "#/$defs/Range",
-          "description": "Programmable DC offset range for the channel"
-        },
-        "accuracy": {
-          "$ref": "#/$defs/AWGAccuracy",
-          "description": "Accuracy specifications for this channel"
-        }
-      },
-      "required": [
-        "description",
-        "frequency",
-        "amplitude",
-        "dc_offset",
-        "accuracy"
-      ],
-      "title": "AWGChannelConfig",
-      "type": "object"
-    },
     "AccuracySpec": {
       "additionalProperties": false,
       "description": "Represents a single accuracy specification for a measurement mode.\nThe standard deviation (sigma) is typically calculated as:\nsqrt((percent_reading * reading)^2 + (offset_value)^2)\nor other forms depending on how specs are given (e.g., % of range).",
@@ -87,46 +31,261 @@
           "default": null,
           "description": "Fixed offset accuracy in units of the measurement (e.g., 0.005 V)",
           "title": "Offset Value"
+        },
+        "percent_range": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Accuracy as a percentage of the range (e.g., 0.0001 for 0.01%)",
+          "title": "Percent Range"
         }
       },
       "title": "AccuracySpec",
       "type": "object"
     },
-    "ArbitraryWaveformConfig": {
-      "additionalProperties": false,
+    "ArbitraryWaveformSpec": {
+      "description": "Specification for arbitrary waveform capabilities.",
       "properties": {
-        "memory": {
-          "description": "Arbitrary waveform memory size (e.g., in points or bytes)",
-          "title": "Memory",
-          "type": "number"
-        },
         "max_length": {
-          "description": "Maximum length of a single arbitrary waveform segment (in points)",
-          "title": "Max Length",
-          "type": "number"
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Maximum number of points for arbitrary waveforms",
+          "title": "Max Length"
         },
         "sampling_rate": {
-          "$ref": "#/$defs/Range",
-          "description": "Programmable sampling rate range for arbitrary waveforms"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RangeSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Supported sampling rate range"
         },
-        "resolution": {
-          "description": "Vertical resolution for arbitrary waveforms in bits",
-          "exclusiveMinimum": 0,
-          "title": "Resolution",
-          "type": "integer"
+        "memory_size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Total memory size in points",
+          "title": "Memory Size"
+        },
+        "required_scpi_commands": {
+          "description": "Required SCPI command aliases for arbitrary waveform functionality (e.g., ['select_arbitrary_waveform', 'set_arbitrary_waveform_sample_rate'])",
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Scpi Commands",
+          "type": "array"
+        }
+      },
+      "title": "ArbitraryWaveformSpec",
+      "type": "object"
+    },
+    "BurstSpec": {
+      "description": "Specification for burst mode capabilities.",
+      "properties": {
+        "cycles_range": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RangeSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Burst cycles range"
+        },
+        "period_range": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RangeSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Burst period range in seconds"
+        },
+        "required_scpi_commands": {
+          "description": "Required SCPI command aliases for burst functionality (e.g., ['enable_burst', 'set_burst_mode', 'set_burst_cycles'])",
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Scpi Commands",
+          "type": "array"
+        }
+      },
+      "title": "BurstSpec",
+      "type": "object"
+    },
+    "ChannelSpec": {
+      "description": "Specification for a single channel.",
+      "properties": {
+        "description": {
+          "description": "Channel description",
+          "title": "Description",
+          "type": "string"
+        },
+        "frequency_range": {
+          "$ref": "#/$defs/RangeSpec",
+          "description": "Frequency range supported by this channel"
+        },
+        "amplitude_range": {
+          "$ref": "#/$defs/RangeSpec",
+          "description": "Amplitude range supported by this channel"
+        },
+        "offset_range": {
+          "$ref": "#/$defs/RangeSpec",
+          "description": "Offset range supported by this channel"
+        },
+        "phase_range": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RangeSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Phase range supported by this channel"
+        },
+        "required_scpi_commands": {
+          "description": "Required SCPI command aliases for channel functionality (e.g., ['set_function', 'set_frequency', 'set_amplitude'])",
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Scpi Commands",
+          "type": "array"
         }
       },
       "required": [
-        "memory",
-        "max_length",
-        "sampling_rate",
-        "resolution"
+        "description",
+        "frequency_range",
+        "amplitude_range",
+        "offset_range"
       ],
-      "title": "ArbitraryWaveformConfig",
+      "title": "ChannelSpec",
       "type": "object"
     },
-    "CommandSpec": {
+    "ModulationSpec": {
+      "description": "Specification for modulation capabilities.",
+      "properties": {
+        "am_depth_range": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RangeSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "AM depth range in percentage"
+        },
+        "fm_deviation_range": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RangeSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "FM deviation range in Hz"
+        },
+        "required_scpi_commands": {
+          "description": "Required SCPI command aliases for modulation functionality (e.g., ['enable_modulation', 'set_am_depth', 'set_fm_deviation'])",
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Scpi Commands",
+          "type": "array"
+        }
+      },
+      "title": "ModulationSpec",
+      "type": "object"
+    },
+    "RangeSpec": {
+      "description": "Specification for a range with accuracy information.",
+      "properties": {
+        "min": {
+          "description": "Minimum range value",
+          "title": "Min",
+          "type": "number"
+        },
+        "max": {
+          "description": "Maximum range value",
+          "title": "Max",
+          "type": "number"
+        },
+        "units": {
+          "description": "Units for the range values",
+          "title": "Units",
+          "type": "string"
+        },
+        "resolution": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Resolution for this range",
+          "title": "Resolution"
+        },
+        "accuracy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AccuracySpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Accuracy specification for this range"
+        }
+      },
+      "required": [
+        "min",
+        "max",
+        "units"
+      ],
+      "title": "RangeSpec",
+      "type": "object"
+    },
+    "SCPICommandSpec": {
       "additionalProperties": false,
+      "description": "Specification for a single SCPI command.",
       "properties": {
         "template": {
           "anyOf": [
@@ -138,6 +297,7 @@
             }
           ],
           "default": null,
+          "description": "SCPI command template with placeholders",
           "title": "Template"
         },
         "sequence": {
@@ -153,146 +313,247 @@
             }
           ],
           "default": null,
+          "description": "Sequence of SCPI commands",
           "title": "Sequence"
         },
-        "defaults": {
-          "additionalProperties": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "integer"
-              },
-              {
-                "type": "number"
-              }
-            ]
-          },
-          "title": "Defaults",
-          "type": "object"
-        },
-        "validators": {
-          "additionalProperties": {
-            "$ref": "#/$defs/RangeValidator"
-          },
-          "title": "Validators",
-          "type": "object"
-        },
-        "enums": {
-          "additionalProperties": {
-            "additionalProperties": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "number"
-                }
-              ]
-            },
-            "type": "object"
-          },
-          "title": "Enums",
-          "type": "object"
-        },
-        "response": {
+        "parameters": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ResponseSpec"
+              "additionalProperties": {
+                "$ref": "#/$defs/SCPIParameterSpec"
+              },
+              "type": "object"
             },
             {
               "type": "null"
             }
           ],
-          "default": null
+          "default": null,
+          "description": "Parameter specifications for this command",
+          "title": "Parameters"
+        },
+        "defaults": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Default parameter values",
+          "title": "Defaults"
+        },
+        "validators": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Parameter validation rules",
+          "title": "Validators"
+        },
+        "enums": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Enumeration values for parameters",
+          "title": "Enums"
+        },
+        "response": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Response specification",
+          "title": "Response"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Command description",
+          "title": "Description"
+        },
+        "category": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Command category (e.g., 'channel', 'trigger', 'acquisition')",
+          "title": "Category"
+        },
+        "feature": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Feature this command belongs to",
+          "title": "Feature"
         }
       },
-      "title": "CommandSpec",
+      "title": "SCPICommandSpec",
       "type": "object"
     },
-    "CommandsQueries": {
+    "SCPICommandsQueries": {
       "additionalProperties": false,
+      "description": "SCPI commands and queries specification.",
       "properties": {
         "commands": {
-          "additionalProperties": {
-            "$ref": "#/$defs/CommandSpec"
-          },
-          "title": "Commands",
-          "type": "object"
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/SCPICommandSpec"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SCPI commands",
+          "title": "Commands"
         },
         "queries": {
-          "additionalProperties": {
-            "$ref": "#/$defs/CommandSpec"
-          },
-          "title": "Queries",
-          "type": "object"
-        }
-      },
-      "title": "CommandsQueries",
-      "type": "object"
-    },
-    "Range": {
-      "additionalProperties": false,
-      "properties": {
-        "min_val": {
-          "description": "Minimum value of the range (inclusive)",
-          "title": "Min Val",
-          "type": "number"
-        },
-        "max_val": {
-          "description": "Maximum value of the range (inclusive)",
-          "title": "Max Val",
-          "type": "number"
-        }
-      },
-      "required": [
-        "min_val",
-        "max_val"
-      ],
-      "title": "Range",
-      "type": "object"
-    },
-    "RangeValidator": {
-      "additionalProperties": false,
-      "properties": {
-        "min": {
-          "title": "Min",
-          "type": "number"
-        },
-        "max": {
-          "title": "Max",
-          "type": "number"
-        }
-      },
-      "required": [
-        "min",
-        "max"
-      ],
-      "title": "RangeValidator",
-      "type": "object"
-    },
-    "ResponseSpec": {
-      "additionalProperties": false,
-      "properties": {
-        "type": {
-          "default": "raw",
-          "enum": [
-            "raw",
-            "str",
-            "int",
-            "float",
-            "csv",
-            "csv_int",
-            "csv_float",
-            "csv_dict",
-            "binblock"
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/SCPICommandSpec"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
           ],
+          "default": null,
+          "description": "SCPI queries",
+          "title": "Queries"
+        }
+      },
+      "title": "SCPICommandsQueries",
+      "type": "object"
+    },
+    "SCPIParameterSpec": {
+      "additionalProperties": false,
+      "description": "Specification for a single SCPI command parameter.",
+      "properties": {
+        "name": {
+          "description": "Parameter name",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "description": "Parameter type (e.g., 'int', 'float', 'str', 'enum')",
           "title": "Type",
           "type": "string"
+        },
+        "required": {
+          "default": true,
+          "description": "Whether this parameter is required",
+          "title": "Required",
+          "type": "boolean"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Parameter description",
+          "title": "Description"
+        },
+        "min_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Minimum allowed value",
+          "title": "Min Value"
+        },
+        "max_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Maximum allowed value",
+          "title": "Max Value"
+        },
+        "allowed_values": {
+          "anyOf": [
+            {
+              "items": {},
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Allowed values for enum types",
+          "title": "Allowed Values"
+        },
+        "default": {
+          "default": null,
+          "description": "Default parameter value",
+          "title": "Default"
         },
         "units": {
           "anyOf": [
@@ -304,31 +565,39 @@
             }
           ],
           "default": null,
+          "description": "Parameter units",
           "title": "Units"
         },
-        "delimiter": {
-          "default": ",",
-          "title": "Delimiter",
-          "type": "string"
-        },
-        "fields": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Fields",
-          "type": "array"
+        "format": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Parameter format specification",
+          "title": "Format"
         }
       },
-      "title": "ResponseSpec",
+      "required": [
+        "name",
+        "type"
+      ],
+      "title": "SCPIParameterSpec",
       "type": "object"
     },
     "SCPISection": {
+      "additionalProperties": false,
+      "description": "Complete SCPI section specification.",
       "properties": {
         "commands": {
           "anyOf": [
             {
               "additionalProperties": {
-                "$ref": "#/$defs/CommandSpec"
+                "$ref": "#/$defs/SCPICommandSpec"
               },
               "type": "object"
             },
@@ -337,13 +606,14 @@
             }
           ],
           "default": null,
+          "description": "SCPI commands",
           "title": "Commands"
         },
         "queries": {
           "anyOf": [
             {
               "additionalProperties": {
-                "$ref": "#/$defs/CommandSpec"
+                "$ref": "#/$defs/SCPICommandSpec"
               },
               "type": "object"
             },
@@ -352,13 +622,14 @@
             }
           ],
           "default": null,
+          "description": "SCPI queries",
           "title": "Queries"
         },
         "variants": {
           "anyOf": [
             {
               "additionalProperties": {
-                "$ref": "#/$defs/CommandsQueries"
+                "$ref": "#/$defs/SCPICommandsQueries"
               },
               "type": "object"
             },
@@ -367,6 +638,7 @@
             }
           ],
           "default": null,
+          "description": "SCPI command variants",
           "title": "Variants"
         },
         "default_variant": {
@@ -379,6 +651,7 @@
             }
           ],
           "default": null,
+          "description": "Default variant name",
           "title": "Default Variant"
         },
         "feature_mappings": {
@@ -407,32 +680,129 @@
       "title": "SCPISection",
       "type": "object"
     },
-    "WaveformsConfig": {
-      "additionalProperties": false,
+    "SweepSpec": {
+      "description": "Specification for frequency sweep capabilities.",
       "properties": {
-        "built_in": {
-          "description": "List of available built-in waveform shapes (e.g., SINE, SQUARE)",
+        "time_range": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RangeSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Sweep time range in seconds"
+        },
+        "frequency_range": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RangeSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Sweep frequency range in Hz"
+        },
+        "required_scpi_commands": {
+          "description": "Required SCPI command aliases for sweep functionality (e.g., ['enable_sweep', 'set_sweep_time', 'set_sweep_start_frequency'])",
           "items": {
             "type": "string"
           },
-          "minItems": 1,
+          "title": "Required Scpi Commands",
+          "type": "array"
+        }
+      },
+      "title": "SweepSpec",
+      "type": "object"
+    },
+    "TriggerSpec": {
+      "description": "Specification for trigger capabilities.",
+      "properties": {
+        "sources": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Available trigger sources",
+          "title": "Sources"
+        },
+        "slopes": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Available trigger slopes",
+          "title": "Slopes"
+        },
+        "required_scpi_commands": {
+          "description": "Required SCPI command aliases for trigger functionality (e.g., ['set_trigger_source', 'set_trigger_slope', 'trigger_now'])",
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Scpi Commands",
+          "type": "array"
+        }
+      },
+      "title": "TriggerSpec",
+      "type": "object"
+    },
+    "WaveformSpec": {
+      "description": "Specification for waveform generation capabilities.",
+      "properties": {
+        "built_in": {
+          "description": "List of built-in waveform types supported by the instrument",
+          "items": {
+            "type": "string"
+          },
           "title": "Built In",
           "type": "array"
         },
         "arbitrary": {
-          "$ref": "#/$defs/ArbitraryWaveformConfig",
-          "description": "Configuration for arbitrary waveform capabilities"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArbitraryWaveformSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Arbitrary waveform generation specifications"
+        },
+        "required_scpi_commands": {
+          "description": "Required SCPI command aliases for waveform generation (e.g., ['set_function', 'set_frequency', 'set_amplitude'])",
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Scpi Commands",
+          "type": "array"
         }
       },
-      "required": [
-        "built_in",
-        "arbitrary"
-      ],
-      "title": "WaveformsConfig",
+      "title": "WaveformSpec",
       "type": "object"
     }
   },
-  "additionalProperties": false,
+  "description": "Configuration for Waveform Generator instruments.",
   "properties": {
     "manufacturer": {
       "description": "Manufacturer of the instrument",
@@ -445,27 +815,9 @@
       "type": "string"
     },
     "device_type": {
-      "default": "waveform_generator",
-      "description": "Type of the device (e.g., 'AWG', 'waveform_generator')",
-      "enum": [
-        "AWG",
-        "waveform_generator"
-      ],
+      "description": "Type of the device (e.g., 'PSU', 'Oscilloscope')",
       "title": "Device Type",
       "type": "string"
-    },
-    "serial_number": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Serial number of the instrument",
-      "title": "Serial Number"
     },
     "address": {
       "anyOf": [
@@ -504,7 +856,8 @@
           "type": "null"
         }
       ],
-      "description": "SCPI section typed by Pydantic. Supports direct commands/queries or variants."
+      "default": null,
+      "description": "SCPI section with command specifications, aliases, and feature mappings. Must contain 'commands:' and/or 'queries:' or a 'variants:' block."
     },
     "scpi_variant": {
       "anyOf": [
@@ -520,22 +873,102 @@
       "title": "Scpi Variant"
     },
     "channels": {
-      "description": "List of waveform generator channel configurations",
+      "description": "Channel specifications",
       "items": {
-        "$ref": "#/$defs/AWGChannelConfig"
+        "$ref": "#/$defs/ChannelSpec"
       },
-      "minItems": 1,
       "title": "Channels",
       "type": "array"
     },
     "waveforms": {
-      "$ref": "#/$defs/WaveformsConfig",
-      "description": "Waveform capabilities configuration"
+      "$ref": "#/$defs/WaveformSpec",
+      "description": "Waveform generation capabilities"
+    },
+    "modulation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ModulationSpec"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Modulation capabilities"
+    },
+    "sweep": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SweepSpec"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Frequency sweep capabilities"
+    },
+    "burst": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BurstSpec"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Burst mode capabilities"
+    },
+    "trigger": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TriggerSpec"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Trigger capabilities"
+    },
+    "core_scpi_commands": {
+      "description": "Required SCPI command aliases for core functionality (e.g., ['set_output_state', 'set_voltage_unit', 'set_load_impedance'])",
+      "items": {
+        "type": "string"
+      },
+      "title": "Core Scpi Commands",
+      "type": "array"
+    },
+    "output_scpi_commands": {
+      "description": "Required SCPI command aliases for output functionality (e.g., ['set_output_polarity', 'set_sync_output_state'])",
+      "items": {
+        "type": "string"
+      },
+      "title": "Output Scpi Commands",
+      "type": "array"
+    },
+    "sync_scpi_commands": {
+      "description": "Required SCPI command aliases for synchronization functionality (e.g., ['set_sync_output_mode', 'set_sync_output_polarity'])",
+      "items": {
+        "type": "string"
+      },
+      "title": "Sync Scpi Commands",
+      "type": "array"
+    },
+    "memory_scpi_commands": {
+      "description": "Required SCPI command aliases for memory management (e.g., ['list_directory', 'delete_file_or_folder'])",
+      "items": {
+        "type": "string"
+      },
+      "title": "Memory Scpi Commands",
+      "type": "array"
     }
   },
   "required": [
     "manufacturer",
     "model",
+    "device_type",
     "channels",
     "waveforms"
   ],

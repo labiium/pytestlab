@@ -178,7 +178,8 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         super().__init__(config=config, **kwargs)
         # Initialize SCPI engine from the config if available (reusing base if present)
         if getattr(self, "scpi_engine", None) is None:
-            self.scpi_engine = SCPIEngine(config.scpi or {}, variant=config.scpi_variant)
+            scpi_data = config.scpi.model_dump() if config.scpi else {}
+            self.scpi_engine = SCPIEngine(scpi_data, variant=config.scpi_variant)
 
         # Initialize safety limit properties
         self._voltage_limit = None

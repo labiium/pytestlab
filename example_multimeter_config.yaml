@@ -1,0 +1,616 @@
+# Example Multimeter Configuration
+# This file demonstrates the enhanced SCPI validation system for multimeters
+
+manufacturer: "Keysight"
+model: "34465A"
+device_type: "multimeter"
+address: "USB0::0x0957::0x0607::MY12345678::INSTR"
+
+# Core SCPI command requirements
+core_scpi_commands:
+  - "set_measurement_function"
+  - "set_measurement_range"
+  - "set_measurement_resolution"
+  - "set_measurement_autorange"
+  - "set_measurement_autozero"
+  - "set_measurement_display"
+  - "set_measurement_units"
+
+# Measurement functionality SCPI commands
+measurement_scpi_commands:
+  - "set_measurement_trigger"
+  - "set_measurement_count"
+  - "set_measurement_timeout"
+  - "set_measurement_delay"
+  - "set_measurement_math"
+  - "set_measurement_statistics"
+
+# Configuration functionality SCPI commands
+configuration_scpi_commands:
+  - "set_calibration_state"
+  - "set_calibration_date"
+  - "set_calibration_interval"
+  - "set_calibration_password"
+  - "set_calibration_lock"
+  - "set_calibration_unlock"
+
+# Status functionality SCPI commands
+status_scpi_commands:
+  - "get_measurement_status"
+  - "get_error_queue"
+  - "get_operation_complete"
+  - "get_self_test_result"
+  - "get_identification"
+  - "get_version"
+
+# Measurement function specifications
+measurement_functions:
+  dc_voltage:
+    range:
+      min: 0.1
+      max: 1000.0
+      units: "V"
+    resolution:
+      min: 0.000001
+      max: 0.001
+      units: "V"
+    accuracy:
+      min: 0.0001
+      max: 0.01
+      units: "%"
+    required_scpi_commands:
+      - "set_dc_voltage_function"
+      - "set_dc_voltage_range"
+      - "set_dc_voltage_resolution"
+      - "get_dc_voltage_measurement"
+      - "get_dc_voltage_range"
+      - "get_dc_voltage_resolution"
+
+  ac_voltage:
+    range:
+      min: 0.1
+      max: 1000.0
+      units: "V"
+    resolution:
+      min: 0.000001
+      max: 0.001
+      units: "V"
+    accuracy:
+      min: 0.01
+      max: 0.1
+      units: "%"
+    frequency_range:
+      min: 10.0
+      max: 1000000.0
+      units: "Hz"
+    required_scpi_commands:
+      - "set_ac_voltage_function"
+      - "set_ac_voltage_range"
+      - "set_ac_voltage_resolution"
+      - "set_ac_voltage_frequency"
+      - "get_ac_voltage_measurement"
+      - "get_ac_voltage_range"
+      - "get_ac_voltage_resolution"
+
+  dc_current:
+    range:
+      min: 0.000001
+      max: 10.0
+      units: "A"
+    resolution:
+      min: 0.000000001
+      max: 0.000001
+      units: "A"
+    accuracy:
+      min: 0.001
+      max: 0.1
+      units: "%"
+    required_scpi_commands:
+      - "set_dc_current_function"
+      - "set_dc_current_range"
+      - "set_dc_current_resolution"
+      - "get_dc_current_measurement"
+      - "get_dc_current_range"
+      - "get_dc_current_resolution"
+
+  ac_current:
+    range:
+      min: 0.000001
+      max: 10.0
+      units: "A"
+    resolution:
+      min: 0.000000001
+      max: 0.000001
+      units: "A"
+    accuracy:
+      min: 0.01
+      max: 1.0
+      units: "%"
+    frequency_range:
+      min: 10.0
+      max: 100000.0
+      units: "Hz"
+    required_scpi_commands:
+      - "set_ac_current_function"
+      - "set_ac_current_range"
+      - "set_ac_current_resolution"
+      - "set_ac_current_frequency"
+      - "get_ac_current_measurement"
+      - "get_ac_current_range"
+      - "get_ac_current_resolution"
+
+  resistance:
+    range:
+      min: 0.1
+      max: 1000000000.0
+      units: "Ω"
+    resolution:
+      min: 0.000001
+      max: 0.001
+      units: "Ω"
+    accuracy:
+      min: 0.001
+      max: 0.1
+      units: "%"
+    required_scpi_commands:
+      - "set_resistance_function"
+      - "set_resistance_range"
+      - "set_resistance_resolution"
+      - "set_resistance_mode"
+      - "get_resistance_measurement"
+      - "get_resistance_range"
+      - "get_resistance_resolution"
+
+  frequency:
+    range:
+      min: 0.1
+      max: 1000000.0
+      units: "Hz"
+    resolution:
+      min: 0.000001
+      max: 0.001
+      units: "Hz"
+    accuracy:
+      min: 0.001
+      max: 0.1
+      units: "%"
+    voltage_range:
+      min: 0.1
+      max: 1000.0
+      units: "V"
+    required_scpi_commands:
+      - "set_frequency_function"
+      - "set_frequency_range"
+      - "set_frequency_resolution"
+      - "set_frequency_voltage"
+      - "get_frequency_measurement"
+      - "get_frequency_range"
+      - "get_frequency_resolution"
+
+  period:
+    range:
+      min: 0.000001
+      max: 10.0
+      units: "s"
+    resolution:
+      min: 0.000000001
+      max: 0.000001
+      units: "s"
+    accuracy:
+      min: 0.001
+      max: 0.1
+      units: "%"
+    voltage_range:
+      min: 0.1
+      max: 1000.0
+      units: "V"
+    required_scpi_commands:
+      - "set_period_function"
+      - "set_period_range"
+      - "set_period_resolution"
+      - "set_period_voltage"
+      - "get_period_measurement"
+      - "get_period_range"
+      - "get_period_resolution"
+
+  capacitance:
+    range:
+      min: 0.000000001
+      max: 0.1
+      units: "F"
+    resolution:
+      min: 0.000000000001
+      max: 0.000000001
+      units: "F"
+    accuracy:
+      min: 0.01
+      max: 1.0
+      units: "%"
+    required_scpi_commands:
+      - "set_capacitance_function"
+      - "set_capacitance_range"
+      - "set_capacitance_resolution"
+      - "get_capacitance_measurement"
+      - "get_capacitance_range"
+      - "get_capacitance_resolution"
+
+  temperature:
+    range:
+      min: -200.0
+      max: 1000.0
+      units: "°C"
+    resolution:
+      min: 0.001
+      max: 0.1
+      units: "°C"
+    accuracy:
+      min: 0.01
+      max: 1.0
+      units: "°C"
+    sensor_types:
+      - "RTD"
+      - "THERMISTOR"
+      - "THERMOCOUPLE"
+    required_scpi_commands:
+      - "set_temperature_function"
+      - "set_temperature_range"
+      - "set_temperature_resolution"
+      - "set_temperature_sensor"
+      - "get_temperature_measurement"
+      - "get_temperature_range"
+      - "get_temperature_resolution"
+
+  continuity:
+    threshold_range:
+      min: 0.1
+      max: 1000.0
+      units: "Ω"
+    beep_enabled: true
+    required_scpi_commands:
+      - "set_continuity_function"
+      - "set_continuity_threshold"
+      - "set_continuity_beep"
+      - "get_continuity_measurement"
+      - "get_continuity_threshold"
+
+  diode:
+    current_range:
+      min: 0.000001
+      max: 0.001
+      units: "A"
+    voltage_range:
+      min: 0.1
+      max: 5.0
+      units: "V"
+    required_scpi_commands:
+      - "set_diode_function"
+      - "set_diode_current"
+      - "get_diode_measurement"
+      - "get_diode_current"
+
+  required_scpi_commands:
+    - "set_measurement_function"
+    - "get_measurement_function"
+    - "set_measurement_range"
+    - "get_measurement_range"
+    - "set_measurement_resolution"
+    - "get_measurement_resolution"
+
+# Trigger capabilities
+trigger:
+  sources:
+    - "IMMEDIATE"
+    - "EXTERNAL"
+    - "BUS"
+    - "MANUAL"
+  delays:
+    min: 0.0
+    max: 3600.0
+    units: "s"
+  counts:
+    min: 1
+    max: 1000000
+    units: "counts"
+  required_scpi_commands:
+    - "set_trigger_source"
+    - "set_trigger_delay"
+    - "set_trigger_count"
+    - "get_trigger_source"
+    - "get_trigger_delay"
+    - "get_trigger_count"
+
+# Sampling capabilities
+sampling:
+  rates:
+    min: 0.1
+    max: 100000.0
+    units: "Sa/s"
+  buffer_sizes:
+    min: 1000
+    max: 1000000
+    units: "samples"
+  modes:
+    - "SINGLE"
+    - "CONTINUOUS"
+    - "FINITE"
+  required_scpi_commands:
+    - "set_sampling_rate"
+    - "set_sampling_buffer_size"
+    - "set_sampling_mode"
+    - "start_sampling"
+    - "stop_sampling"
+    - "get_sampling_rate"
+    - "get_sampling_buffer_size"
+    - "get_sampling_mode"
+
+# Calibration capabilities
+calibration:
+  enabled: true
+  password_protected: true
+  interval_days: 365
+  last_calibration: "2024-01-01"
+  next_calibration: "2025-01-01"
+  required_scpi_commands:
+    - "set_calibration_state"
+    - "set_calibration_date"
+    - "set_calibration_interval"
+    - "set_calibration_password"
+    - "set_calibration_lock"
+    - "set_calibration_unlock"
+    - "get_calibration_state"
+    - "get_calibration_date"
+    - "get_calibration_interval"
+
+# SCPI section with detailed command specifications
+scpi:
+  commands:
+    set_measurement_function:
+      template: "CONF:{function}"
+      description: "Set the measurement function"
+      category: "measurement"
+      feature: "measurement_functions"
+      parameters:
+        function:
+          name: "function"
+          type: "enum"
+          required: true
+          allowed_values: ["VOLT:DC", "VOLT:AC", "CURR:DC", "CURR:AC", "RES", "FREQ", "PER", "CAP", "TEMP", "CONT", "DIOD"]
+          description: "Measurement function"
+
+    set_measurement_range:
+      template: "CONF:{function} {range}"
+      description: "Set the measurement range for a function"
+      category: "measurement"
+      feature: "measurement_functions"
+      parameters:
+        function:
+          name: "function"
+          type: "enum"
+          required: true
+          allowed_values: ["VOLT:DC", "VOLT:AC", "CURR:DC", "CURR:AC", "RES", "FREQ", "PER", "CAP", "TEMP"]
+          description: "Measurement function"
+        range:
+          name: "range"
+          type: "float"
+          required: true
+          description: "Measurement range"
+
+    set_dc_voltage_function:
+      sequence: ["CONF:VOLT:DC {range},{resolution}"]
+      description: "Set DC voltage measurement function with range and resolution"
+      category: "measurement"
+      feature: "measurement_functions"
+      parameters:
+        range:
+          name: "range"
+          type: "float"
+          required: true
+          min_value: 0.1
+          max_value: 1000.0
+          description: "DC voltage range"
+          units: "V"
+        resolution:
+          name: "resolution"
+          type: "float"
+          required: true
+          min_value: 0.000001
+          max_value: 0.001
+          description: "DC voltage resolution"
+          units: "V"
+
+  queries:
+    get_measurement_function:
+      sequence: ["CONF?"]
+      description: "Get the current measurement function"
+      category: "measurement"
+      feature: "measurement_functions"
+      response:
+        type: "string"
+        units: null
+
+    get_dc_voltage_measurement:
+      sequence: ["READ?"]
+      description: "Get a DC voltage measurement"
+      category: "measurement"
+      feature: "measurement_functions"
+      response:
+        type: "float"
+        units: "V"
+
+    get_measurement_status:
+      sequence: ["STAT:MEAS?"]
+      description: "Get the measurement status"
+      category: "status"
+      feature: "status"
+      response:
+        type: "integer"
+        units: null
+
+    get_error_queue:
+      sequence: ["SYST:ERR?"]
+      description: "Get the error queue"
+      category: "status"
+      feature: "status"
+      response:
+        type: "string"
+        units: null
+
+  feature_mappings:
+    core_multimeter:
+      required_scpi:
+        - "set_measurement_function"
+        - "set_measurement_range"
+        - "get_measurement_function"
+        - "get_measurement_range"
+      optional_scpi:
+        - "set_measurement_resolution"
+        - "set_measurement_autorange"
+        - "set_measurement_autozero"
+
+    dc_voltage_measurement:
+      required_scpi:
+        - "set_dc_voltage_function"
+        - "set_dc_voltage_range"
+        - "set_dc_voltage_resolution"
+        - "get_dc_voltage_measurement"
+      optional_scpi:
+        - "get_dc_voltage_range"
+        - "get_dc_voltage_resolution"
+
+    ac_voltage_measurement:
+      required_scpi:
+        - "set_ac_voltage_function"
+        - "set_ac_voltage_range"
+        - "set_ac_voltage_resolution"
+        - "get_ac_voltage_measurement"
+      optional_scpi:
+        - "set_ac_voltage_frequency"
+        - "get_ac_voltage_range"
+        - "get_ac_voltage_resolution"
+
+    dc_current_measurement:
+      required_scpi:
+        - "set_dc_current_function"
+        - "set_dc_current_range"
+        - "set_dc_current_resolution"
+        - "get_dc_current_measurement"
+      optional_scpi:
+        - "get_dc_current_range"
+        - "get_dc_current_resolution"
+
+    ac_current_measurement:
+      required_scpi:
+        - "set_ac_current_function"
+        - "set_ac_current_range"
+        - "set_ac_current_resolution"
+        - "get_ac_current_measurement"
+      optional_scpi:
+        - "set_ac_current_frequency"
+        - "get_ac_current_range"
+        - "get_ac_current_resolution"
+
+    resistance_measurement:
+      required_scpi:
+        - "set_resistance_function"
+        - "set_resistance_range"
+        - "set_resistance_resolution"
+        - "get_resistance_measurement"
+      optional_scpi:
+        - "set_resistance_mode"
+        - "get_resistance_range"
+        - "get_resistance_resolution"
+
+    frequency_measurement:
+      required_scpi:
+        - "set_frequency_function"
+        - "set_frequency_range"
+        - "set_frequency_resolution"
+        - "get_frequency_measurement"
+      optional_scpi:
+        - "set_frequency_voltage"
+        - "get_frequency_range"
+        - "get_frequency_resolution"
+
+    period_measurement:
+      required_scpi:
+        - "set_period_function"
+        - "set_period_range"
+        - "set_period_resolution"
+        - "get_period_measurement"
+      optional_scpi:
+        - "set_period_voltage"
+        - "get_period_range"
+        - "get_period_resolution"
+
+    capacitance_measurement:
+      required_scpi:
+        - "set_capacitance_function"
+        - "set_capacitance_range"
+        - "set_capacitance_resolution"
+        - "get_capacitance_measurement"
+      optional_scpi:
+        - "get_capacitance_range"
+        - "get_capacitance_resolution"
+
+    temperature_measurement:
+      required_scpi:
+        - "set_temperature_function"
+        - "set_temperature_range"
+        - "set_temperature_resolution"
+        - "get_temperature_measurement"
+      optional_scpi:
+        - "set_temperature_sensor"
+        - "get_temperature_range"
+        - "get_temperature_resolution"
+
+    continuity_measurement:
+      required_scpi:
+        - "set_continuity_function"
+        - "set_continuity_threshold"
+        - "get_continuity_measurement"
+      optional_scpi:
+        - "set_continuity_beep"
+        - "get_continuity_threshold"
+
+    diode_measurement:
+      required_scpi:
+        - "set_diode_function"
+        - "set_diode_current"
+        - "get_diode_measurement"
+      optional_scpi:
+        - "get_diode_current"
+
+    trigger:
+      required_scpi:
+        - "set_trigger_source"
+        - "set_trigger_delay"
+        - "set_trigger_count"
+      optional_scpi:
+        - "get_trigger_source"
+        - "get_trigger_delay"
+        - "get_trigger_count"
+
+    sampling:
+      required_scpi:
+        - "set_sampling_rate"
+        - "set_sampling_buffer_size"
+        - "set_sampling_mode"
+        - "start_sampling"
+        - "stop_sampling"
+      optional_scpi:
+        - "get_sampling_rate"
+        - "get_sampling_buffer_size"
+        - "get_sampling_mode"
+
+    calibration:
+      required_scpi:
+        - "set_calibration_state"
+        - "set_calibration_date"
+        - "set_calibration_interval"
+      optional_scpi:
+        - "set_calibration_password"
+        - "set_calibration_lock"
+        - "set_calibration_unlock"
+        - "get_calibration_state"
+        - "get_calibration_date"
+        - "get_calibration_interval"

@@ -163,21 +163,17 @@ class Multimeter(Instrument[MultimeterConfig]):
         """
         # Prefer SCPIEngine if a profile is provided; fall back to legacy command
         try:
-            cmds = self.scpi_engine.build("set_function", function=function.value)
+            cmds = self.scpi_engine.build("set_function", function=function)
             for c in cmds:
                 self._send_command(c)
-            self._logger.info(
-                f"Set measurement function to {function.name} ({function.value}) via SCPIEngine"
-            )
+            self._logger.info(f"Set measurement function to {function} via SCPIEngine")
             return
         except Exception:
             pass
 
         # Legacy path
-        self._send_command(f'SENSe:FUNCtion "{function.value}"')
-        self._logger.info(
-            f"Set measurement function to {function.name} ({function.value}) (legacy)"
-        )
+        self._send_command(f'SENSe:FUNCtion "{function}"')
+        self._logger.info(f"Set measurement function to {function} (legacy)")
 
     def set_trigger_source(self, source: Literal["IMM", "EXT", "BUS"]) -> None:
         """Sets the trigger source for initiating a measurement.
@@ -197,7 +193,7 @@ class Multimeter(Instrument[MultimeterConfig]):
     def _get_function_spec(self, function: DMMFunction) -> FunctionSpec | None:
         """Maps a DMMFunction enum to the corresponding spec in the config."""
         mf = self.config.measurement_functions
-        func_map: dict[DMMFunction, FunctionSpec | None] = {}
+        func_map: dict[str, FunctionSpec | None] = {}
         if mf is not None:
             func_map = {
                 DMMFunction.VOLTAGE_DC: mf.dc_voltage,
@@ -210,30 +206,31 @@ class Multimeter(Instrument[MultimeterConfig]):
                 DMMFunction.FREQUENCY: mf.frequency,
                 DMMFunction.TEMPERATURE: mf.temperature,
             }
-        spec = func_map.get(function)
+        spec = func_map.get(str(function))
         if spec is None:
-            logger.warning(f"No measurement specification found for function {function.name}")
+            logger.warning(f"No measurement specification found for function {function}")
         return spec
 
     def _get_measurement_unit_and_type(self, function: DMMFunction) -> tuple[str, str]:
         """Gets the appropriate unit and name for the MeasurementResult."""
-        nice_name = function.name.replace("_", " ").title()
+        function_str = str(function)
+        nice_name = function_str.replace("_", " ").title()
 
-        if "VOLTAGE" in function.name:
+        if "VOLTAGE" in function_str:
             return "V", nice_name
-        elif "CURRENT" in function.name:
+        elif "CURRENT" in function_str:
             return "A", nice_name
-        elif "RESISTANCE" in function.name:
+        elif "RESISTANCE" in function_str:
             return "Ω", nice_name
-        elif "CAPACITANCE" in function.name:
+        elif "CAPACITANCE" in function_str:
             return "F", nice_name
-        elif "FREQUENCY" in function.name:
+        elif "FREQUENCY" in function_str:
             return "Hz", nice_name
-        elif "TEMPERATURE" in function.name:
+        elif "TEMPERATURE" in function_str:
             return "°C", nice_name
-        elif "DIODE" in function.name:
+        elif "DIODE" in function_str:
             return "V", nice_name
-        elif "CONTINUITY" in function.name:
+        elif "CONTINUITY" in function_str:
             return "Ω", nice_name
         return "", nice_name
 
@@ -263,7 +260,7 @@ class Multimeter(Instrument[MultimeterConfig]):
         Raises:
             InstrumentParameterError: If an unsupported `range_val` is provided.
         """
-        scpi_function_val = function.value
+        scpi_function_val = function
         is_autorange = range_val is None or range_val.upper() == "AUTO"
 
         # The MEASure command is a combination of CONFigure, INITiate, and FETCh.
@@ -273,22 +270,20 @@ class Multimeter(Instrument[MultimeterConfig]):
             self.set_measurement_function(function)
             # Try SCPI engine for autorange and resolution, fall back otherwise
             try:
-                for c in self.scpi_engine.build(
-                    "set_range_auto", function=function.value, state=True
-                ):
+                for c in self.scpi_engine.build("set_range_auto", function=function, state=True):
                     self._send_command(c)
                 if resolution:
                     for c in self.scpi_engine.build(
-                        "set_resolution", function=function.value, resolution=resolution.upper()
+                        "set_resolution", function=function, resolution=resolution.upper()
                     ):
                         self._send_command(c)
                 response_str = self.scpi_engine.parse(
                     "read", self._query(self.scpi_engine.build("read")[0])
                 )
             except Exception:
-                self._send_command(f"{function.value}:RANGe:AUTO ON")
+                self._send_command(f"{function}:RANGe:AUTO ON")
                 if resolution:
-                    self._send_command(f"{function.value}:RESolution {resolution.upper()}")
+                    self._send_command(f"{function}:RESolution {resolution.upper()}")
                 response_str = self._query("READ?")
         else:
             # Use the combined MEASure? command for fixed range
@@ -334,24 +329,24 @@ class Multimeter(Instrument[MultimeterConfig]):
                 # Find the smallest nominal range that is >= the actual range used.
                 # Assumes specs in YAML are sorted by nominal value, which is typical.
                 sorted_ranges = (
-                    sorted(function_spec.ranges, key=lambda r: r.nominal)
+                    sorted(function_spec.ranges, key=lambda r: r.max)
                     if function_spec.ranges
                     else []
                 )
                 for r_spec in sorted_ranges:
-                    if r_spec.nominal >= actual_instrument_range:
+                    if r_spec.max >= actual_instrument_range:
                         matching_range_spec = r_spec
                         break
 
-                # Fallback to the largest range if no suitable one is found (e.g. if actual > largest nominal)
+                # Fallback to the largest range if no suitable one is found (e.g. if actual > largest max)
                 if not matching_range_spec and function_spec.ranges:
-                    matching_range_spec = max(function_spec.ranges, key=lambda r: r.nominal)
+                    matching_range_spec = max(function_spec.ranges, key=lambda r: r.max)
 
                 if matching_range_spec:
-                    accuracy_spec = matching_range_spec.default_accuracy
+                    accuracy_spec = matching_range_spec.accuracy
                     if accuracy_spec:
-                        # Use the spec's nominal value for the '% of range' calculation
-                        range_for_calc = matching_range_spec.nominal
+                        # Use the spec's max value for the '% of range' calculation
+                        range_for_calc = matching_range_spec.max
                         std_dev = accuracy_spec.calculate_std_dev(reading, range_for_calc)
                         if std_dev > 0:
                             value_to_return = ufloat(reading, std_dev)
@@ -362,18 +357,18 @@ class Multimeter(Instrument[MultimeterConfig]):
                             self._logger.debug("Calculated uncertainty is zero. Returning float.")
                     else:
                         self._logger.warning(
-                            f"No applicable accuracy specification found for function '{function.name}' at range {actual_instrument_range}. Returning float."
+                            f"No applicable accuracy specification found for function '{function}' at range {actual_instrument_range}. Returning float."
                         )
                 else:
                     self._logger.warning(
-                        f"Could not find a matching range specification for function '{function.name}' at range {actual_instrument_range}. Returning float."
+                        f"Could not find a matching range specification for function '{function}' at range {actual_instrument_range}. Returning float."
                     )
 
             except Exception as e:
                 self._logger.error(f"Error during uncertainty calculation: {e}. Returning float.")
         else:
             self._logger.debug(
-                f"No measurement function specification in config for '{function.name}'. Returning float."
+                f"No measurement function specification in config for '{function}'. Returning float."
             )
 
         units_val, measurement_name_val = self._get_measurement_unit_and_type(function)
@@ -389,12 +384,12 @@ class Multimeter(Instrument[MultimeterConfig]):
         self, function: DMMFunction, range_val: str | None = None, resolution: str | None = None
     ):
         """Configures the instrument for a measurement without triggering it."""
-        scpi_function_val = function.value
+        scpi_function_val = function
         range_for_query = range_val.upper() if range_val is not None else "AUTO"
         resolution_for_query = resolution.upper() if resolution is not None else "DEF"
         # Using CONFigure command as per programming guide page 44
         cmd = f"CONFigure:{scpi_function_val} {range_for_query},{resolution_for_query}"
         self._send_command(cmd)
         self._logger.info(
-            f"Configured DMM for {function.name} with range={range_for_query}, resolution={resolution_for_query}"
+            f"Configured DMM for {function} with range={range_for_query}, resolution={resolution_for_query}"
         )

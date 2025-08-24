@@ -5,8 +5,8 @@ from typing import Any
 import pytest
 
 from pytestlab.config.instrument_config import InstrumentConfig
+from pytestlab.config.instrument_config import SCPISection
 from pytestlab.config.scpi_schema import CommandSpec
-from pytestlab.config.scpi_schema import SCPISection
 from pytestlab.instruments.instrument import Instrument
 
 
@@ -38,7 +38,7 @@ class DummyBackend:
 
 class DummyConfig(InstrumentConfig):
     device_type: str = "dummy"
-    scpi: dict | None = None
+    scpi: SCPISection | None = None
 
 
 class DummyInstrument(Instrument[DummyConfig]):
@@ -54,7 +54,7 @@ def test_feature_mapping_validation_passes_when_present():
             "beta": CommandSpec(template=":BETA {v}"),
         },
     )
-    cfg = DummyConfig(manufacturer="X", model="Y", device_type="dummy", scpi=scpi.model_dump())
+    cfg = DummyConfig(manufacturer="X", model="Y", device_type="dummy", scpi=scpi)
     inst = DummyInstrument(cfg, backend=DummyBackend())
     # Should not raise
     inst._validate_features_against_scpi(
@@ -64,7 +64,7 @@ def test_feature_mapping_validation_passes_when_present():
 
 def test_feature_mapping_validation_raises_when_missing():
     scpi = SCPISection(commands={"alpha": CommandSpec(template=":ALPH {v}")})
-    cfg = DummyConfig(manufacturer="X", model="Y", device_type="dummy", scpi=scpi.model_dump())
+    cfg = DummyConfig(manufacturer="X", model="Y", device_type="dummy", scpi=scpi)
     inst = DummyInstrument(cfg, backend=DummyBackend())
     with pytest.raises(RuntimeError):
         inst._validate_features_against_scpi(

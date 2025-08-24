@@ -27,6 +27,7 @@ from pytestlab.config.bench_config import BenchConfigExtended
 # Assuming these imports are valid after recent refactors
 from pytestlab.config.loader import load_profile
 from pytestlab.config.loader import resolve_profile_key_to_path
+from pytestlab.config.schema_validator import SchemaValidator
 from pytestlab.instruments import AutoInstrument
 from pytestlab.instruments.backends.recording_backend import RecordingBackend
 from pytestlab.instruments.backends.replay_backend import ReplayBackend
@@ -408,6 +409,153 @@ def validate_profiles(
         raise typer.Exit(code=1)
     else:
         rich.print(f"\n[bold green]All {success_count} profiles are valid.[/bold green]")
+
+
+@profile_app.command("schema")
+def profile_schema(
+    instrument_type: Annotated[
+        str, typer.Argument(help="Instrument type (e.g., oscilloscope, power_supply)")
+    ],
+    output_file: Annotated[
+        Path | None, typer.Option("--output", "-o", help="Output file for the schema")
+    ] = None,
+    no_format: Annotated[
+        bool, typer.Option("--no-format", "-n", help="Don't format JSON output")
+    ] = False,
+):
+    """Outputs the JSON schema for a given instrument type."""
+    try:
+        validator = SchemaValidator()
+        schema = validator.get_instrument_schema(instrument_type, format_output=not no_format)
+
+        if output_file:
+            with open(output_file, "w") as f:
+                f.write(schema)
+            rich.print(f"[bold green]Schema written to:[/bold green] {output_file}")
+        else:
+            rich.print(f"[bold]Schema for {instrument_type}:[/bold]")
+            syntax = Syntax(schema, "json", theme="monokai", line_numbers=True)
+            rich.print(syntax)
+
+    except ValueError as e:
+        rich.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1) from e
+    except Exception as e:
+        rich.print(f"[bold red]An unexpected error occurred: {e}[/bold red]")
+        raise typer.Exit(code=1) from e
+
+
+@profile_app.command("schema-info")
+def profile_schema_info(
+    instrument_type: Annotated[
+        str, typer.Argument(help="Instrument type (e.g., oscilloscope, power_supply)")
+    ],
+):
+    """Shows information about a schema without the full content."""
+    try:
+        validator = SchemaValidator()
+        info = validator.get_schema_info(instrument_type)
+
+        table = Table(title=f"Schema Information for {instrument_type}")
+        table.add_column("Property", style="cyan")
+        table.add_column("Value", style="green")
+
+        table.add_row("Model Class", info["model_class"])
+        table.add_row("Title", info["title"] or "N/A")
+        table.add_row("Description", info["description"] or "N/A")
+        table.add_row("Required Fields", str(len(info["required_fields"])))
+        table.add_row("Properties Count", str(info["properties_count"]))
+        table.add_row("Excluded Fields", ", ".join(info["excluded_fields"]))
+
+        rich.print(table)
+
+        if info["required_fields"]:
+            rich.print(f"\n[bold]Required Fields:[/bold] {', '.join(info['required_fields'])}")
+
+    except ValueError as e:
+        rich.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1) from e
+    except Exception as e:
+        rich.print(f"[bold red]An unexpected error occurred: {e}[/bold red]")
+        raise typer.Exit(code=1) from e
+
+
+@profile_app.command("validate-schema")
+def profile_validate_schema(
+    yaml_file: Annotated[Path, typer.Argument(help="Path to the YAML file to validate")],
+    instrument_type: Annotated[
+        str | None,
+        typer.Option("--instrument-type", "-t", help="Explicit instrument type override"),
+    ] = None,
+):
+    """Validates a YAML profile against the appropriate instrument schema."""
+    if not yaml_file.exists():
+        rich.print(f"[bold red]Error: YAML file not found: {yaml_file}[/bold red]")
+        raise typer.Exit(code=1) from None
+
+    try:
+        validator = SchemaValidator()
+        result = validator.validate_yaml_profile(yaml_file, instrument_type)
+
+        rich.print(f"[bold]Validation result for {yaml_file.name}:[/bold]")
+        rich.print(f"  Instrument type: {result.instrument_type}")
+        rich.print(f"  Schema used: {result.schema_used}")
+
+        if result.is_valid:
+            rich.print("  [bold green]Valid: ✓ Yes[/bold green]")
+        else:
+            rich.print("  [bold red]Valid: ✗ No[/bold red]")
+
+            if result.errors:
+                rich.print("\n[bold red]Errors:[/bold red]")
+                for error in result.errors:
+                    rich.print(f"  - {error}")
+
+            if result.warnings:
+                rich.print("\n[bold yellow]Warnings:[/bold yellow]")
+                for warning in result.warnings:
+                    rich.print(f"  - {warning}")
+
+        if not result.is_valid:
+            raise typer.Exit(code=1)
+
+    except Exception as e:
+        rich.print(f"[bold red]An unexpected error occurred: {e}[/bold red]")
+        raise typer.Exit(code=1) from e
+
+
+@profile_app.command("list-schemas")
+def profile_list_schemas():
+    """Lists all supported instrument types and their aliases."""
+    try:
+        validator = SchemaValidator()
+        instruments = validator.list_supported_instruments()
+
+        table = Table(title="Supported Instrument Types")
+        table.add_column("Primary Name", style="cyan")
+        table.add_column("Aliases", style="magenta")
+        table.add_column("Configuration Class", style="green")
+
+        # Group by primary names and aliases
+        primary_names = {
+            "oscilloscope": ["OscilloscopeConfig"],
+            "waveform_generator": ["WaveformGeneratorConfig", "awg"],
+            "power_supply": ["PowerSupplyConfig", "psu"],
+            "dc_active_load": ["DCActiveLoadConfig", "electronic_load"],
+            "multimeter": ["MultimeterConfig", "dmm"],
+        }
+
+        for primary, aliases in primary_names.items():
+            if primary in instruments:
+                alias_list = [alias for alias in aliases[1:] if alias in instruments]
+                alias_str = ", ".join(alias_list) if alias_list else "None"
+                table.add_row(primary, alias_str, aliases[0])
+
+        rich.print(table)
+
+    except Exception as e:
+        rich.print(f"[bold red]An unexpected error occurred: {e}[/bold red]")
+        raise typer.Exit(code=1) from e
 
 
 # --- Instrument Commands ---

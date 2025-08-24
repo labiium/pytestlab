@@ -1,0 +1,362 @@
+# Example Power Supply Configuration
+# This file demonstrates the enhanced SCPI validation system for power supplies
+
+manufacturer: "Keysight"
+model: "E36313A"
+device_type: "power_supply"
+address: "USB0::0x0957::0x0607::MY12345678::INSTR"
+
+# Core SCPI command requirements
+core_scpi_commands:
+  - "set_output_state"
+  - "set_voltage_unit"
+  - "set_current_unit"
+  - "set_voltage_autorange_state"
+  - "set_current_autorange_state"
+  - "set_voltage_limits_state"
+  - "set_current_limits_state"
+
+# Output functionality SCPI commands
+output_scpi_commands:
+  - "set_output_polarity"
+  - "set_output_protection_state"
+  - "set_output_protection_delay"
+  - "set_output_protection_clear"
+  - "set_output_protection_trip"
+
+# Safety functionality SCPI commands
+safety_scpi_commands:
+  - "set_voltage_protection_level"
+  - "set_current_protection_level"
+  - "set_power_protection_level"
+  - "set_temperature_protection_level"
+  - "set_protection_delay"
+  - "clear_protection"
+
+# Channel specifications
+channels:
+  - description: "Channel 1 - 6V, 5A"
+    voltage_range:
+      min: 0.0
+      max: 6.0
+      units: "V"
+    current_range:
+      min: 0.0
+      max: 5.0
+      units: "A"
+    current_limit_range:
+      min: 0.0
+      max: 5.0
+      units: "A"
+    power_range:
+      min: 0.0
+      max: 30.0
+      units: "W"
+    required_scpi_commands:
+      - "set_voltage"
+      - "set_current"
+      - "set_voltage_protection"
+      - "set_current_protection"
+      - "get_voltage"
+      - "get_current"
+      - "get_power"
+
+  - description: "Channel 2 - 25V, 1A"
+    voltage_range:
+      min: 0.0
+      max: 25.0
+      units: "V"
+    current_range:
+      min: 0.0
+      max: 1.0
+      units: "A"
+    current_limit_range:
+      min: 0.0
+      max: 1.0
+      units: "A"
+    power_range:
+      min: 0.0
+      max: 25.0
+      units: "W"
+    required_scpi_commands:
+      - "set_voltage"
+      - "set_current"
+      - "set_voltage_protection"
+      - "set_current_protection"
+      - "get_voltage"
+      - "get_current"
+      - "get_power"
+
+  - description: "Channel 3 - -25V, 1A"
+    voltage_range:
+      min: -25.0
+      max: 0.0
+      units: "V"
+    current_range:
+      min: 0.0
+      max: 1.0
+      units: "A"
+    current_limit_range:
+      min: 0.0
+      max: 1.0
+      units: "A"
+    power_range:
+      min: 0.0
+      max: 25.0
+      units: "W"
+    required_scpi_commands:
+      - "set_voltage"
+      - "set_current"
+      - "set_voltage_protection"
+      - "set_current_protection"
+      - "get_voltage"
+      - "get_current"
+      - "get_power"
+
+# Protection features
+protection:
+  voltage_protection:
+    enabled: true
+    delay_range:
+      min: 0.001
+      max: 10.0
+      units: "s"
+  current_protection:
+    enabled: true
+    delay_range:
+      min: 0.001
+      max: 10.0
+      units: "s"
+  power_protection:
+    enabled: true
+    delay_range:
+      min: 0.001
+      max: 10.0
+      units: "s"
+  temperature_protection:
+    enabled: true
+    threshold_range:
+      min: 0.0
+      max: 100.0
+      units: "°C"
+  required_scpi_commands:
+    - "set_voltage_protection_level"
+    - "set_current_protection_level"
+    - "set_power_protection_level"
+    - "set_temperature_protection_level"
+    - "set_protection_delay"
+    - "clear_protection"
+    - "get_protection_state"
+
+# Measurement capabilities
+measurement:
+  voltage_accuracy:
+    percent_reading: 0.01
+    offset_value: 0.001
+  current_accuracy:
+    percent_reading: 0.1
+    offset_value: 0.001
+  power_accuracy:
+    percent_reading: 0.1
+    offset_value: 0.01
+  temperature_accuracy:
+    percent_reading: 0.5
+    offset_value: 0.1
+  required_scpi_commands:
+    - "get_voltage"
+    - "get_current"
+    - "get_power"
+    - "get_temperature"
+    - "get_measurement_status"
+    - "get_measurement_accuracy"
+
+# Communication features
+communication:
+  interface_types:
+    - "USB"
+    - "LAN"
+    - "GPIB"
+  protocol_versions:
+    - "SCPI-1999.0"
+    - "IEEE-488.2"
+  required_scpi_commands:
+    - "get_identification"
+    - "get_interface_info"
+    - "set_communication_timeout"
+    - "get_communication_timeout"
+
+# SCPI section with detailed command specifications
+scpi:
+  commands:
+    set_voltage:
+      template: "SOUR{channel}:VOLT {voltage}"
+      description: "Set the output voltage for a channel"
+      category: "output"
+      feature: "channels"
+      parameters:
+        channel:
+          name: "channel"
+          type: "int"
+          required: true
+          min_value: 1
+          max_value: 3
+          description: "Channel number"
+          units: "channel"
+        voltage:
+          name: "voltage"
+          type: "float"
+          required: true
+          description: "Output voltage"
+          units: "V"
+
+    set_current:
+      template: "SOUR{channel}:CURR {current}"
+      description: "Set the output current limit for a channel"
+      category: "output"
+      feature: "channels"
+      parameters:
+        channel:
+          name: "channel"
+          type: "int"
+          required: true
+          min_value: 1
+          max_value: 3
+          description: "Channel number"
+          units: "channel"
+        current:
+          name: "current"
+          type: "float"
+          required: true
+          description: "Output current limit"
+          units: "A"
+
+    set_voltage_protection:
+      template: "SOUR{channel}:VOLT:PROT {voltage}"
+      description: "Set the voltage protection level for a channel"
+      category: "protection"
+      feature: "protection"
+      parameters:
+        channel:
+          name: "channel"
+          type: "int"
+          required: true
+          min_value: 1
+          max_value: 3
+          description: "Channel number"
+          units: "channel"
+        voltage:
+          name: "voltage"
+          type: "float"
+          required: true
+          description: "Voltage protection level"
+          units: "V"
+
+  queries:
+    get_voltage:
+      sequence: ["SOUR{channel}:VOLT?"]
+      description: "Get the current output voltage for a channel"
+      category: "measurement"
+      feature: "channels"
+      parameters:
+        channel:
+          name: "channel"
+          type: "int"
+          required: true
+          min_value: 1
+          max_value: 3
+          description: "Channel number"
+          units: "channel"
+      response:
+        type: "float"
+        units: "V"
+
+    get_current:
+      sequence: ["SOUR{channel}:CURR?"]
+      description: "Get the current output current for a channel"
+      category: "measurement"
+      feature: "channels"
+      parameters:
+        channel:
+          name: "channel"
+          type: "int"
+          required: true
+          min_value: 1
+          max_value: 3
+          description: "Channel number"
+          units: "channel"
+      response:
+        type: "float"
+        units: "A"
+
+    get_power:
+      sequence: ["SOUR{channel}:POW?"]
+      description: "Get the current output power for a channel"
+      category: "measurement"
+      feature: "channels"
+      parameters:
+        channel:
+          name: "channel"
+          type: "int"
+          required: true
+          min_value: 1
+          max_value: 3
+          description: "Channel number"
+          units: "channel"
+      response:
+        type: "float"
+        units: "W"
+
+  feature_mappings:
+    core_power_supply:
+      required_scpi:
+        - "set_voltage"
+        - "set_current"
+        - "set_output_state"
+        - "get_voltage"
+        - "get_current"
+      optional_scpi:
+        - "set_voltage_unit"
+        - "set_current_unit"
+        - "set_voltage_autorange_state"
+
+    voltage_protection:
+      required_scpi:
+        - "set_voltage_protection"
+        - "set_protection_delay"
+        - "clear_protection"
+      optional_scpi:
+        - "get_protection_state"
+
+    current_protection:
+      required_scpi:
+        - "set_current_protection"
+        - "set_protection_delay"
+        - "clear_protection"
+      optional_scpi:
+        - "get_protection_state"
+
+    power_protection:
+      required_scpi:
+        - "set_power_protection_level"
+        - "set_protection_delay"
+        - "clear_protection"
+      optional_scpi:
+        - "get_protection_state"
+
+    temperature_protection:
+      required_scpi:
+        - "set_temperature_protection_level"
+        - "set_protection_delay"
+        - "clear_protection"
+      optional_scpi:
+        - "get_protection_state"
+
+    measurement:
+      required_scpi:
+        - "get_voltage"
+        - "get_current"
+        - "get_power"
+      optional_scpi:
+        - "get_temperature"
+        - "get_measurement_status"
+        - "get_measurement_accuracy"

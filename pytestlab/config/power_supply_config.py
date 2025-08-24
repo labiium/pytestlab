@@ -1,82 +1,159 @@
-"""Pydantic models for Power Supply configuration."""
+"""
+Configuration model for Power Supply instruments.
 
-from typing import Literal
+This module defines the configuration structure for programmable power supplies,
+including SCPI command requirements for various features and capabilities.
+"""
 
-from pydantic import BaseModel  # Added ConfigDict, model_validator
-from pydantic import ConfigDict  # Added ConfigDict, model_validator
-from pydantic import Field  # Added ConfigDict, model_validator
-from pydantic import model_validator  # Added ConfigDict, model_validator
+from __future__ import annotations
 
-from pytestlab.config.base import Range  # Assuming Range is a Pydantic model
-from pytestlab.config.instrument_config import InstrumentConfig
+from pydantic import BaseModel
+from pydantic import Field
 
-# from ..errors import InstrumentParameterError # For custom validation errors - uncomment if needed
+from .accuracy import AccuracySpec
+from .instrument_config import InstrumentConfig
+
+# RangeSpec will be defined in this file
 
 
-class PowerSupplyChannelConfig(BaseModel):
-    """Configuration for a single power supply channel."""
+class RangeSpec(BaseModel):
+    """Specification for a range with accuracy information."""
 
-    model_config = ConfigDict(validate_assignment=True, extra="forbid")
+    model_config = {"arbitrary_types_allowed": True}
 
-    channel_id: int = Field(..., gt=0, description="Channel identifier (e.g., 1, 2)")
-    voltage_range: Range = Field(..., description="Programmable voltage range for the channel")
-    current_limit_range: Range = Field(
-        ..., description="Programmable current limit range for the channel"
+    min: float = Field(..., description="Minimum range value")
+
+    max: float = Field(..., description="Maximum range value")
+
+    units: str = Field(..., description="Units for the range values")
+
+    resolution: float | None = Field(None, description="Resolution for this range")
+
+    accuracy: AccuracySpec | None = Field(None, description="Accuracy specification for this range")
+
+    def assert_in_range(self, x: float, name: str = "value") -> float:
+        """Assert that a value is within the range."""
+        if not (self.min <= x <= self.max):
+            from ..errors import InstrumentParameterError
+
+            raise InstrumentParameterError(
+                parameter=name,
+                value=x,
+                valid_range=(self.min, self.max),
+                message=f"{name} must be between {self.min} and {self.max}.",
+            )
+        return x
+
+
+class ChannelSpec(BaseModel):
+    """Specification for a single power supply channel."""
+
+    model_config = {"arbitrary_types_allowed": True}
+
+    description: str = Field(..., description="Channel description")
+
+    voltage_range: RangeSpec = Field(..., description="Voltage range supported by this channel")
+
+    current_limit_range: RangeSpec = Field(
+        ..., description="Current limit range supported by this channel"
     )
-    output_enabled_default: bool = Field(
-        False, description="Default output state for the channel on initialization"
-    )
-    # Add support for extra fields in YAML profile
-    description: str | None = Field(None, description="Channel description")
-    voltage: dict | None = Field(None, description="Raw voltage range from profile (for migration)")
-    current: dict | None = Field(None, description="Raw current range from profile (for migration)")
-    accuracy: dict | None = Field(None, description="Accuracy dictionary from profile")
-    # over_voltage_protection: Optional[float] = Field(None, description="Per-channel Over Voltage Protection setting")
-    # over_current_protection: Optional[float] = Field(None, description="Per-channel Over Current Protection setting")
 
-    @model_validator(mode="before")
-    def migrate_profile_fields(cls, values):
-        # Map 'voltage' to 'voltage_range' if present
-        if "voltage" in values and "voltage_range" not in values:
-            values["voltage_range"] = Range(**values["voltage"])
-        if "current" in values and "current_limit_range" not in values:
-            values["current_limit_range"] = Range(**values["current"])
-        return values
+    power_limit: float | None = Field(None, description="Maximum power limit in Watts")
+
+    slew_rate_range: RangeSpec | None = Field(None, description="Slew rate range in V/s")
+
+    # SCPI command requirements for channel functionality
+    required_scpi_commands: list[str] = Field(
+        default_factory=list,
+        description="Required SCPI command aliases for channel functionality (e.g., ['set_voltage', 'set_current', 'set_slew_rate'])",
+    )
+
+
+class ProtectionSpec(BaseModel):
+    """Specification for protection features."""
+
+    model_config = {"arbitrary_types_allowed": True}
+
+    overvoltage_protection: bool = Field(
+        False, description="Whether overvoltage protection is available"
+    )
+
+    overcurrent_protection: bool = Field(
+        False, description="Whether overcurrent protection is available"
+    )
+
+    overtemperature_protection: bool = Field(
+        False, description="Whether overtemperature protection is available"
+    )
+
+    # SCPI command requirements for protection functionality
+    required_scpi_commands: list[str] = Field(
+        default_factory=list,
+        description="Required SCPI command aliases for protection functionality (e.g., ['set_ovp_level', 'set_ocp_level'])",
+    )
+
+
+class MeasurementSpec(BaseModel):
+    """Specification for measurement capabilities."""
+
+    model_config = {"arbitrary_types_allowed": True}
+
+    voltage_accuracy: AccuracySpec | None = Field(None, description="Voltage measurement accuracy")
+
+    current_accuracy: AccuracySpec | None = Field(None, description="Current measurement accuracy")
+
+    power_accuracy: AccuracySpec | None = Field(None, description="Power measurement accuracy")
+
+    # SCPI command requirements for measurement functionality
+    required_scpi_commands: list[str] = Field(
+        default_factory=list,
+        description="Required SCPI command aliases for measurement functionality (e.g., ['measure_voltage', 'measure_current', 'measure_power'])",
+    )
+
+
+class CommunicationSpec(BaseModel):
+    """Specification for communication features."""
+
+    model_config = {"arbitrary_types_allowed": True}
+
+    remote_sensing: bool = Field(False, description="Whether remote sensing is supported")
+
+    parallel_operation: bool = Field(False, description="Whether parallel operation is supported")
+
+    series_operation: bool = Field(False, description="Whether series operation is supported")
+
+    # SCPI command requirements for communication functionality
+    required_scpi_commands: list[str] = Field(
+        default_factory=list,
+        description="Required SCPI command aliases for communication functionality (e.g., ['set_remote_sensing', 'set_parallel_mode'])",
+    )
 
 
 class PowerSupplyConfig(InstrumentConfig):
-    """Pydantic model for Power Supply configuration."""
+    """Configuration for Power Supply instruments."""
 
-    model_config = ConfigDict(validate_assignment=True, extra="forbid")
+    model_config = {"arbitrary_types_allowed": True}
 
-    device_type: Literal["power_supply", "PSU"] = Field(  # More flexible device_type
-        "PSU", description="Device type identifier, must be 'PSU' or 'power_supply'."
-    )
-    channels: list[PowerSupplyChannelConfig] = Field(
-        ...,
-        min_length=1,
-        description="List of power supply channel configurations",  # Ensure min_length is appropriate
-    )
-    over_voltage_protection: Range | None = Field(
-        None, description="Global Over Voltage Protection setting for the PSU, if applicable."
-    )
-    over_current_protection: Range | None = Field(
-        None, description="Global Over Current Protection setting for the PSU, if applicable."
-    )
-    line_regulation: float | None = Field(
-        None, description="Line regulation specification for the PSU."
-    )
-    load_regulation: float | None = Field(
-        None, description="Load regulation specification for the PSU."
-    )
-    total_power: float | None = Field(None, description="Total output power rating for the PSU.")
-    # Add other global PSU settings if any, e.g.:
-    # tracking_enabled: Optional[bool] = Field(None, description="Enable/disable channel tracking if supported")
+    channels: list[ChannelSpec] = Field(..., description="Channel specifications")
 
-    @model_validator(mode="after")
-    def check_channel_ids_unique(self) -> "PowerSupplyConfig":
-        if self.channels:
-            ids = [ch.channel_id for ch in self.channels]
-            if len(ids) != len(set(ids)):
-                raise ValueError("Channel IDs must be unique.")
-        return self
+    protection: ProtectionSpec | None = Field(None, description="Protection features")
+
+    measurement: MeasurementSpec | None = Field(None, description="Measurement capabilities")
+
+    communication: CommunicationSpec | None = Field(None, description="Communication features")
+
+    # Core SCPI command requirements
+    core_scpi_commands: list[str] = Field(
+        default_factory=list,
+        description="Required SCPI command aliases for core functionality (e.g., ['set_output', 'set_display', 'reset'])",
+    )
+
+    output_scpi_commands: list[str] = Field(
+        default_factory=list,
+        description="Required SCPI command aliases for output functionality (e.g., ['set_output_state', 'get_output_state'])",
+    )
+
+    safety_scpi_commands: list[str] = Field(
+        default_factory=list,
+        description="Required SCPI command aliases for safety functionality (e.g., ['set_voltage_limit', 'set_current_limit'])",
+    )

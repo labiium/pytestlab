@@ -15,9 +15,6 @@ from ..common.health import HealthStatus  # Adjusted import
 from ..config import InstrumentConfig  # Assuming InstrumentConfig is the base Pydantic model
 from ..errors import InstrumentCommunicationError
 from ..errors import InstrumentConfigurationError
-
-# polars.List is a DataType, not for type hinting Python lists.
-# from polars import List
 from ..errors import InstrumentConnectionError
 from ..errors import InstrumentDataError
 from .scpi_engine import SCPIEngine
@@ -126,11 +123,14 @@ class Instrument(Generic[ConfigType]):
         self._logger.info(
             f"Instrument '{logger_name}': Initializing with backend '{type(backend).__name__}'."
         )
-        scpi_section = (
-            self.config.scpi
-            if hasattr(self.config, "scpi") and self.config.scpi is not None
-            else {}
-        )
+        # Get SCPI data and convert to compatible format
+        if hasattr(self.config, "scpi") and self.config.scpi is not None:
+            if hasattr(self.config.scpi, "model_dump"):
+                scpi_section = self.config.scpi.model_dump()
+            else:
+                scpi_section = {}
+        else:
+            scpi_section = {}
         self.scpi_engine = SCPIEngine(scpi_section)
 
     def _validate_features_against_scpi(

@@ -9,6 +9,83 @@ from pydantic import Field
 from .accuracy import AccuracySpec
 
 
+class SCPIParameterSpec(BaseModel):
+    """Specification for a single SCPI command parameter."""
+
+    model_config = ConfigDict(validate_assignment=True, extra="forbid")
+
+    name: str = Field(..., description="Parameter name")
+    type: str = Field(..., description="Parameter type (e.g., 'int', 'float', 'str', 'enum')")
+    required: bool = Field(True, description="Whether this parameter is required")
+    description: str | None = Field(None, description="Parameter description")
+
+    # Validation rules
+    min_value: float | int | None = Field(None, description="Minimum allowed value")
+    max_value: float | int | None = Field(None, description="Maximum allowed value")
+    allowed_values: list[Any] | None = Field(None, description="Allowed values for enum types")
+
+    # Default value
+    default: Any = Field(None, description="Default parameter value")
+
+    # Units and formatting
+    units: str | None = Field(None, description="Parameter units")
+    format: str | None = Field(None, description="Parameter format specification")
+
+
+class SCPICommandSpec(BaseModel):
+    """Specification for a single SCPI command."""
+
+    model_config = ConfigDict(validate_assignment=True, extra="forbid")
+
+    template: str | None = Field(None, description="SCPI command template with placeholders")
+    sequence: list[str] | None = Field(None, description="Sequence of SCPI commands")
+
+    # Parameter specifications
+    parameters: dict[str, SCPIParameterSpec] | None = Field(
+        None, description="Parameter specifications for this command"
+    )
+
+    # Legacy fields (kept for backward compatibility)
+    defaults: dict[str, Any] | None = Field(None, description="Default parameter values")
+    validators: dict[str, Any] | None = Field(None, description="Parameter validation rules")
+    enums: dict[str, Any] | None = Field(None, description="Enumeration values for parameters")
+
+    response: dict[str, Any] | None = Field(None, description="Response specification")
+
+    # Command metadata
+    description: str | None = Field(None, description="Command description")
+    category: str | None = Field(
+        None, description="Command category (e.g., 'channel', 'trigger', 'acquisition')"
+    )
+    feature: str | None = Field(None, description="Feature this command belongs to")
+
+
+class SCPICommandsQueries(BaseModel):
+    """SCPI commands and queries specification."""
+
+    model_config = ConfigDict(validate_assignment=True, extra="forbid")
+
+    commands: dict[str, SCPICommandSpec] | None = Field(None, description="SCPI commands")
+    queries: dict[str, SCPICommandSpec] | None = Field(None, description="SCPI queries")
+
+
+class SCPISection(BaseModel):
+    """Complete SCPI section specification."""
+
+    model_config = ConfigDict(validate_assignment=True, extra="forbid")
+
+    commands: dict[str, SCPICommandSpec] | None = Field(None, description="SCPI commands")
+    queries: dict[str, SCPICommandSpec] | None = Field(None, description="SCPI queries")
+    variants: dict[str, SCPICommandsQueries] | None = Field(
+        None, description="SCPI command variants"
+    )
+    default_variant: str | None = Field(None, description="Default variant name")
+    feature_mappings: dict[str, dict[str, list[str]]] | None = Field(
+        None,
+        description="Declarative feature mapping: { feature_name: { required_scpi: [...], optional_scpi: [...] } }",
+    )
+
+
 class InstrumentConfig(BaseModel):
     model_config = ConfigDict(validate_assignment=True, extra="ignore")  # Added model_config
 
@@ -26,10 +103,10 @@ class InstrumentConfig(BaseModel):
     )
     # further complex yaml
     # ------------------------- NEW  (SCPI) ------------------------------ #
-    scpi: dict[str, Any] | None = Field(
-        default_factory=dict,
+    scpi: SCPISection | None = Field(
+        None,
         description=(
-            "Raw SCPI section copied verbatim from the YAML profile.  "
+            "SCPI section with command specifications, aliases, and feature mappings. "
             "Must contain 'commands:' and/or 'queries:' or a 'variants:' block."
         ),
     )

@@ -1,0 +1,362 @@
+# Example Oscilloscope Configuration with SCPI Command Requirements
+# This demonstrates how to specify required SCPI commands for different functionality
+
+manufacturer: "Keysight"
+model: "DSOX1204G"
+device_type: "oscilloscope"
+address: "USB0::0x0957::0x17A0::MY12345678::INSTR"
+
+# Core oscilloscope functionality SCPI requirements
+core_scpi_commands:
+  - "acquire_points"
+  - "acquire_sample_rate"
+  - "acquire_setup"
+  - "auto_scale"
+  - "screenshot"
+  - "system_lock"
+  - "set_time_axis"
+  - "get_time_axis"
+  - "set_channel_axis"
+  - "get_channel_axis"
+
+# Channel-specific SCPI requirements
+channel_scpi_commands:
+  - "channel_display"
+  - "set_channel_coupling"
+  - "probe_get"
+  - "probe_set"
+  - "channel_bandwidth"
+
+# Trigger-specific SCPI requirements
+trigger_scpi_commands:
+  - "configure_trigger"
+  - "trigger_level"
+  - "trigger_slope"
+  - "trigger_source"
+
+# Acquisition-specific SCPI requirements
+acquisition_scpi_commands:
+  - "acq_get_count"
+  - "acq_get_mode"
+  - "acq_get_type"
+  - "acq_set_count"
+  - "acq_set_mode"
+  - "acq_set_type"
+  - "digitize"
+
+# Waveform-specific SCPI requirements
+waveform_scpi_commands:
+  - "wave_data"
+  - "wave_preamble"
+  - "set_wave_source"
+  - "set_wave_format_byte"
+  - "set_wave_points_max"
+
+# Trigger system configuration
+trigger:
+  types: ["EDGE", "PULSE", "RUNT"]
+  modes: ["AUTO", "NORMAL", "SINGLE"]
+  slopes: ["POSITIVE", "NEGATIVE", "EITHER"]
+
+# Channel configurations
+channels:
+  - description: "Channel 1 - Main input"
+    channel_range:
+      min_val: -8.0
+      max_val: 8.0
+    input_coupling: ["AC", "DC", "GND"]
+    input_impedance: 1000000.0
+    probe_attenuation: [1, 10]
+    timebase:
+      range:
+        min_val: 1e-9
+        max_val: 1.0
+      horizontal_resolution: 1e-12
+
+  - description: "Channel 2 - Secondary input"
+    channel_range:
+      min_val: -8.0
+      max_val: 8.0
+    input_coupling: ["AC", "DC", "GND"]
+    input_impedance: 1000000.0
+    probe_attenuation: [1, 10]
+    timebase:
+      range:
+        min_val: 1e-9
+        max_val: 1.0
+      horizontal_resolution: 1e-12
+
+  - description: "Channel 3 - Auxiliary input"
+    channel_range:
+      min_val: -8.0
+      max_val: 8.0
+    input_coupling: ["AC", "DC", "GND"]
+    input_impedance: 1000000.0
+    probe_attenuation: [1, 10]
+    timebase:
+      range:
+        min_val: 1e-9
+        max_val: 1.0
+      horizontal_resolution: 1e-12
+
+  - description: "Channel 4 - Auxiliary input"
+    channel_range:
+      min_val: -8.0
+      max_val: 8.0
+    input_coupling: ["AC", "DC", "GND"]
+    input_impedance: 1000000.0
+    probe_attenuation: [1, 10]
+    timebase:
+      range:
+        min_val: 1e-9
+        max_val: 1.0
+      horizontal_resolution: 1e-12
+
+# Basic specifications
+bandwidth: 200000000.0  # 200 MHz
+sampling_rate: 2000000000.0  # 2 GS/s
+memory: 1000000.0  # 1M points
+waveform_update_rate: 100000.0  # 100k waveforms/s
+
+# FFT capabilities (optional)
+fft:
+  window_types: ["HANNing", "FLATtop", "BLACkman", "HAMMing"]
+  units: ["DECibel", "VRMS", "DBV"]
+  required_scpi_commands:
+    - "fft_display"
+    - "fft_source"
+    - "fft_window"
+    - "fft_vtype"
+    - "fft_offset"
+    - "fft_scale"
+    - "fft_span"
+
+# Function generator capabilities (optional)
+function_generator:
+  waveform_types: ["SINE", "SQUARE", "RAMP", "PULSE", "DC", "NOISE"]
+  supported_states: ["ON", "OFF"]
+  offset:
+    min_val: -5.0
+    max_val: 5.0
+  frequency:
+    min_val: 0.001
+    max_val: 20000000.0
+  amplitude:
+    min_val: 0.001
+    max_val: 5.0
+  required_scpi_commands:
+    - "wgen_output"
+    - "wgen_set_func"
+    - "wgen_set_freq"
+    - "wgen_set_volt"
+    - "wgen_set_offset"
+    - "wgen_set_high"
+    - "wgen_set_low"
+    - "wgen_set_period"
+    - "wgen_set_pulse_width"
+    - "wgen_set_ramp_symmetry"
+    - "wgen_set_square_duty"
+
+# Frequency Response Analysis capabilities (optional)
+franalysis:
+  sweep_points:
+    min_val: 2
+    max_val: 1000
+  load: ["onemeg", "fifty", "twentyfive"]
+  trace: ["GAIN", "PHASE", "REAL", "IMAGINARY"]
+  mode: ["BODE", "IMPEDANCE", "ADMITTANCE"]
+  required_scpi_commands:
+    - "fran_enable"
+    - "fran_fetch"
+    - "fran_start"
+    - "fran_stop"
+    - "fran_amplitude"
+    - "fran_points"
+    - "fran_trace"
+    - "fran_load"
+    - "fran_disable"
+
+# SCPI section with command specifications
+scpi:
+  commands:
+    acquire_points:
+      sequence: [":ACQuire:POINts?"]
+      response:
+        type: "int"
+        units: null
+        delimiter: ","
+        fields: []
+
+    set_channel_axis:
+      sequence:
+        - ":CHANnel{channel}:SCALe {scale}"
+        - ":CHANnel{channel}:OFFSet {offset}"
+      validators:
+        channel:
+          min: 1.0
+          max: 4.0
+
+    configure_trigger:
+      sequence:
+        - ":TRIG:SOUR {source}"
+        - ":TRIGger:LEVel {level}, CHANnel{channel}"
+        - ":TRIGger:SLOPe {slope}"
+        - ":TRIGger:MODE {mode}"
+      validators:
+        channel:
+          min: 1.0
+          max: 4.0
+
+    digitize:
+      sequence: ["DIGitize {sources}"]
+
+    wave_data:
+      sequence: [":WAVeform:DATA?"]
+      response:
+        type: "binblock"
+        units: null
+        delimiter: ","
+        fields: []
+
+    wave_preamble:
+      sequence: [":WAVeform:PREamble?"]
+      response:
+        type: "csv"
+        units: null
+        delimiter: ","
+        fields: []
+
+  queries:
+    get_time_axis:
+      sequence: [":TIMebase:SCALe?", ":TIMebase:POSition?"]
+      response:
+        type: "csv_float"
+        units: "s"
+        delimiter: ","
+        fields: ["scale", "position"]
+
+    get_channel_axis:
+      sequence: [":CHANnel{channel}:SCALe?", ":CHANnel{channel}:OFFSet?"]
+      validators:
+        channel:
+          min: 1.0
+          max: 4.0
+      response:
+        type: "csv_float"
+        units: "V"
+        delimiter: ","
+        fields: ["scale", "offset"]
+
+  # Feature mappings for declarative validation
+  feature_mappings:
+    core_oscilloscope:
+      required_scpi:
+        - "acquire_points"
+        - "set_channel_axis"
+        - "get_time_axis"
+        - "get_channel_axis"
+        - "auto_scale"
+        - "screenshot"
+      optional_scpi:
+        - "acquire_set_rate"
+        - "timebase_main_range"
+
+    channels:
+      required_scpi:
+        - "channel_display"
+        - "set_channel_coupling"
+        - "probe_get"
+        - "probe_set"
+        - "channel_bandwidth"
+      optional_scpi:
+        - "get_channel_offset"
+        - "get_channel_scale"
+
+    trigger:
+      required_scpi:
+        - "configure_trigger"
+        - "trigger_level"
+        - "trigger_slope"
+        - "trigger_source"
+      optional_scpi:
+        - "set_trigger_coupling"
+
+    acquisition:
+      required_scpi:
+        - "acq_get_count"
+        - "acq_get_mode"
+        - "acq_get_type"
+        - "acq_set_count"
+        - "acq_set_mode"
+        - "acq_set_type"
+        - "digitize"
+      optional_scpi:
+        - "seg_analyze"
+        - "seg_get_count"
+        - "seg_get_index"
+        - "seg_set_count"
+        - "seg_set_index"
+
+    waveform:
+      required_scpi:
+        - "wave_data"
+        - "wave_preamble"
+        - "set_wave_source"
+        - "set_wave_format_byte"
+        - "set_wave_points_max"
+      optional_scpi:
+        - "set_wave_points_mode_raw"
+
+    fft:
+      required_scpi:
+        - "fft_display"
+        - "fft_source"
+        - "fft_window"
+        - "fft_vtype"
+      optional_scpi:
+        - "fft_offset"
+        - "fft_scale"
+        - "fft_span"
+
+    function_generator:
+      required_scpi:
+        - "wgen_output"
+        - "wgen_set_func"
+        - "wgen_set_freq"
+        - "wgen_set_volt"
+        - "wgen_set_offset"
+      optional_scpi:
+        - "wgen_set_high"
+        - "wgen_set_low"
+        - "wgen_set_period"
+        - "wgen_set_pulse_width"
+        - "wgen_set_ramp_symmetry"
+        - "wgen_set_square_duty"
+
+    frequency_response_analysis:
+      required_scpi:
+        - "fran_enable"
+        - "fran_fetch"
+        - "fran_start"
+        - "fran_stop"
+        - "fran_amplitude"
+        - "fran_points"
+        - "fran_trace"
+        - "fran_load"
+      optional_scpi:
+        - "fran_disable"
+
+# Measurement accuracy specifications (optional)
+measurement_accuracy:
+  vpp_ch1:
+    percent_reading: 0.0001
+    offset_value: 0.005
+  vrms_ch1:
+    percent_reading: 0.0001
+    offset_value: 0.003
+  vpp_ch2:
+    percent_reading: 0.0001
+    offset_value: 0.005
+  vrms_ch2:
+    percent_reading: 0.0001
+    offset_value: 0.003

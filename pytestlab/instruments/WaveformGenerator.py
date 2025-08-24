@@ -693,7 +693,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
         if isinstance(frequency, int | float):
             if 0 <= (ch - 1) < len(self.config.channels):
                 channel_config_model = self.config.channels[ch - 1]
-                channel_config_model.frequency.assert_in_range(
+                channel_config_model.frequency_range.assert_in_range(
                     float(frequency), name=f"Frequency for CH{ch}"
                 )
         try:
@@ -747,7 +747,7 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
         if isinstance(amplitude, int | float):
             if 0 <= (ch - 1) < len(self.config.channels):
                 channel_config_model = self.config.channels[ch - 1]
-                channel_config_model.amplitude.assert_in_range(
+                channel_config_model.amplitude_range.assert_in_range(
                     float(amplitude), name=f"Amplitude for CH{ch}"
                 )
         try:
@@ -1272,7 +1272,9 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
             if (
                 hasattr(self.config, "waveforms")
                 and hasattr(self.config.waveforms, "arbitrary")
+                and self.config.waveforms.arbitrary is not None
                 and hasattr(self.config.waveforms.arbitrary, "sampling_rate")
+                and self.config.waveforms.arbitrary.sampling_rate is not None
             ):
                 self.config.waveforms.arbitrary.sampling_rate.assert_in_range(
                     float(sample_rate), name="Arbitrary sample rate"

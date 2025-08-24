@@ -50,248 +50,216 @@
       "title": "AccuracySpec",
       "type": "object"
     },
-    "BatteryTestSpec": {
-      "description": "Specification for battery testing capabilities.",
+    "Channel": {
+      "additionalProperties": false,
       "properties": {
-        "voltage_cutoff_range": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RangeSpec"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Voltage cutoff range"
+        "description": {
+          "description": "Channel description",
+          "title": "Description",
+          "type": "string"
         },
-        "capacity_cutoff_range": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RangeSpec"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Capacity cutoff range in Ah"
+        "channel_range": {
+          "$ref": "#/$defs/Range",
+          "description": "Vertical range of the channel"
         },
-        "timer_cutoff_range": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RangeSpec"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Timer cutoff range in seconds"
-        },
-        "required_scpi_commands": {
-          "description": "Required SCPI command aliases for battery testing (e.g., ['battery_enable', 'battery_cutoff_voltage', 'battery_cutoff_capacity'])",
+        "input_coupling": {
+          "description": "Supported input coupling types (e.g., AC, DC, GND)",
           "items": {
             "type": "string"
           },
-          "title": "Required Scpi Commands",
-          "type": "array"
-        }
-      },
-      "title": "BatteryTestSpec",
-      "type": "object"
-    },
-    "DataAcquisitionSpec": {
-      "description": "Specification for data acquisition capabilities.",
-      "properties": {
-        "scope_points": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Number of scope data points",
-          "title": "Scope Points"
-        },
-        "datalogger_points": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Number of datalogger points",
-          "title": "Datalogger Points"
-        },
-        "required_scpi_commands": {
-          "description": "Required SCPI command aliases for data acquisition (e.g., ['fetch_array', 'fetch_datalogger'])",
-          "items": {
-            "type": "string"
-          },
-          "title": "Required Scpi Commands",
-          "type": "array"
-        }
-      },
-      "title": "DataAcquisitionSpec",
-      "type": "object"
-    },
-    "ModeSpec": {
-      "description": "Specification for an operating mode.",
-      "properties": {
-        "ranges": {
-          "description": "Available ranges for this mode",
-          "items": {
-            "$ref": "#/$defs/RangeSpec"
-          },
-          "title": "Ranges",
+          "minItems": 1,
+          "title": "Input Coupling",
           "type": "array"
         },
-        "required_scpi_commands": {
-          "description": "Required SCPI command aliases for this mode (e.g., ['set_mode', 'set_load'])",
-          "items": {
-            "type": "string"
-          },
-          "title": "Required Scpi Commands",
-          "type": "array"
-        }
-      },
-      "title": "ModeSpec",
-      "type": "object"
-    },
-    "OperatingModesSpec": {
-      "description": "Specification for all operating modes.",
-      "properties": {
-        "constant_current_CC": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ModeSpec"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Constant Current mode specifications"
-        },
-        "constant_voltage_CV": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ModeSpec"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Constant Voltage mode specifications"
-        },
-        "constant_power_CP": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ModeSpec"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Constant Power mode specifications"
-        },
-        "constant_resistance_CR": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ModeSpec"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Constant Resistance mode specifications"
-        },
-        "required_scpi_commands": {
-          "description": "Required SCPI command aliases for mode switching (e.g., ['set_mode', 'set_load'])",
-          "items": {
-            "type": "string"
-          },
-          "title": "Required Scpi Commands",
-          "type": "array"
-        }
-      },
-      "title": "OperatingModesSpec",
-      "type": "object"
-    },
-    "RangeSpec": {
-      "description": "Specification for a range with accuracy information.",
-      "properties": {
-        "nominal": {
-          "description": "Nominal range value",
-          "title": "Nominal",
+        "input_impedance": {
+          "description": "Input impedance in Ohms",
+          "title": "Input Impedance",
           "type": "number"
         },
-        "max_current_A": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Maximum current in Amperes",
-          "title": "Max Current A"
+        "probe_attenuation": {
+          "description": "Supported probe attenuation factors (e.g., 1, 10)",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 1,
+          "title": "Probe Attenuation",
+          "type": "array"
         },
-        "max_voltage_V": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Maximum voltage in Volts",
-          "title": "Max Voltage V"
-        },
-        "max_power_W": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Maximum power in Watts",
-          "title": "Max Power W"
-        },
-        "readback_accuracy": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AccuracySpec"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Readback accuracy specification"
+        "timebase": {
+          "$ref": "#/$defs/Timebase"
         }
       },
       "required": [
-        "nominal"
+        "description",
+        "channel_range",
+        "input_coupling",
+        "input_impedance",
+        "probe_attenuation",
+        "timebase"
       ],
-      "title": "RangeSpec",
+      "title": "Channel",
+      "type": "object"
+    },
+    "FFT": {
+      "additionalProperties": false,
+      "properties": {
+        "window_types": {
+          "description": "Supported FFT window types (e.g., Hanning, Flattop)",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Window Types",
+          "type": "array"
+        },
+        "units": {
+          "description": "Supported FFT units (e.g., dBV, Vrms)",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Units",
+          "type": "array"
+        },
+        "required_scpi_commands": {
+          "description": "Required SCPI command aliases for FFT functionality (e.g., ['fft_display', 'fft_source'])",
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Scpi Commands",
+          "type": "array"
+        }
+      },
+      "required": [
+        "window_types",
+        "units"
+      ],
+      "title": "FFT",
+      "type": "object"
+    },
+    "FRAnalysis": {
+      "additionalProperties": false,
+      "properties": {
+        "sweep_points": {
+          "$ref": "#/$defs/Range",
+          "description": "Range for number of sweep points"
+        },
+        "load": {
+          "description": "Supported load impedance values for FRA",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Load",
+          "type": "array"
+        },
+        "trace": {
+          "description": "Supported trace types for FRA (e.g., Gain, Phase)",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Trace",
+          "type": "array"
+        },
+        "mode": {
+          "description": "Supported FRA modes (e.g., Bode, Impedance)",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Mode",
+          "type": "array"
+        },
+        "required_scpi_commands": {
+          "description": "Required SCPI command aliases for FRA functionality (e.g., ['fran_enable', 'fran_fetch'])",
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Scpi Commands",
+          "type": "array"
+        }
+      },
+      "required": [
+        "sweep_points",
+        "load",
+        "trace",
+        "mode"
+      ],
+      "title": "FRAnalysis",
+      "type": "object"
+    },
+    "FunctionGenerator": {
+      "additionalProperties": false,
+      "properties": {
+        "waveform_types": {
+          "description": "Supported waveform types (e.g., Sine, Square)",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Waveform Types",
+          "type": "array"
+        },
+        "supported_states": {
+          "description": "Supported states (e.g., ON, OFF)",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Supported States",
+          "type": "array"
+        },
+        "offset": {
+          "$ref": "#/$defs/Range",
+          "description": "Offset range"
+        },
+        "frequency": {
+          "$ref": "#/$defs/Range",
+          "description": "Frequency range"
+        },
+        "amplitude": {
+          "$ref": "#/$defs/Range",
+          "description": "Amplitude range"
+        },
+        "required_scpi_commands": {
+          "description": "Required SCPI command aliases for function generator functionality (e.g., ['wgen_output', 'wgen_set_func'])",
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Scpi Commands",
+          "type": "array"
+        }
+      },
+      "required": [
+        "waveform_types",
+        "supported_states",
+        "offset",
+        "frequency",
+        "amplitude"
+      ],
+      "title": "FunctionGenerator",
+      "type": "object"
+    },
+    "Range": {
+      "additionalProperties": false,
+      "properties": {
+        "min_val": {
+          "description": "Minimum value of the range (inclusive)",
+          "title": "Min Val",
+          "type": "number"
+        },
+        "max_val": {
+          "description": "Maximum value of the range (inclusive)",
+          "title": "Max Val",
+          "type": "number"
+        }
+      },
+      "required": [
+        "min_val",
+        "max_val"
+      ],
+      "title": "Range",
       "type": "object"
     },
     "SCPICommandSpec": {
@@ -691,51 +659,67 @@
       "title": "SCPISection",
       "type": "object"
     },
-    "TransientSpec": {
-      "description": "Specification for transient capabilities.",
+    "Timebase": {
+      "additionalProperties": false,
       "properties": {
-        "supported_modes": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Supported transient modes (e.g., ['CONTinuous', 'PULSe', 'TOGGle', 'LIST'])",
-          "title": "Supported Modes"
+        "range": {
+          "$ref": "#/$defs/Range",
+          "description": "Timebase range settings"
         },
-        "time_range": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RangeSpec"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Transient time range"
-        },
-        "required_scpi_commands": {
-          "description": "Required SCPI command aliases for transient functionality (e.g., ['transient_set_mode', 'transient_set_level', 'transient_start'])",
+        "horizontal_resolution": {
+          "description": "Horizontal resolution",
+          "title": "Horizontal Resolution",
+          "type": "number"
+        }
+      },
+      "required": [
+        "range",
+        "horizontal_resolution"
+      ],
+      "title": "Timebase",
+      "type": "object"
+    },
+    "Trigger": {
+      "additionalProperties": false,
+      "properties": {
+        "types": {
+          "description": "Supported trigger types (e.g., Edge, Pulse, Runt)",
           "items": {
             "type": "string"
           },
-          "title": "Required Scpi Commands",
+          "minItems": 1,
+          "title": "Types",
+          "type": "array"
+        },
+        "modes": {
+          "description": "Supported trigger modes (e.g., Auto, Normal, Single)",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Modes",
+          "type": "array"
+        },
+        "slopes": {
+          "description": "Supported trigger slopes (e.g., Rising, Falling, Either)",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Slopes",
           "type": "array"
         }
       },
-      "title": "TransientSpec",
+      "required": [
+        "types",
+        "modes",
+        "slopes"
+      ],
+      "title": "Trigger",
       "type": "object"
     }
   },
-  "description": "Configuration for DC Active Load instruments.",
+  "additionalProperties": false,
   "properties": {
     "manufacturer": {
       "description": "Manufacturer of the instrument",
@@ -748,9 +732,24 @@
       "type": "string"
     },
     "device_type": {
-      "description": "Type of the device (e.g., 'PSU', 'Oscilloscope')",
+      "const": "oscilloscope",
+      "default": "oscilloscope",
+      "description": "Type of the device (oscilloscope)",
       "title": "Device Type",
       "type": "string"
+    },
+    "serial_number": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Serial number of the instrument",
+      "title": "Serial Number"
     },
     "address": {
       "anyOf": [
@@ -805,85 +804,144 @@
       "description": "Name of the variant inside scpi.variants to be used with this instrument.  Leave empty if not using the multi-variant feature.",
       "title": "Scpi Variant"
     },
-    "operating_modes": {
-      "$ref": "#/$defs/OperatingModesSpec",
-      "description": "Operating mode specifications"
+    "trigger": {
+      "$ref": "#/$defs/Trigger",
+      "description": "Trigger system configuration"
     },
-    "transient": {
+    "channels": {
+      "description": "List of channel configurations",
+      "items": {
+        "$ref": "#/$defs/Channel"
+      },
+      "minItems": 1,
+      "title": "Channels",
+      "type": "array"
+    },
+    "bandwidth": {
+      "description": "Analog bandwidth of the oscilloscope in Hz",
+      "exclusiveMinimum": 0,
+      "title": "Bandwidth",
+      "type": "number"
+    },
+    "sampling_rate": {
+      "description": "Maximum sampling rate in Samples/sec",
+      "exclusiveMinimum": 0,
+      "title": "Sampling Rate",
+      "type": "number"
+    },
+    "memory": {
+      "description": "Maximum memory depth (e.g., in points or seconds)",
+      "exclusiveMinimum": 0,
+      "title": "Memory",
+      "type": "number"
+    },
+    "waveform_update_rate": {
+      "description": "Waveform update rate in waveforms/sec",
+      "exclusiveMinimum": 0,
+      "title": "Waveform Update Rate",
+      "type": "number"
+    },
+    "fft": {
       "anyOf": [
         {
-          "$ref": "#/$defs/TransientSpec"
+          "$ref": "#/$defs/FFT"
         },
         {
           "type": "null"
         }
       ],
       "default": null,
-      "description": "Transient capabilities"
+      "description": "FFT capabilities, if available"
     },
-    "battery_test": {
+    "function_generator": {
       "anyOf": [
         {
-          "$ref": "#/$defs/BatteryTestSpec"
+          "$ref": "#/$defs/FunctionGenerator"
         },
         {
           "type": "null"
         }
       ],
       "default": null,
-      "description": "Battery testing capabilities"
+      "description": "Integrated function generator capabilities, if available"
     },
-    "data_acquisition": {
+    "franalysis": {
       "anyOf": [
         {
-          "$ref": "#/$defs/DataAcquisitionSpec"
+          "$ref": "#/$defs/FRAnalysis"
         },
         {
           "type": "null"
         }
       ],
       "default": null,
-      "description": "Data acquisition capabilities"
+      "description": "Frequency Response Analysis capabilities, if available"
+    },
+    "timebase_settings": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Timebase"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Global timebase settings, if applicable beyond per-channel"
     },
     "core_scpi_commands": {
-      "description": "Required SCPI command aliases for core functionality (e.g., ['set_input_state', 'get_input_state'])",
+      "description": "Required SCPI command aliases for core oscilloscope functionality (e.g., ['acquire_points', 'set_channel_axis'])",
       "items": {
         "type": "string"
       },
       "title": "Core Scpi Commands",
       "type": "array"
     },
-    "input_scpi_commands": {
-      "description": "Required SCPI command aliases for input functionality (e.g., ['set_input_state', 'input_short_state'])",
+    "channel_scpi_commands": {
+      "description": "Required SCPI command aliases for channel operations (e.g., ['channel_display', 'probe_set'])",
       "items": {
         "type": "string"
       },
-      "title": "Input Scpi Commands",
+      "title": "Channel Scpi Commands",
       "type": "array"
     },
-    "slew_rate_scpi_commands": {
-      "description": "Required SCPI command aliases for slew rate functionality (e.g., ['mode_set_slew', 'mode_set_range'])",
+    "trigger_scpi_commands": {
+      "description": "Required SCPI command aliases for trigger operations (e.g., ['configure_trigger', 'trigger_level'])",
       "items": {
         "type": "string"
       },
-      "title": "Slew Rate Scpi Commands",
+      "title": "Trigger Scpi Commands",
       "type": "array"
     },
-    "measurement_scpi_commands": {
-      "description": "Required SCPI command aliases for measurement functionality (e.g., ['measure', 'mode_get_range'])",
+    "acquisition_scpi_commands": {
+      "description": "Required SCPI command aliases for acquisition operations (e.g., ['acq_set_type', 'digitize'])",
       "items": {
         "type": "string"
       },
-      "title": "Measurement Scpi Commands",
+      "title": "Acquisition Scpi Commands",
+      "type": "array"
+    },
+    "waveform_scpi_commands": {
+      "description": "Required SCPI command aliases for waveform operations (e.g., ['wave_data', 'wave_preamble'])",
+      "items": {
+        "type": "string"
+      },
+      "title": "Waveform Scpi Commands",
       "type": "array"
     }
   },
   "required": [
     "manufacturer",
     "model",
-    "device_type",
-    "operating_modes"
+    "trigger",
+    "channels",
+    "bandwidth",
+    "sampling_rate",
+    "memory",
+    "waveform_update_rate"
   ],
-  "title": "DCActiveLoadConfig",
-  "type": "object"
+  "title": "OscilloscopeConfig Schema",
+  "type": "object",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Auto-generated schema for OscilloscopeConfig"
 }

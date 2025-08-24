@@ -50,6 +50,12 @@ class FFT(BaseModel):
     )
     units: list[str] = Field(..., min_length=1, description="Supported FFT units (e.g., dBV, Vrms)")
 
+    # SCPI command requirements for FFT functionality
+    required_scpi_commands: list[str] = Field(
+        default_factory=list,
+        description="Required SCPI command aliases for FFT functionality (e.g., ['fft_display', 'fft_source'])",
+    )
+
 
 class FunctionGenerator(BaseModel):
     model_config = ConfigDict(validate_assignment=True, extra="forbid")
@@ -63,6 +69,12 @@ class FunctionGenerator(BaseModel):
     frequency: Range = Field(..., description="Frequency range")
     amplitude: Range = Field(..., description="Amplitude range")
 
+    # SCPI command requirements for function generator functionality
+    required_scpi_commands: list[str] = Field(
+        default_factory=list,
+        description="Required SCPI command aliases for function generator functionality (e.g., ['wgen_output', 'wgen_set_func'])",
+    )
+
 
 class FRAnalysis(BaseModel):
     model_config = ConfigDict(validate_assignment=True, extra="forbid")
@@ -75,6 +87,12 @@ class FRAnalysis(BaseModel):
     )
     mode: list[str] = Field(
         ..., min_length=1, description="Supported FRA modes (e.g., Bode, Impedance)"
+    )
+
+    # SCPI command requirements for FRA functionality
+    required_scpi_commands: list[str] = Field(
+        default_factory=list,
+        description="Required SCPI command aliases for FRA functionality (e.g., ['fran_enable', 'fran_fetch'])",
     )
 
 
@@ -103,6 +121,36 @@ class OscilloscopeConfig(InstrumentConfig):
     )
     timebase_settings: Timebase | None = Field(
         None, description="Global timebase settings, if applicable beyond per-channel"
+    )
+
+    # Core oscilloscope functionality SCPI requirements
+    core_scpi_commands: list[str] = Field(
+        default_factory=list,
+        description="Required SCPI command aliases for core oscilloscope functionality (e.g., ['acquire_points', 'set_channel_axis'])",
+    )
+
+    # Channel-specific SCPI requirements
+    channel_scpi_commands: list[str] = Field(
+        default_factory=list,
+        description="Required SCPI command aliases for channel operations (e.g., ['channel_display', 'probe_set'])",
+    )
+
+    # Trigger-specific SCPI requirements
+    trigger_scpi_commands: list[str] = Field(
+        default_factory=list,
+        description="Required SCPI command aliases for trigger operations (e.g., ['configure_trigger', 'trigger_level'])",
+    )
+
+    # Acquisition-specific SCPI requirements
+    acquisition_scpi_commands: list[str] = Field(
+        default_factory=list,
+        description="Required SCPI command aliases for acquisition operations (e.g., ['acq_set_type', 'digitize'])",
+    )
+
+    # Waveform-specific SCPI requirements
+    waveform_scpi_commands: list[str] = Field(
+        default_factory=list,
+        description="Required SCPI command aliases for waveform operations (e.g., ['wave_data', 'wave_preamble'])",
     )
 
     # The loader will use the 'device_type' from the YAML to pick this model.

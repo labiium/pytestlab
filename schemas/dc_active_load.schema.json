@@ -31,13 +31,272 @@
           "default": null,
           "description": "Fixed offset accuracy in units of the measurement (e.g., 0.005 V)",
           "title": "Offset Value"
+        },
+        "percent_range": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Accuracy as a percentage of the range (e.g., 0.0001 for 0.01%)",
+          "title": "Percent Range"
         }
       },
       "title": "AccuracySpec",
       "type": "object"
     },
-    "CommandSpec": {
+    "BatteryTestSpec": {
+      "description": "Specification for battery testing capabilities.",
+      "properties": {
+        "voltage_cutoff_range": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RangeSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Voltage cutoff range"
+        },
+        "capacity_cutoff_range": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RangeSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Capacity cutoff range in Ah"
+        },
+        "timer_cutoff_range": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RangeSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Timer cutoff range in seconds"
+        },
+        "required_scpi_commands": {
+          "description": "Required SCPI command aliases for battery testing (e.g., ['battery_enable', 'battery_cutoff_voltage', 'battery_cutoff_capacity'])",
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Scpi Commands",
+          "type": "array"
+        }
+      },
+      "title": "BatteryTestSpec",
+      "type": "object"
+    },
+    "DataAcquisitionSpec": {
+      "description": "Specification for data acquisition capabilities.",
+      "properties": {
+        "scope_points": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Number of scope data points",
+          "title": "Scope Points"
+        },
+        "datalogger_points": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Number of datalogger points",
+          "title": "Datalogger Points"
+        },
+        "required_scpi_commands": {
+          "description": "Required SCPI command aliases for data acquisition (e.g., ['fetch_array', 'fetch_datalogger'])",
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Scpi Commands",
+          "type": "array"
+        }
+      },
+      "title": "DataAcquisitionSpec",
+      "type": "object"
+    },
+    "ModeSpec": {
+      "description": "Specification for an operating mode.",
+      "properties": {
+        "ranges": {
+          "description": "Available ranges for this mode",
+          "items": {
+            "$ref": "#/$defs/RangeSpec"
+          },
+          "title": "Ranges",
+          "type": "array"
+        },
+        "required_scpi_commands": {
+          "description": "Required SCPI command aliases for this mode (e.g., ['set_mode', 'set_load'])",
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Scpi Commands",
+          "type": "array"
+        }
+      },
+      "title": "ModeSpec",
+      "type": "object"
+    },
+    "OperatingModesSpec": {
+      "description": "Specification for all operating modes.",
+      "properties": {
+        "constant_current_CC": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModeSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Constant Current mode specifications"
+        },
+        "constant_voltage_CV": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModeSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Constant Voltage mode specifications"
+        },
+        "constant_power_CP": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModeSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Constant Power mode specifications"
+        },
+        "constant_resistance_CR": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModeSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Constant Resistance mode specifications"
+        },
+        "required_scpi_commands": {
+          "description": "Required SCPI command aliases for mode switching (e.g., ['set_mode', 'set_load'])",
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Scpi Commands",
+          "type": "array"
+        }
+      },
+      "title": "OperatingModesSpec",
+      "type": "object"
+    },
+    "RangeSpec": {
+      "description": "Specification for a range with accuracy information.",
+      "properties": {
+        "nominal": {
+          "description": "Nominal range value",
+          "title": "Nominal",
+          "type": "number"
+        },
+        "max_current_A": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Maximum current in Amperes",
+          "title": "Max Current A"
+        },
+        "max_voltage_V": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Maximum voltage in Volts",
+          "title": "Max Voltage V"
+        },
+        "max_power_W": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Maximum power in Watts",
+          "title": "Max Power W"
+        },
+        "readback_accuracy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AccuracySpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Readback accuracy specification"
+        }
+      },
+      "required": [
+        "nominal"
+      ],
+      "title": "RangeSpec",
+      "type": "object"
+    },
+    "SCPICommandSpec": {
       "additionalProperties": false,
+      "description": "Specification for a single SCPI command.",
       "properties": {
         "template": {
           "anyOf": [
@@ -49,6 +308,7 @@
             }
           ],
           "default": null,
+          "description": "SCPI command template with placeholders",
           "title": "Template"
         },
         "sequence": {
@@ -64,387 +324,247 @@
             }
           ],
           "default": null,
+          "description": "Sequence of SCPI commands",
           "title": "Sequence"
         },
+        "parameters": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/SCPIParameterSpec"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Parameter specifications for this command",
+          "title": "Parameters"
+        },
         "defaults": {
-          "additionalProperties": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "integer"
-              },
-              {
-                "type": "number"
-              }
-            ]
-          },
-          "title": "Defaults",
-          "type": "object"
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Default parameter values",
+          "title": "Defaults"
         },
         "validators": {
-          "additionalProperties": {
-            "$ref": "#/$defs/RangeValidator"
-          },
-          "title": "Validators",
-          "type": "object"
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Parameter validation rules",
+          "title": "Validators"
         },
         "enums": {
-          "additionalProperties": {
-            "additionalProperties": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "number"
-                }
-              ]
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
             },
-            "type": "object"
-          },
-          "title": "Enums",
-          "type": "object"
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Enumeration values for parameters",
+          "title": "Enums"
         },
         "response": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ResponseSpec"
+              "additionalProperties": true,
+              "type": "object"
             },
             {
               "type": "null"
             }
           ],
-          "default": null
+          "default": null,
+          "description": "Response specification",
+          "title": "Response"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Command description",
+          "title": "Description"
+        },
+        "category": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Command category (e.g., 'channel', 'trigger', 'acquisition')",
+          "title": "Category"
+        },
+        "feature": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Feature this command belongs to",
+          "title": "Feature"
         }
       },
-      "title": "CommandSpec",
+      "title": "SCPICommandSpec",
       "type": "object"
     },
-    "CommandsQueries": {
+    "SCPICommandsQueries": {
       "additionalProperties": false,
+      "description": "SCPI commands and queries specification.",
       "properties": {
         "commands": {
-          "additionalProperties": {
-            "$ref": "#/$defs/CommandSpec"
-          },
-          "title": "Commands",
-          "type": "object"
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/SCPICommandSpec"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SCPI commands",
+          "title": "Commands"
         },
         "queries": {
-          "additionalProperties": {
-            "$ref": "#/$defs/CommandSpec"
-          },
-          "title": "Queries",
-          "type": "object"
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/SCPICommandSpec"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SCPI queries",
+          "title": "Queries"
         }
       },
-      "title": "CommandsQueries",
+      "title": "SCPICommandsQueries",
       "type": "object"
     },
-    "DataAcquisitionConfig": {
+    "SCPIParameterSpec": {
       "additionalProperties": false,
-      "description": "Container for data acquisition feature configurations.",
-      "properties": {
-        "datalogger": {
-          "$ref": "#/$defs/DataloggerConfig"
-        },
-        "scope": {
-          "$ref": "#/$defs/ScopeConfig"
-        }
-      },
-      "title": "DataAcquisitionConfig",
-      "type": "object"
-    },
-    "DataloggerConfig": {
-      "additionalProperties": false,
-      "description": "Configuration for the datalogger feature.",
-      "properties": {
-        "default_period_s": {
-          "default": 0.2,
-          "description": "Default sample period in seconds.",
-          "title": "Default Period S",
-          "type": "number"
-        },
-        "default_duration_s": {
-          "default": 30.0,
-          "description": "Default logging duration in seconds.",
-          "title": "Default Duration S",
-          "type": "number"
-        }
-      },
-      "title": "DataloggerConfig",
-      "type": "object"
-    },
-    "ModeRangeSpec": {
-      "additionalProperties": true,
-      "description": "Models a single measurement range with its specifications.",
+      "description": "Specification for a single SCPI command parameter.",
       "properties": {
         "name": {
+          "description": "Parameter name",
           "title": "Name",
           "type": "string"
         },
-        "max_current_A": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Max Current A"
-        },
-        "max_voltage_V": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Max Voltage V"
-        },
-        "range_ohm": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Range Ohm"
-        },
-        "range_W": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Range W"
-        },
-        "programming_accuracy": {
-          "$ref": "#/$defs/ProgrammingAccuracySpec"
-        },
-        "readback_accuracy": {
-          "$ref": "#/$defs/ReadbackAccuracySpec"
-        }
-      },
-      "required": [
-        "name",
-        "programming_accuracy",
-        "readback_accuracy"
-      ],
-      "title": "ModeRangeSpec",
-      "type": "object"
-    },
-    "ModeSpec": {
-      "additionalProperties": true,
-      "description": "Models the specifications for a single operating mode (e.g., CC, CV).",
-      "properties": {
-        "ranges": {
-          "items": {
-            "$ref": "#/$defs/ModeRangeSpec"
-          },
-          "title": "Ranges",
-          "type": "array"
-        }
-      },
-      "required": [
-        "ranges"
-      ],
-      "title": "ModeSpec",
-      "type": "object"
-    },
-    "OperatingModesSpec": {
-      "description": "Container for all operating mode specifications.",
-      "properties": {
-        "constant_current_CC": {
-          "$ref": "#/$defs/ModeSpec"
-        },
-        "constant_voltage_CV": {
-          "$ref": "#/$defs/ModeSpec"
-        },
-        "constant_resistance_CR": {
-          "$ref": "#/$defs/ModeSpec"
-        },
-        "constant_power_CP": {
-          "$ref": "#/$defs/ModeSpec"
-        }
-      },
-      "required": [
-        "constant_current_CC",
-        "constant_voltage_CV",
-        "constant_resistance_CR",
-        "constant_power_CP"
-      ],
-      "title": "OperatingModesSpec",
-      "type": "object"
-    },
-    "ProgrammingAccuracySpec": {
-      "additionalProperties": false,
-      "description": "Models the programming accuracy specification for a given range.",
-      "properties": {
-        "percent_of_setting": {
-          "title": "Percent Of Setting",
-          "type": "number"
-        },
-        "offset_A": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Offset A"
-        },
-        "offset_V": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Offset V"
-        },
-        "offset_W": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Offset W"
-        },
-        "offset_S": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Offset S"
-        }
-      },
-      "required": [
-        "percent_of_setting"
-      ],
-      "title": "ProgrammingAccuracySpec",
-      "type": "object"
-    },
-    "RangeValidator": {
-      "additionalProperties": false,
-      "properties": {
-        "min": {
-          "title": "Min",
-          "type": "number"
-        },
-        "max": {
-          "title": "Max",
-          "type": "number"
-        }
-      },
-      "required": [
-        "min",
-        "max"
-      ],
-      "title": "RangeValidator",
-      "type": "object"
-    },
-    "ReadbackAccuracySpec": {
-      "additionalProperties": false,
-      "description": "Models the readback accuracy specification for a given range.",
-      "properties": {
-        "percent_of_reading": {
-          "title": "Percent Of Reading",
-          "type": "number"
-        },
-        "offset_A": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Offset A"
-        },
-        "offset_V": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Offset V"
-        },
-        "offset_W": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Offset W"
-        }
-      },
-      "required": [
-        "percent_of_reading"
-      ],
-      "title": "ReadbackAccuracySpec",
-      "type": "object"
-    },
-    "ResponseSpec": {
-      "additionalProperties": false,
-      "properties": {
         "type": {
-          "default": "raw",
-          "enum": [
-            "raw",
-            "str",
-            "int",
-            "float",
-            "csv",
-            "csv_int",
-            "csv_float",
-            "csv_dict",
-            "binblock"
-          ],
+          "description": "Parameter type (e.g., 'int', 'float', 'str', 'enum')",
           "title": "Type",
           "type": "string"
+        },
+        "required": {
+          "default": true,
+          "description": "Whether this parameter is required",
+          "title": "Required",
+          "type": "boolean"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Parameter description",
+          "title": "Description"
+        },
+        "min_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Minimum allowed value",
+          "title": "Min Value"
+        },
+        "max_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Maximum allowed value",
+          "title": "Max Value"
+        },
+        "allowed_values": {
+          "anyOf": [
+            {
+              "items": {},
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Allowed values for enum types",
+          "title": "Allowed Values"
+        },
+        "default": {
+          "default": null,
+          "description": "Default parameter value",
+          "title": "Default"
         },
         "units": {
           "anyOf": [
@@ -456,31 +576,39 @@
             }
           ],
           "default": null,
+          "description": "Parameter units",
           "title": "Units"
         },
-        "delimiter": {
-          "default": ",",
-          "title": "Delimiter",
-          "type": "string"
-        },
-        "fields": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Fields",
-          "type": "array"
+        "format": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Parameter format specification",
+          "title": "Format"
         }
       },
-      "title": "ResponseSpec",
+      "required": [
+        "name",
+        "type"
+      ],
+      "title": "SCPIParameterSpec",
       "type": "object"
     },
     "SCPISection": {
+      "additionalProperties": false,
+      "description": "Complete SCPI section specification.",
       "properties": {
         "commands": {
           "anyOf": [
             {
               "additionalProperties": {
-                "$ref": "#/$defs/CommandSpec"
+                "$ref": "#/$defs/SCPICommandSpec"
               },
               "type": "object"
             },
@@ -489,13 +617,14 @@
             }
           ],
           "default": null,
+          "description": "SCPI commands",
           "title": "Commands"
         },
         "queries": {
           "anyOf": [
             {
               "additionalProperties": {
-                "$ref": "#/$defs/CommandSpec"
+                "$ref": "#/$defs/SCPICommandSpec"
               },
               "type": "object"
             },
@@ -504,13 +633,14 @@
             }
           ],
           "default": null,
+          "description": "SCPI queries",
           "title": "Queries"
         },
         "variants": {
           "anyOf": [
             {
               "additionalProperties": {
-                "$ref": "#/$defs/CommandsQueries"
+                "$ref": "#/$defs/SCPICommandsQueries"
               },
               "type": "object"
             },
@@ -519,6 +649,7 @@
             }
           ],
           "default": null,
+          "description": "SCPI command variants",
           "title": "Variants"
         },
         "default_variant": {
@@ -531,6 +662,7 @@
             }
           ],
           "default": null,
+          "description": "Default variant name",
           "title": "Default Variant"
         },
         "feature_mappings": {
@@ -559,35 +691,51 @@
       "title": "SCPISection",
       "type": "object"
     },
-    "ScopeConfig": {
-      "additionalProperties": false,
-      "description": "Configuration for the scope (digitizer) feature.",
+    "TransientSpec": {
+      "description": "Specification for transient capabilities.",
       "properties": {
-        "max_points": {
-          "default": 131072,
-          "description": "Maximum number of acquisition points.",
-          "title": "Max Points",
-          "type": "integer"
+        "supported_modes": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Supported transient modes (e.g., ['CONTinuous', 'PULSe', 'TOGGle', 'LIST'])",
+          "title": "Supported Modes"
         },
-        "default_points": {
-          "default": 2440,
-          "description": "Default number of points.",
-          "title": "Default Points",
-          "type": "integer"
+        "time_range": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RangeSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Transient time range"
         },
-        "min_interval_s": {
-          "default": 5.12e-06,
-          "description": "Fastest possible sample interval.",
-          "title": "Min Interval S",
-          "type": "number"
+        "required_scpi_commands": {
+          "description": "Required SCPI command aliases for transient functionality (e.g., ['transient_set_mode', 'transient_set_level', 'transient_start'])",
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Scpi Commands",
+          "type": "array"
         }
       },
-      "title": "ScopeConfig",
+      "title": "TransientSpec",
       "type": "object"
     }
   },
-  "additionalProperties": false,
-  "description": "Pydantic model for DC Active Load configuration, parsed from a device spec YAML.",
+  "description": "Configuration for DC Active Load instruments.",
   "properties": {
     "manufacturer": {
       "description": "Manufacturer of the instrument",
@@ -600,25 +748,9 @@
       "type": "string"
     },
     "device_type": {
-      "enum": [
-        "bench_dc_electronic_load",
-        "dc_active_load"
-      ],
+      "description": "Type of the device (e.g., 'PSU', 'Oscilloscope')",
       "title": "Device Type",
       "type": "string"
-    },
-    "serial_number": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Serial number of the instrument",
-      "title": "Serial Number"
     },
     "address": {
       "anyOf": [
@@ -657,7 +789,8 @@
           "type": "null"
         }
       ],
-      "description": "SCPI section typed by Pydantic. Supports direct commands/queries or variants."
+      "default": null,
+      "description": "SCPI section with command specifications, aliases, and feature mappings. Must contain 'commands:' and/or 'queries:' or a 'variants:' block."
     },
     "scpi_variant": {
       "anyOf": [
@@ -672,51 +805,84 @@
       "description": "Name of the variant inside scpi.variants to be used with this instrument.  Leave empty if not using the multi-variant feature.",
       "title": "Scpi Variant"
     },
-    "general_specifications": {
-      "additionalProperties": true,
-      "title": "General Specifications",
-      "type": "object"
-    },
-    "features": {
-      "items": {
-        "additionalProperties": true,
-        "type": "object"
-      },
-      "title": "Features",
-      "type": "array"
-    },
     "operating_modes": {
-      "$ref": "#/$defs/OperatingModesSpec"
+      "$ref": "#/$defs/OperatingModesSpec",
+      "description": "Operating mode specifications"
+    },
+    "transient": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TransientSpec"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Transient capabilities"
+    },
+    "battery_test": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BatteryTestSpec"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Battery testing capabilities"
     },
     "data_acquisition": {
-      "$ref": "#/$defs/DataAcquisitionConfig"
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DataAcquisitionSpec"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Data acquisition capabilities"
     },
-    "protection": {
-      "additionalProperties": true,
-      "title": "Protection",
-      "type": "object"
+    "core_scpi_commands": {
+      "description": "Required SCPI command aliases for core functionality (e.g., ['set_input_state', 'get_input_state'])",
+      "items": {
+        "type": "string"
+      },
+      "title": "Core Scpi Commands",
+      "type": "array"
     },
-    "other_characteristics_typical": {
-      "additionalProperties": true,
-      "title": "Other Characteristics Typical",
-      "type": "object"
+    "input_scpi_commands": {
+      "description": "Required SCPI command aliases for input functionality (e.g., ['set_input_state', 'input_short_state'])",
+      "items": {
+        "type": "string"
+      },
+      "title": "Input Scpi Commands",
+      "type": "array"
     },
-    "environmental": {
-      "additionalProperties": true,
-      "title": "Environmental",
-      "type": "object"
+    "slew_rate_scpi_commands": {
+      "description": "Required SCPI command aliases for slew rate functionality (e.g., ['mode_set_slew', 'mode_set_range'])",
+      "items": {
+        "type": "string"
+      },
+      "title": "Slew Rate Scpi Commands",
+      "type": "array"
+    },
+    "measurement_scpi_commands": {
+      "description": "Required SCPI command aliases for measurement functionality (e.g., ['measure', 'mode_get_range'])",
+      "items": {
+        "type": "string"
+      },
+      "title": "Measurement Scpi Commands",
+      "type": "array"
     }
   },
   "required": [
     "manufacturer",
     "model",
     "device_type",
-    "general_specifications",
-    "features",
-    "operating_modes",
-    "protection",
-    "other_characteristics_typical",
-    "environmental"
+    "operating_modes"
   ],
   "title": "DCActiveLoadConfig",
   "type": "object"

@@ -50,250 +50,6 @@
       "title": "AccuracySpec",
       "type": "object"
     },
-    "BatteryTestSpec": {
-      "description": "Specification for battery testing capabilities.",
-      "properties": {
-        "voltage_cutoff_range": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RangeSpec"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Voltage cutoff range"
-        },
-        "capacity_cutoff_range": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RangeSpec"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Capacity cutoff range in Ah"
-        },
-        "timer_cutoff_range": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RangeSpec"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Timer cutoff range in seconds"
-        },
-        "required_scpi_commands": {
-          "description": "Required SCPI command aliases for battery testing (e.g., ['battery_enable', 'battery_cutoff_voltage', 'battery_cutoff_capacity'])",
-          "items": {
-            "type": "string"
-          },
-          "title": "Required Scpi Commands",
-          "type": "array"
-        }
-      },
-      "title": "BatteryTestSpec",
-      "type": "object"
-    },
-    "DataAcquisitionSpec": {
-      "description": "Specification for data acquisition capabilities.",
-      "properties": {
-        "scope_points": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Number of scope data points",
-          "title": "Scope Points"
-        },
-        "datalogger_points": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Number of datalogger points",
-          "title": "Datalogger Points"
-        },
-        "required_scpi_commands": {
-          "description": "Required SCPI command aliases for data acquisition (e.g., ['fetch_array', 'fetch_datalogger'])",
-          "items": {
-            "type": "string"
-          },
-          "title": "Required Scpi Commands",
-          "type": "array"
-        }
-      },
-      "title": "DataAcquisitionSpec",
-      "type": "object"
-    },
-    "ModeSpec": {
-      "description": "Specification for an operating mode.",
-      "properties": {
-        "ranges": {
-          "description": "Available ranges for this mode",
-          "items": {
-            "$ref": "#/$defs/RangeSpec"
-          },
-          "title": "Ranges",
-          "type": "array"
-        },
-        "required_scpi_commands": {
-          "description": "Required SCPI command aliases for this mode (e.g., ['set_mode', 'set_load'])",
-          "items": {
-            "type": "string"
-          },
-          "title": "Required Scpi Commands",
-          "type": "array"
-        }
-      },
-      "title": "ModeSpec",
-      "type": "object"
-    },
-    "OperatingModesSpec": {
-      "description": "Specification for all operating modes.",
-      "properties": {
-        "constant_current_CC": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ModeSpec"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Constant Current mode specifications"
-        },
-        "constant_voltage_CV": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ModeSpec"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Constant Voltage mode specifications"
-        },
-        "constant_power_CP": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ModeSpec"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Constant Power mode specifications"
-        },
-        "constant_resistance_CR": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ModeSpec"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Constant Resistance mode specifications"
-        },
-        "required_scpi_commands": {
-          "description": "Required SCPI command aliases for mode switching (e.g., ['set_mode', 'set_load'])",
-          "items": {
-            "type": "string"
-          },
-          "title": "Required Scpi Commands",
-          "type": "array"
-        }
-      },
-      "title": "OperatingModesSpec",
-      "type": "object"
-    },
-    "RangeSpec": {
-      "description": "Specification for a range with accuracy information.",
-      "properties": {
-        "nominal": {
-          "description": "Nominal range value",
-          "title": "Nominal",
-          "type": "number"
-        },
-        "max_current_A": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Maximum current in Amperes",
-          "title": "Max Current A"
-        },
-        "max_voltage_V": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Maximum voltage in Volts",
-          "title": "Max Voltage V"
-        },
-        "max_power_W": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Maximum power in Watts",
-          "title": "Max Power W"
-        },
-        "readback_accuracy": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AccuracySpec"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Readback accuracy specification"
-        }
-      },
-      "required": [
-        "nominal"
-      ],
-      "title": "RangeSpec",
-      "type": "object"
-    },
     "SCPICommandSpec": {
       "additionalProperties": false,
       "description": "Specification for a single SCPI command.",
@@ -690,52 +446,8 @@
       },
       "title": "SCPISection",
       "type": "object"
-    },
-    "TransientSpec": {
-      "description": "Specification for transient capabilities.",
-      "properties": {
-        "supported_modes": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Supported transient modes (e.g., ['CONTinuous', 'PULSe', 'TOGGle', 'LIST'])",
-          "title": "Supported Modes"
-        },
-        "time_range": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RangeSpec"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Transient time range"
-        },
-        "required_scpi_commands": {
-          "description": "Required SCPI command aliases for transient functionality (e.g., ['transient_set_mode', 'transient_set_level', 'transient_start'])",
-          "items": {
-            "type": "string"
-          },
-          "title": "Required Scpi Commands",
-          "type": "array"
-        }
-      },
-      "title": "TransientSpec",
-      "type": "object"
     }
   },
-  "description": "Configuration for DC Active Load instruments.",
   "properties": {
     "manufacturer": {
       "description": "Manufacturer of the instrument",
@@ -751,6 +463,19 @@
       "description": "Type of the device (e.g., 'PSU', 'Oscilloscope')",
       "title": "Device Type",
       "type": "string"
+    },
+    "serial_number": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Serial number of the instrument",
+      "title": "Serial Number"
     },
     "address": {
       "anyOf": [
@@ -804,86 +529,15 @@
       "default": null,
       "description": "Name of the variant inside scpi.variants to be used with this instrument.  Leave empty if not using the multi-variant feature.",
       "title": "Scpi Variant"
-    },
-    "operating_modes": {
-      "$ref": "#/$defs/OperatingModesSpec",
-      "description": "Operating mode specifications"
-    },
-    "transient": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/TransientSpec"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Transient capabilities"
-    },
-    "battery_test": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/BatteryTestSpec"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Battery testing capabilities"
-    },
-    "data_acquisition": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/DataAcquisitionSpec"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Data acquisition capabilities"
-    },
-    "core_scpi_commands": {
-      "description": "Required SCPI command aliases for core functionality (e.g., ['set_input_state', 'get_input_state'])",
-      "items": {
-        "type": "string"
-      },
-      "title": "Core Scpi Commands",
-      "type": "array"
-    },
-    "input_scpi_commands": {
-      "description": "Required SCPI command aliases for input functionality (e.g., ['set_input_state', 'input_short_state'])",
-      "items": {
-        "type": "string"
-      },
-      "title": "Input Scpi Commands",
-      "type": "array"
-    },
-    "slew_rate_scpi_commands": {
-      "description": "Required SCPI command aliases for slew rate functionality (e.g., ['mode_set_slew', 'mode_set_range'])",
-      "items": {
-        "type": "string"
-      },
-      "title": "Slew Rate Scpi Commands",
-      "type": "array"
-    },
-    "measurement_scpi_commands": {
-      "description": "Required SCPI command aliases for measurement functionality (e.g., ['measure', 'mode_get_range'])",
-      "items": {
-        "type": "string"
-      },
-      "title": "Measurement Scpi Commands",
-      "type": "array"
     }
   },
   "required": [
     "manufacturer",
     "model",
-    "device_type",
-    "operating_modes"
+    "device_type"
   ],
-  "title": "DCActiveLoadConfig",
-  "type": "object"
+  "title": "InstrumentConfig Schema",
+  "type": "object",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Auto-generated schema for InstrumentConfig"
 }

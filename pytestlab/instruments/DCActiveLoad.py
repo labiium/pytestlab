@@ -233,7 +233,7 @@ class DCActiveLoad(Instrument):
 
     def _get_readback_spec(self, mode: str, unit: str) -> ReadbackAccuracySpec | None:
         """Helper to find the correct readback accuracy spec from the config."""
-        mode_map_to_config: dict[str, ModeSpec] = {
+        mode_map_to_config: dict[str, ModeSpec | None] = {
             "CC": self.config.operating_modes.constant_current_CC,
             "CV": self.config.operating_modes.constant_voltage_CV,
             "CP": self.config.operating_modes.constant_power_CP,
@@ -268,7 +268,9 @@ class DCActiveLoad(Instrument):
                     min_delta = delta
                     best_match_spec = r_spec
 
-        return best_match_spec.readback_accuracy if best_match_spec else None
+        if best_match_spec and best_match_spec.readback_accuracy:
+            return best_match_spec.readback_accuracy
+        return None
 
     def _measure_with_uncertainty(
         self, measurement_type: Literal["current", "voltage", "power"], channel: int = 1
@@ -289,15 +291,32 @@ class DCActiveLoad(Instrument):
 
         # Find and apply accuracy spec if mode is set
         if self.current_mode:
-            accuracy_spec = self._get_readback_spec(self.current_mode, unit)
-            if accuracy_spec:
-                std_dev = accuracy_spec.calculate_uncertainty(reading, unit)
-                if std_dev > 0:
-                    value_to_return = ufloat(reading, std_dev)
-                    self._logger.info(f"Measured {measurement_type}: {value_to_return} {unit}")
+            readback_spec = self._get_readback_spec(self.current_mode, unit)
+            if readback_spec:
+                # Get the appropriate accuracy spec based on measurement type
+                if measurement_type == "current" and readback_spec.current_accuracy:
+                    accuracy_spec = readback_spec.current_accuracy
+                elif measurement_type == "voltage" and readback_spec.voltage_accuracy:
+                    accuracy_spec = readback_spec.voltage_accuracy
+                elif measurement_type == "power" and readback_spec.power_accuracy:
+                    accuracy_spec = readback_spec.power_accuracy
+                else:
+                    accuracy_spec = None
+
+                if accuracy_spec and hasattr(accuracy_spec, "calculate_std_dev"):
+                    std_dev = accuracy_spec.calculate_std_dev(
+                        reading, reading
+                    )  # Use reading as range for now
+                    if std_dev > 0:
+                        value_to_return = ufloat(reading, std_dev)
+                        self._logger.info(f"Measured {measurement_type}: {value_to_return} {unit}")
+                else:
+                    self._logger.info(
+                        f"Warning: No accuracy spec available for {measurement_type}. Returning float."
+                    )
             else:
                 self._logger.info(
-                    f"Warning: No matching accuracy spec found for {measurement_type}. Returning float."
+                    f"Warning: No matching readback spec found for {measurement_type}. Returning float."
                 )
         else:
             self._logger.info("Warning: Mode not set, cannot determine measurement uncertainty.")

@@ -1,137 +1,225 @@
-# pytestlab/config/multimeter_config.py
+"""
+Configuration model for Multimeter instruments.
 
-from enum import Enum
-from typing import Any
-from typing import Literal
+This module defines the configuration structure for digital multimeters,
+including SCPI command requirements for various features and capabilities.
+"""
+
+from __future__ import annotations
 
 from pydantic import BaseModel
-from pydantic import ConfigDict
 from pydantic import Field
-from pydantic import field_validator
 
-from pytestlab.config.accuracy import AccuracySpec
-from pytestlab.config.instrument_config import InstrumentConfig
+from .accuracy import AccuracySpec
+from .instrument_config import InstrumentConfig
 
-try:
-    from uncertainties.core import UFloat
-except ImportError:
-    UFloat = float
-
-
-class DMMFunction(str, Enum):
-    """Enum for DMM measurement functions corresponding to SCPI commands."""
-
-    VOLTAGE_DC = "VOLT:DC"
-    VOLTAGE_AC = "VOLT:AC"
-    CURRENT_DC = "CURR:DC"
-    CURRENT_AC = "CURR:AC"
-    RESISTANCE = "RES"
-    FRESISTANCE = "FRES"
-    FREQUENCY = "FREQ"
-    TEMPERATURE = "TEMP"
-    DIODE = "DIOD"
-    CONTINUITY = "CONT"
-    CAPACITANCE = "CAP"
-
-    def __str__(self) -> str:
-        return self.value
-
-
-# NOTE: AccuracySpec is imported from pytestlab.config.accuracy (see import above).
-# The previous duplicate local definition has been removed to avoid redefinition (F811).
+# RangeSpec will be defined in this file
 
 
 class RangeSpec(BaseModel):
-    """Models a single measurement range with its specifications."""
+    """Specification for a range with accuracy information."""
 
-    model_config = ConfigDict(extra="allow")  # Allow other fields like test_current_A
+    model_config = {"arbitrary_types_allowed": True}
 
-    nominal_V: float | None = None
-    nominal_ohm: float | None = None
-    nominal_A: float | None = None
-    nominal_F: float | None = None
+    min: float = Field(..., description="Minimum range value")
 
-    accuracy: AccuracySpec | None = None
-    typical_accuracy: AccuracySpec | None = None
-    accuracy_45Hz_10kHz: AccuracySpec | None = None
-    accuracy_45Hz_1kHz: AccuracySpec | None = None
+    max: float = Field(..., description="Maximum range value")
 
-    @field_validator("nominal_V", "nominal_ohm", "nominal_A", "nominal_F", mode="before")
-    @classmethod
-    def validate_float_notation(cls, v):
-        if v is None:
-            return v
-        try:
-            return float(v)
-        except (ValueError, TypeError):
-            return v
+    units: str = Field(..., description="Units for the range values")
 
-    @property
-    def nominal(self) -> float:
-        """Returns the nominal value of the range, regardless of the unit."""
-        for val in [self.nominal_V, self.nominal_ohm, self.nominal_A, self.nominal_F]:
-            if val is not None:
-                return val
-        raise ValueError("RangeSpec has no nominal value defined.")
+    resolution: float | None = Field(None, description="Resolution for this range")
 
-    @property
-    def default_accuracy(self) -> AccuracySpec | None:
-        """Returns the primary accuracy spec available."""
-        return (
-            self.accuracy
-            or self.typical_accuracy
-            or self.accuracy_45Hz_10kHz
-            or self.accuracy_45Hz_1kHz
-        )
+    accuracy: AccuracySpec | None = Field(None, description="Accuracy specification for this range")
+
+    def assert_in_range(self, x: float, name: str = "value") -> float:
+        """Assert that a value is within the range."""
+        if not (self.min <= x <= self.max):
+            from ..errors import InstrumentParameterError
+
+            raise InstrumentParameterError(
+                parameter=name,
+                value=x,
+                valid_range=(self.min, self.max),
+                message=f"{name} must be between {self.min} and {self.max}.",
+            )
+        return x
+
+
+class DMMFunction(BaseModel):
+    """Enumeration of DMM measurement functions."""
+
+    model_config = {"arbitrary_types_allowed": True}
+
+    # DC measurements
+    VOLTAGE_DC: str = Field("VOLT:DC", description="DC Voltage measurement")
+    CURRENT_DC: str = Field("CURR:DC", description="DC Current measurement")
+
+    # AC measurements
+    VOLTAGE_AC: str = Field("VOLT:AC", description="AC Voltage measurement")
+    CURRENT_AC: str = Field("CURR:AC", description="AC Current measurement")
+
+    # Resistance measurements
+    RESISTANCE: str = Field("RES", description="2-wire Resistance measurement")
+    FRESISTANCE: str = Field("FRES", description="4-wire Resistance measurement")
+
+    # Other measurements
+    CAPACITANCE: str = Field("CAP", description="Capacitance measurement")
+    FREQUENCY: str = Field("FREQ", description="Frequency measurement")
+    TEMPERATURE: str = Field("TEMP", description="Temperature measurement")
+    DIODE: str = Field("DIOD", description="Diode test")
+    CONTINUITY: str = Field("CONT", description="Continuity test")
 
 
 class FunctionSpec(BaseModel):
-    """Models the specifications for a single measurement function."""
+    """Specification for a measurement function."""
 
-    model_config = ConfigDict(extra="allow")
-    ranges: list[RangeSpec] | None = None
+    model_config = {"arbitrary_types_allowed": True}
+
+    ranges: list[RangeSpec] = Field(
+        default_factory=list, description="Available ranges for this function"
+    )
+
+    # SCPI command requirements for this function
+    required_scpi_commands: list[str] = Field(
+        default_factory=list,
+        description="Required SCPI command aliases for this function (e.g., ['set_function', 'set_range', 'set_resolution'])",
+    )
 
 
 class MeasurementFunctionsSpec(BaseModel):
-    """Container for all measurement function specifications from the YAML."""
+    """Specification for all measurement functions."""
 
-    model_config = ConfigDict(extra="allow")
-    dc_voltage: FunctionSpec | None = None
-    resistance_4wire: FunctionSpec | None = None
-    dc_current: FunctionSpec | None = None
-    ac_voltage: FunctionSpec | None = None
-    ac_current: FunctionSpec | None = None
-    frequency: FunctionSpec | None = None
-    temperature: FunctionSpec | None = None
-    capacitance: FunctionSpec | None = None
-    # 2-wire resistance is often not explicitly listed but can be inferred or added
-    resistance: FunctionSpec | None = None
+    model_config = {"arbitrary_types_allowed": True}
+
+    dc_voltage: FunctionSpec | None = Field(
+        None, description="DC Voltage measurement specifications"
+    )
+
+    ac_voltage: FunctionSpec | None = Field(
+        None, description="AC Voltage measurement specifications"
+    )
+
+    dc_current: FunctionSpec | None = Field(
+        None, description="DC Current measurement specifications"
+    )
+
+    ac_current: FunctionSpec | None = Field(
+        None, description="AC Current measurement specifications"
+    )
+
+    resistance: FunctionSpec | None = Field(
+        None, description="2-wire Resistance measurement specifications"
+    )
+
+    resistance_4wire: FunctionSpec | None = Field(
+        None, description="4-wire Resistance measurement specifications"
+    )
+
+    capacitance: FunctionSpec | None = Field(
+        None, description="Capacitance measurement specifications"
+    )
+
+    frequency: FunctionSpec | None = Field(None, description="Frequency measurement specifications")
+
+    temperature: FunctionSpec | None = Field(
+        None, description="Temperature measurement specifications"
+    )
+
+    # SCPI command requirements for function switching
+    required_scpi_commands: list[str] = Field(
+        default_factory=list,
+        description="Required SCPI command aliases for function switching (e.g., ['set_function', 'set_range'])",
+    )
+
+
+class TriggerSpec(BaseModel):
+    """Specification for trigger capabilities."""
+
+    model_config = {"arbitrary_types_allowed": True}
+
+    sources: list[str] | None = Field(
+        None, description="Available trigger sources (e.g., ['IMM', 'EXT', 'BUS'])"
+    )
+
+    delays: RangeSpec | None = Field(None, description="Trigger delay range")
+
+    # SCPI command requirements for trigger functionality
+    required_scpi_commands: list[str] = Field(
+        default_factory=list,
+        description="Required SCPI command aliases for trigger functionality (e.g., ['set_trigger_source', 'set_trigger_delay'])",
+    )
+
+
+class SamplingSpec(BaseModel):
+    """Specification for sampling capabilities."""
+
+    model_config = {"arbitrary_types_allowed": True}
+
+    sample_rate: RangeSpec | None = Field(None, description="Sample rate range")
+
+    buffer_size: int | None = Field(None, description="Buffer size for continuous sampling")
+
+    # SCPI command requirements for sampling functionality
+    required_scpi_commands: list[str] = Field(
+        default_factory=list,
+        description="Required SCPI command aliases for sampling functionality (e.g., ['set_sample_rate', 'set_buffer_size'])",
+    )
+
+
+class CalibrationSpec(BaseModel):
+    """Specification for calibration capabilities."""
+
+    model_config = {"arbitrary_types_allowed": True}
+
+    self_calibration: bool = Field(False, description="Whether self-calibration is supported")
+
+    external_calibration: bool = Field(
+        False, description="Whether external calibration is supported"
+    )
+
+    calibration_interval: int | None = Field(
+        None, description="Recommended calibration interval in days"
+    )
+
+    # SCPI command requirements for calibration functionality
+    required_scpi_commands: list[str] = Field(
+        default_factory=list,
+        description="Required SCPI command aliases for calibration functionality (e.g., ['calibrate', 'calibration_status'])",
+    )
 
 
 class MultimeterConfig(InstrumentConfig):
-    """Pydantic model for Multimeter configuration, designed to load from a device spec YAML."""
+    """Configuration for Multimeter instruments."""
 
-    model_config = ConfigDict(validate_assignment=True, extra="ignore")
+    model_config = {"arbitrary_types_allowed": True}
 
-    # Relaxed to plain str to maintain compatibility with base class (avoids variance issues).
-    device_type: str = Field("multimeter", description="Device type identifier for multimeters.")
-    # Runtime/Session settings
-    default_measurement_function: DMMFunction = Field(
-        default=DMMFunction.VOLTAGE_DC,
-        description="Primary or default measurement function for the DMM.",
-    )
-    trigger_source: Literal["IMM", "EXT", "BUS"] = Field(
-        default="IMM",
-        description="Default trigger source: IMM (Immediate), EXT (External), BUS (Software/System).",
-    )
-    autorange: bool = Field(
-        default=True, description="Enable (True) or disable (False) autoranging for measurements."
-    )
-
-    # Fields mapping directly to the YAML specification file
-    limits: dict[str, Any] | None = Field(default_factory=dict)
     measurement_functions: MeasurementFunctionsSpec | None = Field(
-        default_factory=MeasurementFunctionsSpec
+        None, description="Measurement function specifications"
     )
-    math_functions: list[str] | None = Field(default_factory=list)
-    sampling_rates_rps: dict[str, Any] | None = Field(default_factory=dict)
+
+    trigger: TriggerSpec | None = Field(None, description="Trigger capabilities")
+
+    sampling: SamplingSpec | None = Field(None, description="Sampling capabilities")
+
+    calibration: CalibrationSpec | None = Field(None, description="Calibration capabilities")
+
+    # Core SCPI command requirements
+    core_scpi_commands: list[str] = Field(
+        default_factory=list,
+        description="Required SCPI command aliases for core functionality (e.g., ['identify', 'reset', 'clear'])",
+    )
+
+    measurement_scpi_commands: list[str] = Field(
+        default_factory=list,
+        description="Required SCPI command aliases for measurement functionality (e.g., ['configure', 'initiate', 'fetch', 'read'])",
+    )
+
+    configuration_scpi_commands: list[str] = Field(
+        default_factory=list,
+        description="Required SCPI command aliases for configuration functionality (e.g., ['set_range', 'set_resolution', 'set_integration_time'])",
+    )
+
+    status_scpi_commands: list[str] = Field(
+        default_factory=list,
+        description="Required SCPI command aliases for status functionality (e.g., ['get_status', 'get_errors', 'get_operation_complete'])",
+    )
