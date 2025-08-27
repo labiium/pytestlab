@@ -14,6 +14,7 @@ from typing import cast
 import rich  # For pretty printing
 import typer
 import yaml
+from rich.markup import escape as rich_escape
 from rich.syntax import Syntax
 from rich.table import Table
 
@@ -561,7 +562,7 @@ def profile_list_schemas():
 # --- Instrument Commands ---
 @instrument_app.command("idn")
 def instrument_idn(
-    profile_key_or_path: Annotated[str, typer.Option(help="Profile key or path.")],
+    profile_key_or_path: Annotated[str, typer.Argument(help="Profile key or path.")],
     address: Annotated[
         str | None, typer.Option(help="VISA address. Overrides profile if provided.")
     ] = None,
@@ -577,20 +578,146 @@ def instrument_idn(
         )
         instrument.connect_backend()
         idn_response = instrument.id()
-        rich.print(f"[bold green]IDN Response:[/bold] {idn_response}")
+        rich.print(f"[bold green]IDN Response:[/] {idn_response}")
 
     except FileNotFoundError:
         rich.print(
-            f"[bold red]Error: Profile '{profile_key_or_path}' not found.[/bold red]\n"
+            f"[bold red]Error: Profile '{rich_escape(str(profile_key_or_path))}' not found.[/]\n"
             "Please check for typos or ensure the profile exists in the 'pytestlab/profiles' directory."
         )
         raise typer.Exit(code=1) from None
     except Exception as e:
-        rich.print(f"[bold red]An error occurred during the instrument IDN query: {e}[/bold red]")
+        rich.print(
+            f"[bold red]An error occurred during the instrument IDN query: {rich_escape(str(e))}[/]"
+        )
         raise typer.Exit(code=1) from None
     finally:
         if instrument:
             instrument.close()
+
+
+@instrument_app.command("test")
+def instrument_test(
+    kind: Annotated[
+        str,
+        typer.Argument(help="Instrument kind to test: multimeter | psu | oscilloscope | awg | all"),
+    ],
+    profile: Annotated[
+        str,
+        typer.Argument(help="Instrument profile key to use for tests (e.g., keysight/EDU34450A)"),
+    ],
+):
+    """Run instrument tests for a given profile key by overriding test module constants via a temporary pytest plugin."""
+    import sys as _sys
+    import tempfile as _tempfile
+    from pathlib import Path as _Path
+
+    try:
+        base_dir = _Path(__file__).parent  # pytestlab/pytestlab
+        # Resolve tests directory robustly for both package and repo layouts
+        repo_tests = base_dir.parent / "tests" / "instruments"
+        pkg_tests = base_dir / "tests" / "instruments"
+        tests_dir = repo_tests if repo_tests.exists() else pkg_tests
+
+        kind_lc = kind.lower()
+        targets: list[str] = []
+        if kind_lc in ("multimeter", "mm"):
+            targets.append(str(tests_dir / "test_multimeter.py"))
+        if kind_lc in ("psu", "supply", "power", "power-supply"):
+            targets.append(str(tests_dir / "test_psu.py"))
+        if kind_lc in ("oscilloscope", "scope", "osc"):
+            targets.append(str(tests_dir / "test_oscilloscope.py"))
+        if kind_lc in ("awg", "waveform", "generator"):
+            targets.append(str(tests_dir / "test_awg.py"))
+        if kind_lc in ("all",):
+            targets = [
+                str(tests_dir / "test_multimeter.py"),
+                str(tests_dir / "test_psu.py"),
+                str(tests_dir / "test_oscilloscope.py"),
+                str(tests_dir / "test_awg.py"),
+            ]
+
+        if not targets:
+            rich.print(f"[bold red]Unknown instrument kind: {kind}[/bold red]")
+            raise typer.Exit(code=1)
+
+        # Create a temporary pytest plugin to override profile constants in test modules.
+        import textwrap as _textwrap
+
+        plugin_code = _textwrap.dedent(
+            """\
+            PROFILE="{PROFILE}"
+            KIND="{KIND}"
+            def pytest_sessionstart(session):
+                import importlib
+                # Override profile keys in test modules when available
+                if KIND in ("multimeter","mm","all"):
+                    try:
+                        m = importlib.import_module("pytestlab.tests.instruments.test_multimeter")
+                        setattr(m, "MM_CONFIG_KEY", PROFILE)
+                    except Exception:
+                        pass
+                if KIND in ("psu","supply","power","power-supply","all"):
+                    try:
+                        m = importlib.import_module("pytestlab.tests.instruments.test_psu")
+                        setattr(m, "PSU_CONFIG_KEY", PROFILE)
+                    except Exception:
+                        pass
+                if KIND in ("oscilloscope","scope","osc","all"):
+                    try:
+                        m = importlib.import_module("pytestlab.tests.instruments.test_oscilloscope")
+                        setattr(m, "OSC_CONFIG_KEY", PROFILE)
+                    except Exception:
+                        pass
+                if KIND in ("awg","waveform","generator","all"):
+                    try:
+                        m = importlib.import_module("pytestlab.tests.instruments.test_awg")
+                        setattr(m, "AWG_PROFILE_KEY", PROFILE)
+                    except Exception:
+                        pass
+            """
+        ).format(PROFILE=profile, KIND=kind_lc)
+        with _tempfile.TemporaryDirectory() as tmpdir:
+            plugin_path = _Path(tmpdir) / "ptl_profile_override.py"
+            plugin_path.write_text(plugin_code, encoding="utf-8")
+            _sys.path.insert(0, tmpdir)
+
+            import pytest as _pytest
+
+            # Run only real-hardware tests; they gracefully skip if hardware is unavailable.
+            args = ["-p", "ptl_profile_override", "-m", "requires_real_hw"] + targets
+            rich.print("[bold cyan]Running tests:[/bold cyan] " + ", ".join(targets))
+            exit_code = _pytest.main(args)
+            raise typer.Exit(code=exit_code)
+    except typer.Exit as te:
+        # Propagate Typer-controlled exit (normal flow)
+        raise te
+    except SystemExit as se:
+        # Normalize pytest's SystemExit into Typer.Exit with explicit type checks
+        code_obj = getattr(se, "code", None)
+        if code_obj is None:
+            code = 1
+        elif isinstance(code_obj, int):
+            code = code_obj
+        elif isinstance(code_obj, str):
+            try:
+                code = int(code_obj)
+            except ValueError:
+                code = 1
+        else:
+            # Handle IntEnum-like objects (e.g., pytest.ExitCode)
+            value = getattr(code_obj, "value", None)
+            if isinstance(value, int):
+                code = value
+            else:
+                try:
+                    code = int(code_obj)  # Fallback conversion
+                except Exception:
+                    code = 1
+        raise typer.Exit(code=code) from None
+    except Exception as e:
+        rich.print(f"[bold red]Failed to run instrument tests: {e}[/bold red]")
+        raise typer.Exit(code=1) from None
 
 
 @bench_app.command("ls")
@@ -1017,7 +1144,7 @@ def list_command(
             spec = importlib.util.find_spec("pytestlab.profiles")
             if spec and spec.origin:
                 profiles_dir = Path(spec.origin).parent
-                table = rich.table.Table(title="Instrument Profiles")
+                table = Table(title="Instrument Profiles")
                 table.add_column("Profile Key", style="cyan")
                 table.add_column("Vendor", style="magenta")
                 table.add_column("Model", style="green")
