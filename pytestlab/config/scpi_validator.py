@@ -178,6 +178,14 @@ class SCPIValidator:
                             f"min_value ({param_spec.min_value}) >= max_value ({param_spec.max_value})"
                         )
 
+                    # Check if default value is within range
+                    if hasattr(param_spec, "default") and param_spec.default is not None:
+                        if not (param_spec.min_value <= param_spec.default <= param_spec.max_value):
+                            errors.append(
+                                f"Parameter '{param_name}' has default value ({param_spec.default}) "
+                                f"outside range [{param_spec.min_value}, {param_spec.max_value}]"
+                            )
+
             elif param_spec.type == "float":
                 if (
                     hasattr(param_spec, "min_value")
@@ -191,8 +199,16 @@ class SCPIValidator:
                             f"min_value ({param_spec.min_value}) >= max_value ({param_spec.max_value})"
                         )
 
+                    # Check if default value is within range
+                    if hasattr(param_spec, "default") and param_spec.default is not None:
+                        if not (param_spec.min_value <= param_spec.default <= param_spec.max_value):
+                            errors.append(
+                                f"Parameter '{param_name}' has default value ({param_spec.default}) "
+                                f"outside range [{param_spec.min_value}, {param_spec.max_value}]"
+                            )
+
             elif param_spec.type == "enum":
-                if not hasattr(param_spec, "values") or not param_spec.values:
+                if not hasattr(param_spec, "allowed_values") or not param_spec.allowed_values:
                     errors.append(f"Parameter '{param_name}' of type 'enum' missing values list")
 
         return errors

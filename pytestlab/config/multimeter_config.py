@@ -7,6 +7,8 @@ including SCPI command requirements for various features and capabilities.
 
 from __future__ import annotations
 
+from enum import Enum
+
 from pydantic import BaseModel
 from pydantic import Field
 
@@ -21,19 +23,64 @@ class RangeSpec(BaseModel):
 
     model_config = {"arbitrary_types_allowed": True}
 
-    min: float = Field(..., description="Minimum range value")
+    # Support the actual profile structure
+    nominal_V: float | None = Field(None, description="Nominal voltage range value")
+    nominal_A: float | None = Field(None, description="Nominal current range value")
+    nominal_ohm: float | None = Field(None, description="Nominal resistance range value")
+    nominal_F: float | None = Field(None, description="Nominal capacitance range value")
 
-    max: float = Field(..., description="Maximum range value")
+    # Legacy support for generic min/max fields
+    min: float | None = Field(None, description="Minimum range value")
+    max: float | None = Field(None, description="Maximum range value")
+    min_val: float | None = Field(None, description="Minimum range value (legacy format)")
+    max_val: float | None = Field(None, description="Maximum range value (legacy format)")
 
-    units: str = Field(..., description="Units for the range values")
+    units: str | None = Field(None, description="Units for the range values")
 
     resolution: float | None = Field(None, description="Resolution for this range")
 
     accuracy: AccuracySpec | None = Field(None, description="Accuracy specification for this range")
+    typical_accuracy: AccuracySpec | None = Field(
+        None, description="Typical accuracy when provided instead of 'accuracy'"
+    )
+    accuracy_45Hz_10kHz: AccuracySpec | None = Field(
+        None, description="AC accuracy specification for 45 Hz to 10 kHz"
+    )
+    accuracy_45Hz_1kHz: AccuracySpec | None = Field(
+        None, description="AC accuracy specification for 45 Hz to 1 kHz"
+    )
+
+    # Additional fields that might be present in profiles
+    test_current_A: float | None = Field(
+        None, description="Test current for resistance measurements"
+    )
+    temp_coeff_per_C: dict[str, float] | None = Field(
+        None, description="Temperature coefficient per degree Celsius"
+    )
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        # Handle legacy min_val/max_val format
+        if self.min is None and self.min_val is not None:
+            self.min = self.min_val
+        if self.max is None and self.max_val is not None:
+            self.max = self.max_val
+        # Normalize alternate accuracy fields into 'accuracy'
+        if self.accuracy is None:
+            if getattr(self, "typical_accuracy", None) is not None:
+                self.accuracy = self.typical_accuracy
+            elif getattr(self, "accuracy_45Hz_10kHz", None) is not None:
+                self.accuracy = self.accuracy_45Hz_10kHz
+            elif getattr(self, "accuracy_45Hz_1kHz", None) is not None:
+                self.accuracy = self.accuracy_45Hz_1kHz
 
     def assert_in_range(self, x: float, name: str = "value") -> float:
         """Assert that a value is within the range."""
-        if not (self.min <= x <= self.max):
+        min_v = self.min
+        max_v = self.max
+        if min_v is None or max_v is None:
+            return x
+        if not (min_v <= x <= max_v):
             from ..errors import InstrumentParameterError
 
             raise InstrumentParameterError(
@@ -45,29 +92,27 @@ class RangeSpec(BaseModel):
         return x
 
 
-class DMMFunction(BaseModel):
+class DMMFunction(Enum):
     """Enumeration of DMM measurement functions."""
 
-    model_config = {"arbitrary_types_allowed": True}
-
     # DC measurements
-    VOLTAGE_DC: str = Field("VOLT:DC", description="DC Voltage measurement")
-    CURRENT_DC: str = Field("CURR:DC", description="DC Current measurement")
+    VOLTAGE_DC = "VOLT:DC"
+    CURRENT_DC = "CURR:DC"
 
     # AC measurements
-    VOLTAGE_AC: str = Field("VOLT:AC", description="AC Voltage measurement")
-    CURRENT_AC: str = Field("CURR:AC", description="AC Current measurement")
+    VOLTAGE_AC = "VOLT:AC"
+    CURRENT_AC = "CURR:AC"
 
     # Resistance measurements
-    RESISTANCE: str = Field("RES", description="2-wire Resistance measurement")
-    FRESISTANCE: str = Field("FRES", description="4-wire Resistance measurement")
+    RESISTANCE = "RES"
+    FRESISTANCE = "FRES"
 
     # Other measurements
-    CAPACITANCE: str = Field("CAP", description="Capacitance measurement")
-    FREQUENCY: str = Field("FREQ", description="Frequency measurement")
-    TEMPERATURE: str = Field("TEMP", description="Temperature measurement")
-    DIODE: str = Field("DIOD", description="Diode test")
-    CONTINUITY: str = Field("CONT", description="Continuity test")
+    CAPACITANCE = "CAP"
+    FREQUENCY = "FREQ"
+    TEMPERATURE = "TEMP"
+    DIODE = "DIOD"
+    CONTINUITY = "CONT"
 
 
 class FunctionSpec(BaseModel):
@@ -192,6 +237,7 @@ class MultimeterConfig(InstrumentConfig):
     """Configuration for Multimeter instruments."""
 
     model_config = {"arbitrary_types_allowed": True}
+    device_type: str = "multimeter"
 
     measurement_functions: MeasurementFunctionsSpec | None = Field(
         None, description="Measurement function specifications"

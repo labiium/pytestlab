@@ -352,6 +352,12 @@ class SCPIEngine:
 
         merged = {**spec.defaults, **params}
 
+        # Convert enum objects to their values for template substitution
+        for key, value in merged.items():
+            if hasattr(value, "value") and callable(getattr(value, "value", None)):
+                # This is an enum object, convert to its value
+                merged[key] = value.value
+
         missing = self._find_missing_placeholders(spec.sequence, merged)
         if missing:
             raise ValidationError(f"Missing parameter(s) {', '.join(missing)} for '{cmd_name}'.")
@@ -500,24 +506,32 @@ class SCPIEngine:
             raise SCPIEngineError(f"Command '{name}' must be string or mapping")
 
         # ---- defaults ---------------------------------------------- #
-        defaults = dict(mapping.get("defaults", {}))
+        defaults_data = mapping.get("defaults")
+        if defaults_data is not None:
+            defaults = dict(defaults_data)
+        else:
+            defaults = {}
 
         # ---- validators -------------------------------------------- #
         validators: dict[str, _Validator] = {}
-        for p, rng in mapping.get("validators", {}).items():
-            if not isinstance(rng, Mapping) or "min" not in rng or "max" not in rng:
-                raise SCPIEngineError(f"Validator for '{p}' needs 'min'/'max'")
-            validators[p] = _Validator(
-                kind="range", min_val=float(rng["min"]), max_val=float(rng["max"])
-            )
+        validators_data = mapping.get("validators")
+        if validators_data is not None:
+            for p, rng in validators_data.items():
+                if not isinstance(rng, Mapping) or "min" not in rng or "max" not in rng:
+                    raise SCPIEngineError(f"Validator for '{p}' needs 'min'/'max'")
+                validators[p] = _Validator(
+                    kind="range", min_val=float(rng["min"]), max_val=float(rng["max"])
+                )
 
-        for p, enum in mapping.get("enums", {}).items():
-            if not isinstance(enum, Mapping):
-                raise SCPIEngineError(f"'enums' for '{p}' must map to values")
-            validators[p] = _Validator(
-                kind="enum",
-                enum_map={str(k).lower(): v for k, v in enum.items()},
-            )
+        enums_data = mapping.get("enums")
+        if enums_data is not None:
+            for p, enum in enums_data.items():
+                if not isinstance(enum, Mapping):
+                    raise SCPIEngineError(f"'enums' for '{p}' must map to values")
+                validators[p] = _Validator(
+                    kind="enum",
+                    enum_map={str(k).lower(): v for k, v in enum.items()},
+                )
 
         # ---- response ---------------------------------------------- #
         response = None

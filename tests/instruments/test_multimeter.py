@@ -44,7 +44,18 @@ def check_hardware_available():
         mm.close()
         return True, None
     except Exception as e:
-        return False, str(e)
+        # If the instrument is unresponsive, try to recover from error state
+        try:
+            mm = AutoInstrument.from_config(MM_CONFIG_KEY)
+            mm.connect_backend()
+            if mm.attempt_error_recovery():
+                mm.close()
+                return True, None
+            else:
+                mm.close()
+                return False, f"Instrument error recovery failed: {e}"
+        except Exception as recovery_error:
+            return False, f"Initial connection failed: {e}, recovery also failed: {recovery_error}"
 
 
 @pytest.mark.requires_real_hw
@@ -78,6 +89,18 @@ def test_multimeter_dc_voltage_measurement():
     mm.connect_backend()
 
     try:
+        # Clear any existing errors and check instrument status before measurement
+        mm.clear_status()
+        errors = mm.get_all_errors()
+        if errors:
+            print(f"Cleared {len(errors)} existing errors: {errors}")
+
+        # Verify instrument is responsive
+        try:
+            mm.id()  # This should work if instrument is not in error state
+        except Exception as e:
+            pytest.fail(f"Instrument not responsive after clearing errors: {e}")
+
         measurement = mm.measure(DMMFunction.VOLTAGE_DC)
         print(f"Measured DC Voltage: {measurement.values} {measurement.units}")
         assert isinstance(measurement.values, UFloat)
@@ -98,6 +121,18 @@ def test_multimeter_ac_voltage_measurement():
     mm.connect_backend()
 
     try:
+        # Clear any existing errors and check instrument status before measurement
+        mm.clear_status()
+        errors = mm.get_all_errors()
+        if errors:
+            print(f"Cleared {len(errors)} existing errors: {errors}")
+
+        # Verify instrument is responsive
+        try:
+            mm.id()  # This should work if instrument is not in error state
+        except Exception as e:
+            pytest.fail(f"Instrument not responsive after clearing errors: {e}")
+
         measurement = mm.measure(DMMFunction.VOLTAGE_AC, range_val="1")
         print(f"Measured AC Voltage: {measurement.values} {measurement.units}")
         assert isinstance(measurement.values, UFloat)
@@ -119,6 +154,18 @@ def test_multimeter_resistance_measurement():
     mm.connect_backend()
 
     try:
+        # Clear any existing errors and check instrument status before measurement
+        mm.clear_status()
+        errors = mm.get_all_errors()
+        if errors:
+            print(f"Cleared {len(errors)} existing errors: {errors}")
+
+        # Verify instrument is responsive
+        try:
+            mm.id()  # This should work if instrument is not in error state
+        except Exception as e:
+            pytest.fail(f"Instrument not responsive after clearing errors: {e}")
+
         measurement = mm.measure(DMMFunction.FRESISTANCE)
         print(f"Measured Resistance: {measurement.values} {measurement.units}")
         assert isinstance(measurement.values, UFloat)

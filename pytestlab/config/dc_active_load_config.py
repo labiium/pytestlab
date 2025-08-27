@@ -21,30 +21,45 @@ class RangeSpec(BaseModel):
 
     model_config = {"arbitrary_types_allowed": True}
 
-    nominal: float = Field(..., description="Nominal range value")
+    # Support both formats for backward compatibility
+    min: float | None = Field(None, description="Minimum range value")
+    max: float | None = Field(None, description="Maximum range value")
+    min_val: float | None = Field(None, description="Minimum range value (legacy format)")
+    max_val: float | None = Field(None, description="Maximum range value (legacy format)")
 
-    max_current_A: float | None = Field(None, description="Maximum current in Amperes")
+    units: str | None = Field(None, description="Units for the range values")
 
-    max_voltage_V: float | None = Field(None, description="Maximum voltage in Volts")
+    resolution: float | None = Field(None, description="Resolution for this range")
 
-    max_power_W: float | None = Field(None, description="Maximum power in Watts")
-
+    accuracy: AccuracySpec | None = Field(None, description="Accuracy specification for this range")
+    max_current_A: float | None = Field(None, description="Maximum current for this range (A)")
+    max_voltage_V: float | None = Field(None, description="Maximum voltage for this range (V)")
     readback_accuracy: ReadbackAccuracySpec | None = Field(
-        None, description="Readback accuracy specification"
+        None, description="Readback accuracy specifications for this range"
     )
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        # Handle legacy min_val/max_val format
+        if self.min is None and self.min_val is not None:
+            self.min = self.min_val
+        if self.max is None and self.max_val is not None:
+            self.max = self.max_val
 
     def assert_in_range(self, x: float, name: str = "value") -> float:
         """Assert that a value is within the range."""
-        # For DC active load, we use nominal as the reference point
-        # This is a simplified check - in practice, you might want more sophisticated validation
-        if self.max_current_A is not None and x > self.max_current_A:
+        min_v = self.min
+        max_v = self.max
+        if min_v is None or max_v is None:
+            return x
+        if not (min_v <= x <= max_v):
             from ..errors import InstrumentParameterError
 
             raise InstrumentParameterError(
                 parameter=name,
                 value=x,
-                valid_range=(0, self.max_current_A),
-                message=f"{name} must be between 0 and {self.max_current_A}.",
+                valid_range=(self.min, self.max),
+                message=f"{name} must be between {self.min} and {self.max}.",
             )
         return x
 

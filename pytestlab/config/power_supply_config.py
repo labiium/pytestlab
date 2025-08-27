@@ -21,19 +21,33 @@ class RangeSpec(BaseModel):
 
     model_config = {"arbitrary_types_allowed": True}
 
-    min: float = Field(..., description="Minimum range value")
+    # Support both formats for backward compatibility
+    min: float | None = Field(None, description="Minimum range value")
+    max: float | None = Field(None, description="Maximum range value")
+    min_val: float | None = Field(None, description="Minimum range value (legacy format)")
+    max_val: float | None = Field(None, description="Maximum range value (legacy format)")
 
-    max: float = Field(..., description="Maximum range value")
-
-    units: str = Field(..., description="Units for the range values")
+    units: str | None = Field(None, description="Units for the range values")
 
     resolution: float | None = Field(None, description="Resolution for this range")
 
     accuracy: AccuracySpec | None = Field(None, description="Accuracy specification for this range")
 
+    def __init__(self, **data):
+        super().__init__(**data)
+        # Handle legacy min_val/max_val format
+        if self.min is None and self.min_val is not None:
+            self.min = self.min_val
+        if self.max is None and self.max_val is not None:
+            self.max = self.max_val
+
     def assert_in_range(self, x: float, name: str = "value") -> float:
         """Assert that a value is within the range."""
-        if not (self.min <= x <= self.max):
+        min_v = self.min
+        max_v = self.max
+        if min_v is None or max_v is None:
+            return x
+        if not (min_v <= x <= max_v):
             from ..errors import InstrumentParameterError
 
             raise InstrumentParameterError(
@@ -133,6 +147,7 @@ class PowerSupplyConfig(InstrumentConfig):
     """Configuration for Power Supply instruments."""
 
     model_config = {"arbitrary_types_allowed": True}
+    device_type: str = "power_supply"
 
     channels: list[ChannelSpec] = Field(..., description="Channel specifications")
 

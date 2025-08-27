@@ -27,7 +27,7 @@ def psu_config():
                 "accuracy": {"voltage": 0.05, "current": 0.2},
             }
         ],
-        "scpi": {"*IDN?": "dummy_idn"},
+        "scpi": {"queries": {"identify": {"template": "*IDN?", "response": {"type": "str"}}}},
     }
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
         yaml.dump(profile, f)

@@ -5,8 +5,8 @@ from typing import Any
 import pytest
 
 from pytestlab.config.instrument_config import InstrumentConfig
+from pytestlab.config.instrument_config import SCPICommandSpec
 from pytestlab.config.instrument_config import SCPISection
-from pytestlab.config.scpi_schema import CommandSpec
 from pytestlab.instruments.instrument import Instrument
 
 
@@ -50,8 +50,8 @@ class DummyInstrument(Instrument[DummyConfig]):
 def test_feature_mapping_validation_passes_when_present():
     scpi = SCPISection(
         commands={
-            "alpha": CommandSpec(template=":ALPH {v}"),
-            "beta": CommandSpec(template=":BETA {v}"),
+            "alpha": SCPICommandSpec(template=":ALPH {v}"),
+            "beta": SCPICommandSpec(template=":BETA {v}"),
         },
     )
     cfg = DummyConfig(manufacturer="X", model="Y", device_type="dummy", scpi=scpi)
@@ -63,7 +63,7 @@ def test_feature_mapping_validation_passes_when_present():
 
 
 def test_feature_mapping_validation_raises_when_missing():
-    scpi = SCPISection(commands={"alpha": CommandSpec(template=":ALPH {v}")})
+    scpi = SCPISection(commands={"alpha": SCPICommandSpec(template=":ALPH {v}")})
     cfg = DummyConfig(manufacturer="X", model="Y", device_type="dummy", scpi=scpi)
     inst = DummyInstrument(cfg, backend=DummyBackend())
     with pytest.raises(RuntimeError):

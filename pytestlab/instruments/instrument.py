@@ -421,28 +421,91 @@ class Instrument(Generic[ConfigType]):
         Locks or unlocks the front panel of the instrument.
         """
         if lock:
-            self._send_command(":SYSTem:LOCK")
+            try:
+                cmds = self.scpi_engine.build("panel_lock")
+            except Exception:
+                cmds = [":SYSTem:LOCK"]
         else:
-            self._send_command(":SYSTem:LOCal")
+            try:
+                cmds = self.scpi_engine.build("panel_local")
+            except Exception:
+                cmds = [":SYSTem:LOCal"]
+        for c in cmds:
+            self._send_command(c)
         self._logger.debug(f"Panel {'locked' if lock else 'unlocked (local control enabled)'}.")
+
+    def attempt_error_recovery(self) -> bool:
+        """Attempts to recover from instrument error states.
+
+        This method tries to clear errors and reset the instrument if it's
+        unresponsive. It's useful when the instrument is stuck in an error
+        state that prevents normal communication.
+
+        Returns:
+            True if recovery was successful, False otherwise.
+        """
+        self._logger.info("Attempting to recover from instrument error state...")
+
+        try:
+            # First try to clear status and errors
+            self._logger.debug("Attempting to clear status and errors...")
+            self.clear_status()
+            errors = self.get_all_errors()
+            if errors:
+                self._logger.info(f"Cleared {len(errors)} errors: {errors}")
+
+            # Try to get instrument ID to verify it's responsive
+            try:
+                idn = self.id()
+                self._logger.info(f"Instrument recovered, ID: {idn}")
+                return True
+            except Exception as e:
+                self._logger.warning(f"Still unresponsive after clearing errors: {e}")
+
+            # If still unresponsive, try a hard reset
+            self._logger.debug("Attempting instrument reset...")
+            try:
+                self._send_command("*RST", skip_check=True)
+                # Wait a moment for reset to complete
+                import time
+
+                time.sleep(2.0)
+
+                # Try ID again
+                idn = self.id()
+                self._logger.info(f"Instrument recovered after reset, ID: {idn}")
+                return True
+            except Exception as e:
+                self._logger.error(f"Reset failed: {e}")
+
+        except Exception as e:
+            self._logger.error(f"Error recovery attempt failed: {e}")
+
+        self._logger.error("Failed to recover instrument from error state")
+        return False
 
     def _wait(self) -> None:
         """
         Blocks until all previous commands have been processed by the instrument using *OPC?.
         """
+        q = "*OPC?"
         try:
-            self._backend.query("*OPC?")  # delay=None by default for _backend.query
+            try:
+                q = self.scpi_engine.build("opc_query")[0]
+            except Exception:
+                q = "*OPC?"
+            self._backend.query(q)  # delay=None by default for _backend.query
             self._logger.debug(
                 "Waiting for instrument to finish processing commands (*OPC? successful)."
             )
             self._command_log.append(
-                {"command": "*OPC?", "success": True, "type": "wait", "timestamp": time.time()}
+                {"command": q, "success": True, "type": "wait", "timestamp": time.time()}
             )
         except Exception as e:
             self._logger.debug(f"Error during *OPC? wait: {e}")
             raise InstrumentCommunicationError(
                 instrument=self.config.model,
-                command="*OPC?",
+                command=q,
                 message="Failed to wait for operation complete.",
             ) from e
 
@@ -451,18 +514,23 @@ class Instrument(Generic[ConfigType]):
         Blocks by polling the Standard Event Status Register (*ESR?) until a non-zero value.
         This is a basic implementation; specific event setup (*ESE) might be needed.
         """
+        q = "*ESR?"
         result = 0
         max_attempts = 100
         attempts = 0
         while result == 0 and attempts < max_attempts:
             try:
-                esr_response = self._backend.query("*ESR?")  # Use self._backend
+                try:
+                    q = self.scpi_engine.build("esr_query")[0]
+                except Exception:
+                    q = "*ESR?"
+                esr_response = self._backend.query(q)  # Use self._backend
                 result = int(esr_response.strip())
             except Exception as e:
                 self._logger.debug(f"Error querying *ESR? during _wait_event: {e}")
                 raise InstrumentCommunicationError(
                     instrument=self.config.model,
-                    command="*ESR?",
+                    command=q,
                     message="Failed to query *ESR? during wait.",
                 ) from e
             time.sleep(0.1)
@@ -508,21 +576,42 @@ class Instrument(Generic[ConfigType]):
         Checks for errors on the instrument by querying SYSTem:ERRor?.
         Raises InstrumentCommunicationError if an error is found.
         """
+        q = ":SYSTem:ERRor?"
         try:
-            error_response = self._backend.query(":SYSTem:ERRor?")  # delay=None by default
+            try:
+                q = self.scpi_engine.build("get_error")[0]
+            except Exception:
+                q = ":SYSTem:ERRor?"
+            error_response = self._backend.query(q)  # delay=None by default
             error_response = error_response.strip()
 
             # Parse the error response
+            code = 0
+            message = ""
             try:
                 code_str, msg_part = error_response.split(",", 1)
                 code = int(code_str)
                 message = msg_part.strip().strip('"')
             except (ValueError, IndexError) as e:
-                raise InstrumentCommunicationError(
-                    instrument=self.config.model,
-                    command=":SYSTem:ERRor?",
-                    message=f"Could not parse error response: '{error_response}'",
-                ) from e
+                # Fallback: if SCPI alias was incorrect or returned unexpected query, try raw query
+                if q != ":SYSTem:ERRor?":
+                    try:
+                        raw_resp = self._backend.query(":SYSTem:ERRor?").strip()
+                        code_str, msg_part = raw_resp.split(",", 1)
+                        code = int(code_str)
+                        message = msg_part.strip().strip('"')
+                    except Exception:
+                        raise InstrumentCommunicationError(
+                            instrument=self.config.model,
+                            command=q,
+                            message=f"Could not parse error response: '{error_response}'",
+                        ) from e
+                else:
+                    raise InstrumentCommunicationError(
+                        instrument=self.config.model,
+                        command=q,
+                        message=f"Could not parse error response: '{error_response}'",
+                    ) from e
 
             # Check if there's an actual error (non-zero code)
             if code != 0:
@@ -536,7 +625,7 @@ class Instrument(Generic[ConfigType]):
         except Exception as e:
             raise InstrumentCommunicationError(
                 instrument=self.config.model,
-                command=":SYSTem:ERRor?",
+                command=q,
                 message=f"Failed to query instrument for errors: {e}",
             ) from e
 
@@ -544,7 +633,14 @@ class Instrument(Generic[ConfigType]):
         """
         Query the instrument for its identification string (*IDN?).
         """
-        name = self._query("*IDN?")
+        q = "*IDN?"
+        try:
+            candidate = self.scpi_engine.build("identify")[0]
+            if isinstance(candidate, str) and "IDN" in candidate.upper():
+                q = candidate
+        except Exception:
+            pass
+        name = self._query(q)
         self._logger.debug(f"Connected to {name}")
         return name
 
@@ -569,7 +665,12 @@ class Instrument(Generic[ConfigType]):
 
     def reset(self) -> None:
         """Reset the instrument to its default settings (*RST)."""
-        self._send_command("*RST")
+        try:
+            cmds = self.scpi_engine.build("reset")
+        except Exception:
+            cmds = ["*RST"]
+        for c in cmds:
+            self._send_command(c)
         self._logger.debug("Instrument reset to default settings (*RST).")
 
     def run_self_test(self, full_test: bool = True) -> str:
@@ -582,20 +683,24 @@ class Instrument(Generic[ConfigType]):
             )
 
         self._logger.debug("Running self-test (*TST?)...")
+        try:
+            q = self.scpi_engine.build("self_test")[0]
+        except Exception:
+            q = "*TST?"
         result_str = ""
         try:
-            result_str = self._query("*TST?")
+            result_str = self._query(q)
             code = int(result_str.strip())
         except ValueError as e:
             raise InstrumentCommunicationError(
                 instrument=self.config.model,
-                command="*TST?",
+                command=q,
                 message=f"Unexpected non-integer response: '{result_str}'",
             ) from e
         except InstrumentCommunicationError as e:
             raise InstrumentCommunicationError(
                 instrument=self.config.model,
-                command="*TST?",
+                command=q,
                 message="Failed to execute query.",
             ) from e
 
@@ -653,7 +758,12 @@ class Instrument(Generic[ConfigType]):
         """
         Clears the instrument's status registers and error queue (*CLS).
         """
-        self._send_command("*CLS", skip_check=True)
+        try:
+            cmds = self.scpi_engine.build("clear")
+        except Exception:
+            cmds = ["*CLS"]
+        for c in cmds:
+            self._send_command(c, skip_check=True)
         self._logger.debug("Status registers and error queue cleared (*CLS).")
 
     def get_all_errors(self) -> list[tuple[int, str]]:
@@ -696,7 +806,11 @@ class Instrument(Generic[ConfigType]):
         """
         Reads and clears the oldest error from the instrument's error queue.
         """
-        response = (self._query("SYSTem:ERRor?", skip_check=True)).strip()
+        try:
+            q = self.scpi_engine.build("get_error")[0]
+        except Exception:
+            q = "SYSTem:ERRor?"
+        response = (self._query(q, skip_check=True)).strip()
         try:
             code_str, msg_part = response.split(",", 1)
             code = int(code_str)
@@ -707,7 +821,7 @@ class Instrument(Generic[ConfigType]):
             )
             raise InstrumentCommunicationError(
                 instrument=self.config.model,
-                command="SYSTem:ERRor?",
+                command=q,
                 message=f"Could not parse error response: '{response}'",
             ) from e
 
@@ -723,19 +837,16 @@ class Instrument(Generic[ConfigType]):
         The 'timeout' parameter's effect depends on the backend's query timeout settings.
         """
         if query_instrument:
-            # The original logic for setting/restoring instrument.timeout has been removed
-            # as the _Backend protocol does not define a timeout attribute.
-            # The 'timeout' argument of this method might influence a timeout if the
-            # _query method or backend implementation uses it, but _query currently
-            # passes 'delay', not 'timeout'. For *OPC?, no delay is typically needed.
-            # The backend's own communication timeout will apply to the query.
             self._logger.debug(
                 f"Waiting for operation complete (*OPC?). Effective timeout depends on backend (method timeout hint: {timeout}s)."
             )
+            q = "*OPC?"
             try:
-                # The timeout parameter of this method is not directly passed to _query here.
-                # _query's delay parameter is for a different purpose.
-                response = self._query("*OPC?")  # This now uses self._backend.query
+                try:
+                    q = self.scpi_engine.build("opc_query")[0]
+                except Exception:
+                    q = "*OPC?"
+                response = self._query(q)
                 self._logger.debug("Operation complete query (*OPC?) returned.")
                 if response.strip() != "1":
                     self._logger.debug(
@@ -743,15 +854,18 @@ class Instrument(Generic[ConfigType]):
                     )
                 return response.strip()
             except InstrumentCommunicationError as e:
-                # The 'timeout' parameter of this method is noted here for context.
                 err_msg = f"*OPC? query failed. This may be due to backend communication timeout (related to method's timeout param: {timeout}s)."
                 self._logger.debug(err_msg)
                 raise InstrumentCommunicationError(
-                    instrument=self.config.model, command="*OPC?", message=err_msg
+                    instrument=self.config.model, command=q, message=err_msg
                 ) from e
-            # 'finally' block for restoring timeout removed.
         else:
-            self._send_command("*OPC")  # This now uses self._backend.write
+            try:
+                cmds = self.scpi_engine.build("opc")
+            except Exception:
+                cmds = ["*OPC"]
+            for c in cmds:
+                self._send_command(c)
             self._logger.debug(
                 "Operation complete command (*OPC) sent (non-blocking). Status polling required."
             )
@@ -772,7 +886,11 @@ class Instrument(Generic[ConfigType]):
         """
         Queries the version of the SCPI standard the instrument complies with.
         """
-        response = (self._query("SYSTem:VERSion?")).strip()
+        try:
+            q = self.scpi_engine.build("scpi_version")[0]
+        except Exception:
+            q = "SYSTem:VERSion?"
+        response = (self._query(q)).strip()
         self._logger.debug(f"SCPI Version reported: {response}")
         return response
 
