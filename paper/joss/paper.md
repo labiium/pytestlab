@@ -16,6 +16,7 @@ authors:
     affiliation: 1
 affiliations:
   - name: The University of Edinburgh, UK
+    orcid: 0000-0003-0916-9921
     index: 1
 date: 4 October 2025
 bibliography: paper.bib
