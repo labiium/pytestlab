@@ -6,12 +6,12 @@ This document provides guidelines for contributing to PyTestLab. Please read it 
 
 ## Code of Conduct
 
-This project and everyone participating in it is governed by the [PyTestLab Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to `pytestlab-conduct@example.com`.
+This project and everyone participating in it is governed by the [PyTestLab Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to `support@pytestlab.org`.
 
 ## Getting Started
 
 1.  **Fork the repository** on GitHub.
-2.  **Clone your fork** locally: `git clone https://github.com/YOUR_USERNAME/pytestlab.git`
+2.  **Clone your fork** locally: `git clone https://github.com/labiium/pytestlab.git`
 3.  **Set up the development environment:**
     *   It's recommended to use a virtual environment:
         ```bash
@@ -74,7 +74,7 @@ Now, every time you run `git commit`, the pre-commit hooks will run and check yo
 5.  **Ensure pre-commit checks pass.** If they make changes, `git add` those files and re-commit.
 6.  **Commit your changes** using conventional commit messages (`cz c` or `git cz commit`).
 7.  **Push your branch** to your fork: `git push origin name-of-your-feature`
-8.  **Open a Pull Request (PR)** to the `main` branch of the official PyTestLab repository.
+8.  **Open a Pull Request (PR)** to the `master` branch of the official PyTestLab repository.
     *   Provide a clear title and description for your PR.
     *   Link to any relevant issues.
 

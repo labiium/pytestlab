@@ -1,62 +1,59 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+All notable changes to this project are documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format follows Keep a Changelog (https://keepachangelog.com/en/1.0.0/)
+and the project adheres to Semantic Versioning (https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-# Changelog
 
-## [0.1.3] - 2024
-
+## [v0.2.3] - 2025-10-05
 ### Added
-- New DCActiveLoad instrument support
-  - Added DCActiveLoadConfig for configuration
-  - Added driver for Keysight EL33133A DC Active Load
-  - Added support in AutoInstrument class
-  - Added schema and profile for DC Active Load instruments
-
-- New configuration and environment files
-  - Added `.env` file with AWS and GCP project configurations
-  - Added `lm.yaml` for model configuration
-
-- Enhanced testing
-  - Added comprehensive test scripts for AWG and Multimeter instruments
-  - Improved oscilloscope test script with detailed functionality testing
+- Initial SCPI engine integration for instrument control.
+- Comprehensive plotting utilities and examples.
+- CLI enhancements for a better command-line experience.
 
 ### Changed
-- Improved Multimeter functionality
-  - Added MultimeterConfigResult data class
-  - Enhanced configuration retrieval and display
-  - Added structured configuration support
+- Multimeter module overhaul with improved structure and behavior.
+- Documentation site updates (MkDocs configuration and content).
+- Type-checking and lint configuration refined (mypy and ruff) with project-wide cleanups.
+- Pre-commit and CI adjustments to improve developer workflow and reliability.
 
-- Enhanced WaveformGenerator capabilities
-  - Added WaveformConfigResult data class
-  - Added support for impedance and voltage limits
-  - Improved phase and symmetry control
-  - Enhanced error handling and validation
+### Fixed
+- Type checking issues addressed across modules (targeted mypy fixes and cleaned ignores).
+- Lint violations resolved with ruff adjustments.
+- Release workflow corrections.
 
-- Updated Experiment and Database handling
-  - Improved error handling and validation in Database class
-  - Enhanced Experiment class with better data handling
-  - Added support for structured configuration results
-  - Improved documentation and type hints
+### Removed
+- Full removal of legacy async code paths.
 
-### Modified
-- Updated curly.yaml configuration
-  - Refined documentation ignore paths
-  - Added new instruments section
-  - Modified experiment configuration
+## [v0.2.1] - 2025-08-06
+### Added
+- Measurement sweeps and example workflows.
+- Simulation v2 promoted and examples added.
+- New instrument support and profiles (including MSOX2024A; PSU integration via SCPI).
+- GUI and documentation site improvements; language support for docs/examples.
 
-- Updated example Jupyter notebook
-  - Simplified instrument configuration examples
-  - Removed unused instrument instances
+### Changed
+- Significant test stabilization with “all tests passing” milestone and follow-up fixes.
+- Documentation and notebooks improved; site build updated.
+- Initial reduction/removal of legacy async components.
 
-### Added Examples
-- Added new example scripts:
-  - example_database.py: Comprehensive database usage example
-  - example_experiment.py: Detailed experiment configuration example
+### Fixed
+- Documentation site mobile menu behavior.
+- CI workflows and packaging adjustments.
+- Invalid or flaky tests removed/reworked.
 
-### Updated Dependencies
-- Added support for Python 3.12 in setup.py
+## [0.1.3] - 2025-02-19
+### Added
+- DC Active Load instrument initial support and configuration scaffolding.
+
+### Fixed
+- Early integration fixes and stability improvements around DC Load support.
+
+---
+
+[Unreleased]: https://github.com/labiium/pytestlab/compare/v0.2.3...HEAD
+[v0.2.3]: https://github.com/labiium/pytestlab/compare/v0.2.1...v0.2.3
+[v0.2.1]: https://github.com/labiium/pytestlab/compare/13b5439...v0.2.1
+[0.1.3]: https://github.com/labiium/pytestlab/commit/13b5439
