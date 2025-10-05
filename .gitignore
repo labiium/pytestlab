@@ -24,3 +24,6 @@ site
 
 node_modules
 schemas
+.mypy_cache
+.ropeproject
+.ruff_cache

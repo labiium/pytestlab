@@ -1,7 +1,6 @@
 import logging
 import subprocess
 import sys
-import warnings
 from pathlib import Path
 from typing import Any
 
@@ -260,10 +259,8 @@ class Bench:
 
                 # Continue with other instruments even if one fails
                 if getattr(self.config, "continue_on_instrument_error", False):
-                    warnings.warn(
-                        f"Failed to initialize instrument '{alias}'. Continuing with other instruments.",
-                        UserWarning,
-                        stacklevel=2,
+                    logger.warning(
+                        f"Failed to initialize instrument '{alias}'. Continuing with other instruments."
                     )
                 else:
                     raise
