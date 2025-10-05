@@ -26,25 +26,25 @@ bibliography: paper.bib
 Modern hardware characterization workflows involve coordinating multiple laboratory instruments (power supplies, oscilloscopes, multimeters, electronic loads, signal sources), executing structured sweeps or time-based acquisition routines, persisting results, and ensuring traceability. These activities are often implemented via ad‑hoc Python scripts mixing raw SCPI commands with unstructured data handling and little or no provenance or compliance support.
 PyTestLab is an extensible Python framework that unifies:
 
-1. Bench configuration (YAML) with safety limits, automation hooks, calibration & DUT traceability.
+1. Bench configuration (YAML [@YAML-1.2.2]) with safety limits, automation hooks, calibration & DUT traceability.
 2. A high-level `MeasurementSession` builder for declarative parameter sweeps or timed parallel acquisition loops with background stimulus tasks.
-3. Pluggable instrument backends: live VISA and Lamb, advanced deterministic simulation, session recording, and strict replay (sequence validation).
-4. Structured experiment and measurement data stored in Polars DataFrames for efficient analytics and plotting.
-5. A compliance layer providing cryptographic signing (ECDSA P‑256), linked timestamp chains (ISO 18014-3 style), audit trail logging, and persistent signature envelopes.
+3. Pluggable instrument backends: VISA [@VPP-4_3; @VPP-4_3_2] and Lamb [@labiium_i2mtc_2025], advanced deterministic simulation, session recording, and strict replay (sequence validation).
+4. Structured experiment and measurement data stored in Polars DataFrames [@polars] for efficient analytics and plotting.
+5. A compliance layer providing cryptographic signing (ECDSA P‑256 [@FIPS-186-5; @SECG-SEC2-v2]), linked timestamp chains (ISO 18014-3 style [@ISOIEC-18014-3-2009; @HaberStornetta1991; @RFC3161]), audit trail logging, and persistent signature envelopes.
 6. Lightweight plotting and FFT / frequency-response helpers for rapid feedback.
 
-The framework enables reproducible, testable, and audit-ready measurement workflows suitable for both exploratory R&D and regulated environments.
+The framework enables reproducible, testable, and audit-ready measurement workflows suitable for both exploratory R&D and regulated environments. Step‑by‑step tutorials from basic to advanced are linked from the README.
 
 # Statement of Need
 
-Existing Python tooling—e.g., PyVISA [@pyvisa] and vendor SDKs—focuses on transport-level communication, leaving users to implement experiment orchestration, safety enforcement, provenance capture, and deterministic regression testing manually. Higher-level packages such as PyMeasure [@pymeasure] provide drivers and experiment scaffolding but typically do not offer deterministic command sequence replay coupled with integrated compliance primitives. In regulated or quality‑critical contexts (medical, aerospace, energy), requirements extend to tamper evidence, auditability of measurement changes, and controlled replay of prior sessions. No widely adopted open-source library in the instrumentation space currently integrates: (a) enforceable safety envelopes, (b) deterministic command sequence replay for validation, and (c) cryptographic measurement signing plus chained timestamp audit primitives — while also offering an ergonomic experiment builder and simulation layer.
-
 PyTestLab addresses these gaps by coupling declarative bench specification (enabling infrastructural reproducibility) with a high-level acquisition API, while embedding compliance and integrity features by design rather than as afterthought plugins. Researchers, test engineers, and reliability or validation teams can therefore move from exploratory scripting to production-grade, provenance-rich pipelines without re‑architecting code.
+
+Existing Python tooling—e.g., PyVISA [@pyvisa] and vendor SDKs—focuses on transport-level communication, leaving users to implement experiment orchestration, safety enforcement, provenance capture, and deterministic regression testing manually. Higher-level packages such as PyMeasure [@pymeasure] provide drivers and experiment scaffolding but typically do not offer deterministic command sequence replay coupled with integrated compliance primitives. In regulated or quality‑critical contexts (medical, aerospace, energy), requirements extend to tamper evidence, auditability of measurement changes, and controlled replay of prior sessions. No widely adopted open-source library in the instrumentation space currently integrates: (a) enforceable safety envelopes, (b) deterministic command sequence replay for validation, and (c) cryptographic measurement signing plus chained timestamp audit primitives — while also offering an ergonomic experiment builder and simulation layer.
 
 # Features
 
 - Bench System & Safety: YAML-defined instrument ensembles; per-channel limits (voltage, current, amplitude, frequency) enforced at runtime by a `SafeInstrumentWrapper`; pre/post automation hooks map directly to shell/Python commands and instrument “macros” executed by the Bench automation engine.
-- Instrument Abstraction: Automatic profile-based instantiation; SCPI engine; command logging; backend polymorphism (VISA, Lamb, simulation, recording, replay).
+- Instrument Abstraction: Automatic profile-based instantiation; SCPI engine [@SCPI-1999]; command logging; backend polymorphism (VISA [@VPP-4_3; @VPP-4_3_2], Lamb [@labiium_i2mtc_2025], simulation, recording, replay).
 - Simulation Backend: YAML-driven state machine with regex/glob dispatch, sandboxed expressions, error queue emulation, artificial timing, deterministic behavior for CI.
 - Recording & Replay: Recording backend generates enriched simulation profile; replay backend enforces exact SCPI sequence (raises on divergence) ensuring regression fidelity.
 - MeasurementSession Builder:
@@ -55,8 +55,8 @@ PyTestLab addresses these gaps by coupling declarative bench specification (enab
 - Data & Analysis: `MeasurementResult` objects (scalar, array, waveform, DataFrame) with FFT and plotting convenience; experiment-level plotting.
 - Compliance Layer:
   * Measurement hashing and ECDSA signing
-  * Linked timestamp authority (hash chain)
-  * Audit trail (SQLite) binding envelopes to actions
+  * Linked timestamp authority (hash chain) [@ISOIEC-18014-3-2009; @HaberStornetta1991]
+  * Audit trail (SQLite [@SQLite]) binding envelopes to actions
   * Database persistence of envelopes for post‑hoc verification
 - Extensibility: Clear boundaries (config, backends, drivers, compliance patching); user override path for simulation profiles; minimal monkey patch surface.
 - Reproducibility & CI: Deterministic simulation plus replay => hardware‑free continuous integration, easier debugging of instrumentation logic.
@@ -65,14 +65,14 @@ PyTestLab addresses these gaps by coupling declarative bench specification (enab
 
 PyTestLab’s layered architecture separates “what to measure” from “how to communicate”:
 
-1. Configuration Layer: Pydantic-backed models [@pydantic] parse bench YAML, ensuring structural validation and enabling rich metadata (traceability, measurement plan, calibration references). Bench-defined safety limits are applied via a `SafeInstrumentWrapper` proxy, and automation hooks correspond to shell/Python commands and instrument macros that the bench executes in defined pre/post phases.
-2. Instrument Core: A generic `Instrument` base encapsulates SCPI operations, error queue handling, logging, communication timeouts, and binary block parsing; driver instances are created via an `AutoInstrument` factory selecting appropriate backend.
+1. Configuration Layer: Pydantic-backed models [@pydantic] parse bench YAML [@YAML-1.2.2], ensuring structural validation and enabling rich metadata (traceability, measurement plan, calibration references). Bench-defined safety limits are applied via a `SafeInstrumentWrapper` proxy, and automation hooks correspond to shell/Python commands and instrument macros that the bench executes in defined pre/post phases.
+2. Instrument Core: A generic `Instrument` base encapsulates SCPI operations [@SCPI-1999], error queue handling, logging, communication timeouts, and binary block parsing; driver instances are created via an `AutoInstrument` factory selecting appropriate backend.
 3. Backend Layer:
    - Simulation backend compiles SCPI dispatch tables (O(1) exact match + ordered regex fallback) and executes sandboxed state mutations.
    - Recording backend appends interaction logs and produces reproducible simulation profiles.
    - Replay backend enforces strict sequence determinism, supporting regression and audit scenarios.
 4. Measurement Layer: `MeasurementSession` orchestrates cartesian parameter sweeps or interval-timed loops with parallel threads for stimulus tasks (e.g. PSU ramping, load pulsing). Acquisition functions return mapping objects merged into a growing structured dataset.
-5. Data & Compliance: `MeasurementResult` is monkey‑patched at import to emit a signed envelope for every result. The envelope contains: the SHA‑256 of a canonicalized payload (sorted‑key JSON of instrument, measurement_type, units, values_sha256, timestamp), an ECDSA P‑256 signature over that hash, the PEM‑encoded public key, an algorithm identifier, and a signature timestamp. Envelopes are persisted as JSON sidecars and in the database. A minimal linked time‑stamp authority maintains an append‑only hash chain (tsa.json) where each token stores idx, ts, sha_prev, sha_data, and sha_cum, enabling ISO 18014‑3–style verification. An append‑only audit trail (SQLite) binds actor/action to each envelope hash and token index.
+5. Data & Compliance: `MeasurementResult` is monkey‑patched at import to emit a signed envelope for every result. The envelope contains: the SHA‑256 [@FIPS-180-4] of a canonicalized payload (sorted‑key JSON of instrument, measurement_type, units, values_sha256, timestamp), an ECDSA P‑256 signature [@FIPS-186-5; @SECG-SEC2-v2] over that hash, the PEM‑encoded public key, an algorithm identifier, and a signature timestamp. Envelopes are persisted as JSON sidecars and in the database. A minimal linked time‑stamp authority maintains an append‑only hash chain (tsa.json) where each token stores idx, ts, sha_prev, sha_data, and sha_cum, enabling ISO 18014‑3–style verification [@ISOIEC-18014-3-2009; @HaberStornetta1991]. An append‑only audit trail (SQLite [@SQLite]) binds actor/action to each envelope hash and token index.
 6. Analytics & Plotting: Lightweight wrappers centralize plotting semantics while deferring heavy analytics to established libraries.
 
 # Example Usage (Conceptual)
@@ -107,9 +107,9 @@ psu.set_voltage(1, 5.0)  # Raises if sequence diverges.
 # Reproducibility & Integrity
 
 - Deterministic Replay: Ensures that test scripts remain protocol-stable; any deviation indicates unintentional behavioral drift.
-- Cryptographic Envelopes: Each measurement result is hashed and signed; envelopes include public key, signature, algorithm, and timestamp.
-- Linked Time-Stamp Chain: Hash chaining of envelope digests produces a tamper-evident chronological ledger.
-- Audit Trail: Append-only records link actor, action, and envelope hash; chain verification supports compliance audits.
+- Cryptographic Envelopes: Each measurement result is hashed (SHA‑256 [@FIPS-180-4]) and signed (ECDSA P‑256 [@FIPS-186-5; @SECG-SEC2-v2]); envelopes include public key, signature, algorithm, and timestamp.
+- Linked Time-Stamp Chain: Hash chaining of envelope digests produces a tamper-evident chronological ledger [@ISOIEC-18014-3-2009; @HaberStornetta1991; @RFC3161].
+- Audit Trail: Append-only records (SQLite [@SQLite]) link actor, action, and envelope hash; chain verification supports compliance audits.
 
 ## Quality Assurance
 
@@ -145,7 +145,7 @@ The command-line entry point (pytestlab) exposes utilities for profile inspectio
 
 # Citations
 
-Inline citations refer to instrumentation, scientific Python, progress bars, uncertainty propagation, cryptography, DataFrame processing, and instrumentation tooling [@harris2020numpy; @hunter2007matplotlib; @tqdm; @uncertainties; @cryptography; @polars; @pyvisa; @pymeasure].
+Inline citations refer to instrumentation, scientific Python, progress bars, uncertainty propagation, cryptography, DataFrame processing, and instrumentation tooling [@harris2020numpy; @hunter2007matplotlib; @tqdm2019; @uncertainties; @cryptography; @polars; @pyvisa; @pymeasure].
 
 # Limitations & Future Work
 
