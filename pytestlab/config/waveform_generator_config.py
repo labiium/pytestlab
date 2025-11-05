@@ -7,6 +7,8 @@ including SCPI command requirements for various features and capabilities.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel
 from pydantic import Field
 
@@ -190,6 +192,10 @@ class WaveformGeneratorConfig(InstrumentConfig):
     """Configuration for Waveform Generator instruments."""
 
     model_config = {"arbitrary_types_allowed": True}
+
+    device_type: Literal["waveform_generator"] = Field(
+        "waveform_generator", description="Type of the device (waveform_generator)"
+    )
 
     channels: list[ChannelSpec] = Field(..., description="Channel specifications")
 

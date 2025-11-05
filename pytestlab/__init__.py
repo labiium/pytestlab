@@ -20,35 +20,17 @@ from ._log import get_logger
 from ._log import reinitialize_logging
 from ._log import set_log_level
 from .bench import Bench
-from .config import MultimeterConfig
-from .config import OscilloscopeConfig
-from .config import PowerSupplyConfig
-from .config import WaveformGeneratorConfig
 from .errors import InstrumentConfigurationError
 from .errors import InstrumentParameterError
 from .experiments import Experiment
 from .experiments import MeasurementResult
 from .instruments import AutoInstrument
-from .instruments import Multimeter
-from .instruments import Oscilloscope
-from .instruments import PowerSupply
-from .instruments import WaveformGenerator
 from .measurements.session import Measurement  # noqa: E402
 from .measurements.session import MeasurementSession  # noqa: E402
 
 # (Removed unused module-level logger; logging handled via set_log_level/get_logger)
 
 __all__ = [
-    # Config
-    "OscilloscopeConfig",
-    "MultimeterConfig",
-    "PowerSupplyConfig",
-    "WaveformGeneratorConfig",
-    # Instruments
-    "Oscilloscope",
-    "Multimeter",
-    "PowerSupply",
-    "WaveformGenerator",
     "AutoInstrument",
     # Experiments
     "Experiment",
