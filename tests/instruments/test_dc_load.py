@@ -31,8 +31,8 @@ Requires:
 import pytest
 from uncertainties import UFloat
 
+from pytestlab import AutoInstrument
 from pytestlab.errors import InstrumentParameterError
-from pytestlab.instruments import AutoInstrument
 from pytestlab.instruments import DCActiveLoad
 
 # ------------------- CONFIGURE THIS FOR YOUR LAB -------------------

@@ -26,7 +26,7 @@ import time
 
 import pytest
 
-from pytestlab.instruments import AutoInstrument
+from pytestlab import AutoInstrument
 
 # ------------------- CONFIGURE THESE FOR YOUR LAB -------------------
 PSU_CONFIG_KEY = "keysight/EDU36311A"

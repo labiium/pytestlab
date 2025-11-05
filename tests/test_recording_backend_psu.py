@@ -1,6 +1,6 @@
 import yaml
 
-from pytestlab.instruments import AutoInstrument
+from pytestlab import AutoInstrument
 from pytestlab.instruments.backends.recording_backend import RecordingBackend
 
 

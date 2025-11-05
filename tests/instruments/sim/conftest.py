@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from pytestlab.instruments import AutoInstrument
+from pytestlab import AutoInstrument
 from pytestlab.instruments.instrument import Instrument
 
 

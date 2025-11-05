@@ -56,7 +56,7 @@ pytestlab replay run my_measurement.py --session session.yaml
 You can also use replay mode programmatically:
 
 ```python
-from pytestlab.instruments import AutoInstrument
+from pytestlab import AutoInstrument
 from pytestlab.instruments.backends import ReplayBackend, SessionRecordingBackend, VisaBackend
 
 def record_session():

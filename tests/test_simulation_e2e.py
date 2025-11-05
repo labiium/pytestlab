@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from pytestlab.instruments import AutoInstrument
+from pytestlab import AutoInstrument
 
 
 @pytest.fixture

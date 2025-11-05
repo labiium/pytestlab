@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
+from pytestlab import AutoInstrument
 from pytestlab.errors import InstrumentParameterError
-from pytestlab.instruments import AutoInstrument
 
 # Use the built-in Keysight EDU33212A AWG profile for testing
 AWG_PROFILE_KEY = "keysight/EDU33212A"

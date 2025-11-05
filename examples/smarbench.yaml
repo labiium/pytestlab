@@ -1,0 +1,145 @@
+# Smart Test Bench Configuration
+# Complete bench setup with Oscilloscope, AWG, PSU, and DMM
+bench_name: "Smart Electronics Bench"
+description: "Comprehensive test bench with oscilloscope, waveform generator, power supply, and multimeter"
+version: "1.0.0"
+last_modified: "2024-11-04"
+
+experiment:
+    title: "Multi-Instrument Electronic Testing"
+    description: "Integrated testing environment for signal generation, measurement, and analysis"
+    operator: "Test Engineer"
+    date: "2024-11-04"
+    notes: |
+        Smart bench configuration for comprehensive electronic testing.
+        Includes waveform generation, power supply, oscilloscope capture, and precision measurements.
+
+# Set to true for simulation, false for real hardware
+simulate: false
+
+# Continue on errors
+continue_on_automation_error: true
+continue_on_instrument_error: false
+
+# Default backend configuration for all instruments
+backend_defaults:
+    type: "lamb"
+    url: "http://lamb-server:8000"
+    timeout_ms: 15000
+
+# Instrument definitions
+instruments:
+    # Keysight DSOX1204G Digital Oscilloscope
+    osc:
+        profile: "keysight/DSOX1204G"
+        description: "4-channel oscilloscope for signal capture and analysis"
+        # backend:
+        #     type: "lamb"
+        #     url: "http://lamb-server:8000"
+        #     timeout_ms: 15000
+        simulate: true
+
+    # Keysight EDU33212A Arbitrary Waveform Generator
+    awg:
+        profile: "keysight/EDU33212A"
+        description: "Dual-channel arbitrary waveform generator for signal generation"
+        backend:
+            type: "lamb"
+            url: "http://lamb-server:8000"
+            timeout_ms: 15000
+
+    # Keysight EDU36311A Triple Output Power Supply
+    psu:
+        profile: "keysight/EDU36311A"
+        description: "Triple output power supply for DUT power"
+        backend:
+            type: "lamb"
+            url: "http://lamb-server:8000"
+            timeout_ms: 15000
+        safety_limits:
+            channels:
+                1:
+                    voltage: { "max": 5.0 }
+                    current: { "max": 1.0 }
+                2:
+                    voltage: { "max": 12.0 }
+                    current: { "max": 0.5 }
+                3:
+                    voltage: { "max": -12.0, "min": -15.0 }
+                    current: { "max": 0.5 }
+
+    # Keysight EDU34450A Digital Multimeter
+    dmm:
+        profile: "keysight/EDU34450A"
+        description: "5.5 digit multimeter for precision measurements"
+        backend:
+            type: "lamb"
+            url: "http://lamb-server:8000"
+            timeout_ms: 15000
+
+# Custom validations for bench configuration
+custom_validations:
+    - "psu['safety_limits']['channels'][1]['voltage']['max'] <= 5.5"
+    - "psu['safety_limits']['channels'][1]['current']['max'] <= 2.0"
+    - "experiment['operator'] is not None"
+
+# Automation hooks for setup and teardown
+automation:
+    pre_experiment:
+        - "echo 'Initializing Smart Bench...'"
+        - "psu: output all OFF"
+        - "echo 'All instruments initialized safely'"
+
+    post_experiment:
+        - "echo 'Shutting down Smart Bench...'"
+        - "psu: output all OFF"
+        - "echo 'All outputs disabled - bench safe'"
+
+# Traceability and documentation
+traceability:
+    calibration:
+        osc: "CAL-OSC-2024-100 (expires 2025-11-01)"
+        awg: "CAL-AWG-2024-101 (expires 2025-11-01)"
+        psu: "CAL-PSU-2024-102 (expires 2025-10-15)"
+        dmm: "CAL-DMM-2024-103 (expires 2025-12-01)"
+    environment:
+        temperature: 22.0
+        humidity: 45.0
+    dut:
+        serial_number: "DUT-PROTO-001"
+        description: "Electronic device under test"
+
+# Measurement plan
+measurement_plan:
+    - name: "Signal Generation Test"
+      instrument: "awg"
+      probe_location: "DUT input"
+      settings:
+          function: "SINE"
+          frequency: 1000.0
+          amplitude: 1.0
+      notes: "Generate 1kHz sine wave"
+
+    - name: "Voltage Measurement"
+      instrument: "dmm"
+      probe_location: "DUT power rail"
+      settings:
+          function: "DC_VOLTAGE"
+          range: "10V"
+      notes: "Measure supply voltage"
+
+    - name: "Waveform Capture"
+      instrument: "osc"
+      probe_location: "DUT output"
+      settings:
+          timebase: "1ms/div"
+          voltage_range: "1V/div"
+      notes: "Capture output waveform"
+
+    - name: "Power Supply Setup"
+      instrument: "psu"
+      probe_location: "DUT Vdd"
+      settings:
+          voltage: 3.3
+          current: 0.5
+      notes: "Set 3.3V supply"

@@ -1,6 +1,6 @@
 import time
 
-from pytestlab.instruments import AutoInstrument
+from pytestlab import AutoInstrument
 from pytestlab.instruments import PowerSupply
 
 

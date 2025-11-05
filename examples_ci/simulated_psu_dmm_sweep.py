@@ -3,9 +3,10 @@
 import numpy as np
 import pytest  # If using pytest markers
 
+from pytestlab import AutoInstrument
+
 # Assuming Pydantic models for config are preferred over dicts now
 from pytestlab.config.power_supply_config import PowerSupplyConfig  # Adjust as per actual model
-from pytestlab.instruments import AutoInstrument
 
 # Minimal Pydantic configs for simulation
 PSU_CFG_DATA = {

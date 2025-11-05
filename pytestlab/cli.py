@@ -1,4 +1,6 @@
 # pytestlab/cli.py
+from __future__ import annotations
+
 import code
 import difflib
 import importlib.util  # For finding profile paths
@@ -6,7 +8,9 @@ import os
 import shutil
 import sys
 import types  # For creating a simple namespace for the replay bench
+from importlib import metadata
 from pathlib import Path
+from typing import TYPE_CHECKING
 from typing import Annotated
 from typing import Any
 from typing import cast
@@ -18,27 +22,27 @@ from rich.markup import escape as rich_escape
 from rich.syntax import Syntax
 from rich.table import Table
 
-# Import version for CLI
-from pytestlab import __version__
-from pytestlab.bench import Bench
+if TYPE_CHECKING:
+    pass
 
-# For bench commands (anticipating section 6.2)
-from pytestlab.config.bench_config import BenchConfigExtended
 
-# Assuming these imports are valid after recent refactors
-from pytestlab.config.loader import load_profile
-from pytestlab.config.loader import resolve_profile_key_to_path
-from pytestlab.config.schema_validator import SchemaValidator
-from pytestlab.instruments import AutoInstrument
-from pytestlab.instruments.backends.recording_backend import RecordingBackend
-from pytestlab.instruments.backends.replay_backend import ReplayBackend
-from pytestlab.instruments.backends.session_recording_backend import SessionRecordingBackend
-from pytestlab.instruments.instrument import InstrumentIO
+def _get_version() -> str:
+    try:
+        return metadata.version("pytestlab")
+    except metadata.PackageNotFoundError:
+        try:
+            from pytestlab import __version__ as fallback_version
+
+            return fallback_version
+        except Exception:
+            return "unknown"
+    except Exception:
+        return "unknown"
 
 
 def version_callback(value: bool):
     if value:
-        rich.print(f"PyTestLab version {__version__}")
+        rich.print(f"PyTestLab version {_get_version()}")
         raise typer.Exit()
 
 
@@ -93,6 +97,8 @@ def sim_profile_edit(
     profile_key: Annotated[str, typer.Argument(help="Profile key (e.g., keysight/DSOX1204G).")],
 ):
     """Opens the user's override profile in their default text editor."""
+    from pytestlab.config.loader import resolve_profile_key_to_path
+
     try:
         official_path = resolve_profile_key_to_path(profile_key)
         override_path = get_user_override_path(profile_key)
@@ -141,6 +147,8 @@ def sim_profile_reset(profile_key: Annotated[str, typer.Argument(help="Profile k
 @sim_profile_app.command("diff")
 def sim_profile_diff(profile_key: Annotated[str, typer.Argument(help="Profile key to compare.")]):
     """Shows a diff between the user's override and the official profile."""
+    from pytestlab.config.loader import resolve_profile_key_to_path
+
     try:
         official_path = resolve_profile_key_to_path(profile_key)
         override_path = get_user_override_path(profile_key)
@@ -201,6 +209,11 @@ def sim_profile_record(
     ] = False,
 ):
     """Records instrument interactions to create a simulation profile."""
+    from pytestlab.config.loader import load_profile
+    from pytestlab.instruments.AutoInstrument import AutoInstrument
+    from pytestlab.instruments.backends.recording_backend import RecordingBackend
+    from pytestlab.instruments.instrument import InstrumentIO
+
     instrument = None
     final_output_path = output_path  # Ensure defined even if an early exception occurs
     try:
@@ -334,6 +347,8 @@ def show_profile(
     ],
 ):
     """Shows the content of a specific instrument profile."""
+    from pytestlab.config.loader import resolve_profile_key_to_path
+
     try:
         profile_path = Path(profile_key_or_path)
         if not profile_path.is_file():
@@ -367,6 +382,8 @@ def validate_profiles(
     ],
 ):
     """Validates YAML profiles against their corresponding Pydantic models."""
+    from pytestlab.config.loader import load_profile
+
     if not profiles_path.exists():
         rich.print(f"[bold red]Error: Path '{profiles_path}' does not exist.[/bold red]")
         raise typer.Exit(code=1)
@@ -425,6 +442,8 @@ def profile_schema(
     ] = False,
 ):
     """Outputs the JSON schema for a given instrument type."""
+    from pytestlab.config.schema_validator import SchemaValidator
+
     try:
         validator = SchemaValidator()
         schema = validator.get_instrument_schema(instrument_type, format_output=not no_format)
@@ -453,6 +472,8 @@ def profile_schema_info(
     ],
 ):
     """Shows information about a schema without the full content."""
+    from pytestlab.config.schema_validator import SchemaValidator
+
     try:
         validator = SchemaValidator()
         info = validator.get_schema_info(instrument_type)
@@ -494,6 +515,8 @@ def profile_validate_schema(
         rich.print(f"[bold red]Error: YAML file not found: {yaml_file}[/bold red]")
         raise typer.Exit(code=1) from None
 
+    from pytestlab.config.schema_validator import SchemaValidator
+
     try:
         validator = SchemaValidator()
         result = validator.validate_yaml_profile(yaml_file, instrument_type)
@@ -528,6 +551,8 @@ def profile_validate_schema(
 @profile_app.command("list-schemas")
 def profile_list_schemas():
     """Lists all supported instrument types and their aliases."""
+    from pytestlab.config.schema_validator import SchemaValidator
+
     try:
         validator = SchemaValidator()
         instruments = validator.list_supported_instruments()
@@ -569,6 +594,9 @@ def instrument_idn(
     simulate: Annotated[bool, typer.Option(help="Run in simulation mode.")] = False,
 ):
     """Connects to an instrument and prints its *IDN? response."""
+    from pytestlab.config.loader import load_profile
+    from pytestlab.instruments.AutoInstrument import AutoInstrument
+
     instrument = None  # Initialize instrument to None
     try:
         inst_config_model = load_profile(profile_key_or_path)
@@ -723,6 +751,8 @@ def instrument_test(
 @bench_app.command("ls")
 def bench_ls(bench_yaml_path: Annotated[Path, typer.Argument(help="Path to the bench.yaml file.")]):
     """Lists instruments in a bench configuration."""
+    from pytestlab.config.bench_config import BenchConfigExtended
+
     try:
         with open(bench_yaml_path) as f:
             data = yaml.safe_load(f)
@@ -766,6 +796,9 @@ def bench_validate_cli(
     bench_yaml_path: Annotated[Path, typer.Argument(help="Path to the bench.yaml file.")],
 ):
     """Validates a bench configuration file (dry-run)."""
+    from pytestlab.config.bench_config import BenchConfigExtended
+    from pytestlab.config.loader import load_profile
+
     try:
         with open(bench_yaml_path) as f:
             data = yaml.safe_load(f)
@@ -814,6 +847,8 @@ def bench_id_cli(
     bench_yaml_path: Annotated[Path, typer.Argument(help="Path to the bench.yaml file.")],
 ):
     """Connects to real instruments in a bench and prints their *IDN? responses."""
+    from pytestlab.bench import Bench
+
     bench = None
     try:
         bench = Bench.open(bench_yaml_path)
@@ -867,6 +902,8 @@ def bench_sim_cli(
     ] = None,
 ):
     """Converts a bench descriptor to full simulation mode."""
+    from pytestlab.config.bench_config import BenchConfigExtended
+
     try:
         with open(bench_yaml_path) as f:
             data = yaml.safe_load(f)
@@ -924,6 +961,9 @@ def replay_record(
     ],
 ):
     """Records a measurement session by running a script against a real bench."""
+    from pytestlab.bench import Bench
+    from pytestlab.instruments.backends.session_recording_backend import SessionRecordingBackend
+
     rich.print("[bold cyan]Starting recording session...[/bold cyan]")
     rich.print(f"Bench Config: {bench_config}")
     rich.print(f"Script: {script}")
@@ -980,6 +1020,9 @@ def replay_run(
     ],
 ):
     """Replays a recorded measurement session against a simulated bench."""
+    from pytestlab.instruments.AutoInstrument import AutoInstrument
+    from pytestlab.instruments.backends.replay_backend import ReplayBackend
+
     if isinstance(script, str):
         script = Path(script)
     if isinstance(session, str):
@@ -1059,6 +1102,8 @@ def run_command(
     ] = None,
 ):
     """Execute a measurement script against a bench configuration."""
+    from pytestlab.bench import Bench
+
     rich.print("[bold cyan]Running measurement script...[/bold cyan]")
     rich.print(f"Script: {script}")
     rich.print(f"Bench Config: {bench_config}")

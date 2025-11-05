@@ -26,8 +26,8 @@ Requires:
 import pytest
 from uncertainties.core import UFloat
 
+from pytestlab import AutoInstrument
 from pytestlab.config.multimeter_config import DMMFunction
-from pytestlab.instruments import AutoInstrument
 
 # ------------------- CONFIGURE THESE FOR YOUR LAB -------------------
 MM_CONFIG_KEY = "keysight/EDU34450A"
