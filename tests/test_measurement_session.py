@@ -43,5 +43,18 @@ def test_vector_return():
             return {"vec": np.arange(3) + idx}
 
     df = m.run(show_progress=False).data
-    assert df["vec"][0].tolist() == [0, 1, 2]
-    assert df["vec"][1].tolist() == [1, 2, 3]
+    first_vec = df["vec"][0]
+    second_vec = df["vec"][1]
+
+    def _to_list(value):
+        if hasattr(value, "to_list"):
+            return value.to_list()
+        if hasattr(value, "tolist"):
+            return value.tolist()
+        return list(value)
+
+    first_list = _to_list(first_vec)
+    second_list = _to_list(second_vec)
+
+    assert first_list == [0, 1, 2]
+    assert second_list == [1, 2, 3]
