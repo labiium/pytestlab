@@ -141,7 +141,10 @@ def test_real_instruments_recording():
     session_file = record_real_instruments_session()
     if session_file is None:
         pytest.skip("Recording failed; see log for details")
-    assert session_file.exists()
+    try:
+        assert session_file.exists()
+    finally:
+        session_file.unlink(missing_ok=True)
 
 
 def test_replay_session(session_file: Path):

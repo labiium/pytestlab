@@ -478,27 +478,18 @@ class Bench:
 
         # Close all instrument connections
         logger.debug("Closing instrument connections")
-        close_tasks = [
-            inst.close() for inst in self._instrument_instances.values() if hasattr(inst, "close")
-        ]
-
-        if close_tasks:
-            results = []
-            for task in close_tasks:
+        errors: list[Exception] = []
+        for inst in self._instrument_instances.values():
+            if hasattr(inst, "close"):
                 try:
-                    if callable(task):
-                        result = task()
-                    else:
-                        result = task
-                    results.append(result)
-                except Exception as e:
-                    results.append(e)
-            errors = [r for r in results if isinstance(r, Exception)]
-            if errors:
-                logger.error(f"Errors during instrument cleanup: {errors}")
-                logger.error(f"{len(errors)} errors occurred while closing instruments")
-                for err in errors:
-                    logger.error(f"Instrument close error: {str(err)}")
+                    inst.close()
+                except Exception as exc:  # pragma: no cover - defensive logging
+                    errors.append(exc)
+
+        if errors:
+            logger.error(f"{len(errors)} errors occurred while closing instruments")
+            for err in errors:
+                logger.error(f"Instrument close error: {str(err)}")
 
     def health_check(self) -> dict[str, HealthReport]:
         """Run health checks on all instruments that support it.

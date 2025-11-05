@@ -1289,15 +1289,42 @@ def main():
     if "sim-profile" in sys.argv and "record" in sys.argv:
         from pytestlab.cli import sim_profile_record
 
-        kwargs = {}
-        for i, arg in enumerate(sys.argv):
-            if arg.startswith("--"):
-                if i + 1 < len(sys.argv) and not sys.argv[i + 1].startswith("--"):
-                    kwargs[arg[2:].replace("-", "_")] = sys.argv[i + 1]
-                else:
-                    kwargs[arg[2:].replace("-", "_")] = True
+        if len(sys.argv) < 4:
+            rich.print("[bold red]Error: Missing profile key for sim-profile record.[/bold red]")
+            raise typer.Exit(code=1)
 
-        sim_profile_record(profile_key=sys.argv[3], **kwargs)
+        address: str | None = None
+        output_path: Path | None = None
+        script: Path | None = None
+        simulate_flag = False
+        idx = 0
+        while idx < len(sys.argv):
+            arg = sys.argv[idx]
+            if arg == "--address" and idx + 1 < len(sys.argv):
+                address = sys.argv[idx + 1]
+                idx += 1
+            elif arg == "--output-path" and idx + 1 < len(sys.argv):
+                output_path = Path(sys.argv[idx + 1])
+                idx += 1
+            elif arg == "--script" and idx + 1 < len(sys.argv):
+                script = Path(sys.argv[idx + 1])
+                idx += 1
+            elif arg == "--simulate":
+                value: bool = True
+                if idx + 1 < len(sys.argv) and not sys.argv[idx + 1].startswith("--"):
+                    simulate_arg = sys.argv[idx + 1].lower()
+                    value = simulate_arg not in {"0", "false", "no"}
+                    idx += 1
+                simulate_flag = value
+            idx += 1
+
+        sim_profile_record(
+            profile_key=sys.argv[3],
+            address=address,
+            output_path=output_path,
+            script=script,
+            simulate=simulate_flag,
+        )
     elif "replay" in sys.argv and ("record" in sys.argv or "run" in sys.argv):
         if "record" in sys.argv:
             from pytestlab.cli import replay_record
