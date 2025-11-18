@@ -24,6 +24,12 @@
      src="https://img.shields.io/badge/docs-latest-blue"/></a>
   <a href="https://opensource.org/licenses/Apache-2.0"><img alt="Apache License"
         src="https://img.shields.io/badge/license-Apache%202.0-blue"/></a>
+  <a href="https://github.com/labiium/pytestlab/actions/workflows/test.yml"><img
+     alt="Tests"
+     src="https://github.com/labiium/pytestlab/actions/workflows/test.yml/badge.svg"/></a>
+  <a href="https://codecov.io/gh/labiium/pytestlab"><img
+     alt="Coverage"
+     src="https://codecov.io/gh/labiium/pytestlab/branch/master/graph/badge.svg"/></a>
 </p>
 
 ---
@@ -120,6 +126,18 @@ pytestlab replay run my_measurement.py --session session.yaml
 ```
 
 Perfect for reproducible measurements, offline analysis, and catching script changes!
+
+### 5. Run the Tests
+
+The CI matrix runs `pytest` on Ubuntu for Python 3.11 - 3.14 (see the badges above).  
+Replicate the same checks locally with the dev extras installed:
+
+```bash
+pip install -e .[dev]
+pytest tests/ --cov=pytestlab
+```
+
+The suite writes `coverage.xml`, which the workflow uploads to Codecov for the coverage badge.
 
 ---
 

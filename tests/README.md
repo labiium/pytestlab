@@ -1,207 +1,114 @@
 # PyTestLab Test Suite
 
-This directory contains the comprehensive test suite for PyTestLab, organized into logical categories for maintainability and clarity.
+This directory hosts every automated check used to keep PyTestLab stable, from
+unit-level utilities to end-to-end session replay tests. The same commands run
+locally and in CI (`.github/workflows/test.yml`), so reproducing failures is
+easy once you know how things are wired up.
 
-## 📁 Directory Structure
-
-### Core Test Categories
+## Layout & Focus Areas
 
 ```
 tests/
-├── conftest.py                    # Shared fixtures and test configuration
-├── instruments/                   # Instrument-specific tests
-├── experiments/                   # Experiment and measurement tests
-├── config/                       # Configuration and validation tests
-├── unit/                         # Unit tests for core functionality
-├── smoke/                        # Smoke tests for basic functionality
-└── test_*.py                     # Integration and system-level tests
+├── conftest.py                  # Shared fixtures and AutoInstrument patches
+├── instruments/                 # Instrument drivers, benches and backend sims
+│   ├── sim/                     # Simulation profiles (e.g. DSOX1204G_sim.yaml)
+│   └── acquisition_test_results/# Logged traces used by oscilloscope tests
+├── experiments/                 # Measurement session + database scenarios
+├── plotting/                    # Plotly/Matplotlib result rendering guards
+├── smoke/                       # Cheap profile-loading regression tests
+├── unit/                        # Pure-python helpers, schema and SCPI utilities
+├── README.md                    # This guide
+└── test_*.py                    # CLI, safety, replay and other integration tests
 ```
 
-### Test Organization
+Key root-level tests:
+- `test_cli.py` / `test_cli_replay.py` – exercise the `pytestlab` CLI surface.
+- `test_compliance.py`, `test_logging.py`, `test_warnings.py` – audit, logging
+  and warning flows.
+- `test_measurement_database.py`, `test_measurement_session.py` – database and
+  session builders.
+- `test_recording_backend_psu.py`, `test_replay_backend.py`,
+  `test_session_recording_backend.py`, `test_simulation_e2e.py` – record/replay
+  and pure simulation paths.
 
-#### **`instruments/`** - Instrument Tests
-Contains tests for all instrument drivers and backends:
-- `test_awg.py` - Arbitrary Waveform Generator tests
-- `test_bench.py` - Bench system integration tests
-- `test_dc_load.py` - DC Electronic Load tests
-- `test_multimeter.py` - Digital Multimeter tests
-- `test_oscilloscope.py` - Oscilloscope tests
-- `test_psu.py` - Power Supply Unit tests
-- `sim/` - Simulation-specific tests and profiles
+## How Tests Work
 
-#### **`experiments/`** - Experiment Framework Tests
-Tests for the measurement and experiment framework:
-- `test_database.py` - Experiment database tests
-- `test_experiment.py` - Core experiment functionality
-- `test_compliance.py` - Compliance and audit tests
-- `test_result.py` - Measurement result handling
+### Simulation-First Fixtures
 
-#### **`config/`** - Configuration Tests
-Tests for configuration loading and validation:
-- `test_config_models_hypothesis.py` - Property-based config testing
+`tests/conftest.py` keeps the suite hardware-free by default:
+- An `autouse` fixture patches `AutoInstrument.__init__` so stray imports do not
+  talk to VISA or Lamb servers.
+- `sim_scope` loads `tests/instruments/sim/DSOX1204G_sim.yaml` with the
+  `SimBackend` once per module, enabling deterministic oscilloscope traces.
+- `temp_profile_file`, `temp_session_file`, and `tmp_db_file` provide disposable
+  YAML/SQLite artifacts for profile validation, replay, and database tests.
+- `simple_experiment` builds a pre-populated `Experiment` for result tests.
 
-#### **`unit/`** - Unit Tests
-Isolated unit tests for core components:
-- `test_instrument_helpers.py` - Instrument utility functions
-- `test_instrument_error_handling.py` - Error handling mechanisms
+For features that need realistic SCPI logs, we ship canned recordings such as
+`tests/experiments/recorded_psu_sim.yaml` and fixtures under
+`tests/instruments/acquisition_test_results/`.
 
-#### **`smoke/`** - Smoke Tests
-Basic functionality verification:
-- `test_profile_loading.py` - Profile loading smoke tests
+### Hardware-Gated Tests
 
-#### **Root Level Tests** - Integration & System Tests
-- `test_cli.py` - Command-line interface tests
-- `test_safety.py` - Safety system tests
-- `test_uncertainty.py` - Measurement uncertainty tests
-- `test_logging.py` - Logging system tests
-- `test_replay_backend.py` - Replay functionality tests
-- `test_session_recording_backend.py` - Session recording tests
-- `test_measurement_session.py` - Measurement session tests
-- `test_autoinstrument_backend_override.py` - Backend override tests
+Instrument acceptance tests under `tests/instruments/` are decorated with the
+`requires_real_hw` marker. They show the expected SCPI sequences and limits, but
+are skipped unless you opt in (see below) or wire physical gear during manual
+runs.
 
-## 🧪 Running Tests
+## Running the Suite
 
-### Run All Tests
-```bash
-pytest tests/
-```
-
-### Run Specific Test Categories
-```bash
-# Instrument tests only
-pytest tests/instruments/
-
-# Experiment tests only
-pytest tests/experiments/
-
-# Unit tests only
-pytest tests/unit/
-
-# Smoke tests only
-pytest tests/smoke/
-```
-
-### Run Tests by Markers
-```bash
-# Tests that require real hardware
-pytest -m requires_real_hw
-
-# CI-friendly examples (simulation only)
-pytest -m ci_example
-
-# Skip hardware tests
-pytest -m "not requires_real_hw"
-```
-
-### Run Specific Test Files
-```bash
-# Single test file
-pytest tests/instruments/test_psu.py
-
-# Multiple test files
-pytest tests/test_safety.py tests/test_uncertainty.py
-```
-
-## 🏷️ Test Markers
-
-The test suite uses the following pytest markers:
-
-- **`requires_real_hw`** - Tests that need actual hardware instruments
-- **`ci_example`** - Examples designed for CI environments (simulation only)
-
-## 🔧 Test Configuration
-
-### Fixtures
-The `conftest.py` file provides shared fixtures:
-- `sim_scope` - Simulated oscilloscope instance
-- `temp_profile_file` - Temporary instrument profile for testing
-- `temp_session_file` - Temporary session file for replay tests
-- `tmp_db_file` - Temporary database file
-- `simple_experiment` - Basic experiment instance
-
-### Simulation Mode
-Most tests run in simulation mode by default to avoid requiring real hardware. Tests that need real instruments are marked with `requires_real_hw`.
-
-## 📊 Test Coverage
-
-The test suite covers:
-- ✅ All instrument drivers (PSU, DMM, Oscilloscope, AWG, DC Load)
-- ✅ Bench system integration
-- ✅ Measurement sessions and parameter sweeps
-- ✅ Experiment database and persistence
-- ✅ Safety limit enforcement
-- ✅ Configuration loading and validation
-- ✅ CLI functionality
-- ✅ Backend systems (VISA, Simulation, Replay)
-- ✅ Error handling and logging
-- ✅ Measurement uncertainty propagation
-
-## 📝 Writing New Tests
-
-When adding new tests:
-
-1. **Choose the right location**:
-   - Instrument-specific → `instruments/`
-   - Experiment-related → `experiments/`
-   - Core functionality → `unit/`
-   - Integration → root level
-
-2. **Use appropriate markers**:
-   ```python
-   @pytest.mark.requires_real_hw
-   def test_real_hardware_function():
-       pass
+1. Install PyTestLab with the development extras (same as CI):
+   ```bash
+   pip install -e ".[dev]"
    ```
-
-3. **Follow synchronous patterns**:
-   ```python
-   def test_sync_function():
-       instrument = AutoInstrument.from_config("profile")
-       instrument.connect_backend()
-       result = instrument.measure_voltage()  # No await
-       assert result.values > 0
+2. Run everything with coverage (mirrors the workflow job):
+   ```bash
+   pytest tests/ --cov=pytestlab --cov-report=xml
    ```
+   The run emits `coverage.xml`, which the GitHub Action uploads to Codecov for
+   the coverage badge in the root README.
 
-4. **Use simulation by default**:
-   ```python
-   def test_simulated_measurement():
-       instrument = AutoInstrument.from_config("profile", simulate=True)
-       # Test logic here
-   ```
+### Useful Targets
 
-## 🐛 Debugging Tests
-
-### Verbose Output
 ```bash
-pytest tests/ -v
-```
-
-### Show Print Statements
-```bash
-pytest tests/ -s
-```
-
-### Run Failed Tests Only
-```bash
-pytest tests/ --lf
-```
-
-### Debug with PDB
-```bash
-pytest tests/ --pdb
-```
-
-## 📈 Continuous Integration
-
-The test suite is designed to work in CI environments:
-- Uses simulation by default
-- Hardware tests are marked and can be skipped
-- Fast execution for quick feedback
-- Comprehensive coverage for reliability
-
-For CI, run:
-```bash
+# Fast checks – skip real hardware paths
 pytest tests/ -m "not requires_real_hw"
+
+# Only hardware validation (when instruments are wired up)
+pytest tests/ -m requires_real_hw
+
+# Specific areas
+pytest tests/instruments/                 # all instrument suites
+pytest tests/experiments/test_database.py # single file
+pytest tests/unit -k schema               # subset by keyword
 ```
 
-This ensures only simulation-based tests run in CI environments where real hardware is not available.
+Pytest options such as `-vv`, `-s`, `--lf`, or `--pdb` all work as usual.
+
+## Markers & Pytest Config
+
+Defined in `pytest.ini`:
+- `requires_real_hw` – opt-in tests that expect actual instruments/benches.
+- `ci_example` – placeholder for doctest-like examples that must stay CI-safe
+  (the marker keeps pytest from warning when it appears in future tests).
+
+Apply them with `pytest -m requires_real_hw` or `pytest -m "not ci_example"`.
+
+## Continuous Integration
+
+`.github/workflows/test.yml` runs `pytest tests/ --cov=pytestlab --cov-report=xml`
+on Ubuntu for Python 3.11 - 3.14. If you match the commands above you replicate
+the exact matrix locally. Coverage uploads use `codecov/codecov-action@v4` and
+feed the badge linked from the main README.
+
+## Writing New Tests
+
+1. Pick the closest folder (unit, instruments, experiments, plotting, smoke).
+2. Prefer simulation fixtures; add `@pytest.mark.requires_real_hw` only when a
+   device is indispensable.
+3. Reuse helpers from `conftest.py` (tmp files, experiments, simulated scopes).
+4. Keep CLI and workflow parity—if a test needs additional data files, add them
+   under `tests/<area>/` and reference them by relative path.
+
+Follow these conventions and every new test will run identically on laptops,
+hardware benches, and CI.
