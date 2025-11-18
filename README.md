@@ -27,9 +27,6 @@
   <a href="https://github.com/labiium/pytestlab/actions/workflows/test.yml"><img
      alt="Tests"
      src="https://github.com/labiium/pytestlab/actions/workflows/test.yml/badge.svg"/></a>
-  <a href="https://codecov.io/gh/labiium/pytestlab"><img
-     alt="Coverage"
-     src="https://codecov.io/gh/labiium/pytestlab/branch/master/graph/badge.svg"/></a>
 </p>
 
 ---
