@@ -202,7 +202,7 @@ This notebook demonstrates PyTestLab's capabilities in a professional, reproduci
             "import polars as pl",
             "",
             "# PyTestLab core imports",
-            "from pytestlab.instruments import AutoInstrument",
+            "from pytestlab import AutoInstrument",
             "from pytestlab.measurements import MeasurementSession",
             "from pytestlab.experiments import Experiment",
             "",

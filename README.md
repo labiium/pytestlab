@@ -66,7 +66,7 @@ pip install pytestlab[full]     # + plotting, uncertainties, etc.
 ### 2. Hello Oscilloscope (simulated)
 
 ```python
-from pytestlab.instruments import AutoInstrument
+from pytestlab import AutoInstrument
 
 def main():
     scope = AutoInstrument.from_config("keysight/DSOX1204G", simulate=True)
@@ -171,7 +171,7 @@ pytestlab replay run voltage_sweep.py --session sweep_session.yaml
 
 #### Programmatic Usage
 ```python
-from pytestlab.instruments import AutoInstrument
+from pytestlab import AutoInstrument
 from pytestlab.instruments.backends import ReplayBackend
 
 def main():
@@ -288,7 +288,7 @@ with MeasurementSession("Quick Session") as session:
 
 ### Oscilloscope example – Keysight DSOX1204G (simulated)
 ```python
-from pytestlab.instruments import AutoInstrument
+from pytestlab import AutoInstrument
 from pytestlab.plotting import PlotSpec
 
 scope = AutoInstrument.from_config("keysight/DSOX1204G", simulate=True)
@@ -310,7 +310,7 @@ PyTestLab features a fluent, chainable API that makes instrument control code cl
 
 ### Power Supply Example
 ```python
-from pytestlab.instruments import AutoInstrument
+from pytestlab import AutoInstrument
 
 psu = AutoInstrument.from_config("keysight/E36312A")
 
@@ -623,7 +623,7 @@ PyTestLab provides built-in compliance features for regulated environments:
 ### Automatic Measurement Signing
 ```python
 # Compliance features are automatically enabled
-from pytestlab.instruments import AutoInstrument
+from pytestlab import AutoInstrument
 
 dmm = AutoInstrument.from_config("keysight/34470A")
 dmm.connect_backend()

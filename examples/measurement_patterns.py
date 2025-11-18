@@ -8,8 +8,8 @@ import time
 import numpy as np
 
 import pytestlab
+from pytestlab import AutoInstrument
 from pytestlab.exceptions import SafetyLimitError
-from pytestlab.instruments import AutoInstrument
 from pytestlab.measurements import MeasurementSession
 
 

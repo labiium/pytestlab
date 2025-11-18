@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from pytestlab.instruments import AutoInstrument
+from pytestlab import AutoInstrument
 from pytestlab.instruments.backends.replay_backend import ReplayBackend
 from pytestlab.instruments.backends.session_recording_backend import SessionRecordingBackend
 
@@ -70,13 +70,14 @@ def session_file():
         session_file.unlink()
 
 
-def test_real_instruments_recording():
-    """Test recording with real PSU and oscilloscope via LAMB backend."""
+def record_real_instruments_session() -> Path | None:
+    """Record a real-instrument session via LAMB, returning the output path if successful."""
+
     print("Testing real instrument recording with LAMB backend...")
 
     # Session log for recording
-    psu_log = []
-    osc_log = []
+    psu_log: list[dict[str, object]] = []
+    osc_log: list[dict[str, object]] = []
     psu = None
     osc = None
 
@@ -119,7 +120,7 @@ def test_real_instruments_recording():
 
         return session_file
 
-    except Exception as e:
+    except Exception as e:  # pragma: no cover - diagnostic path
         print(f"✗ Error during recording: {e}")
         import traceback
 
@@ -133,6 +134,17 @@ def test_real_instruments_recording():
                 osc.close()
         except Exception:
             pass
+
+
+def test_real_instruments_recording():
+    """Test recording with real PSU and oscilloscope via LAMB backend."""
+    session_file = record_real_instruments_session()
+    if session_file is None:
+        pytest.skip("Recording failed; see log for details")
+    try:
+        assert session_file.exists()
+    finally:
+        session_file.unlink(missing_ok=True)
 
 
 def test_replay_session(session_file: Path):
@@ -310,7 +322,7 @@ def main():
     print("=" * 50)
 
     # Step 1: Record with real instruments
-    session_file = test_real_instruments_recording()
+    session_file = record_real_instruments_session()
     if not session_file:
         print("✗ Recording failed, cannot continue with replay tests")
         return 1

@@ -48,7 +48,7 @@ with MeasurementSession("Quick Session") as session:
 
 ### Oscilloscope: Keysight DSOX1204G
 ```python
-from pytestlab.instruments import AutoInstrument
+from pytestlab import AutoInstrument
 from pytestlab.plotting import PlotSpec
 
 scope = AutoInstrument.from_config("keysight/DSOX1204G", simulate=True)

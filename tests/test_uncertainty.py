@@ -7,7 +7,7 @@ from uncertainties import ufloat
 from pytestlab.config.accuracy import AccuracySpec
 from pytestlab.experiments.results import MeasurementResult
 
-# from pytestlab.instruments import AutoInstrument # If testing end-to-end with a sim instrument
+# from pytestlab import AutoInstrument # If testing end-to-end with a sim instrument
 
 # Dummy config for an instrument that will use uncertainty
 # This assumes the instrument's Pydantic config model (e.g., MultimeterConfig)
@@ -50,8 +50,8 @@ def test_driver_returns_ufloat_with_sim():
     from unittest.mock import Mock
     from unittest.mock import patch
 
+    from pytestlab import AutoInstrument
     from pytestlab.config.multimeter_config import MultimeterConfig
-    from pytestlab.instruments import AutoInstrument
 
     # Create a mock config with measurement accuracy
     mock_config = MultimeterConfig(

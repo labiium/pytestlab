@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import warnings
 from dataclasses import dataclass
 from io import BytesIO
@@ -747,6 +748,45 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         :param scale: scale The scale of the axis in seconds
         :param position: The position of the time axis from the trigger in seconds
         """
+        timebase_range = None
+        # Prefer explicit timebase settings, fall back to first channel metadata.
+        timebase_settings = getattr(self.config, "timebase_settings", None)
+        if timebase_settings is not None:
+            tb_range = getattr(timebase_settings, "range", None)
+            if tb_range is not None:
+                timebase_range = tb_range
+        elif self.config.channels:
+            first_channel = self.config.channels[0]
+            channel_tb = getattr(first_channel, "timebase", None)
+            timebase_range = getattr(channel_tb, "range", None)
+
+        if not math.isfinite(scale):
+            valid_range = None
+            if timebase_range is not None:
+                valid_range = (timebase_range.min_val, timebase_range.max_val)
+            raise InstrumentParameterError(
+                parameter="scale",
+                value=scale,
+                valid_range=valid_range,
+                message="Scale must be a finite value.",
+            )
+        if timebase_range is not None:
+            timebase_range.assert_in_range(scale, "scale")
+        elif scale <= 0:
+            raise InstrumentParameterError(
+                parameter="scale",
+                value=scale,
+                valid_range=(0.0, math.inf),
+                message="Scale must be greater than zero.",
+            )
+
+        if not math.isfinite(position):
+            raise InstrumentParameterError(
+                parameter="position",
+                value=position,
+                message="Position must be a finite value.",
+            )
+
         for cmd in self.scpi_engine.build("set_time_axis", scale=scale, position=position):
             self._send_command(cmd)
         self._wait()

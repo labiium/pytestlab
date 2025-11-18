@@ -2,78 +2,82 @@
 pytestlab – scientific measurement toolbox
 =========================================
 
-This file now **re-exports** the new high-level measurement builder so that
-users can simply write
-
->>> from pytestlab import Measurement
-
-or
-
->>> from pytestlab.measurements import Measurement
+This package exposes a rich measurement API while keeping import-time side
+effects to a minimum. Public attributes are loaded on demand so that lightweight
+operations (like invoking the CLI) do not pay the cost of the full measurement
+stack until those objects are actually needed.
 """
+
+from __future__ import annotations
+
+from importlib import import_module
+from typing import Any
 
 __version__ = "0.2.3"  # Update this line to change the version
 
-# (logging import removed; no longer needed after cleanup)
-
-from ._log import get_logger
-from ._log import reinitialize_logging
-from ._log import set_log_level
-from .bench import Bench
-from .config import MultimeterConfig
-from .config import OscilloscopeConfig
-from .config import PowerSupplyConfig
-from .config import WaveformGeneratorConfig
-from .errors import InstrumentConfigurationError
-from .errors import InstrumentParameterError
-from .experiments import Experiment
-from .experiments import MeasurementResult
-from .instruments import AutoInstrument
-from .instruments import Multimeter
-from .instruments import Oscilloscope
-from .instruments import PowerSupply
-from .instruments import WaveformGenerator
-from .measurements.session import Measurement  # noqa: E402
-from .measurements.session import MeasurementSession  # noqa: E402
-
-# (Removed unused module-level logger; logging handled via set_log_level/get_logger)
-
 __all__ = [
-    # Config
-    "OscilloscopeConfig",
-    "MultimeterConfig",
-    "PowerSupplyConfig",
-    "WaveformGeneratorConfig",
-    # Instruments
-    "Oscilloscope",
-    "Multimeter",
-    "PowerSupply",
-    "WaveformGenerator",
     "AutoInstrument",
-    # Experiments
+    "Bench",
     "Experiment",
     "MeasurementResult",
-    # Errors
     "InstrumentConfigurationError",
     "InstrumentParameterError",
-    # Bench System
-    "Bench",
-    # New measurement system
     "Measurement",
     "MeasurementSession",
-    # Logging helpers
     "set_log_level",
     "get_logger",
     "reinitialize_logging",
 ]
 
-# Version is defined statically above, but we can still try to get it from metadata
-# try:  # pragma: no cover
-#     __version__ = _metadata.version(__name__)
-# except _metadata.PackageNotFoundError:  # pragma: no cover
-#     __version__ = "0.1.0"
+_LAZY_ATTRS: dict[str, tuple[str, str]] = {
+    "AutoInstrument": ("pytestlab.instruments.AutoInstrument", "AutoInstrument"),
+    "Bench": ("pytestlab.bench", "Bench"),
+    "Experiment": ("pytestlab.experiments", "Experiment"),
+    "MeasurementResult": ("pytestlab.experiments", "MeasurementResult"),
+    "InstrumentConfigurationError": (
+        "pytestlab.errors",
+        "InstrumentConfigurationError",
+    ),
+    "InstrumentParameterError": (
+        "pytestlab.errors",
+        "InstrumentParameterError",
+    ),
+    "Measurement": ("pytestlab.measurements.session", "Measurement"),
+    "MeasurementSession": ("pytestlab.measurements.session", "MeasurementSession"),
+    "set_log_level": ("pytestlab._log", "set_log_level"),
+    "get_logger": ("pytestlab._log", "get_logger"),
+    "reinitialize_logging": ("pytestlab._log", "reinitialize_logging"),
+}
 
-# needs to be imported after the MeasurementResult class is defined
-from . import compliance
+_COMPLIANCE_TRIGGERS: set[str] = {
+    "Experiment",
+    "Measurement",
+    "MeasurementResult",
+    "MeasurementSession",
+}
 
-compliance.initialize()
+
+def __getattr__(name: str) -> Any:
+    """Dynamically resolve public attributes without importing heavy modules up front."""
+    if name == "compliance":
+        module = import_module("pytestlab.compliance")
+        globals()[name] = module
+        return module
+
+    try:
+        module_name, attr_name = _LAZY_ATTRS[name]
+    except KeyError as exc:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
+
+    if name in _COMPLIANCE_TRIGGERS and "compliance" not in globals():
+        globals()["compliance"] = import_module("pytestlab.compliance")
+
+    module = import_module(module_name)
+    value = getattr(module, attr_name)
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    """Expose lazily-resolved attributes through dir()."""
+    return sorted(set(__all__) | set(globals().keys()))

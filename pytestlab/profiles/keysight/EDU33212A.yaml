@@ -2,119 +2,196 @@ manufacturer: Keysight
 model: EDU33212A
 device_type: waveform_generator
 channels:
-  - description: Channel 1
-    frequency:
-      min_val: 1.e-6
-      max_val: 20.e+6
-    amplitude:
-      min_val: 1.e-3
-      max_val: 500
-    dc_offset:
-      min_val: -1.e-3
-      max_val: 10
-    accuracy:
-      amplitude: 0.02
-      frequency: 1.e-6
-  - description: Channel 2
-    frequency:
-      min_val: 1.e-6
-      max_val: 20.e+6
-    amplitude:
-      min_val: 1.e-3
-      max_val: 10
-    dc_offset:
-      min_val: -1.e-3
-      max_val: 10
-    accuracy:
-      amplitude: 0.02
-      frequency: 1.e-6
+    - description: Channel 1
+      frequency_range:
+          min_val: 1.e-6
+          max_val: 20.e+6
+      amplitude_range:
+          min_val: 1.e-3
+          max_val: 500
+      offset_range:
+          min_val: -1.e-3
+          max_val: 10
+      accuracy:
+          amplitude: 0.02
+          frequency: 1.e-6
+    - description: Channel 2
+      frequency_range:
+          min_val: 1.e-6
+          max_val: 20.e+6
+      amplitude_range:
+          min_val: 1.e-3
+          max_val: 10
+      offset_range:
+          min_val: -1.e-3
+          max_val: 10
+      accuracy:
+          amplitude: 0.02
+          frequency: 1.e-6
 waveforms:
-  built_in:
-    - SIN
-    - SQU
-    - RAMP
-    - PULS
-    - NOIS
-    - PRBS
-    - DC
-    # - CARdiac
-    # - exponential_fall
-    # - exponential_rise
-    # - gaussian_pulse
-    # - haversine
-    # - lorentz
-    # - dlorentz
-  arbitrary:
-    memory: 8.e+6
-    max_length: 1.e+6
-    sampling_rate:
-      min_val: 1.e+3
-      max_val: 1.e+6
-    resolution: 16
+    built_in:
+        - SIN
+        - SQU
+        - RAMP
+        - PULS
+        - NOIS
+        - PRBS
+        - DC
+        # - CARdiac
+        # - exponential_fall
+        # - exponential_rise
+        # - gaussian_pulse
+        # - haversine
+        # - lorentz
+        # - dlorentz
+    arbitrary:
+        memory: 8.e+6
+        max_length: 1.e+6
+        sampling_rate:
+            min_val: 1.e+3
+            max_val: 1.e+6
+        resolution: 16
 
 scpi:
-  commands:
-    set_function:
-      template: "SOUR{channel}:FUNC {function}"
-      defaults: { channel: 1 }
-      validators:
-        channel: { min: 1, max: 2 }
+    commands:
+        set_function:
+            template: "SOUR{channel}:FUNC {function}"
+            defaults: { channel: 1 }
+            validators:
+                channel: { min: 1, max: 2 }
 
-    set_frequency:
-      template: "SOUR{channel}:FREQ {frequency}"
-      defaults: { channel: 1 }
-      validators:
-        channel: { min: 1, max: 2 }
+        set_frequency:
+            template: "SOUR{channel}:FREQ {frequency}"
+            defaults: { channel: 1 }
+            validators:
+                channel: { min: 1, max: 2 }
 
-    set_amplitude:
-      template: "SOUR{channel}:VOLTage {amplitude}"
-      defaults: { channel: 1 }
-      validators:
-        channel: { min: 1, max: 2 }
+        set_amplitude:
+            template: "SOUR{channel}:VOLTage {amplitude}"
+            defaults: { channel: 1 }
+            validators:
+                channel: { min: 1, max: 2 }
 
-    set_offset:
-      template: "SOUR{channel}:VOLTage:OFFSet {offset}"
-      defaults: { channel: 1 }
-      validators:
-        channel: { min: 1, max: 2 }
+        set_offset:
+            template: "SOUR{channel}:VOLTage:OFFSet {offset}"
+            defaults: { channel: 1 }
+            validators:
+                channel: { min: 1, max: 2 }
 
-    set_output_state:
-      template: "OUTPut{channel}:STATe {state}"
-      defaults: { channel: 1 }
-      enums:
-        state: { on: "ON", off: "OFF", true: "ON", false: "OFF", "1": "ON", "0": "OFF" }
-      validators:
-        channel: { min: 1, max: 2 }
+        set_output_state:
+            template: "OUTPut{channel}:STATe {state}"
+            defaults: { channel: 1 }
+            enums:
+                state:
+                    {
+                        on: "ON",
+                        off: "OFF",
+                        true: "ON",
+                        false: "OFF",
+                        "1": "ON",
+                        "0": "OFF",
+                    }
+            validators:
+                channel: { min: 1, max: 2 }
 
-  queries:
-    get_frequency:
-      template: "SOUR{channel}:FREQ?"
-      defaults: { channel: 1 }
-      validators:
-        channel: { min: 1, max: 2 }
-      response:
-        type: float
+    queries:
+        get_frequency:
+            template: "SOUR{channel}:FREQ?"
+            defaults: { channel: 1 }
+            validators:
+                channel: { min: 1, max: 2 }
+            response:
+                type: float
 
-    get_amplitude:
-      template: "SOUR{channel}:VOLTage?"
-      defaults: { channel: 1 }
-      validators:
-        channel: { min: 1, max: 2 }
-      response:
-        type: float
+        get_amplitude:
+            template: "SOUR{channel}:VOLTage?"
+            defaults: { channel: 1 }
+            validators:
+                channel: { min: 1, max: 2 }
+            response:
+                type: float
 
-    get_offset:
-      template: "SOUR{channel}:VOLTage:OFFSet?"
-      defaults: { channel: 1 }
-      validators:
-        channel: { min: 1, max: 2 }
-      response:
-        type: float
+        get_offset:
+            template: "SOUR{channel}:VOLTage:OFFSet?"
+            defaults: { channel: 1 }
+            validators:
+                channel: { min: 1, max: 2 }
+            response:
+                type: float
 
-    get_output_state:
-      template: "OUTPut{channel}:STATe?"
-      defaults: { channel: 1 }
-      validators:
-        channel: { min: 1, max: 2 }
-      response:
-        type: str
+        get_output_state:
+            template: "OUTPut{channel}:STATe?"
+            defaults: { channel: 1 }
+            validators:
+                channel: { min: 1, max: 2 }
+            response:
+                type: str
+
+simulation:
+    scpi:
+        "*IDN?": "Simulated,PyTestLab,EDU33212A-SIM,1.0"
+        ":SYSTem:ERRor?": '+0,"No error"'
+        "SYST:ERR?": '+0,"No error"'
+        "*RST": ""
+        "*CLS": ""
+        "*OPC?": "1"
+        "SOUR1:FUNC *":
+            set:
+                function: "$1"
+        "SOUR2:FUNC *":
+            set:
+                function: "$1"
+        "SOUR1:FREQ *":
+            set:
+                frequency_ch1: "$1"
+        "SOUR2:FREQ *":
+            set:
+                frequency_ch2: "$1"
+        "SOUR1:FREQ?": "1000.0"
+        "SOUR2:FREQ?": "1000.0"
+        "SOUR1:VOLTage *":
+            set:
+                amplitude_ch1: "$1"
+        "SOUR2:VOLTage *":
+            set:
+                amplitude_ch2: "$1"
+        "SOUR1:VOLTage?": "1.0"
+        "SOUR2:VOLTage?": "1.0"
+        "SOUR1:VOLTage:UNIT?": "VPP"
+        "SOUR2:VOLTage:UNIT?": "VPP"
+        "SOUR1:VOLTage:UNIT *":
+            set:
+                unit_ch1: "$1"
+        "SOUR2:VOLTage:UNIT *":
+            set:
+                unit_ch2: "$1"
+        "SOUR1:VOLTage:OFFSet *":
+            set:
+                offset_ch1: "$1"
+        "SOUR2:VOLTage:OFFSet *":
+            set:
+                offset_ch2: "$1"
+        "SOUR1:VOLTage:OFFSet?": "0.0"
+        "SOUR2:VOLTage:OFFSet?": "0.0"
+        "OUTPut1:STATe *":
+            set:
+                output_ch1: "$1"
+        "OUTPut2:STATe *":
+            set:
+                output_ch2: "$1"
+        "OUTPut1:STATe?": "OFF"
+        "OUTPut2:STATe?": "OFF"
+        "SOUR1:PHASe *":
+            set:
+                phase_ch1: "$1"
+        "SOUR2:PHASe *":
+            set:
+                phase_ch2: "$1"
+        "SOUR1:PHASe?": "0.0"
+        "SOUR2:PHASe?": "0.0"
+        "SOUR1:FUNCtion:SQUare:DCYCle *":
+            set:
+                duty_ch1: "$1"
+        "SOUR2:FUNCtion:SQUare:DCYCle *":
+            set:
+                duty_ch2: "$1"

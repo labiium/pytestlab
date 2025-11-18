@@ -31,7 +31,7 @@ This abstraction is ideal for automating multi-instrument experiments, batch mea
 
 ```python
 from pytestlab.measurements import MeasurementSession
-from pytestlab.instruments import AutoInstrument
+from pytestlab import AutoInstrument
 
 def main():
     # Create instrument instances (simulated for this example)

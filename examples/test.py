@@ -1,4 +1,4 @@
-from pytestlab.instruments import AutoInstrument
+from pytestlab import AutoInstrument
 
 
 def main():

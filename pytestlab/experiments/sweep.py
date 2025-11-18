@@ -61,19 +61,35 @@ class ParameterSpace:
             constraint: Optional function that takes a dict of parameter values
                         and returns True if the combination is valid
         """
-        self.ranges = ranges
-        self.names = names or []
+        normalized_ranges: list[tuple[float, float]] | str
+        derived_names = names or []
+
+        if isinstance(ranges, dict):
+            derived_names = list(ranges.keys())
+            normalized_ranges = [ranges[name] for name in derived_names]
+        elif isinstance(ranges, list):
+            normalized_ranges = ranges
+        elif isinstance(ranges, str):
+            normalized_ranges = ranges
+        else:
+            raise TypeError(f"Unsupported parameter space type: {type(ranges)}")
+
+        self.ranges: list[tuple[float, float]] | str = normalized_ranges
+        self.names = derived_names or (
+            [f"param_{idx}" for idx in range(len(normalized_ranges))]
+            if isinstance(normalized_ranges, list)
+            else []
+        )
         self.constraint = constraint
         self._session: MeasurementSession | None = None
 
         # Validate ranges and names
-        if isinstance(ranges, list) and names and len(ranges) != len(names):
+        if (
+            isinstance(normalized_ranges, list)
+            and self.names
+            and len(normalized_ranges) != len(self.names)
+        ):
             raise ValueError("Number of ranges must match number of parameter names")
-
-        # Convert dict to list format if provided as dict
-        if isinstance(ranges, dict):
-            self.names = list(ranges.keys())
-            self.ranges = [ranges[name] for name in self.names]
 
     @classmethod
     def from_session(
@@ -116,7 +132,7 @@ class ParameterSpace:
 
     def get_parameters(
         self,
-    ) -> tuple[list[str], list[tuple[float, float]] | str | dict[str, tuple[float, float]]]:
+    ) -> tuple[list[str], list[tuple[float, float]]]:
         """
         Get parameter information.
 
@@ -131,7 +147,10 @@ class ParameterSpace:
                 raise ValueError("'auto' ranges require a MeasurementSession")
             return ParameterSpace.from_session(self._session, self.constraint).get_parameters()
 
-        return self.names, self.ranges
+        ranges = self.ranges
+        if isinstance(ranges, str):
+            raise ValueError(f"Unsupported ranges specification: {ranges}")
+        return self.names, ranges
 
     def is_valid(self, param_values: list[float] | dict[str, float]) -> bool:
         """
@@ -542,7 +561,7 @@ def grid_sweep(
                     return func(**params, **kwargs)
 
                 # Get parameters and run grid sweep
-                names, ranges = local_space.get_parameters()
+                _, ranges = local_space.get_parameters()
                 wrapped_func = local_space.wrap_function(measure_func)
 
                 # Run the original grid_sweep function
@@ -556,7 +575,7 @@ def grid_sweep(
                     raise ValueError("'auto' parameter space requires a MeasurementSession")
 
                 # Get parameters and run grid sweep
-                names, ranges = param_space.get_parameters()
+                _, ranges = param_space.get_parameters()
                 wrapped_func = param_space.wrap_function(func)
 
                 # Run the original grid_sweep function
@@ -629,14 +648,16 @@ def monte_carlo_sweep(
                     return func(**params, **kwargs)
 
                 # Get parameters and run Monte Carlo sweep
-                names, ranges = local_space.get_parameters()
+                _, ranges = local_space.get_parameters()
                 wrapped_func = local_space.wrap_function(measure_func)
 
                 # Convert samples to per-dimension if needed
-                samples_list = samples
                 if isinstance(samples, int):
                     # Equal distribution among parameters
-                    samples_list = [int(samples ** (1 / len(ranges)))] * len(ranges)
+                    per_dim = int(samples ** (1 / len(ranges))) if ranges else samples
+                    samples_list: list[int] = [per_dim] * len(ranges)
+                else:
+                    samples_list = list(samples)
 
                 # Run the original Monte Carlo sweep function
                 return monte_carlo_sweep_impl(wrapped_func, ranges, samples_list)
@@ -646,14 +667,16 @@ def monte_carlo_sweep(
                     raise ValueError("'auto' parameter space requires a MeasurementSession")
 
                 # Get parameters and run Monte Carlo sweep
-                names, ranges = param_space.get_parameters()
+                _, ranges = param_space.get_parameters()
                 wrapped_func = param_space.wrap_function(func)
 
                 # Convert samples to per-dimension if needed
-                samples_list = samples
                 if isinstance(samples, int):
                     # Equal distribution among parameters
-                    samples_list = [int(samples ** (1 / len(ranges)))] * len(ranges)
+                    per_dim = int(samples ** (1 / len(ranges))) if ranges else samples
+                    samples_list = [per_dim] * len(ranges)
+                else:
+                    samples_list = list(samples)
 
                 return monte_carlo_sweep_impl(wrapped_func, ranges, samples_list)
 
@@ -725,7 +748,7 @@ def gwass(
                     return func(**params, **kwargs)
 
                 # Get parameters and run GWASS
-                names, ranges = local_space.get_parameters()
+                _, ranges = local_space.get_parameters()
                 wrapped_func = local_space.wrap_function(measure_func)
 
                 # Call the original GWASS function
@@ -736,7 +759,7 @@ def gwass(
                     raise ValueError("'auto' parameter space requires a MeasurementSession")
 
                 # Get parameters and run GWASS
-                names, ranges = param_space.get_parameters()
+                _, ranges = param_space.get_parameters()
                 wrapped_func = param_space.wrap_function(func)
 
                 return gwass_impl(wrapped_func, ranges, budget, initial_percentage)

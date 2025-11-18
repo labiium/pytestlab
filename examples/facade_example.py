@@ -8,7 +8,7 @@ instrument control code with method chaining and synchronous operation.
 
 import time
 
-from pytestlab.instruments import AutoInstrument
+from pytestlab import AutoInstrument
 
 
 def power_supply_example():

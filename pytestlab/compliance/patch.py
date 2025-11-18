@@ -4,8 +4,11 @@ import hashlib
 import json
 from datetime import UTC
 from datetime import datetime
+from typing import Any
+from typing import cast
 
 from .._log import get_logger
+from ..experiments.results import MeasurementResult as MeasurementResultBase
 from .audit import AuditTrail
 from .signature import Signer
 from .tsa import LinkedTSA
@@ -45,9 +48,7 @@ def apply_patches(homedir):
     # Patch MeasurementResult
     from ..experiments import results as _results_mod
 
-    _OriginalMR = _results_mod.MeasurementResult
-
-    class _SignedResult(_OriginalMR):
+    class _SignedResult(MeasurementResultBase):
         def __init__(self, *a, **k):
             """Initializes the result and immediately creates the compliance envelope."""
             super().__init__(*a, **k)
@@ -88,12 +89,12 @@ def apply_patches(homedir):
             with open(f"{path}.env.json", "w", encoding="utf-8") as fh:
                 json.dump(self.envelope, fh, indent=2)
 
-    _results_mod.MeasurementResult = _SignedResult
+    cast(Any, _results_mod).MeasurementResult = _SignedResult
 
     # Also patch the top-level pytestlab namespace to ensure the patched class is used.
     import pytestlab
 
-    pytestlab.MeasurementResult = _SignedResult
+    cast(Any, pytestlab).MeasurementResult = _SignedResult
     _LOG.info("MeasurementResult patched with compliance envelope.")
 
     # Patch MeasurementDatabase
@@ -101,23 +102,32 @@ def apply_patches(homedir):
 
     _ORIG_STORE = _MDB.store_measurement
 
-    def _store_with_env(self: _MDB, codename, meas, **kw):
+    def _store_with_env(
+        self: _MDB,
+        codename: str | None,
+        meas: MeasurementResultBase,
+        *,
+        overwrite: bool = True,
+        notes: str = "",
+    ) -> str:
         """A wrapper around the original store_measurement to also save the envelope."""
         # Call the original method to store the primary measurement data.
-        ck = _ORIG_STORE(self, codename, meas, **kw)
+        ck = _ORIG_STORE(self, codename, meas, overwrite=overwrite, notes=notes)
         # Now, store the compliance envelope in a separate table.
-        with self._get_connection() as conn:
-            # Ensure the envelopes table exists.
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS measurement_envelopes "
-                "(codename TEXT PRIMARY KEY, envelope_json TEXT)"
-            )
-            # Insert or replace the envelope for the given measurement codename.
-            conn.execute(
-                "INSERT OR REPLACE INTO measurement_envelopes VALUES (?, ?)",
-                (ck, json.dumps(meas.envelope)),
-            )
+        envelope: Any = getattr(meas, "envelope", None)
+        if envelope is not None:
+            with self._get_connection() as conn:
+                # Ensure the envelopes table exists.
+                conn.execute(
+                    "CREATE TABLE IF NOT EXISTS measurement_envelopes "
+                    "(codename TEXT PRIMARY KEY, envelope_json TEXT)"
+                )
+                # Insert or replace the envelope for the given measurement codename.
+                conn.execute(
+                    "INSERT OR REPLACE INTO measurement_envelopes VALUES (?, ?)",
+                    (ck, json.dumps(envelope)),
+                )
         return ck
 
-    _MDB.store_measurement = _store_with_env
+    cast(Any, _MDB).store_measurement = _store_with_env
     _LOG.info("Database patched: envelopes persisted in measurement_envelopes.")

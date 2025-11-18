@@ -40,7 +40,7 @@ PyTestLab uses a clean synchronous API that's easy to understand and use. All in
 Here's how to connect to a simulated oscilloscope and acquire data:
 
 ```python
-from pytestlab.instruments import AutoInstrument
+from pytestlab import AutoInstrument
 
 def main():
     # Create a simulated oscilloscope

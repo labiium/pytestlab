@@ -35,9 +35,9 @@ import polars as pl
 import pytest
 from PIL import Image
 
+from pytestlab import AutoInstrument
 from pytestlab.common.enums import AcquisitionType
 from pytestlab.common.enums import TriggerSlope
-from pytestlab.instruments import AutoInstrument
 
 # ------------------- CONFIGURE THESE FOR YOUR LAB -------------------
 OSC_CONFIG_KEY = "keysight/DSOX1204G"  # <-- Set your profile key or path here
