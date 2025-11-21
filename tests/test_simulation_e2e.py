@@ -2,6 +2,7 @@ import importlib.util
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -150,9 +151,17 @@ def main(instrument):
 
     # 2. Programmatically call the `pytestlab sim-profile record` command
     recorded_profile_path = temp_dir / "recorded_virtual_instrument.yaml"
+    repo_root = Path(__file__).resolve().parents[1]
+    env = os.environ.copy()
+    env["PYTHONPATH"] = os.pathsep.join(
+        [str(repo_root), env.get("PYTHONPATH", "")] if env.get("PYTHONPATH") else [str(repo_root)]
+    )
+
     process = subprocess.Popen(
         [
-            "pytestlab",
+            sys.executable,
+            "-m",
+            "pytestlab.cli",
             "sim-profile",
             "record",
             "pytestlab/virtual_instrument",
@@ -164,6 +173,7 @@ def main(instrument):
         ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        env=env,
     )
 
     # Wait for the process to complete

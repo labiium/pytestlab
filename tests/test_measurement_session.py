@@ -8,6 +8,7 @@ import numpy as np
 import polars as pl
 
 from pytestlab.measurements import Measurement
+from pytestlab.measurements import step
 
 
 def test_basic_sweep():
@@ -58,3 +59,31 @@ def test_vector_return():
 
     assert first_list == [0, 1, 2]
     assert second_list == [1, 2, 3]
+
+
+def test_step_spec_logarithmic_parameter():
+    with Measurement("LogSteps") as session:
+        session.parameter("freq", step.log(start=1e3, stop=1e6, count=3))
+
+        @session.acquire
+        def capture(freq):
+            return {"freq_value": freq}
+
+    df = session.run(show_progress=False).data
+    freqs = df["freq"].to_list()
+    expected = np.logspace(3, 6, 3)
+    assert np.allclose(freqs, expected)
+
+
+def test_step_spec_points_with_complex_values():
+    values = [1 + 1j, 2 - 0.25j, -0.5 + 0.75j]
+    with Measurement("ComplexSpec") as session:
+        session.parameter("impedance", step.points(values))
+
+        @session.acquire
+        def identity(impedance):
+            return {"echo": impedance}
+
+    df = session.run(show_progress=False).data
+    assert df["impedance"].to_list() == values
+    assert df["echo"].to_list() == values

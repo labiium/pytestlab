@@ -382,13 +382,15 @@ PyTestLab's `MeasurementSession` provides a powerful framework for parameter swe
 
 ### Basic Parameter Sweep
 ```python
-from pytestlab.measurements import MeasurementSession
+from pytestlab.measurements import MeasurementSession, step
 import numpy as np
 
 with MeasurementSession("Voltage Response Test") as session:
     # Define sweep parameters
     session.parameter("voltage", np.linspace(0, 5, 10), unit="V")
     session.parameter("delay", [0.1, 0.5], unit="s")
+    # Declarative helpers for non-linear sweeps are available via pytestlab.measurements.step
+    session.parameter("frequency", step.log(start=1e3, stop=1e6, count=50), unit="Hz")
 
     # Setup instruments
     psu = session.instrument("psu", "keysight/EDU36311A", simulate=True)

@@ -64,6 +64,20 @@ session.parameter("voltage", [1.0, 2.0, 3.0], unit="V", notes="Supply voltage")
 session.parameter("current", [0.1, 0.5, 1.0], unit="A")
 ```
 
+#### Step helpers for non-linear sweeps
+
+When you need logarithmic, exponential, or any custom stepping you can use the declarative helpers exposed as `pytestlab.measurements.step`:
+
+```python
+from pytestlab.measurements import step
+
+session.parameter("frequency", step.log(start=1e3, stop=1e6, count=200))
+session.parameter("gain", step.exp(exponent_start=-3, exponent_stop=2, count=25))
+session.parameter("impedance", step.points([1+1j, 1-1j, -1+1j, -1-1j]))
+```
+
+Each helper returns a `StepSpec`, which is resolved just before the sweep starts. The `step.custom(...)` helper lets you wrap any generator function so you can describe arbitrary sequences (chirps, lookup tables, etc.) without precomputing them manually.
+
 ### 3. Register Measurement Functions
 
 Measurement functions are synchronous functions that return a dictionary of results. Use the `@session.acquire` decorator:
@@ -329,6 +343,8 @@ main()
 - **values:** Iterable of values (list, numpy array, etc.)
 - **unit:** Optional unit string
 - **notes:** Optional description
+
+You can also pass a `StepSpec` from `pytestlab.measurements.step.*` helpers for non-linear sequences (logarithmic, exponential, geometric, or arbitrary generators).
 
 ### `@session.acquire`
 

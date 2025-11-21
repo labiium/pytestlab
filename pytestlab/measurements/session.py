@@ -31,6 +31,7 @@ import polars as pl
 from tqdm.auto import tqdm
 
 from ..experiments import Experiment
+from .steps import StepSpec
 
 __all__ = ["MeasurementSession", "Measurement"]
 
@@ -39,8 +40,8 @@ if TYPE_CHECKING:
     from ..plotting import PlotSpec
 
 
-T_Value: TypeAlias = float | int | str | np.ndarray | Sequence[Any]
-T_ParamIterable: TypeAlias = Iterable[T_Value] | Callable[[], Iterable[T_Value]]
+T_Value: TypeAlias = float | int | complex | str | np.ndarray | Sequence[Any]
+T_ParamIterable: TypeAlias = Iterable[T_Value] | Callable[[], Iterable[T_Value]] | StepSpec
 T_MeasFunc: TypeAlias = Callable[..., Mapping[str, Any]]
 T_TaskFunc: TypeAlias = Callable[..., None]
 
@@ -146,11 +147,13 @@ class MeasurementSession(contextlib.AbstractContextManager):
     ) -> None:
         if name in self._parameters:
             raise ValueError(f"Parameter '{name}' already exists.")
-        if callable(values) and not isinstance(values, list | tuple | np.ndarray):
-            values = list(values())
+        if isinstance(values, StepSpec):
+            resolved = values.values()
+        elif callable(values) and not isinstance(values, list | tuple | np.ndarray):
+            resolved = list(values())
         else:
-            values = list(values)
-        self._parameters[name] = _Parameter(name, values, unit, notes)
+            resolved = list(values)
+        self._parameters[name] = _Parameter(name, resolved, unit, notes)
 
     # ─── Measurement registration ─────────────────────────────────────
     def acquire(self, func: T_MeasFunc | None = None, /, *, name: str | None = None):

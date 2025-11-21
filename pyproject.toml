@@ -95,6 +95,7 @@ files = ["pytestlab"]
 # Ignore missing third-party typing information
 ignore_missing_imports = true
 follow_imports = "silent"
+disable_error_code = ["annotation-unchecked"]  # Silence notes about skipped untyped defs
 
 # Allow gradual typing within the package
 disallow_untyped_defs = false

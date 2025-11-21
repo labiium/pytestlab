@@ -10,17 +10,34 @@ This script tests the Smart Bench configuration with all four instruments:
 
 from pathlib import Path
 
+import pytest
+
 from pytestlab.bench import Bench
+from pytestlab.errors import InstrumentConnectionError
+
+pytestmark = pytest.mark.requires_real_hw
 
 
-def test_smarbench_loading():
+@pytest.fixture(scope="module")
+def smart_bench():
+    """Load the Smart Bench configuration or skip if hardware is missing."""
+    bench_path = Path(__file__).parent / "smarbench.yaml"
+    try:
+        bench = Bench.open(bench_path)
+    except InstrumentConnectionError as exc:
+        pytest.skip(f"Smart Bench hardware not available: {exc}")
+
+    yield bench
+    bench.close_all()
+
+
+def test_smarbench_loading(smart_bench):
     """Test loading the smarbench configuration."""
     print("=" * 70)
     print("TEST 1: Loading Smart Bench Configuration")
     print("=" * 70)
 
-    bench_path = Path(__file__).parent / "smarbench.yaml"
-    bench = Bench.open(bench_path)
+    bench = smart_bench
 
     print(f"\n✓ Bench loaded: {bench.config.bench_name}")
     print(f"  Description: {bench.config.description}")
@@ -40,14 +57,13 @@ def test_smarbench_loading():
     assert bench is not None
 
 
-def test_instrument_identity():
+def test_instrument_identity(smart_bench):
     """Test instrument identity queries."""
     print("\n" + "=" * 70)
     print("TEST 2: Instrument Identity Check")
     print("=" * 70)
 
-    bench_path = Path(__file__).parent / "smarbench.yaml"
-    bench = Bench.open(bench_path)
+    bench = smart_bench
 
     for name, inst in bench.instruments.items():
         try:
@@ -60,14 +76,13 @@ def test_instrument_identity():
             print(f"\n  {name.upper()}: Error - {e}")
 
 
-def test_oscilloscope_config():
+def test_oscilloscope_config(smart_bench):
     """Test oscilloscope configuration."""
     print("\n" + "=" * 70)
     print("TEST 3: Oscilloscope Configuration")
     print("=" * 70)
 
-    bench_path = Path(__file__).parent / "smarbench.yaml"
-    bench = Bench.open(bench_path)
+    bench = smart_bench
 
     osc = bench.instruments["osc"]
     print(f"\n  Model: {osc.config.model}")
@@ -85,14 +100,13 @@ def test_oscilloscope_config():
         print(f"\n  ✗ Channel facade error: {e}")
 
 
-def test_awg_config():
+def test_awg_config(smart_bench):
     """Test waveform generator configuration."""
     print("\n" + "=" * 70)
     print("TEST 4: Waveform Generator Configuration")
     print("=" * 70)
 
-    bench_path = Path(__file__).parent / "smarbench.yaml"
-    bench = Bench.open(bench_path)
+    bench = smart_bench
 
     awg = bench.instruments["awg"]
     print(f"\n  Model: {awg.config.model}")
@@ -119,14 +133,13 @@ def test_awg_config():
         print(f"\n  ✗ Channel facade error: {e}")
 
 
-def test_psu_config():
+def test_psu_config(smart_bench):
     """Test power supply configuration."""
     print("\n" + "=" * 70)
     print("TEST 5: Power Supply Configuration")
     print("=" * 70)
 
-    bench_path = Path(__file__).parent / "smarbench.yaml"
-    bench = Bench.open(bench_path)
+    bench = smart_bench
 
     psu = bench.instruments["psu"]
     print(f"\n  Model: {psu.config.model}")
@@ -155,14 +168,13 @@ def test_psu_config():
                 print(f"      Current: {limits['current']}")
 
 
-def test_dmm_config():
+def test_dmm_config(smart_bench):
     """Test multimeter configuration."""
     print("\n" + "=" * 70)
     print("TEST 6: Multimeter Configuration")
     print("=" * 70)
 
-    bench_path = Path(__file__).parent / "smarbench.yaml"
-    bench = Bench.open(bench_path)
+    bench = smart_bench
 
     dmm = bench.instruments["dmm"]
     print(f"\n  Model: {dmm.config.model}")
@@ -180,14 +192,13 @@ def test_dmm_config():
         print("  Measurement Functions: Not available")
 
 
-def test_bench_metadata():
+def test_bench_metadata(smart_bench):
     """Test bench metadata and documentation."""
     print("\n" + "=" * 70)
     print("TEST 7: Bench Metadata")
     print("=" * 70)
 
-    bench_path = Path(__file__).parent / "smarbench.yaml"
-    bench = Bench.open(bench_path)
+    bench = smart_bench
 
     print(f"\n  Bench Name: {bench.config.bench_name}")
     print(f"  Version: {bench.config.version}")
@@ -204,14 +215,13 @@ def test_bench_metadata():
             print(f"    Error: {e}")
 
 
-def test_instrument_coordination():
+def test_instrument_coordination(smart_bench):
     """Test coordinated operation of multiple instruments."""
     print("\n" + "=" * 70)
     print("TEST 8: Instrument Coordination")
     print("=" * 70)
 
-    bench_path = Path(__file__).parent / "smarbench.yaml"
-    bench = Bench.open(bench_path)
+    bench = smart_bench
 
     print("\n  Testing coordinated setup sequence:")
 

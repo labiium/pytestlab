@@ -70,4 +70,21 @@ main()
 
 ---
 
+## Step Helpers for Parameters
+
+PyTestLab exposes `pytestlab.measurements.step` helpers so you can succinctly define logarithmic, exponential, geometric, or fully custom sequences for `session.parameter(...)`:
+
+```python
+from pytestlab.measurements import MeasurementSession, step
+
+with MeasurementSession() as session:
+    session.parameter("freq", step.log(start=1e3, stop=1e6, count=100))
+    session.parameter("gain", step.exp(exponent_start=-3, exponent_stop=2, count=25))
+    session.parameter("impedance", step.points([1+1j, 1-1j, -1+1j]))
+```
+
+Each helper returns a `StepSpec` that lazily generates the final iterable just before the sweep runs, keeping scripts tidy while still supporting exotic sweep shapes.
+
+---
+
 For more advanced usage, see the [Experiments & Sweeps API](experiments.md) and the [10-Minute Tour](../tutorials/10_minute_tour.ipynb).
