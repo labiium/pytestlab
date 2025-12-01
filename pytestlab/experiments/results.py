@@ -9,6 +9,7 @@ from typing import overload
 
 import numpy as np
 import polars as pl
+from numpy.typing import NDArray
 from uncertainties.core import UFloat
 
 if TYPE_CHECKING:
@@ -399,7 +400,8 @@ class MeasurementResult:  # noqa: D101
             raise TypeError(f"FFT requires numpy array, got {type(self.values)}")
 
         # Ensure we're working with a 1D array
-        values = self.values.flatten() if self.values.ndim > 1 else self.values
+        values_arr = cast(NDArray[np.generic], self.values)
+        values = values_arr.flatten() if values_arr.ndim > 1 else values_arr
 
         # Perform FFT
         fft_values = np.fft.rfft(values)

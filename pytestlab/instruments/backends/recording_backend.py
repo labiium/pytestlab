@@ -2,6 +2,7 @@ import logging
 import re
 import time
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -11,11 +12,16 @@ LOGGER = logging.getLogger(__name__)
 class RecordingBackend:
     """A backend that records interactions to a simulation profile."""
 
-    def __init__(self, backend, output_path=None, base_profile=None):
+    def __init__(
+        self,
+        backend: Any,
+        output_path: str | Path | None = None,
+        base_profile: dict[str, Any] | None = None,
+    ):
         self.backend = backend
         self.output_path = output_path
-        self.base_profile = base_profile if base_profile is not None else {}
-        self.log = []
+        self.base_profile: dict[str, Any] = base_profile if base_profile is not None else {}
+        self.log: list[dict[str, Any]] = []
         self.start_time = time.monotonic()
 
     def write(self, command: str, *args, **kwargs):
@@ -50,9 +56,10 @@ class RecordingBackend:
 
     def read(self) -> str:
         """Read from the instrument and log it."""
-        response = self.backend.read()
-        self.log.append({"type": "read", "response": response.strip()})
-        return response
+        response_obj = self.backend.read()
+        response_str = response_obj.strip() if hasattr(response_obj, "strip") else str(response_obj)
+        self.log.append({"type": "read", "response": response_str})
+        return response_str
 
     def close(self):
         """Close the backend and write the simulation profile."""
@@ -64,30 +71,37 @@ class RecordingBackend:
     def generate_profile(self):
         """Generate the YAML simulation profile from the log."""
         print(f"DEBUG: generate_profile called. Output path: {self.output_path}")
+        output_path = Path(self.output_path) if self.output_path else None
+        binary_root = output_path.parent if output_path else Path.cwd()
         scpi_map = {}
         for entry in self.log:
-            if entry["type"] == "query":
-                scpi_map[entry["command"]] = entry["response"]
-            elif entry["type"] == "query_raw":
-                command_slug = re.sub(r"[^a-zA-Z0-9]", "_", entry["command"])
+            entry_type = entry.get("type")
+            if entry_type == "query":
+                scpi_map[str(entry["command"])] = entry["response"]
+            elif entry_type == "query_raw":
+                command = str(entry["command"])
+                command_slug = re.sub(r"[^a-zA-Z0-9]", "_", command)
                 binary_filename = f"{command_slug}.bin"
-                binary_filepath = Path(self.output_path).parent / binary_filename
+                binary_filepath = binary_root / binary_filename
                 with open(binary_filepath, "wb") as f:
-                    f.write(entry["response"])
-                scpi_map[entry["command"]] = {"binary": binary_filename}
-            elif entry["type"] == "write":
+                    response_obj = entry["response"]
+                    if not isinstance(response_obj, bytes | bytearray):
+                        raise TypeError("query_raw responses must be bytes-like to be recorded.")
+                    f.write(response_obj)
+                scpi_map[command] = {"binary": binary_filename}
+            elif entry_type == "write":
                 # For writes, we record the command with an empty response,
                 # which is suitable for commands that don't return a value.
-                scpi_map[entry["command"]] = ""
+                scpi_map[str(entry["command"])] = ""
 
         profile = self.base_profile
         if "simulation" not in profile:
             profile["simulation"] = {}
         profile["simulation"]["scpi"] = scpi_map
         print(f"DEBUG: Profile data to be written: {profile}")
-        if self.output_path:
+        if output_path:
             try:
-                output_file = Path(self.output_path)
+                output_file = output_path
                 print(f"DEBUG: Creating parent directory for {output_file}")
                 output_file.parent.mkdir(parents=True, exist_ok=True)
                 print(f"DEBUG: Writing to file {output_file}")

@@ -59,8 +59,9 @@ def widget_callback(fn: Callable[..., Any]) -> Callable[[Any], None]:
         run_safely(fn, *args, **kwargs)
 
     # Provide nice repr/help text in the notebook
-    _wrapper.__name__ = f"{fn.__name__}_widget_wrapper"
-    _wrapper.__doc__ = f"Widget wrapper around {fn.__name__}()"
+    fn_name = getattr(fn, "__name__", fn.__class__.__name__)
+    _wrapper.__name__ = f"{fn_name}_widget_wrapper"
+    _wrapper.__doc__ = f"Widget wrapper around {fn_name}()"
     return _wrapper
 
 

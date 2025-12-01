@@ -160,7 +160,8 @@ class MeasurementSession(contextlib.AbstractContextManager):
         if func is None:  # decorator usage
             return lambda f: self.acquire(f, name=name)
 
-        reg_name = name or func.__name__
+        func_name = getattr(func, "__name__", func.__class__.__name__)
+        reg_name = name or func_name
         if any(n == reg_name for n, _ in self._meas_funcs):
             raise ValueError(f"Measurement '{reg_name}' already registered.")
         self._meas_funcs.append((reg_name, func))
@@ -173,7 +174,8 @@ class MeasurementSession(contextlib.AbstractContextManager):
 
         if not callable(func):
             raise TypeError("Only callable functions can be registered as tasks.")
-        reg_name = name or func.__name__
+        func_name = getattr(func, "__name__", func.__class__.__name__)
+        reg_name = name or func_name
         self._tasks.append((reg_name, func))
         return func
 

@@ -27,11 +27,11 @@ dependencies = [
     "typer",
     "Pillow",
     "ruff>=0.12.9",
-    "mypy>=1.17.1",
     "types-pyyaml>=6.0.12.20250809",
     "types-tqdm>=4.67.0.20250809",
     "types-pillow>=10.2.0.20240822",
     "types-requests>=2.32.4.20250809",
+    "ty>=0.0.1a29",
 ]
 
 [tool.hatch.version]
@@ -58,7 +58,7 @@ plot = ["matplotlib", "plotly"]
 full = ["pytestlab[plot]", "uncertainties", "pydantic"]
 dev = [
     "ruff",
-    "mypy",
+    "ty>=0.0.1a29",
     "pytest",
     "pytest-cov",
     "pre-commit",
@@ -86,24 +86,16 @@ exclude = [
 ]
 [tool.hatch.build.targets.wheel]
 packages = ["pytestlab"]
-[tool.mypy]
-python_version = "3.11"
+[tool.ty.environment]
+python-version = "3.11"
 
-# Focus type checking on the library package only
-files = ["pytestlab"]
+[tool.ty.src]
+include = ["pytestlab"]
 
-# Ignore missing third-party typing information
-ignore_missing_imports = true
-follow_imports = "silent"
-disable_error_code = ["annotation-unchecked"]  # Silence notes about skipped untyped defs
-
-# Allow gradual typing within the package
-disallow_untyped_defs = false
-check_untyped_defs = false
-no_implicit_optional = true
-warn_return_any = false
-warn_unused_ignores = true
-show_error_codes = true
+[tool.ty.rules]
+unresolved-import = "ignore"
+possibly-missing-import = "ignore"
+unused-ignore-comment = "warn"
 
 [tool.ruff]
 line-length = 100

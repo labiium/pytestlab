@@ -92,7 +92,10 @@ class Experiment:
             else:
                 # Convert to dict and then to DataFrame
                 try:
-                    trial_df = pl.DataFrame(measurement_result.to_dict(), strict=False)
+                    to_dict_fn = getattr(measurement_result, "to_dict", None)
+                    if not callable(to_dict_fn):
+                        raise TypeError("MeasurementResult.to_dict is not callable")
+                    trial_df = pl.DataFrame(to_dict_fn(), strict=False)
                 except Exception as e:
                     raise ValueError(
                         f"Failed to convert MeasurementResult to DataFrame: {e}"

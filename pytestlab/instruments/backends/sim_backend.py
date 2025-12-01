@@ -588,10 +588,11 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
 
         # Ensure textual response only for text queries; preserve bytes for raw path
         if not raw and isinstance(response, bytes | bytearray):
+            response_bytes = bytes(response)
             try:
-                response = response.decode()
+                response = response_bytes.decode()
             except Exception:
-                response = response.decode("utf-8", errors="ignore")
+                response = response_bytes.decode("utf-8", errors="ignore")
         return response
 
     # ................ substitution ..................... #

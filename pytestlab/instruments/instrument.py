@@ -745,9 +745,10 @@ class Instrument(Generic[ConfigType]):
                 if self.config.requires(requirement):
                     return func(self, *args, **kwargs)
                 else:
+                    func_name = getattr(func, "__name__", func.__class__.__name__)
                     raise InstrumentConfigurationError(
                         self.config.model,
-                        f"Method '{func.__name__}' requires '{requirement}', which is not available for this instrument model/configuration.",
+                        f"Method '{func_name}' requires '{requirement}', which is not available for this instrument model/configuration.",
                     )
 
             return wrapped_func

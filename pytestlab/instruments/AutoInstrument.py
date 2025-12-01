@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import os
+import tempfile
 
 # import aiofiles  # Removed for synchronous operation
-import tempfile
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -113,32 +114,32 @@ class AutoInstrument:
         """
         import pytestlab as ptl
 
-        cache_dir = os.path.join(os.path.dirname(ptl.__file__), "cache", "configs")
-        os.makedirs(cache_dir, exist_ok=True)
+        pkg_file = getattr(ptl, "__file__", None)
+        if pkg_file is None:
+            raise InstrumentConfigurationError(
+                identifier, "Cannot locate pytestlab package file for cache directory."
+            )
+        cache_dir = Path(pkg_file).resolve().parent / "cache" / "configs"
+        cache_dir.mkdir(parents=True, exist_ok=True)
 
-        cache_file = os.path.join(cache_dir, f"{identifier}.yaml")
+        cache_file = cache_dir / f"{identifier}.yaml"
 
         # Check for a cached version of the configuration first
-        if os.path.exists(cache_file):
+        if cache_file.exists():
             try:
-                with open(cache_file) as f:
-                    content = f.read()
-                    loaded_config = yaml.safe_load(content)
-                    # Validate the cached content; if corrupt, proceed to download
-                    if not isinstance(loaded_config, dict):
-                        os.remove(cache_file)
-                        raise InstrumentConfigurationError(
-                            identifier, "Cached config is not a valid dictionary."
-                        )
-                    return loaded_config
+                content = cache_file.read_text()
+                loaded_config = yaml.safe_load(content)
+                # Validate the cached content; if corrupt, proceed to download
+                if not isinstance(loaded_config, dict):
+                    cache_file.unlink(missing_ok=True)
+                    raise InstrumentConfigurationError(
+                        identifier, "Cached config is not a valid dictionary."
+                    )
+                return loaded_config
             except Exception as e:
                 # If reading the cache fails, remove the broken file and fetch from CDN
                 print(f"Cache read failed for {identifier}: {e}. Fetching from CDN.")
-                if os.path.exists(cache_file):
-                    try:
-                        os.remove(cache_file)
-                    except OSError:
-                        pass
+                cache_file.unlink(missing_ok=True)
 
         # If not cached, fetch from the official CDN
         url = f"https://cdn.pytestlab.org/config/{identifier}.yaml"
@@ -156,8 +157,7 @@ class AutoInstrument:
                     )
 
                 # Cache the newly downloaded configuration
-                with open(cache_file, "w") as f:
-                    f.write(config_text)
+                cache_file.write_text(config_text)
 
                 return loaded_config
             except httpx.HTTPStatusError as http_err:
@@ -213,14 +213,19 @@ class AutoInstrument:
             else os.path.normpath(identifier)
         )
 
-        current_file_directory = os.path.dirname(ptl.__file__)
-        preset_path = os.path.join(current_file_directory, "profiles", norm_id + ".yaml")
+        pkg_file = getattr(ptl, "__file__", None)
+        pkg_dir = (
+            Path(pkg_file).resolve().parent
+            if pkg_file is not None
+            else Path(__file__).resolve().parent
+        )
+        preset_path = pkg_dir / "profiles" / f"{norm_id}.yaml"
 
         # Determine the correct file path to load from
         path_to_try: str | None = None
-        if os.path.exists(preset_path):
+        if preset_path.exists():
             # First, check for a built-in profile matching the identifier
-            path_to_try = preset_path
+            path_to_try = str(preset_path)
         elif os.path.exists(identifier) and (
             identifier.endswith(".yaml") or identifier.endswith(".json")
         ):
@@ -484,25 +489,30 @@ class AutoInstrument:
                 # Helper to resolve sim profile path
                 def resolve_sim_profile_path(profile_key_or_path: str) -> str:
                     # 1. User override in ~/.pytestlab/profiles
-                    user_profile = os.path.expanduser(
-                        os.path.join("~/.pytestlab/profiles", profile_key_or_path + ".yaml")
+                    user_profile = (
+                        Path("~/.pytestlab/profiles").expanduser() / f"{profile_key_or_path}.yaml"
                     )
-                    if os.path.exists(user_profile):
-                        return user_profile
+                    if user_profile.exists():
+                        return str(user_profile)
                     # 2. User sim_profiles (legacy)
-                    user_sim_profile = os.path.expanduser(
-                        os.path.join("~/.pytestlab/sim_profiles", profile_key_or_path + ".yaml")
+                    user_sim_profile = (
+                        Path("~/.pytestlab/sim_profiles").expanduser()
+                        / f"{profile_key_or_path}.yaml"
                     )
-                    if os.path.exists(user_sim_profile):
-                        return user_sim_profile
+                    if user_sim_profile.exists():
+                        return str(user_sim_profile)
                     # 3. Package profile
                     import pytestlab as ptl
 
-                    pkg_profile = os.path.join(
-                        os.path.dirname(ptl.__file__), "profiles", profile_key_or_path + ".yaml"
+                    pkg_file = getattr(ptl, "__file__", None)
+                    pkg_dir = (
+                        Path(pkg_file).resolve().parent
+                        if pkg_file is not None
+                        else Path(__file__).resolve().parent
                     )
-                    if os.path.exists(pkg_profile):
-                        return pkg_profile
+                    pkg_profile = pkg_dir / "profiles" / f"{profile_key_or_path}.yaml"
+                    if pkg_profile.exists():
+                        return str(pkg_profile)
                     # 4. Direct path
                     if os.path.exists(profile_key_or_path):
                         return profile_key_or_path

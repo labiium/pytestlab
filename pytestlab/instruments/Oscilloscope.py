@@ -7,7 +7,6 @@ from io import BytesIO
 from typing import TYPE_CHECKING
 from typing import Any
 from typing import Self
-from typing import cast
 
 import numpy as np
 import polars as pl
@@ -1100,16 +1099,14 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
 
         processed_channels: list[int] = []
         if len(channels) == 1 and isinstance(channels[0], list | tuple):
-            seq = cast(tuple[int, ...] | list[int], channels[0])
-            for c in seq:
+            for c in channels[0]:
                 if not isinstance(c, int):
                     raise InstrumentParameterError(message="Channel numbers must be integers.")
                 processed_channels.append(c)
         else:
             for item in channels:
                 if isinstance(item, list | tuple):
-                    seq2 = cast(tuple[int, ...] | list[int], item)
-                    for x in seq2:
+                    for x in item:
                         if not isinstance(x, int):
                             raise InstrumentParameterError(
                                 message="Channel numbers must be integers."

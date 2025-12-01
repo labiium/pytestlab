@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 from typing import Self
-from typing import cast
 
 from pydantic import validate_call  # Added validate_call
 from uncertainties import ufloat
@@ -129,8 +128,8 @@ class PSUChannelConfig:
             state: The state of the channel (e.g., 0, 1, "ON", "OFF").
         """
         # Allow UFloat or float for channel telemetry
-        self.voltage: float | UFloat = cast(float | UFloat, voltage)
-        self.current: float | UFloat = cast(float | UFloat, current)
+        self.voltage: float | UFloat = voltage
+        self.current: float | UFloat = current
         self.state: str  # Store state as string "ON" or "OFF" for consistency
         if isinstance(state, str):
             # Normalize state from various string inputs like "1", "0", "ON", "OFF"

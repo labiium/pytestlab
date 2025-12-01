@@ -4,7 +4,7 @@ tests.instruments package initializer.
 Purpose:
 - Ensure proper package hierarchy for nested 'conftest.py' files
   (e.g., tests/instruments/sim/conftest.py), so static type checkers
-  like mypy assign distinct qualified module names and avoid duplicate
+  like ty assign distinct qualified module names and avoid duplicate
   module mapping errors.
 
 Runtime:

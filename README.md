@@ -126,7 +126,7 @@ Perfect for reproducible measurements, offline analysis, and catching script cha
 
 ### 5. Run the Tests
 
-The CI matrix runs `pytest` on Ubuntu for Python 3.11 - 3.14 (see the badges above).  
+The CI matrix runs `pytest` on Ubuntu for Python 3.11 - 3.14 (see the badges above).
 Replicate the same checks locally with the dev extras installed:
 
 ```bash
@@ -700,7 +700,7 @@ else:
 ## 🧑‍💻 Contributing
 
 Pull requests are welcome! See [`CONTRIBUTING.md`](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
-Run the test-suite (`pytest`), type-check (`mypy`), lint/format (`ruff`), and keep commits conventional (`cz c`).
+Run the test-suite (`pytest`), type-check (`uvx ty check`), lint/format (`ruff`), and keep commits conventional (`cz c`).
 
 ---
 

@@ -67,7 +67,7 @@ All contributors are expected to follow the [PyTestLab Code of Conduct](CODE_OF_
 ## Code Style & Quality
 
 - **Linting & Formatting:** PyTestLab uses [Ruff](https://docs.astral.sh/ruff/) for linting and formatting, and [Black](https://black.readthedocs.io/) for code style. These are enforced by pre-commit.
-- **Type Checking:** Use [MyPy](http://mypy-lang.org/) for static type checking.
+- **Type Checking:** Use [ty](https://docs.astral.sh/ty/) for static type checking (e.g., `uvx ty check`).
 - **Commit Messages:** Follow the [Conventional Commits](https://www.conventionalcommits.org/) specification. Use `cz c` to help format your commit messages.
 
 ---

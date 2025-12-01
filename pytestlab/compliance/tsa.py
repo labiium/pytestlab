@@ -35,7 +35,13 @@ class LinkedTSA:
         idx = len(self._chain)
         now = datetime.now(UTC).isoformat()
         cum = hashlib.sha256(f"{idx}|{data_sha}|{prev}|{now}".encode()).hexdigest()
-        tok: LinkedToken = dict(idx=idx, ts=now, sha_prev=prev, sha_data=data_sha, sha_cum=cum)
+        tok: LinkedToken = {
+            "idx": idx,
+            "ts": now,
+            "sha_prev": prev,
+            "sha_data": data_sha,
+            "sha_cum": cum,
+        }
         self._chain.append(tok)
         self._path.write_text(json.dumps(self._chain, indent=2))
         return tok
