@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import functools
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 from typing import Any
 from typing import TypeVar
 
 import numpy as np
 from tqdm import tqdm
 
-from ..measurements import MeasurementSession
+if TYPE_CHECKING:
+    from ..measurements import MeasurementSession
 
 
 # --- DUMMY Sweep class for mkdocstrings compatibility ---
@@ -176,6 +178,14 @@ class ParameterSpace:
     def wrap_function(self, func: Callable) -> Callable:
         """
         Wrap a function to handle parameter passing and session integration.
+
+        The wrapped function will be called with keyword arguments matching
+        the parameter names. For example:
+            param_space = ParameterSpace({"V_base": (0.6, 1.0), "V_collector": (0, 5)})
+
+            @grid_sweep(param_space=param_space, points=10)
+            def measure(V_base, V_collector):  # Keyword arguments
+                return (V_base - 0.6) * (V_collector / 5) * 0.01
 
         Args:
             func: The measurement function to wrap
@@ -418,6 +428,8 @@ def _gwass_impl(
         cell_gradients_list.append(cell_grad_val)
 
     cell_gradients_np: np.ndarray = np.array(cell_gradients_list)  # Renamed
+    # Handle NaN values that can occur from np.gradient on sparse data
+    cell_gradients_np = np.nan_to_num(cell_gradients_np, nan=0.0)
     total_gradient_val: float = np.sum(cell_gradients_np)  # Renamed
 
     cell_probabilities_np: np.ndarray  # Renamed

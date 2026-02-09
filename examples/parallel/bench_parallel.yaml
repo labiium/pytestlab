@@ -7,7 +7,7 @@ instruments:
     profile: "keysight/EDU36311A"
     address: "SIM_PSU"
   load:
-    profile: "keysight/EL33133A"
+    profile: "keysight/EDU36311A"  # Using PSU as simulated load
     address: "SIM_LOAD"
   scope:
     profile: "keysight/DSOX1204G"

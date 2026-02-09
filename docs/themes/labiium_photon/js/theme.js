@@ -271,16 +271,24 @@ document.addEventListener("DOMContentLoaded", () => {
   if (searchButton && searchModal && searchInput) {
     let searchIndex = null;
 
+    // Detect current language from URL path (e.g., /zh/, /es/, /ja/, /it/, /pl/, /fr/)
+    const langMatch = window.location.pathname.match(/^\/(zh|es|ja|it|pl|fr)\//);
+    const langPrefix = langMatch ? langMatch[0] : '/';
+
+    // Build the correct search index URL based on language
+    // For English: /search/search_index.json
+    // For other languages: /{lang}/search/search_index.json
+    const searchIndexUrl = window.location.origin + langPrefix + 'search/search_index.json';
+
     // Load search index - try multiple paths for production compatibility
-    const baseUrl =
-      window.location.origin + window.location.pathname.replace(/[^/]*$/, "");
     const searchPaths = [
-      baseUrl + "search/search_index.json",
-      "./search/search_index.json",
-      "search/search_index.json",
-      "../search/search_index.json",
-      "/search/search_index.json",
-      window.location.origin + "/search/search_index.json",
+      searchIndexUrl,
+      langPrefix + 'search/search_index.json',
+      '/search/search_index.json',
+      './search/search_index.json',
+      'search/search_index.json',
+      '../search/search_index.json',
+      window.location.origin + '/search/search_index.json',
     ];
 
     function loadSearchIndex() {
@@ -423,16 +431,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
         resultsElement.innerHTML = results
           .map((result) => {
-            // Handle relative URLs properly
+            // Convert relative URLs to absolute paths from site root
             let resultUrl = result.location;
-            if (
-              resultUrl &&
-              !resultUrl.startsWith("http") &&
-              !resultUrl.startsWith("#")
-            ) {
-              if (!resultUrl.startsWith("/")) {
-                resultUrl = "../" + resultUrl;
-              }
+
+            // For relative URLs (not starting with / or http), make them absolute
+            if (resultUrl && !resultUrl.startsWith("/") && !resultUrl.startsWith("http") && !resultUrl.startsWith("#")) {
+              resultUrl = "/" + resultUrl;
             }
 
             return `

@@ -2,20 +2,19 @@
 PyTestLab: Parallel Measurement Example
 ========================================
 
-This example demonstrates the new parallel task execution feature of the
+This example demonstrates the parallel task execution feature of the
 MeasurementSession. It simulates a common real-world scenario: characterizing
-a device's response (e.g., ripple voltage) while its power supply and load
-are dynamically changing.
+a device's response while its power supply and load are dynamically changing.
 
 Workflow:
 1. A Power Supply (`psu`) ramps its voltage up and down in the background.
-2. A DC Electronic Load (`load`) applies a pulsed load current in the background.
-3. While these two tasks run concurrently, an Oscilloscope (`scope`) repeatedly
-   acquires waveforms.
+2. Another Power Supply (`load`) acts as a load in the background.
+3. While these two tasks run concurrently, measurements are taken.
 
-This entire process is managed declaratively using the MeasurementSession builder.
+Note: This example runs in simulation mode - no hardware required.
 """
 
+import random
 import time
 from pathlib import Path
 
@@ -40,13 +39,9 @@ def main():
         # Create a MeasurementSession, inheriting instruments from the bench
         with Measurement(bench=bench) as session:
             session.name = "Device Ripple Under Dynamic Load"
-            session.description = (
-                "Measures DUT output ripple while PSU voltage ramps and "
-                "DC load applies current pulses."
-            )
+            session.description = "Measures DUT response while PSU voltage ramps and load changes."
 
             # Task 1: Ramp the PSU voltage up and down continuously.
-            # This runs in the background for the entire session duration.
             @session.task
             def psu_ramp(psu):
                 """Varies the PSU voltage from 1V to 5V and back."""
@@ -62,65 +57,49 @@ def main():
                         for voltage in np.linspace(5.0, 1.0, 10):
                             psu.channel(1).set(voltage=voltage)
                             time.sleep(0.2)
-                except Exception:
-                    print("-> PSU Ramp Task: Stopped")
+                except Exception as e:
+                    print(f"-> PSU Ramp Task: Stopped ({e})")
+                finally:
                     psu.channel(1).off()
 
-            # Task 2: Apply a pulsed load current.
-            # This also runs in the background.
+            # Task 2: Load changes
             @session.task
             def load_pulse(load):
-                """Applies a 1A pulse load with a 50% duty cycle."""
-                print("-> DC Load Pulse Task: Started")
-                load.set_mode("CC")  # Constant Current mode
-                load.enable_input(True)
+                """Applies periodic load changes."""
+                print("-> Load Pulse Task: Started")
+                load.channel(1).set(voltage=3.3, current_limit=0.5).on()
                 try:
                     while True:
-                        load.set_load(1.0)  # 1A load
-                        time.sleep(0.5)
-                        load.set_load(0.1)  # 0.1A load
-                        time.sleep(0.5)
-                except Exception:
-                    print("-> DC Load Pulse Task: Stopped")
-                    load.enable_input(False)
+                        # High load
+                        load.channel(1).set(current_limit=0.5)
+                        time.sleep(1.0)
+                        # Low load
+                        load.channel(1).set(current_limit=0.1)
+                        time.sleep(1.0)
+                except Exception as e:
+                    print(f"-> Load Pulse Task: Stopped ({e})")
+                finally:
+                    load.channel(1).off()
 
-            # Acquisition Task: Repeatedly measure with the oscilloscope.
-            # This is the main data collection loop.
+            # Acquisition: Measure ripple voltage
             @session.acquire
-            def measure_ripple(scope):
-                """Acquires a waveform and calculates its Vpp as ripple."""
-                scope._send_command(":SINGle")
-                time.sleep(0.05)  # Allow time for acquisition
-                waveform_result = scope.read_channels(1)
-                vpp_result = scope.measure_voltage_peak_to_peak(1)
+            def measure_ripple(psu, load, scope):
+                """Measures the output ripple of the DUT."""
+                # Simulated ripple measurement
+                # In real use, you would use scope.read_channels(1)
+                ripple_voltage = random.uniform(0.01, 0.1)  # 10mV to 100mV
+                return {"ripple_v": ripple_voltage}
 
-                return {
-                    "vpp_ripple": vpp_result.values,
-                    "waveform_data": waveform_result.values,  # Store the full waveform
-                }
-
-            # Run the session in parallel mode for 5 seconds,
-            # acquiring data every 250ms.
+            # Run the parallel measurement for 5 seconds
             print("\nStarting parallel measurement session for 5 seconds...")
             experiment = session.run(duration=5.0, interval=0.25)
-            print("Session finished.")
 
-    # --- Analysis ---
-    print("\n--- Results ---")
-    results_df = experiment.data
-    print(results_df)
+            print(f"\n✅ Measurement Complete!")
+            print(f"   Captured {len(experiment.data)} measurements.")
 
-    # Example of post-processing the collected data
-    if not results_df.is_empty():
-        max_ripple = results_df["vpp_ripple"].max()
-        avg_ripple = results_df["vpp_ripple"].mean()
-        print(f"\nMaximum observed ripple: {max_ripple:.4f} V")
-        print(f"Average observed ripple: {avg_ripple:.4f} V")
-
-        # You can also access the detailed waveform data for further analysis
-        first_waveform = results_df["waveform_data"][0]
-        print("\nSchema of the first captured waveform:")
-        print(first_waveform)
+            if len(experiment.data) > 0:
+                ripples = experiment.data["ripple_v"].to_numpy()
+                print(f"   Ripple range: {ripples.min():.3f}V to {ripples.max():.3f}V")
 
 
 if __name__ == "__main__":

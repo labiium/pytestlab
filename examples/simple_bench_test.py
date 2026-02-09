@@ -22,9 +22,9 @@ def main():
     print(f"\n📂 Loading bench from: {bench_path.name}")
     bench = Bench.open(bench_path)
 
-    print(f"✓ Bench loaded: {bench.config.bench_name}")
-    print(f"  Version: {bench.config.version}")
-    print(f"  Simulation: {bench.config.simulate}")
+    print(f"✓ Bench loaded: {bench.name}")
+    print(f"  Version: {bench.version}")
+    print(f"  Simulation: {bench.simulate}")
     print(f"  Instruments: {len(bench.instruments)}")
 
     # Access instruments
@@ -95,8 +95,8 @@ def main():
     print("=" * 70)
     print("\nAll instruments are accessible and functional:")
     print(f"  • {len(bench.instruments)} instruments loaded")
-    print(f"  • Configuration: {bench.config.bench_name}")
-    print(f"  • Mode: {'Simulation' if bench.config.simulate else 'Hardware'}")
+    print(f"  • Configuration: {bench.name}")
+    print(f"  • Mode: {'Simulation' if bench.simulate else 'Hardware'}")
 
 
 if __name__ == "__main__":

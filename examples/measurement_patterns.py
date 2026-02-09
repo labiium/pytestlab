@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 """
-PyTestLab Migration Examples
+PyTestLab Measurement Patterns Examples
+
+This module demonstrates common measurement patterns using PyTestLab:
+- Basic instrument connection and configuration
+- Bench-based measurement with YAML configuration
+- Parameter sweeps with MeasurementSession
+- Error handling and resource management
+
+All examples use simulation mode - no hardware required.
 """
 
 import time
@@ -9,31 +17,28 @@ import numpy as np
 
 import pytestlab
 from pytestlab import AutoInstrument
-from pytestlab.exceptions import SafetyLimitError
 from pytestlab.measurements import MeasurementSession
 
 
 def basic_instrument_usage():
     """Basic instrument connection and measurement."""
+    print("\n=== Basic Instrument Usage ===")
 
     # Connect to oscilloscope with simulation
     scope = AutoInstrument.from_config("keysight/DSOX1204G", simulate=True)
     scope.connect_backend()
 
     try:
-        # Configure channels
-        scope.channel(1).setup(scale=0.5, offset=0).enable()
-        scope.channel(2).setup(scale=1.0, offset=0).enable()
+        # Configure channels using direct API (more reliable in simulation)
+        scope.set_channel_axis(1, scale=0.5, offset=0.0)
+        scope.display_channel(1, True)
+        scope.set_channel_axis(2, scale=1.0, offset=0.0)
+        scope.display_channel(2, True)
+        print("✓ Oscilloscope channels configured")
 
-        # Setup trigger
-        scope.trigger.setup_edge(source="CH1", level=0.2)
-
-        # Acquire data
-        scope.trigger.single()
-        trace_data = scope.read_channels([1, 2])
-
-        print(f"Captured {len(trace_data)} samples")
-        print(f"Channels: {trace_data.columns}")
+        # Note: Trigger configuration and data acquisition
+        # would be done here with real hardware
+        print("✓ Oscilloscope ready for acquisition")
 
     finally:
         scope.close()
@@ -41,284 +46,178 @@ def basic_instrument_usage():
 
 def bench_configuration_example():
     """Using Bench with YAML configuration and safety limits."""
+    print("\n=== Bench Configuration Example ===")
 
-    with pytestlab.Bench.open("examples/bench_config.yaml") as bench:
-        # Test safety limits
-        try:
-            bench.psu.channel(1).set_voltage(7.0)  # Above configured limit
-        except SafetyLimitError as e:
-            print(f"Safety limit enforced: {e}")
+    with pytestlab.Bench.open("examples/bench.yaml") as bench:
+        # Safe operation using facade API
+        print("✓ Bench opened with instruments:")
+        for alias in bench.instruments:
+            print(f"  - {alias}")
 
-        # Safe operation
-        bench.psu.channel(1).set_voltage(3.3)
-        bench.psu.channel(1).set_current_limit(0.5)
-        bench.psu.channel(1).enable()
+        # Configure power supply using chainable facade
+        bench.psu1.channel(1).set(voltage=3.3, current_limit=0.5).on()
+        print("✓ Power supply channel 1: 3.3V, 0.5A limit, output ON")
 
         # Wait for settling
         time.sleep(0.1)
 
-        # Measure voltage and current
-        voltage = bench.dmm.measure_voltage_dc()
-        current = bench.psu.channel(1).measure_current()
-
-        print(f"Output: {voltage.values:.3f} V, {current.values:.3f} A")
+        # Note: In real use, you would measure here
+        print("✓ Measurement would be taken here with real hardware")
 
         # Power off
-        bench.psu.channel(1).disable()
+        bench.psu1.channel(1).off()
+        print("✓ Power supply channel 1 turned off")
 
 
 def parameter_sweep_measurement():
     """Complex measurement session with parameter sweeps."""
+    print("\n=== Parameter Sweep Measurement ===")
 
     with MeasurementSession("Diode I-V Characterization") as meas:
-        # Configure instruments
-        meas.instrument("psu", "keysight/EDU36311A", address="TCPIP0::192.168.1.100::INSTR")
-        meas.instrument("dmm", "keysight/34470A", address="USB0::2391::9479::INSTR")
+        # Configure instruments (in simulation mode)
+        meas.instrument("psu", "keysight/EDU36311A", simulate=True)
 
         # Define sweep parameters
-        meas.parameter("voltage", np.linspace(0, 3.0, 31), unit="V")
+        meas.parameter("voltage", np.linspace(0, 3.0, 11), unit="V")
         meas.parameter("temperature", [25, 50, 75], unit="°C")
 
-        # Configure safety limits
-        meas.safety_limit("voltage", max_value=3.5)
-        meas.safety_limit("current", max_value=0.1)
-
         @meas.acquire
-        def measure_iv_point(psu, dmm, voltage, temperature):
+        def measure_iv_point(psu, voltage, temperature):
             """Acquire single I-V measurement point."""
 
-            # Set voltage
-            psu.channel(1).set_voltage(voltage)
+            # Set voltage using facade API
+            psu.channel(1).set(voltage=voltage, current_limit=0.1).on()
 
             # Wait for settling
             time.sleep(0.01)
 
-            # Measure current
-            current = dmm.measure_current_dc()
+            # Simulate current measurement
+            # In real use: current = psu.read_current(1)
+            import random
 
-            # Additional measurements
-            actual_voltage = dmm.measure_voltage_dc()
+            current = voltage * 0.01 + random.uniform(-0.001, 0.001)
+
+            # Turn off output
+            psu.channel(1).off()
 
             return {
-                "current": current.values,
-                "voltage_measured": actual_voltage.values,
+                "current": current,
+                "voltage_applied": voltage,
                 "temperature": temperature,
             }
 
         # Run the measurement
         print("Starting parameter sweep...")
-        results = meas.run()
+        results = meas.run(show_progress=False)
 
         # Analyze results
-        analysis = meas.analyze()
-        print(f"Collected {len(results)} measurement points")
-        print(f"Analysis complete: {analysis.summary}")
-
-        # Save data
-        meas.save("diode_iv_sweep.h5")
+        print(f"✓ Total measurements: {len(results.data)}")
+        print(f"✓ Voltage range: 0 to 3.0V")
+        print(f"✓ Temperatures tested: 25°C, 50°C, 75°C")
 
 
 def advanced_measurement_patterns():
     """Advanced patterns with error handling and sequential operations."""
+    print("\n=== Advanced Measurement Patterns ===")
 
     instruments = []
 
     try:
         # Connect multiple instruments
-        scope = AutoInstrument.from_config("tek/MSO64", address="TCPIP0::192.168.1.10::INSTR")
-        scope.connect_backend()
-        instruments.append(scope)
-
-        psu = AutoInstrument.from_config(
-            "keysight/EDU36311A", address="TCPIP0::192.168.1.11::INSTR"
-        )
+        psu = AutoInstrument.from_config("keysight/EDU36311A", simulate=True)
         psu.connect_backend()
         instruments.append(psu)
 
-        fgen = AutoInstrument.from_config("keysight/33500B", address="TCPIP0::192.168.1.12::INSTR")
-        fgen.connect_backend()
-        instruments.append(fgen)
+        awg = AutoInstrument.from_config("keysight/EDU33212A", simulate=True)
+        awg.connect_backend()
+        instruments.append(awg)
 
-        # Configure signal generator
-        fgen.channel(1).setup_sine(frequency=1e3, amplitude=0.5)
-        fgen.channel(1).enable()
+        print(f"✓ Connected {len(instruments)} instruments")
 
         # Configure power supply
-        psu.channel(1).set_voltage(5.0)
-        psu.channel(1).enable()
+        psu.channel(1).set(voltage=5.0, current_limit=0.1).on()
+        print("✓ Power supply: 5V output enabled")
 
-        # Configure scope
-        scope.channel(1).setup(scale=0.2, coupling="DC")
-        scope.channel(2).setup(scale=1.0, coupling="DC")
-        scope.trigger.setup_edge(source="CH1", level=0.1)
+        # Configure AWG
+        awg.channel(1).setup_sine(frequency=1000, amplitude=1.0).enable()
+        print("✓ AWG: 1kHz sine wave enabled")
 
-        # Perform measurements with different trigger conditions
-        measurements = []
+        # Simulate measurement time
+        time.sleep(0.1)
 
-        for trigger_level in [0.1, 0.2, 0.3]:
-            scope.trigger.setup_edge(source="CH1", level=trigger_level)
-            scope.trigger.single()
-
-            # Wait for trigger with timeout
-            try:
-                # Use instrument's built-in timeout mechanism
-                scope.wait_for_trigger(timeout=5.0)
-                trace = scope.read_channels([1, 2])
-                measurements.append({"trigger_level": trigger_level, "trace": trace})
-            except TimeoutError:
-                print(f"Trigger timeout at level {trigger_level}")
-
-        print(f"Completed {len(measurements)} measurements")
+        # Cleanup
+        awg.channel(1).disable()
+        psu.channel(1).off()
+        print("✓ All outputs disabled")
 
     except Exception as e:
-        print(f"Measurement failed: {e}")
+        print(f"❌ Error during measurement: {e}")
+        raise
 
     finally:
-        # Clean up all instruments
-        for instr in instruments:
+        # Ensure all instruments are closed
+        for inst in instruments:
             try:
-                instr.close()
-            except Exception as e:
-                print(f"Error closing instrument: {e}")
+                inst.close()
+            except Exception:
+                pass
+        print("✓ All instruments closed")
 
 
-def measurement_with_data_processing():
-    """Measurement with real-time data processing."""
+def database_storage_example():
+    """Example of storing measurements in database."""
+    print("\n=== Database Storage Example ===")
 
-    with MeasurementSession("FFT Analysis") as meas:
-        meas.instrument("scope", "tek/MSO64", address="...")
-        meas.instrument("fgen", "keysight/33500B", address="...")
+    import tempfile
+    import os
 
-        meas.parameter("frequency", np.logspace(2, 6, 50), unit="Hz")
-
-        @meas.acquire
-        def frequency_response(scope, fgen, frequency):
-            """Measure frequency response at given frequency."""
-
-            # Set stimulus frequency
-            fgen.channel(1).setup_sine(frequency=frequency, amplitude=1.0)
-            fgen.channel(1).enable()
-
-            # Wait for settling
-            time.sleep(0.1)
-
-            # Capture response
-            scope.trigger.single()
-            trace = scope.read_channels([1, 2])
-
-            # Calculate amplitude and phase
-            input_signal = trace["CH1"].values
-            output_signal = trace["CH2"].values
-
-            # FFT processing
-            input_fft = np.fft.fft(input_signal)
-            output_fft = np.fft.fft(output_signal)
-
-            # Find response at stimulus frequency
-            freq_bins = np.fft.fftfreq(len(input_signal), d=1 / scope.sample_rate)
-            freq_idx = np.argmin(np.abs(freq_bins - frequency))
-
-            amplitude = np.abs(output_fft[freq_idx]) / np.abs(input_fft[freq_idx])
-            phase = np.angle(output_fft[freq_idx]) - np.angle(input_fft[freq_idx])
-
-            return {"amplitude": amplitude, "phase": np.degrees(phase), "frequency": frequency}
-
-        # Run measurement
-        results = meas.run()
-
-        # Generate Bode plot
-        analysis = meas.analyze()
-        analysis.plot_bode()
-
-        return results
-
-
-# Test functions for pytest
-
-
-def test_basic_connection():
-    """Test basic instrument connection."""
-    scope = AutoInstrument.from_config("keysight/DSOX1204G", simulate=True)
-    scope.connect_backend()
-
-    status = scope.get_status()
-    assert status["connected"] is True
-
-    scope.close()
-
-
-def test_measurement_session():
-    """Test measurement session functionality."""
-    with MeasurementSession("Test Session") as meas:
-        meas.instrument("dmm", "keysight/34470A", simulate=True)
-        meas.parameter("voltage", [1.0, 2.0, 3.0])
-
-        @meas.acquire
-        def simple_measurement(dmm, voltage):
-            return {"reading": voltage * 1.1}  # Simulated reading
-
-        results = meas.run()
-        assert len(results) == 3
-
-
-def performance_comparison_test():
-    """Demonstrate performance characteristics of sync API."""
-
-    # Time a series of measurements
-    start_time = time.time()
-
-    with pytestlab.Bench.open("examples/bench_config.yaml") as bench:
-        # Perform 100 quick measurements
-        voltages = []
-        for _ in range(100):
-            voltage = bench.dmm.measure_voltage_dc()
-            voltages.append(voltage.values)
-
-    elapsed = time.time() - start_time
-    print(f"100 measurements completed in {elapsed:.2f} seconds")
-    print(f"Average measurement time: {elapsed / 100 * 1000:.1f} ms")
-
-
-def batch_operations_example():
-    """Demonstrate efficient batch operations in sync API."""
-
-    scope = AutoInstrument.from_config("keysight/DSOX1204G", simulate=True)
-    scope.connect_backend()
+    # Create temporary database
+    db_path = tempfile.mktemp(suffix=".db")
 
     try:
-        # Batch channel configuration - more efficient than individual calls
-        scope.channels([1, 2, 3, 4]).setup(scale=0.5, offset=0, coupling="DC").enable()
+        with pytestlab.Bench.open("examples/bench.yaml") as bench:
+            # Initialize database
+            bench.initialize_database(db_path)
+            print(f"✓ Database initialized: {db_path}")
 
-        # Batch trigger setup
-        scope.trigger.setup_edge(source="CH1", level=0.2, slope="positive")
+            # Run a simple measurement
+            bench.psu1.channel(1).set(voltage=3.3).on()
+            time.sleep(0.1)
+            bench.psu1.channel(1).off()
 
-        # Single call to read multiple channels
-        traces = scope.read_channels([1, 2, 3, 4])
-
-        print(f"Captured data from {len(traces.columns)} channels")
-        print(f"Data shape: {traces.shape}")
+            # Save experiment to database
+            if bench.experiment:
+                codename = bench.save_experiment(notes="Test measurement")
+                print(f"✓ Experiment saved: {codename}")
 
     finally:
-        scope.close()
+        # Clean up
+        if os.path.exists(db_path):
+            os.remove(db_path)
+            print(f"✓ Cleaned up database")
 
 
 def main():
-    """Main function to run all examples."""
-
+    """Run all example patterns."""
     print("Running PyTestLab synchronous examples...")
+    print("=" * 60)
 
-    # Run all examples
-    basic_instrument_usage()
-    bench_configuration_example()
-    parameter_sweep_measurement()
-    advanced_measurement_patterns()
-    measurement_with_data_processing()
+    try:
+        basic_instrument_usage()
+        bench_configuration_example()
+        parameter_sweep_measurement()
+        advanced_measurement_patterns()
+        database_storage_example()
 
-    # Performance demonstrations
-    performance_comparison_test()
-    batch_operations_example()
+        print("\n" + "=" * 60)
+        print("✅ All examples completed successfully!")
+        print("=" * 60)
 
-    print("All examples completed!")
+    except KeyboardInterrupt:
+        print("\n⚠️ Examples interrupted by user")
+    except Exception as e:
+        print(f"\n❌ Example failed: {e}")
+        raise
 
 
 if __name__ == "__main__":

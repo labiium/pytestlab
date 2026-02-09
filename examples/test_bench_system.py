@@ -58,7 +58,7 @@ def test_bench_opening():
     try:
         # Test bench opening
         bench = Bench.open(config_file)
-        print(f"✅ Bench opened successfully: {bench.config.bench_name}")
+        print(f"✅ Bench opened successfully: {bench.name}")
         print(f"   Available instruments: {list(bench.instruments.keys())}")
 
         # Test properties
@@ -98,7 +98,7 @@ def test_instrument_access():
 
     try:
         with Bench.open(config_file) as bench:
-            print(f"✅ Using bench as context manager: {bench.config.bench_name}")
+            print(f"✅ Using bench as context manager: {bench.name}")
 
             # Test instrument access
             for name, instrument in bench.instruments.items():

@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from pydantic import AliasChoices
 from pydantic import BaseModel
 from pydantic import ConfigDict
+from pydantic import Field
 from pydantic import RootModel
 from pydantic import model_validator
 
@@ -72,7 +74,7 @@ class MeasurementPlanEntry(BaseModel):
 
 class BenchConfigExtended(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    bench_name: str
+    bench_name: str = Field(validation_alias=AliasChoices("name", "bench_name"))
     experiment: ExperimentSection | None = None
     instruments: dict[str, InstrumentEntry]
     custom_validations: list[str] | None = None

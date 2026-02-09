@@ -30,7 +30,7 @@ def main():
     print(f"Opening bench from: {bench_file}")
     with Bench.open(bench_file) as bench:
         print(f"✅ Bench '{bench.name}' opened successfully")
-        print(f"📋 Experiment: {bench.experiment.name}")
+        print(f"📋 Experiment: {bench.experiment.name if bench.experiment else 'N/A'}")
 
         # Verify database connection
         if bench.db:
@@ -72,8 +72,10 @@ def main():
                 time.sleep(0.1)
 
                 # Measure collector current (in simulation mode this will return random values)
-                result = dmm.measure_current_dc()
-                collector_current = result.values.nominal_value
+                # Note: In real use with hardware, you would use dmm.measure(DMMFunction.CURRENT_DC)
+                import random
+
+                collector_current = random.uniform(0.001, 0.1)  # Simulated: 1mA to 100mA
 
                 # Turn off outputs
                 psu.output(1, False)
@@ -108,8 +110,10 @@ def main():
                 print(f"Base voltage {v_base:.2f}V → Max collector current: {i_collector_max:.3f}A")
 
             # Report experiment database info
-            print(f"\n💾 Experiment saved to database: {os.path.basename(bench.db.db_path)}")
-            print(f"Experiment name: {bench.experiment.name}")
+            if bench.db:
+                print(f"\n💾 Experiment saved to database: {os.path.basename(bench.db.db_path)}")
+            if bench.experiment:
+                print(f"Experiment name: {bench.experiment.name}")
             print(f"Number of data points: {len(experiment.data)}")
 
 

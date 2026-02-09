@@ -1,4 +1,5 @@
 <!doctype html>
+{% set t = config.extra.t %}
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
@@ -7,15 +8,13 @@
         <meta name="author" content="LABIIUM" />
 
         <title>
-            {{ config.site_name }} - Enlightened Measurement for Modern Science
+            {{ config.site_name }} - {{ t.hero_title_1 }} {{ t.hero_title_2 }}
         </title>
 
         <!-- Favicon -->
-        <link
-            rel="icon"
-            href="{{ 'img/favicon.ico'|url }}"
-            type="image/x-icon"
-        />
+        <link rel="icon" href="{{ 'img/favicon.ico'|url }}" type="image/x-icon">
+        <link rel="shortcut icon" href="{{ 'img/favicon.ico'|url }}" type="image/x-icon">
+        <link rel="apple-touch-icon" href="{{ 'img/pytestlab_logo.png'|url }}">
 
         <!-- Google Fonts -->
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -1487,35 +1486,36 @@
                             <li class="nav-item">
                                 <a
                                     href="{{ 'user_guide/getting_started/'|url }}"
-                                    >Docs</a
+                                    >{{ t.nav_docs }}</a
                                 >
                             </li>
                             <li class="nav-item">
                                 <a href="{{ 'tutorials/10_minute_tour/'|url }}"
-                                    >Tutorials</a
+                                    >{{ t.nav_tutorials }}</a
                                 >
                             </li>
                             <li class="nav-item">
-                                <a href="{{ 'api/instruments/'|url }}">API</a>
+                                <a href="{{ 'api/instruments/'|url }}">{{ t.nav_api }}</a>
                             </li>
                             <li class="nav-item">
                                 <a href="{{ 'profiles/gallery/'|url }}"
-                                    >Instruments</a
+                                    >{{ t.nav_instruments }}</a
                                 >
                             </li>
                             <li class="nav-item">
                                 <a href="{{ 'contributing/'|url }}"
-                                    >Contribute</a
+                                    >{{ t.nav_contribute }}</a
                                 >
                             </li>
                         </ul>
                     </nav>
 
                     <div class="header-actions">
+                        <!-- Search component -->
                         <button
                             class="search-button"
                             id="searchButton"
-                            aria-label="Open Search"
+                            aria-label="{{ t.search_placeholder }}"
                         >
                             <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -1556,7 +1556,7 @@
                         type="text"
                         class="search-input"
                         id="searchInput"
-                        placeholder="Search documentation..."
+                        placeholder="{{ t.search_placeholder }}"
                         autofocus
                     />
                     <button type="button" class="search-close" id="searchClose">
@@ -1576,7 +1576,7 @@
                 </form>
                 <div class="search-results">
                     <div class="search-results-meta" id="searchResultsMeta">
-                        Type to start searching
+                        {{ t.search_start }}
                     </div>
                     <div id="searchResults"></div>
                 </div>
@@ -1589,26 +1589,23 @@
                 <div class="hero-content fade-in">
                     <h1 class="hero-title">
                         <span class="gradient-text-light"
-                            >Enlightened Measurement</span
+                            >{{ t.hero_title_1 }}</span
                         ><br />
                         <span class="gradient-text-accent"
-                            >for Modern Science</span
+                            >{{ t.hero_title_2 }}</span
                         >
                     </h1>
                     <p class="hero-subtitle">
-                        PyTestLab is a modern Python toolbox for laboratory
-                        test-and-measurement automation, data management, and
-                        analysis. Move faster, build smarter, and trust your
-                        results.
+                        {{ t.hero_subtitle }}
                     </p>
                     <div class="hero-actions">
                         <a
                             href="{{ 'user_guide/getting_started/'|url }}"
                             class="beam-button"
-                            >Explore Documentation</a
+                            >{{ t.explore_button }}</a
                         >
                         <a href="{{ 'installation/'|url }}" class="ghost-button"
-                            >Installation Guide</a
+                            >{{ t.installation_button }}</a
                         >
                     </div>
                 </div>
@@ -1619,9 +1616,11 @@
         <section class="features-section">
             <div class="container">
                 <div class="section-header fade-in">
-                    <h2>A Toolbox Built for Velocity</h2>
+                    <h2>{{ t.features_title }}</h2>
                     <p class="section-description">
-                        Stop wrestling with legacy APIs. Start building
+                        
+                        {{ t.features_subtitle }}
+                    
                         reproducible experiments.
                     </p>
                 </div>
@@ -1644,9 +1643,9 @@
                                 <path d="m15.5 12-4 4-4-4" />
                             </svg>
                         </div>
-                        <h3>Fast by Design</h3>
+                        <h3>{{ t.feature_1_title }}</h3>
                         <p>
-                            Run parallel tests and non-blocking I/O with native
+                            {{ t.feature_1_desc }}
                             efficient background tasks and I/O. Maximize
                             instrument uptime and slash test execution times.
                         </p>
@@ -1672,11 +1671,9 @@
                                 <path d="M18.5 12v-5" opacity=".4" />
                             </svg>
                         </div>
-                        <h3>Unified Driver Layer</h3>
+                        <h3>{{ t.feature_2_title }}</h3>
                         <p>
-                            A consistent, high-level API across oscilloscopes,
-                            PSUs, DMMs, and more. Swap instruments without
-                            rewriting your test logic.
+                            {{ t.feature_2_desc }}
                         </p>
                     </div>
                     <div class="glass-card feature-card">
@@ -1694,11 +1691,9 @@
                                 <path d="M22 4 12 14.01l-3-3" opacity=".4" />
                             </svg>
                         </div>
-                        <h3>Declarative & Validated</h3>
+                        <h3>{{ t.feature_3_title }}</h3>
                         <p>
-                            Define instruments and benches with simple YAML
-                            files, validated by Pydantic. Catch configuration
-                            errors before they hit the hardware.
+                            {{ t.feature_3_desc }}
                         </p>
                     </div>
                 </div>
@@ -1709,10 +1704,9 @@
         <section class="code-showcase-section">
             <div class="container">
                 <div class="section-header fade-in">
-                    <h2>An API Designed for Flow</h2>
+                    <h2>{{ t.code_showcase_title }}</h2>
                     <p class="section-description">
-                        Follow the journey from a single command to a complete,
-                        automated experiment.
+                        {{ t.code_showcase_subtitle }}
                     </p>
                 </div>
                 <div class="code-showcase-grid fade-in">
@@ -1725,7 +1719,7 @@
                             aria-pressed="true"
                             aria-label="Hello, Instrument"
                         >
-                            <h3>1. Hello, Instrument</h3>
+                            <h3>{{ t.step_1_title }}</h3>
                             <p>
                                 Start simple. Connect to any instrument with one
                                 line. PyTestLab's `AutoInstrument` handles the
@@ -1741,12 +1735,9 @@
                             aria-pressed="false"
                             aria-label="Define Your Bench"
                         >
-                            <h3>2. Define Your Bench</h3>
+                            <h3>{{ t.step_2_title }}</h3>
                             <p>
-                                Describe your entire lab bench in a simple,
-                                readable YAML file. Specify instruments,
-                                connection details, and even safety limits to
-                                prevent accidents.
+                                {{ t.step_2_desc }}
                             </p>
                         </div>
                         <div
@@ -1757,13 +1748,9 @@
                             aria-pressed="false"
                             aria-label="Run Your Bench"
                         >
-                            <h3>3. Run Your Bench</h3>
+                            <h3>{{ t.step_3_title }}</h3>
                             <p>
-                                Bring your bench to life. The `Bench` context
-                                manager handles all connections and provides
-                                access to your instruments by the aliases you
-                                defined. Safety limits are enforced
-                                automatically.
+                                {{ t.step_3_desc }}
                             </p>
                         </div>
                         <div
@@ -1774,20 +1761,16 @@
                             aria-pressed="false"
                             aria-label="Design Experiments"
                         >
-                            <h3>4. Design Experiments</h3>
+                            <h3>{{ t.step_4_title }}</h3>
                             <p>
-                                Go beyond simple commands. Use the declarative
-                                `MeasurementSession` to design complex
-                                experiments, sweep multiple parameters, and
-                                automatically collect structured data, ready for
-                                analysis.
+                                {{ t.step_4_desc }}
                             </p>
                         </div>
                     </div>
                     <div class="code-display-wrapper">
                         <div class="glass-card code-block">
                             <pre><code id="codeDisplay"></code></pre>
-                            <button class="copy-button">Copy</button>
+                            <button class="copy-button">{{ t.copy_button }}</button>
                             <div class="lang-badge">Python</div>
                         </div>
                     </div>
@@ -1799,19 +1782,18 @@
         <section class="cta-section">
             <div class="container">
                 <div class="glass-card cta-card fade-in">
-                    <h2>Ready to Accelerate Your Research?</h2>
+                    <h2>{{ t.cta_title }}</h2>
                     <p class="cta-text">
-                        PyTestLab is ready for your lab. Get started today and
-                        transform how you measure, test, and analyze.
+                        {{ t.cta_subtitle }}
                     </p>
                     <div class="cta-actions">
                         <a href="{{ 'installation/'|url }}" class="beam-button"
-                            >Get Started</a
+                            >{{ t.get_started_button }}</a
                         >
                         <a
                             href="{{ 'tutorials/10_minute_tour/'|url }}"
                             class="ghost-button"
-                            >10-Minute Tour</a
+                            >{{ t.tour_button }}</a
                         >
                     </div>
                 </div>
@@ -1828,79 +1810,77 @@
                             alt="{{ config.site_name }} Logo"
                         />
                         <p>
-                            A modern Python toolbox for laboratory
-                            test-and-measurement automation, data management,
-                            and analysis.
+                            {{ t.footer_brand_desc }}
                         </p>
                     </div>
                     <div class="footer-links">
                         <div class="footer-link-group">
-                            <h3>Documentation</h3>
+                            <h3>{{ t.footer_docs }}</h3>
                             <ul class="footer-link-list">
                                 <li>
                                     <a
                                         href="{{ 'user_guide/getting_started/'|url }}"
-                                        >Getting Started</a
+                                        >{{ t.footer_getting_started }}</a
                                     >
                                 </li>
 
                                 <li>
                                     <a href="{{ 'user_guide/simulation/'|url }}"
-                                        >Simulation Mode</a
+                                        >{{ t.footer_simulation }}</a
                                     >
                                 </li>
                                 <li>
                                     <a
                                         href="{{ 'user_guide/bench_descriptors/'|url }}"
-                                        >Bench Descriptors</a
+                                        >{{ t.footer_bench }}</a
                                     >
                                 </li>
                             </ul>
                         </div>
                         <div class="footer-link-group">
-                            <h3>Reference</h3>
+                            <h3>{{ t.footer_reference }}</h3>
                             <ul class="footer-link-list">
                                 <li>
                                     <a href="{{ 'api/instruments/'|url }}"
-                                        >Instruments</a
+                                        >{{ t.footer_instruments }}</a
                                     >
                                 </li>
                                 <li>
                                     <a href="{{ 'api/measurements/'|url }}"
-                                        >Measurements</a
+                                        >{{ t.footer_measurements }}</a
                                     >
                                 </li>
                                 <li>
                                     <a href="{{ 'api/experiments/'|url }}"
-                                        >Experiments</a
+                                        >{{ t.footer_experiments }}</a
                                     >
                                 </li>
                                 <li>
                                     <a href="{{ 'api/backends/'|url }}"
-                                        >Backends</a
+                                        >{{ t.footer_backends }}</a
                                     >
                                 </li>
                             </ul>
                         </div>
                         <div class="footer-link-group">
-                            <h3>Community</h3>
+                            <h3>{{ t.footer_community }}</h3>
                             <ul class="footer-link-list">
                                 <li>
-                                    <a href="{{ config.repo_url }}">GitHub</a>
+                                    <a href="{{ config.repo_url }}">{{ t.footer_github }}</a>
                                 </li>
                                 <li>
                                     <a href="{{ 'contributing/'|url }}"
-                                        >Contributing</a
+                                        >{{ t.footer_contribute }}</a
                                     >
                                 </li>
                                 <li>
                                     <a href="{{ 'changelog/'|url }}"
-                                        >Changelog</a
+                                        >{{ t.footer_changelog }}</a
                                     >
                                 </li>
                                 <li>
                                     <a href="{{ 'user_guide/cli/'|url }}"
-                                        >CLI Tools</a
+                                        >{{ t.footer_cli }}</a
                                     >
                                 </li>
                             </ul>
@@ -1910,7 +1890,7 @@
                 <div class="footer-bottom">
                     <div class="footer-copyright">
                         &copy; {{ build_date_utc.strftime('%Y') }} {{
-                        config.copyright or "LABIIUM" }}. All rights reserved.
+                        config.copyright or "LABIIUM" }}. {{ t.footer_copyright }}
                     </div>
                     <div class="footer-social">
                         <a
@@ -2449,7 +2429,7 @@ run_sweep()`,
                             }
                         } else {
                             searchResultsMeta.textContent =
-                                "Type to start searching";
+                                "{{ t.search_start }}";
                             searchResults.innerHTML = "";
                         }
                     });
@@ -2518,10 +2498,11 @@ run_sweep()`,
                             })
                             .join("");
                     } else {
-                        metaElement.textContent = "No results found";
+                        metaElement.textContent = "{{ t.search_no_results }}";
                         resultsElement.innerHTML = "";
                     }
                 }
+
             });
         </script>
 

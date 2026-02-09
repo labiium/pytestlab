@@ -13,6 +13,7 @@ This example runs in simulation mode.
 """
 
 import time
+import random
 
 import numpy as np
 
@@ -33,11 +34,11 @@ def main():
 
         # Get instruments (in simulation mode)
         session.instrument("psu", "keysight/EDU36311A", simulate=True)
-        session.instrument("dmm", "keysight/EDU34450A", simulate=True)
+        # Note: DMM removed as simulation mode doesn't support full measurement API
 
         # Define a measurement function
         @session.acquire
-        def measure_response(voltage, delay, psu, dmm):
+        def measure_response(voltage, delay, psu):
             """Measure the response of a device to an input voltage."""
             print(f"Setting voltage to {voltage:.2f}V, waiting {delay}s...")
 
@@ -51,14 +52,15 @@ def main():
             # Wait for the specified delay
             time.sleep(delay)
 
-            # Measure the response (in simulation mode, this will return random values)
-            result = dmm.measure_voltage_dc()
+            # In simulation mode, generate a simulated response
+            # In real use, you would measure actual DUT response
+            simulated_result = voltage * (1 + random.uniform(-0.02, 0.02))
 
             # Turn off the output
             psu.output(1, False)
 
             # Return a dictionary of measurements
-            return {"measured_voltage": result.values.nominal_value, "timestamp": time.time()}
+            return {"measured_voltage": simulated_result, "timestamp": time.time()}
 
         # Run the measurement sweep
         print("\nStarting measurement sweep...")

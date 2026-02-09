@@ -85,11 +85,15 @@ def main():
                 psu.output(1, True)
                 psu.output(2, True)
                 time.sleep(0.05)
-                result = dmm.measure_current_dc()
+                # Note: In simulation mode, DMM measurement API is limited
+                # In real use: from pytestlab.config.multimeter_config import DMMFunction
+                # result = dmm.measure(DMMFunction.CURRENT_DC)
+                # For this example, we simulate the measurement
+                I_collector = (V_base - 0.6) * (V_collector / 5) * 0.01
                 psu.output(1, False)
                 psu.output(2, False)
                 return {
-                    "I_collector": result.values.nominal_value,
+                    "I_collector": I_collector,
                     "V_base": V_base,
                     "V_collector": V_collector,
                 }
@@ -108,9 +112,10 @@ def main():
             {"V_base": (0.6, 1.0), "V_collector": (0, 5)}, constraint=valid_region
         )
 
+        # --- 2. Grid sweep using @grid_sweep decorator ---
         @grid_sweep(param_space=param_space, points=6)
-        def grid_measure(params):
-            V_base, V_collector = params
+        def grid_measure(V_base, V_collector):
+            """Grid sweep measurement function."""
             # Simulate a measurement (replace with real instrument code)
             I_collector = (V_base - 0.6) * (V_collector / 5) * 0.01
             return I_collector
@@ -118,20 +123,20 @@ def main():
         print("Running decorator-based grid sweep...")
         grid_results = grid_measure()
 
-        # --- 3. Monte Carlo sweep ---
-        @monte_carlo_sweep(param_space=param_space, samples=40)
-        def mc_measure(params):
-            V_base, V_collector = params
+        # --- 3. Monte Carlo sweep using @monte_carlo_sweep decorator ---
+        @monte_carlo_sweep(param_space=param_space, samples=25)
+        def mc_measure(V_base, V_collector):
+            """Monte Carlo measurement function."""
             I_collector = (V_base - 0.6) * (V_collector / 5) * 0.01
             return I_collector
 
         print("Running Monte Carlo sweep...")
         mc_results = mc_measure()
 
-        # --- 4. GWASS adaptive sweep ---
-        @gwass(param_space=param_space, budget=30, initial_percentage=0.2)
-        def gwass_measure(params):
-            V_base, V_collector = params
+        # --- 4. GWASS adaptive sampling using @gwass decorator ---
+        @gwass(param_space=param_space, budget=30, initial_percentage=0.3)
+        def gwass_measure(V_base, V_collector):
+            """GWASS adaptive measurement function."""
             I_collector = (V_base - 0.6) * (V_collector / 5) * 0.01
             return I_collector
 

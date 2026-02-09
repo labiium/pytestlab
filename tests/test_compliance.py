@@ -1,11 +1,25 @@
-# tests/test_compliance.py
+"""Compliance tests for the current compliance implementation.
 
+These tests validate the decorator-based compliance system:
+- cryptographic signing via `pytestlab.compliance.signed`
+- audit trail recording via `pytestlab.compliance.audited`
+- verification via `pytestlab.compliance.verification`
+
+Note: These tests require `cryptography`.
+"""
+
+import json
+import sqlite3
 import tempfile
 from pathlib import Path
 
 import pytest
 
-from pytestlab.compliance.signature import Signer
+from pytestlab.compliance.auto_config import ensure_key_pair
+from pytestlab.compliance.decorators import CompliantResult
+from pytestlab.compliance.decorators import audited
+from pytestlab.compliance.decorators import signed
+from pytestlab.compliance.verification import verify_result
 
 
 class MockInstrument:
@@ -31,182 +45,169 @@ def mock_instrument():
 
 @pytest.fixture
 def temp_signer_dir():
-    """Create a temporary directory for HSM keys."""
+    """Create a temporary directory for test keys."""
     with tempfile.TemporaryDirectory() as temp_dir:
         yield Path(temp_dir)
 
 
-@pytest.fixture
-def signer(temp_signer_dir):
-    """Create a Signer instance for testing."""
-    return Signer(temp_signer_dir)
+def test_key_pair_generation(temp_signer_dir):
+    """Key generation should create a private and public key."""
+    pytest.importorskip("cryptography")
+
+    ensure_key_pair(temp_signer_dir)
+    assert (temp_signer_dir / "auto_generated.pem").exists()
+    assert (temp_signer_dir / "auto_generated.pub").exists()
 
 
-def test_signer_initialization(temp_signer_dir):
-    """Test that Signer initializes correctly and generates keys."""
-    signer = Signer(temp_signer_dir)
+def test_signed_decorator_produces_signature(mock_instrument, temp_signer_dir):
+    """`@signed` should produce a CompliantResult with a Signature."""
+    pytest.importorskip("cryptography")
 
-    # Check that private key file was created
-    private_key_path = temp_signer_dir / "private.pem"
-    assert private_key_path.exists()
+    ensure_key_pair(temp_signer_dir)
+    priv = temp_signer_dir / "auto_generated.pem"
+    pub = temp_signer_dir / "auto_generated.pub"
 
-    # Check that signer has public key
-    assert hasattr(signer, "_pub_b")
-    assert signer._pub_b.startswith("-----BEGIN PUBLIC KEY-----")
+    @signed(key_file=priv)
+    def measure():
+        return {
+            "instrument": mock_instrument.to_dict(),
+            "measurement": "voltage_dc",
+            "value": 5.23,
+            "units": "V",
+            "timestamp": "2024-01-15T10:30:00Z",
+        }
+
+    result = measure()
+    assert isinstance(result, CompliantResult)
+    assert result.signature is not None
+    assert result.signature.algorithm.endswith("SHA256")
+    assert result.signature.key_fingerprint
+
+    vr = verify_result(result, trust_anchor=pub)
+    assert vr.signature_valid is True
 
 
-def test_measurement_has_envelope(mock_instrument, signer):
-    """Test that a measurement can be signed with an envelope."""
-    # Create a measurement payload
-    measurement_data = {
-        "instrument": mock_instrument.to_dict(),
-        "measurement": "voltage_dc",
-        "value": 5.23,
-        "units": "V",
-        "timestamp": "2024-01-15T10:30:00Z",
+def test_tampering_is_detected(temp_signer_dir):
+    """Mutating signed data should invalidate signature verification."""
+    pytest.importorskip("cryptography")
+
+    ensure_key_pair(temp_signer_dir)
+    priv = temp_signer_dir / "auto_generated.pem"
+    pub = temp_signer_dir / "auto_generated.pub"
+
+    @signed(key_file=priv)
+    def measure():
+        return {
+            "measurement": "current_dc",
+            "value": 0.025,
+            "units": "A",
+            "provenance": {
+                "operator": "test_user",
+                "environment": {"temperature": 23.5, "humidity": 45},
+                "calibration_date": "2024-01-01",
+            },
+        }
+
+    result = measure()
+    assert verify_result(result, trust_anchor=pub).signature_valid is True
+
+    # Tamper
+    result.data["value"] = 0.030
+    assert verify_result(result, trust_anchor=pub).signature_valid is False
+
+
+def test_result_can_be_stored_and_verified(temp_signer_dir):
+    """A stored result+signature remains verifiable."""
+    pytest.importorskip("cryptography")
+
+    ensure_key_pair(temp_signer_dir)
+    priv = temp_signer_dir / "auto_generated.pem"
+    pub = temp_signer_dir / "auto_generated.pub"
+
+    @signed(key_file=priv)
+    def measure():
+        return {"measurement": "resistance", "value": 1000.0, "units": "ohm"}
+
+    result = measure()
+    assert verify_result(result, trust_anchor=pub).signature_valid is True
+
+    # Simulate storage (JSON-like)
+    stored = {
+        "data": result.data,
+        "signature": result.signature.to_dict() if result.signature else None,
     }
 
-    # Sign the measurement
-    envelope = signer.sign(measurement_data)
+    # Reload
+    from pytestlab.compliance.interfaces import Signature
 
-    # Verify envelope structure
-    assert isinstance(envelope, dict)
-    assert "sha" in envelope
-    assert "sig" in envelope
-    assert "pub" in envelope
-    assert "alg" in envelope
-    assert "ts" in envelope
-
-    # Verify algorithm
-    assert envelope["alg"] == "ECDSA-P256-SHA256"
+    reloaded = CompliantResult(
+        data=stored["data"],
+        signature=Signature.from_dict(stored["signature"]),
+    )
+    assert verify_result(reloaded, trust_anchor=pub).signature_valid is True
 
 
-def test_measurement_has_prov(mock_instrument, signer):
-    """Test that measurement provenance can be verified."""
-    # Create measurement with provenance data
-    measurement_data = {
-        "instrument": mock_instrument.to_dict(),
-        "measurement": "current_dc",
-        "value": 0.025,
-        "units": "A",
-        "provenance": {
-            "operator": "test_user",
-            "environment": {"temperature": 23.5, "humidity": 45},
-            "calibration_date": "2024-01-01",
-        },
-    }
+def test_audited_decorator_writes_sqlite(temp_signer_dir):
+    """`@audited` should create an sqlite file and record an entry."""
+    audit_db = temp_signer_dir / "audit.sqlite"
 
-    # Sign the measurement
-    envelope = signer.sign(measurement_data)
+    @audited(audit_db=audit_db)
+    def measure():
+        return {"x": 1}
 
-    # Verify the signature
-    assert Signer.verify(measurement_data, envelope) is True
+    result = measure()
+    assert isinstance(result, CompliantResult)
+    assert audit_db.exists()
 
-    # Verify that tampering is detected
-    tampered_data = measurement_data.copy()
-    tampered_data["value"] = 0.030  # Tamper with the value
-    assert Signer.verify(tampered_data, envelope) is False
+    with sqlite3.connect(audit_db) as conn:
+        n = conn.execute("SELECT COUNT(*) FROM audit_log").fetchone()[0]
+        assert n >= 1
 
 
-def test_database_stores_measurement_and_envelope(mock_instrument, signer):
-    """Test that both measurement and envelope can be stored."""
-    measurement_data = {
-        "instrument": mock_instrument.to_dict(),
-        "measurement": "resistance",
-        "value": 1000.0,
-        "units": "Ω",
-    }
+def test_private_key_file_is_pem(temp_signer_dir):
+    """Generated private key should be a PEM file."""
+    pytest.importorskip("cryptography")
 
-    # Create envelope
-    envelope = signer.sign(measurement_data)
-
-    # Simulate database storage structure
-    database_record = {
-        "id": "test_measurement_001",
-        "data": measurement_data,
-        "signature": envelope,
-        "stored_at": "2024-01-15T10:30:00Z",
-    }
-
-    # Verify we can extract and verify the signature
-    stored_data = database_record["data"]
-    stored_envelope = database_record["signature"]
-
-    assert Signer.verify(stored_data, stored_envelope) is True
+    ensure_key_pair(temp_signer_dir)
+    private_key_path = temp_signer_dir / "auto_generated.pem"
+    content = private_key_path.read_text()
+    assert content.startswith("-----BEGIN PRIVATE KEY-----")
+    assert content.strip().endswith("-----END PRIVATE KEY-----")
 
 
-def test_audit_trail_exists():
-    """Test basic audit trail functionality."""
-    # This is a placeholder test for audit trail functionality
-    # In a real implementation, this would test logging of all measurement operations
+def test_signatures_from_different_keys_are_distinct(temp_signer_dir):
+    """Different keys should yield different key fingerprints."""
+    pytest.importorskip("cryptography")
 
-    audit_events = [
-        {"action": "instrument_connected", "timestamp": "2024-01-15T10:00:00Z"},
-        {"action": "measurement_started", "timestamp": "2024-01-15T10:01:00Z"},
-        {"action": "measurement_completed", "timestamp": "2024-01-15T10:01:05Z"},
-        {"action": "instrument_disconnected", "timestamp": "2024-01-15T10:02:00Z"},
-    ]
+    d1 = temp_signer_dir / "k1"
+    d2 = temp_signer_dir / "k2"
+    d1.mkdir()
+    d2.mkdir()
 
-    # Verify audit trail structure
-    for event in audit_events:
-        assert "action" in event
-        assert "timestamp" in event
+    ensure_key_pair(d1)
+    ensure_key_pair(d2)
 
-    # This test passes to indicate audit trail concept is implemented
-    assert len(audit_events) == 4
+    priv1 = d1 / "auto_generated.pem"
+    pub1 = d1 / "auto_generated.pub"
+    priv2 = d2 / "auto_generated.pem"
+    pub2 = d2 / "auto_generated.pub"
 
-
-def test_hsm_private_key_exists(temp_signer_dir):
-    """Test that HSM (Hardware Security Module) private key exists and is secure."""
-    # Create signer which should generate private key
-    signer = Signer(temp_signer_dir)
-
-    private_key_path = temp_signer_dir / "private.pem"
-
-    # Verify private key file exists
-    assert private_key_path.exists()
-
-    # Verify it's a PEM file
-    with open(private_key_path) as f:
-        content = f.read()
-        assert content.startswith("-----BEGIN PRIVATE KEY-----")
-        assert content.endswith("-----END PRIVATE KEY-----\n")
-
-    # Verify key can be used for signing
-    test_payload = {"test": "data"}
-    envelope = signer.sign(test_payload)
-    assert Signer.verify(test_payload, envelope) is True
-
-
-def test_signature_verification_with_different_signers(temp_signer_dir):
-    """Test that signatures from different signers are properly isolated."""
-    # Create two different signers
-    signer1_dir = temp_signer_dir / "signer1"
-    signer2_dir = temp_signer_dir / "signer2"
-
-    signer1_dir.mkdir()
-    signer2_dir.mkdir()
-
-    signer1 = Signer(signer1_dir)
-    signer2 = Signer(signer2_dir)
-
-    # Create test payload
     payload = {"measurement": "test", "value": 42}
 
-    # Sign with signer1
-    envelope1 = signer1.sign(payload)
+    @signed(key_file=priv1)
+    def m1():
+        return dict(payload)
 
-    # Verify with signer1 (should pass)
-    assert Signer.verify(payload, envelope1) is True
+    @signed(key_file=priv2)
+    def m2():
+        return dict(payload)
 
-    # Try to verify signer1's signature using signer2's verification
-    # (should still pass because verification is static and uses envelope's public key)
-    assert Signer.verify(payload, envelope1) is True
-
-    # But signing the same payload with signer2 should produce different signature
-    envelope2 = signer2.sign(payload)
-    assert envelope1["sig"] != envelope2["sig"]
-    assert envelope1["pub"] != envelope2["pub"]
+    r1 = m1()
+    r2 = m2()
+    assert r1.signature is not None and r2.signature is not None
+    assert r1.signature.key_fingerprint != r2.signature.key_fingerprint
+    assert verify_result(r1, trust_anchor=pub1).signature_valid is True
+    assert verify_result(r2, trust_anchor=pub2).signature_valid is True
 
 
 @pytest.mark.skip(reason="Complex timestamping authority integration requires network access.")

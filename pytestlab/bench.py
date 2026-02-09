@@ -195,7 +195,7 @@ class Bench:
     """
 
     def __init__(self, config: BenchConfigExtended):
-        self.config = config
+        self._config = config
         self._instrument_instances: dict[str, Instrument] = {}
         self._instrument_wrappers: dict[str, Any] = {}
         self._channel_config: dict[str, list[int]] = {}  # Stores channel config for each instrument
@@ -248,7 +248,7 @@ class Bench:
         logger.info("Initializing instruments")
         connection_errors = []
 
-        for alias, entry in self.config.instruments.items():
+        for alias, entry in self._config.instruments.items():
             try:
                 self._initialize_instrument(alias, entry)
                 logger.info(f"Instrument '{alias}' initialized successfully")
@@ -258,7 +258,7 @@ class Bench:
                 connection_errors.append(error_msg)
 
                 # Continue with other instruments even if one fails
-                if getattr(self.config, "continue_on_instrument_error", False):
+                if getattr(self._config, "continue_on_instrument_error", False):
                     logger.warning(
                         f"Failed to initialize instrument '{alias}'. Continuing with other instruments."
                     )
@@ -271,7 +271,7 @@ class Bench:
     def _initialize_instrument(self, alias: str, entry: InstrumentEntry):
         """Initialize a single instrument from its configuration entry."""
         # Determine the final simulation mode
-        simulate_flag = self.config.simulate
+        simulate_flag = self._config.simulate
         if entry.simulate is not None:
             simulate_flag = entry.simulate
 
@@ -339,7 +339,7 @@ class Bench:
         Args:
             hook: The name of the hook to run (e.g., "pre_experiment").
         """
-        hooks = getattr(self.config.automation, hook, None) if self.config.automation else None
+        hooks = getattr(self._config.automation, hook, None) if self._config.automation else None
         if not hooks:
             logger.debug(f"No automation hooks defined for '{hook}'")
             return
@@ -359,7 +359,7 @@ class Bench:
             except Exception as e:
                 error_msg = f"Failed to execute automation hook: {cmd}. Error: {str(e)}"
                 logger.error(error_msg)
-                if not getattr(self.config, "continue_on_automation_error", False):
+                if not getattr(self._config, "continue_on_automation_error", False):
                     raise
 
     def _run_python_script(self, cmd: str):
@@ -445,7 +445,7 @@ class Bench:
 
         if errors:
             logger.warning(f"{len(errors)} errors occurred while turning off outputs")
-            if not getattr(self.config, "continue_on_automation_error", False):
+            if not getattr(self._config, "continue_on_automation_error", False):
                 raise InstrumentMacroError(f"Failed to turn off all outputs for '{alias}'")
 
     def _execute_autoscale(self, inst, alias: str):
@@ -536,6 +536,21 @@ class Bench:
         return list(super().__dir__()) + list(self._instrument_instances.keys())
 
     @property
+    def name(self) -> str:
+        """Bench name from configuration."""
+        return self._config.bench_name
+
+    @property
+    def description(self) -> str | None:
+        """Bench description from configuration."""
+        return self._config.description
+
+    @property
+    def version(self) -> str | None:
+        """Bench version from configuration."""
+        return self._config.version
+
+    @property
     def instruments(self) -> dict[str, Instrument]:
         """Provides programmatic access to all instrument instances.
 
@@ -557,18 +572,18 @@ class Bench:
 
     def initialize_experiment(self):
         """Create an Experiment object from the bench configuration."""
-        if self.config.experiment:
+        if self._config.experiment:
             self._experiment = Experiment(
-                name=self.config.experiment.title,
-                description=self.config.experiment.description,
-                notes=self.config.experiment.notes or "",
+                name=self._config.experiment.title,
+                description=self._config.experiment.description,
+                notes=self._config.experiment.notes or "",
             )
-            logger.info(f"Initialized experiment '{self.config.experiment.title}'")
+            logger.info(f"Initialized experiment '{self._config.experiment.title}'")
 
     def initialize_database(self, db_path: str | Path | None = None):
         """Initialize the database if a path is provided in the config or arguments."""
         db_path = db_path or (
-            self.config.experiment.database_path if self.config.experiment else None
+            self._config.experiment.database_path if self._config.experiment else None
         )
         if db_path:
             self._db = MeasurementDatabase(db_path)
@@ -594,24 +609,34 @@ class Bench:
     @property
     def traceability(self):
         """Access traceability information."""
-        return self.config.traceability
+        return self._config.traceability
 
     @property
     def measurement_plan(self):
         """Access measurement plan."""
-        return self.config.measurement_plan
+        return self._config.measurement_plan
 
     @property
     def experiment_notes(self):
         """Access experiment notes."""
-        return self.config.experiment.notes if self.config.experiment else None
-
-    @property
-    def version(self):
-        """Access bench version."""
-        return self.config.version
+        return self._config.experiment.notes if self._config.experiment else None
 
     @property
     def changelog(self):
         """Access changelog."""
-        return self.config.changelog
+        return self._config.changelog
+
+    @property
+    def simulate(self) -> bool:
+        """Whether the bench is in simulation mode."""
+        return self._config.simulate
+
+    @property
+    def automation(self):
+        """Access automation hooks configuration."""
+        return self._config.automation
+
+    @property
+    def safety_limits(self):
+        """Access safety limits configuration."""
+        return self._config.safety_limits

@@ -15,7 +15,7 @@ experiment:
         Includes waveform generation, power supply, oscilloscope capture, and precision measurements.
 
 # Set to true for simulation, false for real hardware
-simulate: false
+simulate: true
 
 # Continue on errors
 continue_on_automation_error: true

@@ -30,10 +30,13 @@ import numpy as np
 import polars as pl
 from tqdm.auto import tqdm
 
+from .._log import get_logger
 from ..experiments import Experiment
 from .steps import StepSpec
 
 __all__ = ["MeasurementSession", "Measurement"]
+
+_LOG = get_logger("measurements.session")
 
 if TYPE_CHECKING:
     from ..bench import Bench
@@ -66,6 +69,12 @@ class MeasurementSession(contextlib.AbstractContextManager):
     """
     Core builder – read the extensive doc-string in earlier assistant response
     for design details.
+
+    Compliance:
+        By default (compliance=None), sessions automatically enable compliance
+        features including cryptographic signing, audit trails, and timestamps.
+        Keys are auto-generated on first use. To disable, pass compliance=False.
+        To use custom configuration, pass a ComplianceConfig object.
     """
 
     # Construction ------------------------------------------------------
@@ -76,6 +85,7 @@ class MeasurementSession(contextlib.AbstractContextManager):
         tz: str = "UTC",
         *,
         bench: Bench | None = None,
+        compliance: Any | None = None,
     ) -> None:
         self.name = name or "Untitled"
         self.description = description
@@ -89,6 +99,11 @@ class MeasurementSession(contextlib.AbstractContextManager):
         self._experiment: Experiment | None = None
         self._has_run = False
         self._bench = bench
+
+        # Auto-configure compliance (invisible by default)
+        self._compliance_config: Any | None = None
+        self._compliance_wrapper: Callable[[Callable], Callable] | None = None
+        self._setup_compliance(compliance)
 
         # Inherit experiment data from bench if available
         if bench is not None and bench.experiment is not None:
@@ -122,6 +137,87 @@ class MeasurementSession(contextlib.AbstractContextManager):
         except Exception:  # noqa: BLE001
             pass  # Keep original error handling behavior
         return False
+
+    # ─── Compliance ─────────────────────────────────────────────────────
+    def _setup_compliance(self, compliance: Any | None) -> None:
+        """Set up compliance features for this session.
+
+        Args:
+            compliance: None (auto-configure), False (disabled),
+                       True (auto-configure), or ComplianceConfig
+        """
+        if compliance is False:
+            # Explicitly disabled
+            self._compliance_config = None
+            self._compliance_wrapper = None
+            return
+
+        if compliance is None or compliance is True:
+            # Auto-configure (default behavior)
+            try:
+                from ..compliance.auto_config import ensure_compliance_config
+                from ..compliance.auto_config import ComplianceDisabledError
+                from ..compliance.session import ComplianceConfig
+
+                config_dict = ensure_compliance_config()
+                self._compliance_config = ComplianceConfig(**config_dict)
+                self._compliance_wrapper = self._compliance_config.create_compliance_wrapper()
+
+            except ComplianceDisabledError:
+                # Explicitly disabled via environment variable; silent disable.
+                self._compliance_config = None
+                self._compliance_wrapper = None
+            except ImportError:
+                # cryptography not installed, skip compliance
+                self._compliance_config = None
+                self._compliance_wrapper = None
+            except Exception as e:
+                # Auto-config failed; continue without compliance.
+                _LOG.warning(
+                    "Compliance auto-configuration failed: %s. Running without compliance features.",
+                    e,
+                )
+                self._compliance_config = None
+                self._compliance_wrapper = None
+        else:
+            # Custom compliance configuration provided
+            self._compliance_config = compliance
+            self._compliance_wrapper = compliance.create_compliance_wrapper()
+
+    def verify_compliance(self) -> dict[str, Any]:
+        """Verify compliance status of this session.
+
+        Returns:
+            Dictionary with compliance status information
+        """
+        if self._compliance_config is None:
+            return {
+                "enabled": False,
+                "message": "Compliance not configured or disabled",
+                "measurements": [],
+            }
+
+        measurements = []
+        for name, func in self._meas_funcs:
+            measurements.append(
+                {
+                    "name": name,
+                    # We apply the compliance wrapper at registration time.
+                    # Avoid dynamic attributes on function objects.
+                    "compliance_applied": self._compliance_wrapper is not None,
+                    "config": None,
+                }
+            )
+
+        return {
+            "enabled": True,
+            "config": {
+                "signed": self._compliance_config.signing is not None,
+                "audited": self._compliance_config.audit is not None,
+                "timestamped": self._compliance_config.timestamp is not None,
+            },
+            "measurements": measurements,
+        }
 
     # ─── Instruments ───────────────────────────────────────────────────
     def instrument(self, alias: str, config_key: str, /, **kw) -> Any:
@@ -157,6 +253,19 @@ class MeasurementSession(contextlib.AbstractContextManager):
 
     # ─── Measurement registration ─────────────────────────────────────
     def acquire(self, func: T_MeasFunc | None = None, /, *, name: str | None = None):
+        """Register a measurement function.
+
+        If compliance is enabled for this session, the function is automatically
+        wrapped with signing, auditing, and timestamping decorators.
+
+        Args:
+            func: The measurement function to register
+            name: Optional name override for the measurement
+
+        Returns:
+            The original function (for introspection), but a wrapped version
+            is stored internally if compliance is enabled.
+        """
         if func is None:  # decorator usage
             return lambda f: self.acquire(f, name=name)
 
@@ -164,8 +273,23 @@ class MeasurementSession(contextlib.AbstractContextManager):
         reg_name = name or func_name
         if any(n == reg_name for n, _ in self._meas_funcs):
             raise ValueError(f"Measurement '{reg_name}' already registered.")
-        self._meas_funcs.append((reg_name, func))
-        return func
+
+        # Apply compliance wrapper if configured
+        if self._compliance_wrapper:
+            wrapped_func = self._compliance_wrapper(func)
+        else:
+            wrapped_func = func
+
+        self._meas_funcs.append((reg_name, wrapped_func))
+        return func  # Return original for introspection
+
+    # Backward-compat / ergonomics alias
+    def measure(self, func: T_MeasFunc | None = None, /, *, name: str | None = None):
+        """Alias for `acquire`.
+
+        Many examples and users prefer `@session.measure`.
+        """
+        return self.acquire(func, name=name)
 
     def task(self, func: T_TaskFunc | None = None, /, *, name: str | None = None):
         """Decorator to register a function as a background task for parallel execution."""
@@ -241,6 +365,8 @@ class MeasurementSession(contextlib.AbstractContextManager):
                         f"Measurement '{meas_name}' returned {type(res)}, expected Mapping."
                     )
                 for key, val in res.items():
+                    if isinstance(key, str) and key.startswith("__compliance_"):
+                        continue
                     col = key if key not in row else f"{meas_name}.{key}"
                     row[col] = val
 

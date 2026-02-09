@@ -13,9 +13,10 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Any
 
-__version__ = "0.2.3"  # Update this line to change the version
+__version__ = "0.3.0"  # Update this line to change the version
 
 __all__ = [
+    "Session",
     "AutoInstrument",
     "Bench",
     "Experiment",
@@ -30,6 +31,7 @@ __all__ = [
 ]
 
 _LAZY_ATTRS: dict[str, tuple[str, str]] = {
+    "Session": ("pytestlab.measurements.session", "MeasurementSession"),
     "AutoInstrument": ("pytestlab.instruments.AutoInstrument", "AutoInstrument"),
     "Bench": ("pytestlab.bench", "Bench"),
     "Experiment": ("pytestlab.experiments", "Experiment"),

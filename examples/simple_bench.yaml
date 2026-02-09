@@ -1,0 +1,37 @@
+# Simple Bench Configuration
+# A minimal bench setup with two instruments in simulation mode
+
+bench_name: "Simple Test Bench"
+description: "A simple bench configuration for getting started with PyTestLab"
+version: "1.0.0"
+
+# Enable simulation mode - no real hardware required!
+simulate: true
+
+# Default backend settings
+backend_defaults:
+  type: "sim"
+  timeout_ms: 5000
+
+# Instrument definitions
+instruments:
+  # Power Supply
+  psu:
+    profile: "keysight/EDU36311A"
+    address: "SIM::psu::1"
+    safety_limits:
+      channels:
+        1:
+          voltage: {"max": 6.0}
+          current: {"max": 3.0}
+
+  # Digital Multimeter
+  dmm:
+    profile: "keysight/EDU34450A"
+    address: "SIM::dmm::1"
+
+# Experiment metadata (optional)
+experiment:
+  title: "Simple Bench Test"
+  description: "Basic demonstration of bench configuration"
+  operator: "PyTestLab User"

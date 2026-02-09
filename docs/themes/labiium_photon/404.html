@@ -1,12 +1,13 @@
-{% set lang = config.theme.language or 'en' %}
+{% set t = config.extra.t %}
+{% set lang = 'en' %}
 {% extends "main.html" %}
 
 {% block content %}
 <div class="error-page fade-in">
     <div class="error-container glass-card">
         <div class="error-code">404</div>
-        <h1 class="error-title">{{ config.extra.t[lang]['404_title'] or 'Signal Lost' }}</h1>
-        <p class="error-message">{{ config.extra.t[lang]['404_message'] or 'The pathway you were looking for seems to have scattered through the quantum foam.' }}</p>
+        <h1 class="error-title">{{ t['404_title'] or 'Signal Lost' }}</h1>
+        <p class="error-message">{{ t['404_message'] or 'The pathway you were looking for seems to have scattered through the quantum foam.' }}</p>
 
         <div class="error-illustration">
             <div class="wave"></div>
@@ -19,8 +20,8 @@
         </div>
 
         <div class="error-actions">
-            <a href="{{ '/'|url }}" class="beam-button">{{ config.extra.t[lang].return_button or 'Return to Safe Space' }}</a>
-            <a href="javascript:history.back()" class="text-button">{{ config.extra.t[lang].back_button or 'Step Back' }}</a>
+            <a href="{{ '/'|url }}" class="beam-button">{{ t.return_button or 'Return to Safe Space' }}</a>
+            <a href="javascript:history.back()" class="text-button">{{ t.back_button or 'Step Back' }}</a>
         </div>
     </div>
 </div>

@@ -34,7 +34,7 @@ channels:
       range:
         min_val: 5.e-9
         max_val: 50
-      horizontal_resolution: 1.e-12
+      horizontal_resolution: 1e-12
   - description: Analog Channel 2
     channel_range:
       min_val: -5
@@ -50,7 +50,7 @@ channels:
       range:
         min_val: 5.e-9
         max_val: 50
-      horizontal_resolution: 1.e-12
+      horizontal_resolution: 1e-12
   - description: Analog Channel 3
     channel_range:
       min_val: -5
@@ -66,7 +66,7 @@ channels:
       range:
         min_val: 5.e-9
         max_val: 50
-      horizontal_resolution: 1.e-12
+      horizontal_resolution: 1e-12
   - description: Analog Channel 4
     channel_range:
       min_val: -5
@@ -82,7 +82,7 @@ channels:
       range:
         min_val: 5.e-9
         max_val: 50
-      horizontal_resolution: 1.e-12
+      horizontal_resolution: 1e-12
 bandwidth: 7.e+7
 sampling_rate: 2.e+9
 memory: 2.e+6

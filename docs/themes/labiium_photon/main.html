@@ -1,6 +1,6 @@
-{% set lang = config.theme.language or 'en' %}
+{% set t = config.extra.t %}
 <!DOCTYPE html>
-<html lang="{{ lang }}">
+<html lang="en">
 </html>
 <head>
     <meta charset="UTF-8">
@@ -11,8 +11,10 @@
 
     <!-- Favicon -->
     <link rel="icon" href="{{ 'img/favicon.ico'|url }}" type="image/x-icon">
+    <link rel="shortcut icon" href="{{ 'img/favicon.ico'|url }}" type="image/x-icon">
+    <link rel="apple-touch-icon" href="{{ 'img/pytestlab_logo.png'|url }}">
 
-    <title>{% if page.title %}{{ page.title }} - {% endif %}{{ config.site_name }}{% if page.is_404 %} - {{ config.extra.t[lang]['404_title'] or 'Page Not Found' }}{% endif %}</title>
+    <title>{% if page.title %}{{ page.title }} - {% endif %}{{ config.site_name }}{% if page.is_404 %} - {{ t['404_title'] or 'Page Not Found' }}{% endif %}</title>
 
     <!-- CSS -->
     <link rel="stylesheet" href="{{ 'css/theme.css'|url }}">
@@ -797,7 +799,7 @@
                     <button
                         class="menu-toggle"
                         id="menuToggle"
-                        aria-label="Toggle Navigation"
+                        aria-label="{{ t.toggle_nav or 'Toggle Navigation' }}"
                     >
                         <span class="line"></span>
                         <span class="line"></span>
@@ -903,7 +905,7 @@
                     <div class="header-actions">
                         <!-- Search component -->
                         <div class="search-container">
-                            <button class="search-button" id="searchButton" aria-label="Open Search">
+                            <button class="search-button" id="searchButton" aria-label="{{ t.open_search or 'Open Search' }}">
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <circle cx="11" cy="11" r="8"></circle>
                                     <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
@@ -915,7 +917,7 @@
         <div class="search-modal" id="searchModal">
             <div class="search-modal-content">
                 <form class="search-form">
-                    <input type="text" class="search-input" id="searchInput" placeholder="Search documentation..." autofocus>
+                    <input type="text" class="search-input" id="searchInput" placeholder="{{ t.search_placeholder }}" autofocus>
                     <button type="button" class="search-close" id="searchClose">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -924,7 +926,7 @@
                     </button>
                 </form>
                 <div class="search-results">
-                    <div class="search-results-meta" id="searchResultsMeta">Type to start searching</div>
+                    <div class="search-results-meta" id="searchResultsMeta">{{ t.search_start }}</div>
                     <div id="searchResults"></div>
                 </div>
             </div>
@@ -932,7 +934,7 @@
 
                         {% if config.repo_url %}
                         <a href="{{ config.repo_url }}" target="_blank" class="beam-button beam-button-sm">
-                            <span class="beam-button-text">{{ config.extra.t[lang].footer_github or 'GitHub' }}</span>
+                            <span class="beam-button-text">{{ t.footer_github or 'GitHub' }}</span>
                         </a>
                         {% endif %}
                     </div>
@@ -949,7 +951,7 @@
                     <aside class="sidebar">
                         <div class="glass-card toc-container">
                             <div class="toc-header">
-                                <h4>Contents</h4>
+                                <h4>{{ t.toc_title or 'Contents' }}</h4>
                             </div>
                             {% if page.toc %}
                                 <ul class="toc">
@@ -993,14 +995,14 @@
                         <div class="page-nav">
                             {% if page.previous_page %}
                                 <a href="{{ page.previous_page.url|url }}" class="prev-link">
-                                    <span class="nav-label">Previous</span>
+                                    <span class="nav-label">{{ t.nav_previous or 'Previous' }}</span>
                                     <span class="nav-title">{{ page.previous_page.title }}</span>
                                 </a>
                             {% endif %}
 
                             {% if page.next_page %}
                                 <a href="{{ page.next_page.url|url }}" class="next-link">
-                                    <span class="nav-label">Next</span>
+                                    <span class="nav-label">{{ t.nav_next or 'Next' }}</span>
                                     <span class="nav-title">{{ page.next_page.title }}</span>
                                 </a>
                             {% endif %}
@@ -1016,18 +1018,18 @@
             <div class="container">
                 <div class="footer-content">
                     <div class="footer-copyright">
-                        <p>&copy; {{ build_date_utc.strftime('%Y') }} {{ config.site_author }}. {{ config.extra.t[lang].footer_copyright or 'All rights reserved.' }}</p>
-                        <p>{{ config.extra.t[lang].footer_brand_desc or 'A modern Python toolbox for laboratory test-and-measurement automation, data management, and analysis.' }}</p>
+                        <p>&copy; {{ build_date_utc.strftime('%Y') }} {{ config.site_author }}. {{ t.footer_copyright or 'All rights reserved.' }}</p>
+                        <p>{{ t.footer_brand_desc or 'A modern Python toolbox for laboratory test-and-measurement automation, data management, and analysis.' }}</p>
                     </div>
 
                     <div class="footer-links">
                         {% if config.repo_url %}
-                            <a href="{{ config.repo_url }}" target="_blank">{{ config.extra.t[lang].footer_github }}</a>
+                            <a href="{{ config.repo_url }}" target="_blank">{{ t.footer_github }}</a>
                         {% endif %}
                         {% if config.site_url %}
-                            <a href="{{ config.site_url }}">{{ config.extra.t[lang].footer_about }}</a>
+                            <a href="{{ config.site_url }}">{{ t.footer_about }}</a>
                         {% endif %}
-                        <a href="{{ 'changelog/'|url }}">{{ config.extra.t[lang].footer_changelog or 'Changelog' }}</a>
+                        <a href="{{ 'changelog/'|url }}">{{ t.footer_changelog or 'Changelog' }}</a>
                     </div>
                 </div>
             </div>
@@ -1254,6 +1256,10 @@
                 // Load search index - try multiple paths for production compatibility
                 const baseUrl = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
                 const sitePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
+                // Determine language prefix from current URL path for i18n support
+                const pathParts = window.location.pathname.split('/').filter(p => p);
+                const langPrefixes = ['zh', 'es', 'ja', 'it', 'pl', 'fr'];
+                const currentLang = pathParts.length > 0 && langPrefixes.includes(pathParts[0]) ? pathParts[0] : null;
                 const searchPaths = [
                     sitePath + "search/search_index.json",
                     baseUrl + "search/search_index.json",
@@ -1263,6 +1269,12 @@
                     "/search/search_index.json",
                     window.location.origin + "/search/search_index.json"
                 ];
+                // Add language-specific search path if we're in a language folder
+                if (currentLang) {
+                    const langSearchPath = "/" + currentLang + "/search/search_index.json";
+                    searchPaths.unshift(langSearchPath);
+                    searchPaths.unshift(window.location.origin + langSearchPath);
+                }
 
                 console.log("Production debug - Search paths:", searchPaths);
 
@@ -1308,7 +1320,7 @@
                             document.getElementById("searchResults");
 
                         if (query.length > 1) {
-                            searchResultsMeta.textContent = "Searching...";
+                            searchResultsMeta.textContent = "{{ t.searching or 'Searching...' }}";
                             searchResults.innerHTML = "";
 
                             if (searchIndex) {
@@ -1326,13 +1338,13 @@
                             } else {
                                 console.log("Search index is null, showing error message");
                                 searchResultsMeta.textContent =
-                                    "Search index not loaded";
+                                    "{{ t.search_index_error or 'Search index not loaded' }}";
                                 searchResults.innerHTML =
-                                    '<p style="color: rgba(255, 255, 255, 0.7); padding: 1rem; text-align: center;">Search functionality requires the MkDocs search plugin to be enabled and the site to be built.</p>';
+                                    '<p style="color: rgba(255, 255, 255, 0.7); padding: 1rem; text-align: center;">{{ t.search_plugin_error or "Search functionality requires the MkDocs search plugin to be enabled and the site to be built." }}</p>';
                             }
                         } else {
                             searchResultsMeta.textContent =
-                                "Type to start searching";
+                                "{{ t.search_start }}";
                             searchResults.innerHTML = "";
                         }
                     });
@@ -1373,7 +1385,8 @@
                     resultsElement,
                 ) {
                     if (results.length > 0) {
-                        metaElement.textContent = `${results.length} result${results.length > 1 ? "s" : ""} found`;
+                        const resultsText = "{{ t.search_results_found }}".replace("{count}", results.length);
+                        metaElement.textContent = resultsText;
 
                         resultsElement.innerHTML = results
                             .map(
@@ -1381,11 +1394,9 @@
                                     // Convert relative URLs to absolute paths from site root
                                     let resultUrl = result.location;
 
-                                    // Handle relative URLs properly
-                                    if (resultUrl && !resultUrl.startsWith('http') && !resultUrl.startsWith('#')) {
-                                        if (!resultUrl.startsWith('/')) {
-                                            resultUrl = '../' + resultUrl;
-                                        }
+                                    // For relative URLs (not starting with / or http), make them absolute
+                                    if (resultUrl && !resultUrl.startsWith("/") && !resultUrl.startsWith("http") && !resultUrl.startsWith("#")) {
+                                        resultUrl = "/" + resultUrl;
                                     }
 
                                     return `
@@ -1400,11 +1411,12 @@
                             )
                             .join("");
                     } else {
-                        metaElement.textContent = "No results found";
+                        metaElement.textContent = "{{ t.search_no_results }}";
                         resultsElement.innerHTML = "";
                     }
                 }
             }
+
         });
     </script>
 

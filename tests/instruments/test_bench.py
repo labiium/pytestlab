@@ -169,9 +169,9 @@ def test_bench_initialization(bench_config_file):
 
     try:
         # Verify basic bench properties
-        assert bench.config.bench_name == "Test Bench for End-to-End Testing"
-        assert bench.config.version == "1.0.0"
-        assert bench.config.experiment.title == "Bench End-to-End Test"
+        assert bench.name == "Test Bench for End-to-End Testing"
+        assert bench.version == "1.0.0"
+        assert bench._config.experiment.title == "Bench End-to-End Test"
 
         # Verify instruments were created
         assert "psu" in bench._instrument_instances
@@ -190,7 +190,7 @@ def test_bench_context_manager(bench_config_file):
         pytest.skip(f"Hardware not available: {error_msg}")
 
     with Bench.open(bench_config_file) as bench:
-        assert bench.config.bench_name == "Test Bench for End-to-End Testing"
+        assert bench.name == "Test Bench for End-to-End Testing"
         assert "psu" in bench._instrument_instances
         assert "dmm" in bench._instrument_instances
 
@@ -525,7 +525,7 @@ def test_automation_error_handling():
     try:
         # Test with continue_on_automation_error=True
         with Bench.open(config_path) as bench:
-            assert bench.config.continue_on_automation_error
+            assert bench._config.continue_on_automation_error
 
             # This is mostly a check that the flag was properly parsed
             # Actual error handling behavior is tested in bench._execute_output_all_off
@@ -557,12 +557,12 @@ def test_bench_simulation_mode(simulation_bench_config_file):
     """Test bench functionality in simulation mode."""
     with Bench.open(simulation_bench_config_file) as bench:
         # Verify simulation mode is enabled
-        assert bench.config.simulate
+        assert bench.simulate
 
         # Verify basic bench properties
-        assert bench.config.bench_name == "Test Bench for End-to-End Testing"
-        assert bench.config.version == "1.0.0"
-        assert bench.config.experiment.title == "Bench End-to-End Test"
+        assert bench.name == "Test Bench for End-to-End Testing"
+        assert bench.version == "1.0.0"
+        assert bench._config.experiment.title == "Bench End-to-End Test"
 
         # Verify instruments were created (simulated)
         assert "psu" in bench._instrument_instances

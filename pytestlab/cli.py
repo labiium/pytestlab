@@ -1133,9 +1133,7 @@ def run_command(
         else:
             bench = Bench.open(bench_config)
 
-        rich.print(
-            f"[bold green]Bench '{bench.config.bench_name}' loaded successfully[/bold green]"
-        )
+        rich.print(f"[bold green]Bench '{bench.name}' loaded successfully[/bold green]")
 
         spec = importlib.util.spec_from_file_location("measurement_script", script)
         if not spec or not spec.loader:

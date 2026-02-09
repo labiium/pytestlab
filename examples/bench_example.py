@@ -28,7 +28,7 @@ def main():
         # 3. Initialize all instruments
         # 4. Run pre-experiment automation hooks
         with Bench.open(bench_file) as bench:
-            print(f"✅ Bench '{bench.config.bench_name}' loaded successfully")
+            print(f"✅ Bench '{bench.name}' loaded successfully")
             print(f"📋 Experiment: {bench.config.experiment.title}")
             print(f"👤 Operator: {bench.config.experiment.operator}")
             print(f"🔬 DUT: {bench.config.traceability.dut.description}")

@@ -39,9 +39,9 @@ def test_smarbench_loading(smart_bench):
 
     bench = smart_bench
 
-    print(f"\n✓ Bench loaded: {bench.config.bench_name}")
-    print(f"  Description: {bench.config.description}")
-    print(f"  Version: {bench.config.version}")
+    print(f"\n✓ Bench loaded: {bench.name}")
+    print(f"  Description: {bench.description}")
+    print(f"  Version: {bench.version}")
     print(f"  Instruments: {len(bench.instruments)}")
 
     # Verify all instruments are loaded
@@ -200,12 +200,11 @@ def test_bench_metadata(smart_bench):
 
     bench = smart_bench
 
-    print(f"\n  Bench Name: {bench.config.bench_name}")
-    print(f"  Version: {bench.config.version}")
-    print(f"  Simulation Mode: {bench.config.simulate}")
+    print(f"\n  Bench Name: {bench.name}")
+    print(f"  Version: {bench.version}")
+    print(f"  Simulation Mode: {bench.simulate}")
 
-    if hasattr(bench.config, "experiment") and bench.config.experiment:
-        exp = bench.config.experiment
+    if bench._config.experiment:
         print("\n  Experiment:")
         try:
             print(f"    Title: {exp.title if hasattr(exp, 'title') else 'N/A'}")
