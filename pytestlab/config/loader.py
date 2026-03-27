@@ -1,17 +1,11 @@
 from __future__ import annotations
 
-import importlib  # Changed from 'from importlib import import_module' for consistency
-import inspect
-import typing  # For get_origin, get_args
+from importlib import import_module
 from pathlib import Path
-from typing import Any  # Added Literal, Union
-from typing import Literal  # Added Literal, Union
-from typing import Union  # Added Literal, Union
+from typing import Any
 
 import yaml
 from pydantic import ValidationError
-from pydantic.fields import FieldInfo
-from pydantic_core import PydanticUndefined
 
 from .instrument_config import InstrumentConfig
 
@@ -30,55 +24,34 @@ class ConfigLoader:
 # Global cache for discovered models to avoid re-discovering on every call
 _MODEL_REGISTRY_CACHE: dict[str, type[InstrumentConfig]] | None = None
 
+_MODEL_SPECS: dict[str, tuple[str, str]] = {
+    "oscilloscope": ("pytestlab.config.oscilloscope_config", "OscilloscopeConfig"),
+    "waveform_generator": (
+        "pytestlab.config.waveform_generator_config",
+        "WaveformGeneratorConfig",
+    ),
+    "power_supply": ("pytestlab.config.power_supply_config", "PowerSupplyConfig"),
+    "dc_active_load": ("pytestlab.config.dc_active_load_config", "DCActiveLoadConfig"),
+    "multimeter": ("pytestlab.config.multimeter_config", "MultimeterConfig"),
+    "vna": ("pytestlab.config.vna_config", "VNAConfig"),
+    "spectrum_analyzer": (
+        "pytestlab.config.spectrum_analyzer_config",
+        "SpectrumAnalyzerConfig",
+    ),
+    "power_meter": ("pytestlab.config.power_meter_config", "PowerMeterConfig"),
+    "virtual_instrument": (
+        "pytestlab.config.virtual_instrument_config",
+        "VirtualInstrumentConfig",
+    ),
+}
+
 
 def _discover_models() -> dict[str, type[InstrumentConfig]]:
-    pkg = importlib.import_module("pytestlab.config")
     registry: dict[str, type[InstrumentConfig]] = {}
-
-    for name, member in inspect.getmembers(pkg):
-        if name.startswith("_"):
-            continue
-
-        if (
-            inspect.isclass(member)
-            and issubclass(member, InstrumentConfig)
-            and member is not InstrumentConfig
-        ):
-            cls = member
-
-            if "device_type" in cls.model_fields:
-                field_info: FieldInfo = cls.model_fields["device_type"]
-
-                possible_device_types = set()
-
-                annotation = field_info.annotation
-
-                origin_annotation = typing.get_origin(annotation)
-                args_annotation = typing.get_args(annotation)
-
-                if origin_annotation is Union:
-                    for union_arg in args_annotation:
-                        if typing.get_origin(union_arg) is Literal:
-                            for literal_val in typing.get_args(union_arg):
-                                if isinstance(literal_val, str):
-                                    possible_device_types.add(literal_val)
-                elif origin_annotation is Literal:
-                    for literal_val in args_annotation:
-                        if isinstance(literal_val, str):
-                            possible_device_types.add(literal_val)
-
-                if field_info.default is not PydanticUndefined and isinstance(
-                    field_info.default, str
-                ):
-                    possible_device_types.add(field_info.default)
-
-                for dt_str in possible_device_types:
-                    if dt_str in registry and registry[dt_str] is not cls:
-                        print(
-                            f"Warning: Device type '{dt_str}' from {cls.__name__} conflicts with existing registration "
-                            f"for {registry[dt_str].__name__}. Overwriting with {cls.__name__}."
-                        )
-                    registry[dt_str] = cls
+    for device_type, (module_name, attr_name) in _MODEL_SPECS.items():
+        module = import_module(module_name)
+        model_cls = getattr(module, attr_name)
+        registry[device_type] = model_cls
     return registry
 
 
