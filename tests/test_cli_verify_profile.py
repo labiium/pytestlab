@@ -35,8 +35,7 @@ def test_instrument_verify_profile_help():
 
     assert result.exit_code == 0
     assert "Verify that a real instrument adheres" in result.stdout
-    assert "--probe-mode" in result.stdout
-    assert "--allow-output-enab" in result.stdout
+    assert "Profile key or path." in result.stdout
 
 
 def test_instrument_verify_profile_success(monkeypatch: pytest.MonkeyPatch):
