@@ -1,7 +1,18 @@
 from __future__ import annotations
 
 from importlib import import_module
+from typing import TYPE_CHECKING
 from typing import Any
+
+if TYPE_CHECKING:
+    from .database import Database
+    from .database import DatabaseBackup
+    from .database import MeasurementDatabase
+    from .experiments import Experiment
+    from .experiments import ExperimentParameter
+    from .results import MeasurementResult
+    from .results import MeasurementResult as Result
+    from .sweep import Sweep
 
 __all__ = [
     "Database",

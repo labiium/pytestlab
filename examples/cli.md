@@ -1,6 +1,6 @@
 # Command-Line Guide (CLI)
 
-This guide explains how to run the examples, utilities, and replay workflows from the command line in this `examples` folder. It covers quick-start commands, simulation vs. hardware modes, and the `pytestlab replay` CLI.
+This guide explains how to run the examples, utilities, and replay workflows from the command line in this `examples` folder. It covers quick-start commands, simulation vs. hardware modes, and the `ptl replay` CLI.
 
 ## Prerequisites
 
@@ -72,13 +72,13 @@ These are ideal to reference from YAML `automation.pre_experiment` and `automati
 PyTestLab provides a replay system to record and deterministically replay instrument I/O.
 
 - Show help:
-  - `pytestlab replay --help`
+  - `ptl replay --help`
 
 - Record a session (runs your measurement script against real/sim bench and captures I/O):
-  - `pytestlab replay record example_measurement.py --bench replay_mode/example_bench.yaml --output replay_mode/recorded_session.yaml`
+  - `ptl replay record example_measurement.py --bench replay_mode/example_bench.yaml --output replay_mode/recorded_session.yaml`
 
 - Replay a session (runs your script against a replay backend):
-  - `pytestlab replay run example_measurement.py --session replay_mode/recorded_session.yaml`
+  - `ptl replay run example_measurement.py --session replay_mode/recorded_session.yaml`
 
 Additional examples and walkthroughs:
 - `python replay_mode/replay_system_demo.py` — success + mismatch detection demo

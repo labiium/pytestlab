@@ -8,7 +8,6 @@ from dataclasses import asdict
 from dataclasses import dataclass
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 RESULT_PREFIX = "__PTL_BENCH__"
 
@@ -43,20 +42,20 @@ BENCHMARKS = [
             "from pytestlab.instruments.AutoInstrument import AutoInstrument",
         ],
     ),
-    BenchmarkSpec("cli_help", ["uv", "run", "pytestlab", "--help"]),
-    BenchmarkSpec("cli_version", ["uv", "run", "pytestlab", "--version"]),
-    BenchmarkSpec("profile_list", ["uv", "run", "pytestlab", "profile", "list"]),
+    BenchmarkSpec("cli_help", ["uv", "run", "ptl", "--help"]),
+    BenchmarkSpec("cli_version", ["uv", "run", "ptl", "--version"]),
+    BenchmarkSpec("profile_list", ["uv", "run", "ptl", "profile", "list"]),
     BenchmarkSpec(
         "profile_show",
-        ["uv", "run", "pytestlab", "profile", "show", "keysight/EDU34450A"],
+        ["uv", "run", "ptl", "profile", "show", "keysight/EDU34450A"],
     ),
     BenchmarkSpec(
         "profile_schema",
-        ["uv", "run", "pytestlab", "profile", "schema", "oscilloscope"],
+        ["uv", "run", "ptl", "profile", "schema", "oscilloscope"],
     ),
     BenchmarkSpec(
         "bench_validate",
-        ["uv", "run", "pytestlab", "bench", "validate", "examples/bench.yaml"],
+        ["uv", "run", "ptl", "bench", "validate", "examples/bench.yaml"],
     ),
 ]
 

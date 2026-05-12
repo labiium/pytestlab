@@ -94,7 +94,7 @@ def main():
             print("\nStarting parallel measurement session for 5 seconds...")
             experiment = session.run(duration=5.0, interval=0.25)
 
-            print(f"\n✅ Measurement Complete!")
+            print("\n✅ Measurement Complete!")
             print(f"   Captured {len(experiment.data)} measurements.")
 
             if len(experiment.data) > 0:

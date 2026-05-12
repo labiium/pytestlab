@@ -32,24 +32,19 @@ Compliance must be explicitly configured per-session.
 
 from __future__ import annotations
 
+from .decorators import CompliantResult
+from .decorators import VerificationResult
+from .decorators import audited
+from .decorators import compliant
+from .decorators import signed
+from .decorators import timestamped
+
 # Import types from interfaces (single source of truth)
-from .interfaces import (
-    AuditEntry as AuditRecord,
-    Signature,
-    TimestampToken,
-)
-from .decorators import (
-    CompliantResult,
-    VerificationResult,
-    audited,
-    compliant,
-    signed,
-    timestamped,
-)
-from .session import (
-    ComplianceConfig,
-    create_compliant_session,
-)
+from .interfaces import AuditEntry as AuditRecord
+from .interfaces import Signature
+from .interfaces import TimestampToken
+from .session import ComplianceConfig
+from .session import create_compliant_session
 
 __all__ = [
     # Result types

@@ -12,8 +12,8 @@ This example demonstrates the basic usage of MeasurementSession class:
 This example runs in simulation mode.
 """
 
-import time
 import random
+import time
 
 import numpy as np
 

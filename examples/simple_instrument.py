@@ -68,13 +68,12 @@ def multimeter_example():
         print("  - measure() with DMMFunction.RESISTANCE - 2-wire resistance")
 
         # The Multimeter class uses the measure() method with DMMFunction enum
-        from pytestlab.config.multimeter_config import DMMFunction
 
         # Note: In simulation mode, this demonstrates the API
         # In real use, this would return actual measurements
-        print(f"\nTo perform a measurement:")
-        print(f"  result = dmm.measure(DMMFunction.VOLTAGE_DC)")
-        print(f"  # Returns a MeasurementResult with value and units")
+        print("\nTo perform a measurement:")
+        print("  result = dmm.measure(DMMFunction.VOLTAGE_DC)")
+        print("  # Returns a MeasurementResult with value and units")
 
     finally:
         dmm.close()

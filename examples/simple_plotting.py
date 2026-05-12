@@ -12,6 +12,7 @@ rather than displayed, making it suitable for automated testing.
 """
 
 import numpy as np
+
 from pytestlab import Experiment
 from pytestlab.plotting import PlotSpec
 

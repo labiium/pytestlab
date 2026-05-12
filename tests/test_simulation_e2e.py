@@ -25,7 +25,7 @@ def test_simulation_e2e(temp_dir):
 
     This test performs the following steps:
     1. Defines a script to interact with the VirtualInstrument.
-    2. Programmatically calls the `pytestlab sim-profile record` command to
+    2. Programmatically calls the `ptl sim-profile record` command to
        generate a simulation profile from the script.
     3. Loads the newly generated profile into a new `VirtualInstrument` instance.
     4. Runs the same script against the simulated instrument.
@@ -149,7 +149,7 @@ def main(instrument):
     with open(replay_script_path, "w") as f:
         f.write(replay_script_content)
 
-    # 2. Programmatically call the `pytestlab sim-profile record` command
+    # 2. Programmatically call the `ptl sim-profile record` command
     recorded_profile_path = temp_dir / "recorded_virtual_instrument.yaml"
     repo_root = Path(__file__).resolve().parents[1]
     env = os.environ.copy()

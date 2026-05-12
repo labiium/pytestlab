@@ -28,14 +28,14 @@ if TYPE_CHECKING:
 
 def _get_version() -> str:
     try:
-        return metadata.version("pytestlab")
-    except metadata.PackageNotFoundError:
-        try:
-            from pytestlab import __version__ as fallback_version
+        from pytestlab import __version__ as source_version
 
-            return fallback_version
-        except Exception:
-            return "unknown"
+        return source_version
+    except Exception:
+        pass
+
+    try:
+        return metadata.version("pytestlab")
     except Exception:
         return "unknown"
 
@@ -624,6 +624,70 @@ def instrument_idn(
             instrument.close()
 
 
+@instrument_app.command("verify-profile")
+def instrument_verify_profile(
+    profile_key_or_path: Annotated[str, typer.Argument(help="Profile key or path.")],
+    address: Annotated[
+        str | None, typer.Option(help="VISA address. Overrides profile if provided.")
+    ] = None,
+    probe_mode: Annotated[
+        str,
+        typer.Option(
+            help="Verification probe mode: 'read-only' or 'safe-write'.",
+        ),
+    ] = "read-only",
+    allow_output_enable: Annotated[
+        bool,
+        typer.Option(
+            help="Allow output-affecting checks for devices such as PSUs or AWGs."
+        ),
+    ] = False,
+    timeout_ms: Annotated[
+        int | None,
+        typer.Option(help="Communication timeout override in milliseconds."),
+    ] = None,
+    fail_fast: Annotated[
+        bool,
+        typer.Option(help="Stop after the first failed verification check."),
+    ] = False,
+):
+    """Verify that a real instrument adheres to the selected YAML profile."""
+    from pytestlab.verification import render_verification_report
+    from pytestlab.verification import verify_instrument_profile
+
+    if probe_mode not in {"read-only", "safe-write"}:
+        rich.print(
+            "[bold red]Error:[/] --probe-mode must be 'read-only' or 'safe-write'."
+        )
+        raise typer.Exit(code=2)
+
+    try:
+        report = verify_instrument_profile(
+            profile_key_or_path,
+            address=address,
+            probe_mode=cast(Any, probe_mode),
+            allow_output_enable=allow_output_enable,
+            timeout_ms=timeout_ms,
+            fail_fast=fail_fast,
+        )
+    except FileNotFoundError:
+        rich.print(
+            f"[bold red]Error:[/] Profile '{rich_escape(str(profile_key_or_path))}' was not found."
+        )
+        raise typer.Exit(code=2) from None
+    except Exception as e:
+        rich.print(
+            "[bold red]Verification setup failed:[/] "
+            f"{rich_escape(str(e))}"
+        )
+        raise typer.Exit(code=2) from None
+
+    render_verification_report(report)
+    if report.has_failures:
+        raise typer.Exit(code=1)
+    raise typer.Exit(code=0)
+
+
 @instrument_app.command("test")
 def instrument_test(
     kind: Annotated[
@@ -853,7 +917,7 @@ def bench_id_cli(
     try:
         bench = Bench.open(bench_yaml_path)
         rich.print(
-            f"Querying *IDN? for instruments in bench: [bold]{bench.config.bench_name}[/bold]"
+            f"Querying *IDN? for instruments in bench: [bold]{bench._config.bench_name}[/bold]"
         )
 
         table = Table(title="Instrument IDN Responses")
@@ -862,8 +926,8 @@ def bench_id_cli(
         table.add_column("IDN Response / Status", style="green")
 
         for alias, instrument in bench._instrument_instances.items():
-            entry = bench.config.instruments[alias]
-            is_simulated = bench.config.simulate
+            entry = bench._config.instruments[alias]
+            is_simulated = bench._config.simulate
             if entry.simulate is not None:
                 is_simulated = entry.simulate
 
@@ -976,7 +1040,7 @@ def replay_record(
 
         rich.print("\n[bold]Wrapping instrument backends for recording:[/bold]")
         for alias, instrument in bench.instruments.items():
-            profile_key = bench.config.instruments[alias].profile
+            profile_key = bench._config.instruments[alias].profile
             session_log: list[dict[str, Any]] = []
             recorded_data[alias] = {"profile": profile_key, "log": session_log}
             instrument._backend = SessionRecordingBackend(instrument._backend, session_log)

@@ -7,6 +7,24 @@ and the project adheres to Semantic Versioning (https://semver.org/spec/v2.0.0.h
 
 ## [Unreleased]
 
+## [v0.2.4] - 2026-05-12
+### Added
+- Added `ptl` as the preferred short CLI entry point while keeping `pytestlab` as a compatibility alias.
+- Added instrument profile verification utilities and CLI coverage for schema, connection, identity, SCPI, and safety-oriented probe checks.
+- Added profile registry tests to lock built-in device type discovery.
+- Added CLI smoke and benchmark scripts for startup and common command paths.
+
+### Changed
+- Split the heavy Typer CLI implementation into a lazy-loaded module so common CLI commands start faster.
+- Updated documentation, examples, and scripts to use `ptl` by default.
+- Lazy-loaded selected package exports in config, experiment, and instrument modules to reduce import-time overhead.
+- Cleaned examples, compliance modules, and tests to pass the current Ruff and ty gates.
+
+### Fixed
+- Fixed CLI bootstrap dispatch so option-bearing commands such as `ptl profile show --help`, `ptl bench validate --help`, and `ptl profile list --profile-dir ...` fall through to Typer instead of being intercepted by fast paths.
+- Fixed compliance typing issues around generic callables and configuration dictionaries.
+- Removed the tracked `.DS_Store` artifact.
+
 ## [v0.2.3] - 2025-10-05
 ### Added
 - Initial SCPI engine integration for instrument control.
@@ -53,7 +71,8 @@ and the project adheres to Semantic Versioning (https://semver.org/spec/v2.0.0.h
 
 ---
 
-[Unreleased]: https://github.com/labiium/pytestlab/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/labiium/pytestlab/compare/v0.2.4...HEAD
+[v0.2.4]: https://github.com/labiium/pytestlab/compare/v0.2.3...v0.2.4
 [v0.2.3]: https://github.com/labiium/pytestlab/compare/v0.2.1...v0.2.3
 [v0.2.1]: https://github.com/labiium/pytestlab/compare/13b5439...v0.2.1
 [0.1.3]: https://github.com/labiium/pytestlab/commit/13b5439

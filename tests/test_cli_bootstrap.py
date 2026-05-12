@@ -15,20 +15,36 @@ def _run_main(monkeypatch: pytest.MonkeyPatch, argv: list[str], capsys: pytest.C
 
 
 def test_entrypoint_help(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]):
-    result, captured = _run_main(monkeypatch, ["pytestlab", "--help"], capsys)
+    result, captured = _run_main(monkeypatch, ["ptl", "--help"], capsys)
     assert result == 0
-    assert "Usage: pytestlab" in captured.out
+    assert "Usage: ptl" in captured.out
     assert "Commands:" in captured.out
 
 
+def test_legacy_entrypoint_help(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]):
+    result, captured = _run_main(monkeypatch, ["pytestlab", "--help"], capsys)
+    assert result == 0
+    assert "Usage: pytestlab" in captured.out
+
+
+def test_console_script_aliases_are_registered():
+    import tomllib
+
+    with Path("pyproject.toml").open("rb") as handle:
+        scripts = tomllib.load(handle)["project"]["scripts"]
+
+    assert scripts["ptl"] == "pytestlab.cli:main"
+    assert scripts["pytestlab"] == "pytestlab.cli:main"
+
+
 def test_entrypoint_version(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]):
-    result, captured = _run_main(monkeypatch, ["pytestlab", "--version"], capsys)
+    result, captured = _run_main(monkeypatch, ["ptl", "--version"], capsys)
     assert result == 0
     assert "PyTestLab version" in captured.out
 
 
 def test_entrypoint_profile_list(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]):
-    result, captured = _run_main(monkeypatch, ["pytestlab", "profile", "list"], capsys)
+    result, captured = _run_main(monkeypatch, ["ptl", "profile", "list"], capsys)
     assert result == 0
     assert "Available Profiles" in captured.out
     assert "keysight/EDU34450A" in captured.out
@@ -37,7 +53,7 @@ def test_entrypoint_profile_list(monkeypatch: pytest.MonkeyPatch, capsys: pytest
 def test_entrypoint_profile_show(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]):
     result, captured = _run_main(
         monkeypatch,
-        ["pytestlab", "profile", "show", "keysight/EDU34450A"],
+        ["ptl", "profile", "show", "keysight/EDU34450A"],
         capsys,
     )
     assert result == 0
@@ -51,7 +67,7 @@ def test_entrypoint_profile_show_path(
     profile_path = Path("pytestlab/profiles/keysight/EDU34450A.yaml")
     result, captured = _run_main(
         monkeypatch,
-        ["pytestlab", "profile", "show", str(profile_path)],
+        ["ptl", "profile", "show", str(profile_path)],
         capsys,
     )
     assert result == 0
@@ -62,7 +78,7 @@ def test_entrypoint_profile_show_path(
 def test_entrypoint_profile_schema(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]):
     result, captured = _run_main(
         monkeypatch,
-        ["pytestlab", "profile", "schema", "oscilloscope"],
+        ["ptl", "profile", "schema", "oscilloscope"],
         capsys,
     )
     assert result == 0
@@ -71,7 +87,7 @@ def test_entrypoint_profile_schema(monkeypatch: pytest.MonkeyPatch, capsys: pyte
 
 
 def test_entrypoint_list_profiles(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]):
-    result, captured = _run_main(monkeypatch, ["pytestlab", "list", "profiles"], capsys)
+    result, captured = _run_main(monkeypatch, ["ptl", "list", "profiles"], capsys)
     assert result == 0
     assert "Available instrument profiles:" in captured.out
     assert "keysight/EDU34450A" in captured.out
@@ -80,7 +96,7 @@ def test_entrypoint_list_profiles(monkeypatch: pytest.MonkeyPatch, capsys: pytes
 def test_entrypoint_bench_validate(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]):
     result, captured = _run_main(
         monkeypatch,
-        ["pytestlab", "bench", "validate", "examples/bench.yaml"],
+        ["ptl", "bench", "validate", "examples/bench.yaml"],
         capsys,
     )
     assert result == 0
@@ -91,10 +107,16 @@ def test_entrypoint_bench_validate(monkeypatch: pytest.MonkeyPatch, capsys: pyte
 @pytest.mark.parametrize(
     "argv",
     [
-        ["pytestlab", "list", "benches"],
-        ["pytestlab", "instrument", "idn", "keysight/EDU34450A", "--simulate"],
-        ["pytestlab", "replay", "--help"],
-        ["pytestlab", "sim-profile", "diff", "keysight/EDU34450A"],
+        ["ptl", "list", "benches"],
+        ["ptl", "instrument", "idn", "keysight/EDU34450A", "--simulate"],
+        ["ptl", "replay", "--help"],
+        ["ptl", "sim-profile", "diff", "keysight/EDU34450A"],
+        ["ptl", "profile", "list", "--help"],
+        ["ptl", "profile", "list", "--profile-dir", "/tmp"],
+        ["ptl", "profile", "show", "--help"],
+        ["ptl", "profile", "schema", "--help"],
+        ["ptl", "profile", "schema", "oscilloscope", "--output", "/tmp/schema.json"],
+        ["ptl", "bench", "validate", "--help"],
     ],
 )
 def test_entrypoint_fallback_dispatch(

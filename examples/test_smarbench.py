@@ -206,6 +206,7 @@ def test_bench_metadata(smart_bench):
 
     if bench._config.experiment:
         print("\n  Experiment:")
+        exp = bench._config.experiment
         try:
             print(f"    Title: {exp.title if hasattr(exp, 'title') else 'N/A'}")
             print(f"    Operator: {exp.operator if hasattr(exp, 'operator') else 'N/A'}")

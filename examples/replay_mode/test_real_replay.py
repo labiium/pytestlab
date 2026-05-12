@@ -347,7 +347,7 @@ def main():
     print("✓ All tests passed!")
     print(f"Session file: {session_file}")
     print("\nTo manually test replay:")
-    print(f"pytestlab replay run test_script.py --session {session_file}")
+    print(f"ptl replay run test_script.py --session {session_file}")
 
     return 0
 

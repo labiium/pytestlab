@@ -15,7 +15,8 @@ import base64
 from pathlib import Path
 from typing import Any
 
-from .decorators import CompliantResult, VerificationResult
+from .decorators import CompliantResult
+from .decorators import VerificationResult
 from .paths import public_key_path
 
 
@@ -119,7 +120,6 @@ def _verify_signature(
 
     # Canonicalization must match decorators.signed
     import json
-    import hashlib
 
     canonical = json.dumps(result.data, sort_keys=True, separators=(",", ":")).encode()
 
@@ -139,7 +139,8 @@ def _verify_signature(
         return False
 
     try:
-        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives import serialization
         from cryptography.hazmat.primitives.asymmetric import ec
     except ImportError:
         issues.append("cryptography is not installed; cannot verify signatures")
@@ -148,7 +149,6 @@ def _verify_signature(
     try:
         # cryptography typing for load_pem_public_key is broad; we only support
         # ECDSA verification here. Treat as Any to keep type-checkers quiet.
-        from typing import Any
 
         public_key: Any = serialization.load_pem_public_key(pub_key_path.read_bytes())
         signature_bytes = base64.b64decode(sig.value)

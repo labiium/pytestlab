@@ -13,6 +13,7 @@ configure anything - it just works out of the box.
 from __future__ import annotations
 
 import os
+from importlib.util import find_spec
 from pathlib import Path
 from typing import Any
 
@@ -152,7 +153,7 @@ def ensure_key_pair(key_dir: Path) -> str:
     public_key_path.write_bytes(public_pem)
     public_key_path.chmod(0o644)  # Public key can be readable
 
-    _LOG.info(f"✓ Generated compliance keys:")
+    _LOG.info("✓ Generated compliance keys:")
     _LOG.info(f"  Private: {private_key_path} (restricted)")
     _LOG.info(f"  Public:  {public_key_path}")
     _LOG.info(f"  Fingerprint: {_compute_fingerprint(public_key)}")
@@ -162,8 +163,9 @@ def ensure_key_pair(key_dir: Path) -> str:
 
 def _compute_fingerprint(public_key) -> str:
     """Compute SHA-256 fingerprint of public key."""
-    from cryptography.hazmat.primitives import serialization
     import hashlib
+
+    from cryptography.hazmat.primitives import serialization
 
     public_bytes = public_key.public_bytes(
         encoding=serialization.Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKeyInfo
@@ -190,7 +192,6 @@ def get_key_info() -> dict[str, Any]:
 
     if result["public_key_exists"]:
         try:
-            from cryptography.hazmat.primitives import serialization
             import hashlib
 
             public_bytes = public_key.read_bytes()
@@ -238,13 +239,7 @@ def is_compliance_available() -> bool:
     if os.getenv(ENV_COMPLIANCE_DISABLED, "").lower() in ("true", "1", "yes"):
         return False
 
-    # Check if cryptography available
-    try:
-        import cryptography
-
-        return True
-    except ImportError:
-        return False
+    return find_spec("cryptography") is not None
 
 
 def show_compliance_status() -> None:
@@ -259,12 +254,9 @@ def show_compliance_status() -> None:
         print(f"  {ENV_COMPLIANCE_DISABLED}=true")
         return
 
-    # Check cryptography
-    try:
-        import cryptography
-
+    if find_spec("cryptography") is not None:
         print("Status: AVAILABLE")
-    except ImportError:
+    else:
         print("Status: UNAVAILABLE")
         print("  Install: pip install pytestlab[secure]")
         return

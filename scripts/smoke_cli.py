@@ -5,7 +5,6 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 RESULT_PATH = ROOT / "benchmarks" / "cli_smoke_results.json"
 
@@ -18,17 +17,17 @@ class SmokeSpec:
 
 
 SPECS = [
-    SmokeSpec("help", ["uv", "run", "pytestlab", "--help"], "PyTestLab"),
-    SmokeSpec("version", ["uv", "run", "pytestlab", "--version"], "PyTestLab version"),
-    SmokeSpec("profile_list", ["uv", "run", "pytestlab", "profile", "list"], "Available Profiles"),
+    SmokeSpec("help", ["uv", "run", "ptl", "--help"], "PyTestLab"),
+    SmokeSpec("version", ["uv", "run", "ptl", "--version"], "PyTestLab version"),
+    SmokeSpec("profile_list", ["uv", "run", "ptl", "profile", "list"], "Available Profiles"),
     SmokeSpec(
         "profile_show",
-        ["uv", "run", "pytestlab", "profile", "show", "keysight/EDU34450A"],
+        ["uv", "run", "ptl", "profile", "show", "keysight/EDU34450A"],
         "Profile: keysight/EDU34450A",
     ),
     SmokeSpec(
         "bench_validate",
-        ["uv", "run", "pytestlab", "bench", "validate", "examples/bench.yaml"],
+        ["uv", "run", "ptl", "bench", "validate", "examples/bench.yaml"],
         "is valid",
     ),
 ]

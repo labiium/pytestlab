@@ -81,7 +81,7 @@ def safe_operation():
 - **Check addresses:** If you get a connection error, verify the instrument address in your config.
 - **Consult datasheets:** If you get a parameter error, check the instrument's manual for valid ranges.
 - **Enable logging:** PyTestLab uses Python's `logging` module. Increase the log level for more detail.
-- **Validate configs:** Use the CLI (`pytestlab profile validate` or `pytestlab bench validate`) to catch configuration errors early.
+- **Validate configs:** Use the CLI (`ptl profile validate` or `ptl bench validate`) to catch configuration errors early.
 - **Use simulation:** Develop and debug with simulated instruments to avoid hardware risks.
 
 ---

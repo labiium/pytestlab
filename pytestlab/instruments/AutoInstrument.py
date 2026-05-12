@@ -39,7 +39,7 @@ class AutoInstrument:
     instrument category.
     """
 
-    _instrument_mapping: dict[str, tuple[str, str] | type["Instrument[Any]"]] = {
+    _instrument_mapping: dict[str, tuple[str, str] | type[Instrument[Any]]] = {
         "oscilloscope": ("pytestlab.instruments.Oscilloscope", "Oscilloscope"),
         "waveform_generator": (
             "pytestlab.instruments.WaveformGenerator",

@@ -30,8 +30,8 @@ def main():
 
     with Measurement("Demo sweep", "End-to-end showcase") as m:
         # Setup instruments (simulation mode)
-        psu = m.instrument("psu", "keysight/EDU36311A", simulate=True)
-        dmm = m.instrument("dmm", "keysight/EDU34450A", simulate=True)
+        m.instrument("psu", "keysight/EDU36311A", simulate=True)
+        m.instrument("dmm", "keysight/EDU34450A", simulate=True)
 
         # Define parameters
         m.parameter("V_BIAS", np.linspace(0, 5, 6), unit="V")
@@ -62,7 +62,7 @@ def main():
         experiment = m.run(show_progress=False)
 
         print(f"\n✓ Captured {len(experiment.data)} measurements")
-        print(f"\nData preview:")
+        print("\nData preview:")
         print(experiment.data)
 
         # Save to database
@@ -83,7 +83,7 @@ def main():
 
         if os.path.exists(db_path):
             os.remove(db_path)
-            print(f"✓ Cleaned up database")
+            print("✓ Cleaned up database")
 
     print("\n" + "=" * 60)
     print("Demo completed successfully!")

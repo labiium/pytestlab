@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 from typing import Any
 
-
-TOP_LEVEL_HELP = """Usage: pytestlab [OPTIONS] COMMAND [ARGS]...
+TOP_LEVEL_HELP = """Usage: {program} [OPTIONS] COMMAND [ARGS]...
 
 PyTestLab: Scientific test & measurement toolbox CLI.
 
@@ -27,14 +27,14 @@ def _get_version() -> str:
     from importlib import metadata
 
     try:
-        return metadata.version("pytestlab")
-    except metadata.PackageNotFoundError:
-        try:
-            from pytestlab import __version__ as fallback_version
+        from pytestlab import __version__ as source_version
 
-            return fallback_version
-        except Exception:
-            return "unknown"
+        return source_version
+    except Exception:
+        pass
+
+    try:
+        return metadata.version("pytestlab")
     except Exception:
         return "unknown"
 
@@ -49,8 +49,12 @@ def _profiles_root():
     return _package_root() / "profiles"
 
 
+def _program_name() -> str:
+    return Path(sys.argv[0]).name or "ptl"
+
+
 def _print_top_level_help() -> int:
-    print(TOP_LEVEL_HELP)
+    print(TOP_LEVEL_HELP.format(program=_program_name()))
     return 0
 
 
@@ -97,8 +101,9 @@ def _list_profiles() -> int:
 
 
 def _bench_validate(bench_yaml_path: str) -> int:
-    import yaml
     from pathlib import Path
+
+    import yaml
 
     from pytestlab.config.bench_config import BenchConfigExtended
     from pytestlab.config.loader import load_profile
@@ -130,6 +135,10 @@ def __getattr__(name: str) -> Any:
     return value
 
 
+def _is_option_like(value: str) -> bool:
+    return value.startswith("-")
+
+
 def main() -> int:
     argv = sys.argv[1:]
     if not argv or argv == ["--help"] or argv == ["-h"]:
@@ -137,15 +146,15 @@ def main() -> int:
     if argv == ["--version"]:
         return _print_version()
 
-    if argv[:2] == ["profile", "list"]:
+    if argv == ["profile", "list"]:
         return _profile_list()
-    if len(argv) >= 3 and argv[:2] == ["profile", "show"]:
+    if len(argv) == 3 and argv[:2] == ["profile", "show"] and not _is_option_like(argv[2]):
         return _profile_show(argv[2])
-    if len(argv) >= 3 and argv[:2] == ["profile", "schema"]:
+    if len(argv) == 3 and argv[:2] == ["profile", "schema"] and not _is_option_like(argv[2]):
         return _profile_schema(argv[2])
-    if argv[:2] == ["list", "profiles"]:
+    if argv == ["list", "profiles"]:
         return _list_profiles()
-    if len(argv) >= 3 and argv[:2] == ["bench", "validate"]:
+    if len(argv) == 3 and argv[:2] == ["bench", "validate"] and not _is_option_like(argv[2]):
         return _bench_validate(argv[2])
 
     return _fallback_main()

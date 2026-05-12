@@ -24,18 +24,18 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC
+from datetime import datetime
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from .._log import get_logger
-from .interfaces import (
-    AuditEntry as AuditRecord,
-    Signature,
-    TimestampToken,
-)
+from .interfaces import AuditEntry as AuditRecord
+from .interfaces import Signature
+from .interfaces import TimestampToken
 
 _LOG = get_logger("compliance.decorators")
 
@@ -93,7 +93,11 @@ def _hash_result(data: dict[str, Any]) -> str:
 
 def _utc_now() -> str:
     """Get current UTC timestamp in ISO format."""
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
+
+
+def _callable_name(func: Callable) -> str:
+    return getattr(func, "__name__", func.__class__.__name__)
 
 
 # ============================================================================
@@ -151,7 +155,9 @@ def signed(
                 timestamp=_utc_now(),
             )
 
-            _LOG.debug(f"Signed result from {func.__name__} with key {signer.fingerprint[:16]}...")
+            _LOG.debug(
+                f"Signed result from {_callable_name(func)} with key {signer.fingerprint[:16]}..."
+            )
 
             # Return compliant result
             return CompliantResult(data=result_data, signature=signature)
@@ -192,7 +198,7 @@ def audited(
             # Create audit entry
             entry = AuditRecord(
                 event_type="MEASUREMENT",
-                function_name=func.__name__,
+                function_name=_callable_name(func),
                 timestamp=_utc_now(),
                 result_hash="",  # Will update after execution
                 success=False,
@@ -213,7 +219,7 @@ def audited(
                 # Compute hash and update entry
                 entry = AuditRecord(
                     event_type="MEASUREMENT",
-                    function_name=func.__name__,
+                    function_name=_callable_name(func),
                     timestamp=entry.timestamp,
                     result_hash=_hash_result(result_data),
                     success=True,
@@ -224,7 +230,7 @@ def audited(
                 # Add to audit trail
                 audit_trail.append(entry)
 
-                _LOG.debug(f"Audited execution of {func.__name__}")
+                _LOG.debug(f"Audited execution of {_callable_name(func)}")
 
                 # Return enhanced result if not already CompliantResult
                 if isinstance(result, CompliantResult):
@@ -237,7 +243,7 @@ def audited(
                 # Log failure
                 entry = AuditRecord(
                     event_type="MEASUREMENT_FAILURE",
-                    function_name=func.__name__,
+                    function_name=_callable_name(func),
                     timestamp=entry.timestamp,
                     result_hash="",
                     success=False,
@@ -297,7 +303,7 @@ def timestamped(
                     authority=authority or "local",
                     algorithm=hash_algorithm,
                 )
-                _LOG.debug(f"Timestamped result from {func.__name__} via {token.authority}")
+                _LOG.debug(f"Timestamped result from {_callable_name(func)} via {token.authority}")
             except Exception as e:
                 if local_fallback:
                     _LOG.warning(f"TSA failed, using local timestamp: {e}")
@@ -389,7 +395,6 @@ class _Signer:
     def _load_key(self, key_file: Path | None, key_env_var: str | None):
         """Load private key from file or environment."""
         from cryptography.hazmat.primitives import serialization
-        from cryptography.hazmat.primitives.asymmetric import ec
 
         key_data = None
 
@@ -408,7 +413,6 @@ class _Signer:
             raise ValueError("Must provide key_file or key_env_var")
 
         # Load private key
-        from typing import Any
 
         self._private_key: Any = serialization.load_pem_private_key(key_data, password=None)
 

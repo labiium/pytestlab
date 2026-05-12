@@ -1,7 +1,17 @@
 from __future__ import annotations
 
 from importlib import import_module
+from typing import TYPE_CHECKING
 from typing import Any
+
+if TYPE_CHECKING:
+    from .AutoInstrument import AutoInstrument
+    from .DCActiveLoad import DCActiveLoad
+    from .instrument import Instrument
+    from .Multimeter import Multimeter
+    from .Oscilloscope import Oscilloscope
+    from .PowerSupply import PowerSupply
+    from .WaveformGenerator import WaveformGenerator
 
 __all__ = [
     "AutoInstrument",
