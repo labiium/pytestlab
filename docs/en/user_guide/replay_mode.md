@@ -45,10 +45,10 @@ The simplest way to use replay mode is through the CLI:
 
 ```bash
 # Record a measurement session
-pytestlab replay record my_measurement.py --bench bench.yaml --output session.yaml
+ptl replay record my_measurement.py --bench bench.yaml --output session.yaml
 
 # Replay the recorded session
-pytestlab replay run my_measurement.py --session session.yaml
+ptl replay run my_measurement.py --session session.yaml
 ```
 
 ### Programmatic Usage
@@ -214,7 +214,7 @@ instruments:
 
 ```bash
 # Records all three instruments
-pytestlab replay record multi_instrument_test.py --bench bench.yaml --output session.yaml
+ptl replay record multi_instrument_test.py --bench bench.yaml --output session.yaml
 ```
 
 ### Timestamp Analysis
@@ -281,7 +281,7 @@ Include session files in version control to track changes in measurement procedu
 Use meaningful names for session files:
 
 ```bash
-pytestlab replay record power_supply_characterization.py --output psu_char_v1.2.yaml
+ptl replay record power_supply_characterization.py --output psu_char_v1.2.yaml
 ```
 
 ### 5. Handle Errors Gracefully

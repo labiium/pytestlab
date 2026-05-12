@@ -12,6 +12,7 @@ The bench uses simulation mode - no hardware required.
 """
 
 from pathlib import Path
+
 from pytestlab import Bench
 
 
@@ -38,13 +39,13 @@ def main():
 
         # Access the power supply
         psu = bench.psu
-        print(f"\nPower Supply (psu):")
+        print("\nPower Supply (psu):")
         print(f"  Model: {psu.config.model}")
         print(f"  ID: {psu.id()}")
 
         # Access the multimeter
         dmm = bench.dmm
-        print(f"\nMultimeter (dmm):")
+        print("\nMultimeter (dmm):")
         print(f"  Model: {dmm.config.model}")
         print(f"  ID: {dmm.id()}")
 

@@ -43,7 +43,7 @@
 * **Bench descriptors** – group multiple instruments in one `bench.yaml`, define safety limits, automation hooks, traceability and measurement plans.
 * **High-level measurement builder** – notebook-friendly `MeasurementSession` for parameter sweeps that stores data as Polars DataFrames and exports straight to the experiment database.
 * **Rich database** – compressed storage of experiments & measurements with full-text search (`MeasurementDatabase`).
-* **Powerful CLI** – `pytestlab …` commands to list/validate profiles, query instruments, convert benches to simulation, replay sessions, etc.
+* **Powerful CLI** – `ptl ...` commands to list/validate profiles, query instruments, convert benches to simulation, replay sessions, etc.
 * **Extensible back-ends** – VISA, Lamb server, pure simulation; drop-in new transports via the `InstrumentIO` protocol.
 * **Docs & examples** – Jupyter tutorials, MkDocs site, and 40+ ready-to-run scripts in `examples/`.
 
@@ -116,10 +116,10 @@ Record real instrument interactions and replay them exactly:
 
 ```bash
 # Record a measurement session
-pytestlab replay record my_measurement.py --bench bench.yaml --output session.yaml
+ptl replay record my_measurement.py --bench bench.yaml --output session.yaml
 
 # Replay the recorded session
-pytestlab replay run my_measurement.py --session session.yaml
+ptl replay run my_measurement.py --session session.yaml
 ```
 
 Perfect for reproducible measurements, offline analysis, and catching script changes!
@@ -160,10 +160,10 @@ PyTestLab's **Record & Replay** system enables you to capture real instrument in
 #### Basic Recording & Replay
 ```bash
 # Record a measurement with real instruments
-pytestlab replay record voltage_sweep.py --bench lab_bench.yaml --output sweep_session.yaml
+ptl replay record voltage_sweep.py --bench lab_bench.yaml --output sweep_session.yaml
 
 # Replay the exact sequence (simulated)
-pytestlab replay run voltage_sweep.py --session sweep_session.yaml
+ptl replay run voltage_sweep.py --session sweep_session.yaml
 ```
 
 #### Programmatic Usage

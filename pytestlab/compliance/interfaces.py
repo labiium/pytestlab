@@ -24,9 +24,11 @@ Example:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Protocol, runtime_checkable
-
+from dataclasses import dataclass
+from dataclasses import field
+from typing import Any
+from typing import Protocol
+from typing import runtime_checkable
 
 # ============================================================================
 # Data Classes

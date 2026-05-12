@@ -25,12 +25,11 @@ Example:
 
 import matplotlib.pyplot as plt
 import numpy as np
-import polars as pl
 
+from pytestlab.experiments.sweep import ParameterSpace
 from pytestlab.experiments.sweep import grid_sweep
 from pytestlab.experiments.sweep import gwass
 from pytestlab.experiments.sweep import monte_carlo_sweep
-from pytestlab.experiments.sweep import ParameterSpace
 
 
 def example_1_basic_grid_sweep():
@@ -175,7 +174,7 @@ def example_4_gwass_adaptive():
 
     results = measure_ripple()
 
-    print(f"GWASS budget: 40 points")
+    print("GWASS budget: 40 points")
     print(f"Actual samples: {len(results)}")
 
     return results

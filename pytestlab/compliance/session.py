@@ -24,16 +24,26 @@ Examples:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import pathlib
-from typing import TYPE_CHECKING, Any, Callable
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import UTC
+from typing import TYPE_CHECKING
+from typing import Any
+from typing import cast
 
 from .._log import get_logger
 
 if TYPE_CHECKING:
-    from .interfaces import Signer, Auditor, Timestamper
+    from .interfaces import Auditor
+    from .interfaces import Signer
+    from .interfaces import Timestamper
 
 _LOG = get_logger("compliance.session")
+
+
+def _callable_name(func: Callable) -> str:
+    return getattr(func, "__name__", func.__class__.__name__)
 
 
 @dataclass
@@ -71,9 +81,9 @@ class ComplianceConfig:
     enabled: bool = True
 
     # Pluggable implementations (take precedence over dict configs)
-    signer: "Signer | None" = None
-    auditor: "Auditor | None" = None
-    timestamper: "Timestamper | None" = None
+    signer: Signer | None = None
+    auditor: Auditor | None = None
+    timestamper: Timestamper | None = None
 
     # Legacy dict configurations (backward compatible)
     signing: dict[str, Any] | None = None
@@ -165,7 +175,9 @@ class ComplianceConfig:
     def _initialize_from_configs(self) -> None:
         """Initialize pluggable implementations from legacy dict configs."""
         try:
-            from .defaults import FileSystemSigner, SQLiteAuditor, LocalTimestamper
+            from .defaults import FileSystemSigner
+            from .defaults import LocalTimestamper
+            from .defaults import SQLiteAuditor
         except ImportError:
             # cryptography not installed, can't create defaults
             return
@@ -174,7 +186,7 @@ class ComplianceConfig:
         if self.signer is None and self.signing:
             try:
                 self.signer = FileSystemSigner(**self.signing)
-                _LOG.debug(f"Initialized FileSystemSigner from config")
+                _LOG.debug("Initialized FileSystemSigner from config")
             except Exception as e:
                 _LOG.warning(f"Failed to initialize signer: {e}")
 
@@ -182,7 +194,7 @@ class ComplianceConfig:
         if self.auditor is None and self.audit:
             try:
                 self.auditor = SQLiteAuditor(**self.audit)
-                _LOG.debug(f"Initialized SQLiteAuditor from config")
+                _LOG.debug("Initialized SQLiteAuditor from config")
             except Exception as e:
                 _LOG.warning(f"Failed to initialize auditor: {e}")
 
@@ -190,7 +202,7 @@ class ComplianceConfig:
         if self.timestamper is None and self.timestamp:
             try:
                 self.timestamper = LocalTimestamper(**self.timestamp)
-                _LOG.debug(f"Initialized LocalTimestamper from config")
+                _LOG.debug("Initialized LocalTimestamper from config")
             except Exception as e:
                 _LOG.warning(f"Failed to initialize timestamper: {e}")
 
@@ -208,15 +220,15 @@ class ComplianceConfig:
 
             # Apply in reverse order: timestamp -> audit -> sign
             if self.timestamper:
-                _LOG.debug(f"Applying timestamper to {func.__name__}")
+                _LOG.debug(f"Applying timestamper to {_callable_name(func)}")
                 wrapped = _wrap_with_timestamper(wrapped, self.timestamper, transparent=transparent)
 
             if self.auditor:
-                _LOG.debug(f"Applying auditor to {func.__name__}")
+                _LOG.debug(f"Applying auditor to {_callable_name(func)}")
                 wrapped = _wrap_with_auditor(wrapped, self.auditor, transparent=transparent)
 
             if self.signer:
-                _LOG.debug(f"Applying signer to {func.__name__}")
+                _LOG.debug(f"Applying signer to {_callable_name(func)}")
                 wrapped = _wrap_with_signer(wrapped, self.signer, transparent=transparent)
 
             return wrapped
@@ -224,7 +236,7 @@ class ComplianceConfig:
         return wrapper
 
     @classmethod
-    def from_preset(cls, name: str) -> "ComplianceConfig":
+    def from_preset(cls, name: str) -> ComplianceConfig:
         """Create config from named preset.
 
         Args:
@@ -257,7 +269,7 @@ def _json_default(obj: Any):
     Keeps signing/audit robust for numpy scalars/arrays, complex, Path, bytes.
     """
     try:
-        import numpy as np  # type: ignore
+        import numpy as np
 
         if isinstance(obj, np.ndarray):
             return obj.tolist()
@@ -270,7 +282,7 @@ def _json_default(obj: Any):
         return {"__complex__": [obj.real, obj.imag]}
     if isinstance(obj, pathlib.Path):
         return str(obj)
-    if isinstance(obj, (set, tuple)):
+    if isinstance(obj, set | tuple):
         return list(obj)
     if isinstance(obj, bytes):
         import base64
@@ -295,10 +307,10 @@ def _canonical_json(obj: Any) -> str:
     return json.dumps(obj, sort_keys=True, separators=(",", ":"), default=_json_default)
 
 
-def _wrap_with_signer(func: Callable, signer: "Signer", *, transparent: bool) -> Callable:
+def _wrap_with_signer(func: Callable, signer: Signer, *, transparent: bool) -> Callable:
     """Wrap function with signer implementation."""
-    from functools import wraps
     import hashlib
+    from functools import wraps
 
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -331,17 +343,17 @@ def _wrap_with_signer(func: Callable, signer: "Signer", *, transparent: bool) ->
     return wrapper
 
 
-def _wrap_with_auditor(func: Callable, auditor: "Auditor", *, transparent: bool) -> Callable:
+def _wrap_with_auditor(func: Callable, auditor: Auditor, *, transparent: bool) -> Callable:
     """Wrap function with auditor implementation."""
-    from functools import wraps
-    from .interfaces import AuditEntry
-    from datetime import datetime, timezone
-    import json
     import hashlib
+    from datetime import datetime
+    from functools import wraps
+
+    from .interfaces import AuditEntry
 
     @wraps(func)
     def wrapper(*args, **kwargs):
-        timestamp = datetime.now(timezone.utc).isoformat()
+        timestamp = datetime.now(UTC).isoformat()
 
         try:
             # Execute function
@@ -362,7 +374,7 @@ def _wrap_with_auditor(func: Callable, auditor: "Auditor", *, transparent: bool)
             # Create audit entry (using result_hash as expected by interface)
             entry = AuditEntry(
                 event_type="MEASUREMENT",
-                function_name=func.__name__,
+                function_name=_callable_name(func),
                 timestamp=timestamp,
                 result_hash=result_hash,
                 success=True,
@@ -372,7 +384,7 @@ def _wrap_with_auditor(func: Callable, auditor: "Auditor", *, transparent: bool)
 
             # Append to audit trail
             entry_id = auditor.append(entry)
-            _LOG.debug(f"Audited {func.__name__} as {entry_id}")
+            _LOG.debug(f"Audited {_callable_name(func)} as {entry_id}")
 
             if transparent:
                 result_data["__compliance_audit_id"] = entry_id
@@ -390,7 +402,7 @@ def _wrap_with_auditor(func: Callable, auditor: "Auditor", *, transparent: bool)
             # Log failure
             entry = AuditEntry(
                 event_type="MEASUREMENT_FAILURE",
-                function_name=func.__name__,
+                function_name=_callable_name(func),
                 timestamp=timestamp,
                 result_hash="",
                 success=False,
@@ -404,12 +416,11 @@ def _wrap_with_auditor(func: Callable, auditor: "Auditor", *, transparent: bool)
 
 
 def _wrap_with_timestamper(
-    func: Callable, timestamper: "Timestamper", *, transparent: bool
+    func: Callable, timestamper: Timestamper, *, transparent: bool
 ) -> Callable:
     """Wrap function with timestamper implementation."""
-    from functools import wraps
-    import json
     import hashlib
+    from functools import wraps
 
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -471,6 +482,6 @@ def create_compliant_session(
     if isinstance(compliance, str):
         compliance = ComplianceConfig.from_preset(compliance)
     elif isinstance(compliance, dict):
-        compliance = ComplianceConfig(**compliance)
+        compliance = ComplianceConfig(**cast(dict[str, Any], compliance))
 
     return MeasurementSession(name, compliance=compliance, **kwargs)

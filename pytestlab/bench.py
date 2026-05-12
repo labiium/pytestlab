@@ -629,7 +629,7 @@ class Bench:
     @property
     def simulate(self) -> bool:
         """Whether the bench is in simulation mode."""
-        return self._config.simulate
+        return bool(self._config.simulate)
 
     @property
     def automation(self):
@@ -639,4 +639,4 @@ class Bench:
     @property
     def safety_limits(self):
         """Access safety limits configuration."""
-        return self._config.safety_limits
+        return getattr(self._config, "safety_limits", None)

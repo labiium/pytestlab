@@ -59,8 +59,8 @@ pip install --upgrade pytestlab
 After installation, you can verify that PyTestLab is installed and working:
 
 ```bash
-pytestlab --version
-pytestlab profile list
+ptl --version
+ptl profile list
 ```
 
 If you see a list of available instrument profiles, your installation is successful.

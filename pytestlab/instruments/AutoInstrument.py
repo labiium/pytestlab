@@ -4,7 +4,9 @@ import os
 import tempfile
 
 # import aiofiles  # Removed for synchronous operation
+from importlib import import_module
 from pathlib import Path
+from typing import TYPE_CHECKING
 from typing import Any
 
 import httpx
@@ -17,22 +19,10 @@ from ..config.loader import load_profile
 from ..errors import (
     InstrumentConfigurationError,  # Removed InstrumentNotFoundError as it's not used here
 )
-from .backends.lamb import LambBackend  # Class name changed from LambInstrument
-from .backends.sim_backend import SimBackend
 
-# Import new backend classes
-from .backends.visa_backend import VisaBackend
-from .DCActiveLoad import DCActiveLoad
-from .instrument import Instrument  # Import InstrumentIO
-from .instrument import InstrumentIO  # Import InstrumentIO
-from .Multimeter import Multimeter
-from .Oscilloscope import Oscilloscope
-from .PowerMeter import PowerMeter
-from .PowerSupply import PowerSupply
-from .SpectrumAnalyser import SpectrumAnalyser
-from .VectorNetworkAnalyser import VectorNetworkAnalyser
-from .VirtualInstrument import VirtualInstrument
-from .WaveformGenerator import WaveformGenerator
+if TYPE_CHECKING:
+    from .instrument import Instrument
+    from .instrument import InstrumentIO
 
 
 class AutoInstrument:
@@ -49,19 +39,28 @@ class AutoInstrument:
     instrument category.
     """
 
-    _instrument_mapping: dict[
-        str, type[Instrument[Any]]
-    ] = {  # Make Instrument generic type more specific
-        "oscilloscope": Oscilloscope,
-        "waveform_generator": WaveformGenerator,
-        "power_supply": PowerSupply,
-        "multimeter": Multimeter,
-        "dc_active_load": DCActiveLoad,
-        "vna": VectorNetworkAnalyser,
-        "spectrum_analyzer": SpectrumAnalyser,
-        "power_meter": PowerMeter,
-        "virtual_instrument": VirtualInstrument,
+    _instrument_mapping: dict[str, tuple[str, str] | type[Instrument[Any]]] = {
+        "oscilloscope": ("pytestlab.instruments.Oscilloscope", "Oscilloscope"),
+        "waveform_generator": (
+            "pytestlab.instruments.WaveformGenerator",
+            "WaveformGenerator",
+        ),
+        "power_supply": ("pytestlab.instruments.PowerSupply", "PowerSupply"),
+        "multimeter": ("pytestlab.instruments.Multimeter", "Multimeter"),
+        "dc_active_load": ("pytestlab.instruments.DCActiveLoad", "DCActiveLoad"),
+        "vna": ("pytestlab.instruments.VectorNetworkAnalyser", "VectorNetworkAnalyser"),
+        "spectrum_analyzer": ("pytestlab.instruments.SpectrumAnalyser", "SpectrumAnalyser"),
+        "power_meter": ("pytestlab.instruments.PowerMeter", "PowerMeter"),
+        "virtual_instrument": ("pytestlab.instruments.VirtualInstrument", "VirtualInstrument"),
     }
+
+    @staticmethod
+    def _load_runtime_attr(spec: tuple[str, str] | Any) -> Any:
+        if isinstance(spec, tuple):
+            module_name, attr_name = spec
+            module = import_module(module_name)
+            return getattr(module, attr_name)
+        return spec
 
     @classmethod
     def from_type(
@@ -84,7 +83,8 @@ class AutoInstrument:
         Raises:
             InstrumentConfigurationError: If the instrument_type is not recognized.
         """
-        instrument_class = cls._instrument_mapping.get(instrument_type.lower())
+        instrument_spec = cls._instrument_mapping.get(instrument_type.lower())
+        instrument_class = cls._load_runtime_attr(instrument_spec)
         if instrument_class:
             return instrument_class(*args, **kwargs)
         else:
@@ -532,7 +532,10 @@ class AutoInstrument:
                         sim_profile_path = os.path.abspath(tf.name)
                     if debug_mode:
                         print(f"Wrote temp sim profile: {sim_profile_path}")
-                backend_instance = SimBackend(
+                sim_backend_cls = cls._load_runtime_attr(
+                    ("pytestlab.instruments.backends.sim_backend", "SimBackend")
+                )
+                backend_instance = sim_backend_cls(
                     profile_path=sim_profile_path,
                     model=device_model_str,
                     timeout_ms=actual_timeout,
@@ -569,7 +572,10 @@ class AutoInstrument:
                         raise InstrumentConfigurationError(
                             config_source, "Missing address/resource_name for VISA backend."
                         )
-                    backend_instance = VisaBackend(
+                    visa_backend_cls = cls._load_runtime_attr(
+                        ("pytestlab.instruments.backends.visa_backend", "VisaBackend")
+                    )
+                    backend_instance = visa_backend_cls(
                         address=actual_address, timeout_ms=actual_timeout
                     )
                     if debug_mode:
@@ -579,11 +585,17 @@ class AutoInstrument:
                 elif chosen_backend_type == "lamb":
                     lamb_server_url = getattr(config_model, "lamb_url", "http://lamb-server:8000")
                     if actual_address:
-                        backend_instance = LambBackend(
+                        lamb_backend_cls = cls._load_runtime_attr(
+                            ("pytestlab.instruments.backends.lamb", "LambBackend")
+                        )
+                        backend_instance = lamb_backend_cls(
                             address=actual_address, url=lamb_server_url, timeout_ms=actual_timeout
                         )
                     elif hasattr(config_model, "model") and hasattr(config_model, "serial_number"):
-                        backend_instance = LambBackend(
+                        lamb_backend_cls = cls._load_runtime_attr(
+                            ("pytestlab.instruments.backends.lamb", "LambBackend")
+                        )
+                        backend_instance = lamb_backend_cls(
                             address=None,
                             url=lamb_server_url,
                             timeout_ms=actual_timeout,
@@ -606,7 +618,9 @@ class AutoInstrument:
 
         # Step 5: Instantiate the final instrument driver class
         device_type_str: str = config_model.device_type
-        instrument_class_to_init = cls._instrument_mapping.get(device_type_str.lower())
+        instrument_class_to_init = cls._load_runtime_attr(
+            cls._instrument_mapping.get(device_type_str.lower())
+        )
 
         if instrument_class_to_init is None:
             raise InstrumentConfigurationError(
@@ -651,11 +665,15 @@ class AutoInstrument:
                                           valid subclass of `Instrument`.
         """
         type_key = instrument_type.lower()
-        if type_key in cls._instrument_mapping:
+        existing_class = cls._instrument_mapping.get(type_key)
+        if existing_class is not None:
+            existing_class = cls._load_runtime_attr(existing_class)
             raise InstrumentConfigurationError(
                 instrument_type,
-                f"Instrument type '{instrument_type}' already registered with class {cls._instrument_mapping[type_key].__name__}",
+                f"Instrument type '{instrument_type}' already registered with class {existing_class.__name__}",
             )
+        from .instrument import Instrument
+
         if not issubclass(instrument_class, Instrument):
             raise InstrumentConfigurationError(
                 instrument_type,

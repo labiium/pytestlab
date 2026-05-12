@@ -155,8 +155,8 @@ class MeasurementSession(contextlib.AbstractContextManager):
         if compliance is None or compliance is True:
             # Auto-configure (default behavior)
             try:
-                from ..compliance.auto_config import ensure_compliance_config
                 from ..compliance.auto_config import ComplianceDisabledError
+                from ..compliance.auto_config import ensure_compliance_config
                 from ..compliance.session import ComplianceConfig
 
                 config_dict = ensure_compliance_config()
@@ -198,7 +198,7 @@ class MeasurementSession(contextlib.AbstractContextManager):
             }
 
         measurements = []
-        for name, func in self._meas_funcs:
+        for name, _func in self._meas_funcs:
             measurements.append(
                 {
                     "name": name,

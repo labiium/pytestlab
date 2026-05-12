@@ -90,7 +90,7 @@ See the [Working with Benches](bench_descriptors.md) guide for more details.
 ## Troubleshooting Connections
 
 - **VISA Not Found:** Ensure you have installed a VISA library (NI-VISA, Keysight IO Libraries, etc.) and that it is accessible in your system's PATH.
-- **Address Errors:** Double-check your instrument's VISA address. Use `pytestlab profile list` and `pytestlab bench ls` to inspect available profiles and bench configurations.
+- **Address Errors:** Double-check your instrument's VISA address. Use `ptl profile list` and `ptl bench ls` to inspect available profiles and bench configurations.
 - **Simulation:** If you encounter persistent connection issues, try running in simulation mode to isolate hardware vs. software problems.
 
 ---

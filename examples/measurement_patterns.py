@@ -112,8 +112,8 @@ def parameter_sweep_measurement():
 
         # Analyze results
         print(f"✓ Total measurements: {len(results.data)}")
-        print(f"✓ Voltage range: 0 to 3.0V")
-        print(f"✓ Temperatures tested: 25°C, 50°C, 75°C")
+        print("✓ Voltage range: 0 to 3.0V")
+        print("✓ Temperatures tested: 25°C, 50°C, 75°C")
 
 
 def advanced_measurement_patterns():
@@ -168,8 +168,8 @@ def database_storage_example():
     """Example of storing measurements in database."""
     print("\n=== Database Storage Example ===")
 
-    import tempfile
     import os
+    import tempfile
 
     # Create temporary database
     db_path = tempfile.mktemp(suffix=".db")
@@ -194,7 +194,7 @@ def database_storage_example():
         # Clean up
         if os.path.exists(db_path):
             os.remove(db_path)
-            print(f"✓ Cleaned up database")
+            print("✓ Cleaned up database")
 
 
 def main():

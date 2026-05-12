@@ -39,7 +39,7 @@ channels:
 2.  **Add Metadata:** Fill in the `manufacturer`, `model`, and `device_type`. The `device_type` must match one of the defined Pydantic config models in `pytestlab.config`.
 3.  **Add Configuration Data:** Refer to the corresponding Pydantic model in the [Configuration API Reference](../api/config.md) and fill in the fields with the specifications from your instrument's datasheet.
 4.  **Save the Profile:** Save the file in a known location. You can then load it directly by its path in `AutoInstrument.from_config()` or place it in `pytestlab/profiles/<vendor>/` to load it by key.
-5.  **Validate:** Use the CLI to validate your new profile: `pytestlab profile validate path/to/your/profile.yaml`.
+5.  **Validate:** Use the CLI to validate your new profile: `ptl profile validate path/to/your/profile.yaml`.
 
 For more complex instruments, you may need to define nested structures for triggers, channels, FFT, etc., as seen in the built-in profiles.
 
