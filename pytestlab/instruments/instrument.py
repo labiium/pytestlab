@@ -4,7 +4,6 @@ import time
 from collections.abc import Callable
 from typing import Any
 from typing import Generic
-from typing import Protocol
 from typing import TypeVar
 
 import numpy as np
@@ -13,6 +12,8 @@ from .._log import get_logger
 from ..common.health import HealthReport  # Adjusted import
 from ..common.health import HealthStatus  # Adjusted import
 from ..config import InstrumentConfig  # Assuming InstrumentConfig is the base Pydantic model
+from ..devices.base import Device
+from ..devices.base import DeviceIO
 from ..errors import InstrumentCommunicationError
 from ..errors import InstrumentConfigurationError
 from ..errors import InstrumentConnectionError
@@ -25,48 +26,10 @@ from .scpi_engine import SCPIEngine
 ConfigType = TypeVar("ConfigType", bound="InstrumentConfig")
 
 
-class InstrumentIO(Protocol):
-    """Defines the interface for a synchronous instrument communication backend.
-
-    This protocol specifies the essential methods that a synchronous backend
-    (like a traditional VISA wrapper) must implement to be compatible with the
-    instrument driver framework.
-    """
-
-    def connect(self) -> None:
-        """Establishes the connection to the instrument."""
-        ...
-
-    def disconnect(self) -> None:
-        """Terminates the connection to the instrument."""
-        ...
-
-    def write(self, cmd: str) -> None:
-        """Sends a command to the instrument."""
-        ...
-
-    def query(self, cmd: str, delay: float | None = None) -> str:
-        """Sends a command and reads a string response."""
-        ...
-
-    def query_raw(self, cmd: str, delay: float | None = None) -> bytes:
-        """Sends a command and reads a raw byte response."""
-        ...
-
-    def close(self) -> None:
-        """Closes the instrument session, often an alias for disconnect."""
-        ...
-
-    def set_timeout(self, timeout_ms: int) -> None:
-        """Sets the communication timeout in milliseconds."""
-        ...
-
-    def get_timeout(self) -> int:
-        """Gets the communication timeout in milliseconds."""
-        ...
+InstrumentIO = DeviceIO
 
 
-class Instrument(Generic[ConfigType]):
+class Instrument(Device[ConfigType], Generic[ConfigType]):
     """Base class for all instrument drivers.
 
     This class provides the core functionality for interacting with an instrument

@@ -24,6 +24,8 @@ def load_bench_yaml(path_or_dict: str | Path | dict) -> BenchConfigExtended:
 def build_validation_context(config: BenchConfigExtended) -> dict[str, Any]:
     """Build a context dictionary for custom validation expressions."""
     context = {}
+    for alias, entry in config.devices.items():
+        context[alias] = entry.model_dump()
     for alias, entry in config.instruments.items():
         context[alias] = entry.model_dump()
     context["experiment"] = config.experiment.model_dump() if config.experiment else {}

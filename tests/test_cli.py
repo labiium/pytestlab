@@ -43,7 +43,7 @@ if __name__ == "__main__":
     bench_content = """
 bench_name: "Test Bench"
 simulate: true
-instruments:
+devices:
   psu:
     profile: "keysight/EDU36311A"
     address: "SIM::power_supply::1"
@@ -82,7 +82,7 @@ def test_list_command():
     # Test listing profiles
     result = runner.invoke(app, ["list", "profiles"])
     assert result.exit_code == 0
-    assert "Available instrument profiles" in result.stdout
+    assert "Available device profiles" in result.stdout
 
     # Test listing benches
     result = runner.invoke(app, ["list", "benches"])

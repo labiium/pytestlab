@@ -26,11 +26,11 @@ from pytestlab.bench import Bench
 
 bench = Bench.open("smarbench.yaml")
 
-# Access instruments
-osc = bench.instruments["osc"]
-awg = bench.instruments["awg"]
-psu = bench.instruments["psu"]
-dmm = bench.instruments["dmm"]
+# Access devices
+osc = bench.devices["osc"]
+awg = bench.devices["awg"]
+psu = bench.devices["psu"]
+dmm = bench.devices["dmm"]
 
 # Use PSU
 psu.set_voltage(1, 3.3)

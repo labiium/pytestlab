@@ -29,9 +29,9 @@ def test_bench_configuration_loading():
         print(f"✅ Loaded bench configuration: {config.bench_name}")
         print(f"   Version: {config.version}")
         print(f"   Experiment: {config.experiment.title}")
-        print(f"   Instruments: {list(config.instruments.keys())}")
+        print(f"   Devices: {list(config.devices.keys())}")
         print(
-            f"   Safety limits configured: {len([name for name, inst in config.instruments.items() if inst.safety_limits])}"
+            f"   Safety limits configured: {len([name for name, device in config.devices.items() if device.safety_limits])}"
         )
         print(f"   Custom validations: {len(config.custom_validations)}")
         print(
@@ -41,7 +41,7 @@ def test_bench_configuration_loading():
         # Validate minimally
         assert isinstance(config.bench_name, str)
         assert config.experiment is not None
-        assert isinstance(config.instruments, dict)
+        assert isinstance(config.devices, dict)
 
     except Exception as e:
         print(f"❌ Failed to load bench configuration: {e}")
@@ -59,7 +59,7 @@ def test_bench_opening():
         # Test bench opening
         bench = Bench.open(config_file)
         print(f"✅ Bench opened successfully: {bench.name}")
-        print(f"   Available instruments: {list(bench.instruments.keys())}")
+        print(f"   Available devices: {list(bench.devices.keys())}")
 
         # Test properties
         print(
@@ -90,9 +90,9 @@ def test_bench_opening():
         pytest.fail(f"Failed to open bench: {e}")
 
 
-def test_instrument_access():
-    """Test accessing instruments through the bench."""
-    print("\n🔍 Testing instrument access...")
+def test_device_access():
+    """Test accessing devices through the bench."""
+    print("\n🔍 Testing device access...")
 
     config_file = Path(__file__).parent / "bench.yaml"
 
@@ -100,22 +100,22 @@ def test_instrument_access():
         with Bench.open(config_file) as bench:
             print(f"✅ Using bench as context manager: {bench.name}")
 
-            # Test instrument access
-            for name, instrument in bench.instruments.items():
-                print(f"   Instrument '{name}': {type(instrument).__name__}")
+            # Test device access
+            for name, device in bench.devices.items():
+                print(f"   Device '{name}': {type(device).__name__}")
                 print(
-                    f"     Profile: {instrument.profile if hasattr(instrument, 'profile') else 'N/A'}"
+                    f"     Profile: {device.profile if hasattr(device, 'profile') else 'N/A'}"
                 )
                 print(
-                    f"     Address: {instrument.address if hasattr(instrument, 'address') else 'N/A'}"
+                    f"     Address: {device.address if hasattr(device, 'address') else 'N/A'}"
                 )
 
         print("✅ Context manager cleanup completed")
 
     except Exception as e:
-        print(f"❌ Failed to access instruments: {e}")
+        print(f"❌ Failed to access devices: {e}")
         traceback.print_exc()
-        pytest.fail(f"Failed to access instruments: {e}")
+        pytest.fail(f"Failed to access devices: {e}")
 
 
 def test_safety_limits():
@@ -126,8 +126,8 @@ def test_safety_limits():
 
     try:
         with Bench.open(config_file) as bench:
-            # Get PSU instrument
-            psu = bench.instruments.get("psu1")
+            # Get PSU device
+            psu = bench.devices.get("psu1")
             if not psu:
                 print("⚠️ PSU not available for safety testing")
                 pytest.skip("PSU not available for safety testing")
@@ -135,9 +135,9 @@ def test_safety_limits():
             print(f"✅ Found PSU: {type(psu).__name__}")
 
             # Test that safety wrapper is applied
-            from pytestlab.bench import SafeInstrumentWrapper
+            from pytestlab.bench import SafeDeviceWrapper
 
-            if isinstance(psu, SafeInstrumentWrapper):
+            if isinstance(psu, SafeDeviceWrapper):
                 print("✅ Safety wrapper applied to PSU")
                 print(f"   Safety limits: {psu.safety_limits}")
 
@@ -200,7 +200,7 @@ def test_traceability_and_measurement_plan():
             if bench.measurement_plan:
                 print("✅ Measurement plan available:")
                 for i, step in enumerate(bench.measurement_plan):
-                    print(f"   Step {i + 1}: {step.name} ({step.instrument})")
+                    print(f"   Step {i + 1}: {step.name} ({step.device})")
 
         assert True
 
@@ -227,10 +227,10 @@ def main():
         print("❌ Bench opening failed - stopping tests")
         return False
 
-    # Test instrument access
-    success = test_instrument_access()
+    # Test device access
+    success = test_device_access()
     if not success:
-        print("❌ Instrument access failed")
+        print("❌ Device access failed")
         return False
 
     # Test safety limits
@@ -256,7 +256,7 @@ def main():
     print("✅ Extended bench system is fully functional")
     print("✅ Configuration loading and validation works")
     print("✅ Bench initialization works")
-    print("✅ Instrument access and management works")
+    print("✅ Device access and management works")
     print("✅ Safety limit system is ready")
     print("✅ Automation hooks execute properly")
     print("✅ Traceability and measurement plans accessible")

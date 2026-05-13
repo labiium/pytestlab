@@ -11,7 +11,7 @@ backend_defaults:
   type: "lamb"
   timeout_ms: 10000
 
-instruments:
+devices:
   psu:
     profile: "keysight/EDU36311A"
     backend:

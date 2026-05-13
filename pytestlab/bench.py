@@ -7,14 +7,17 @@ from typing import Any
 from .common.health import HealthReport
 from .common.health import HealthStatus
 from .config.bench_config import BenchConfigExtended
+from .config.bench_config import DeviceEntry
 from .config.bench_config import InstrumentEntry
 from .config.bench_loader import build_validation_context
 from .config.bench_loader import load_bench_yaml
 from .config.bench_loader import run_custom_validations
+from .devices import AutoDevice
+from .devices import Device
 from .experiments import Experiment
 from .experiments.database import MeasurementDatabase
-from .instruments.AutoInstrument import AutoInstrument
-from .instruments.instrument import Instrument
+from .instruments import AutoInstrument
+from .instruments import Instrument
 
 # Configure logging
 logger = logging.getLogger("pytestlab.bench")
@@ -32,58 +35,56 @@ class InstrumentMacroError(Exception):
     pass
 
 
-class SafeInstrumentWrapper:
-    """Wraps an instrument to enforce safety limits defined in the bench config.
+class SafeDeviceWrapper:
+    """Wraps a device to enforce safety limits defined in the bench config.
 
-    This class acts as a proxy to an underlying instrument object. It intercepts
-    calls to methods that could be dangerous (like `set_voltage` on a power
-    supply) and checks them against the defined safety limits before passing
-    the call to the actual instrument. This helps prevent accidental damage to
-    equipment or the device under test.
+    This class acts as a proxy to an underlying device object. It intercepts
+        calls to methods that could be dangerous (like `set_voltage` on a power
+        supply) and checks them against the defined safety limits before passing
+        the call to the actual device. This helps prevent accidental damage to
+        equipment or the device under test.
 
     Attributes:
-        _inst: The actual instrument instance being wrapped.
-        _safety_limits: The safety limit configuration for this instrument.
-        _instrument_type: Type of instrument being wrapped (e.g., 'power_supply', 'waveform_generator').
+        _device: The actual device instance being wrapped.
+        _safety_limits: The safety limit configuration for this device.
+        _device_type: Type of device being wrapped (e.g., 'power_supply', 'waveform_generator').
     """
 
-    def __init__(
-        self, instrument: Instrument, safety_limits: Any, instrument_type: str | None = None
-    ):
-        self._inst = instrument
+    def __init__(self, device: Device, safety_limits: Any, device_type: str | None = None):
+        self._device = device
         self._safety_limits = safety_limits
-        self._instrument_type = instrument_type or self._detect_instrument_type()
+        self._device_type = device_type or self._detect_device_type()
 
-    def _detect_instrument_type(self) -> str:
-        """Attempt to detect instrument type based on available methods."""
-        if hasattr(self._inst, "set_voltage") and hasattr(self._inst, "set_current"):
+    def _detect_device_type(self) -> str:
+        """Attempt to detect device type based on available methods."""
+        if hasattr(self._device, "set_voltage") and hasattr(self._device, "set_current"):
             return "power_supply"
-        elif hasattr(self._inst, "set_frequency") and hasattr(self._inst, "set_amplitude"):
+        elif hasattr(self._device, "set_frequency") and hasattr(self._device, "set_amplitude"):
             return "waveform_generator"
-        elif hasattr(self._inst, "set_load") and hasattr(self._inst, "set_mode"):
+        elif hasattr(self._device, "set_load") and hasattr(self._device, "set_mode"):
             return "dc_active_load"
         return "unknown"
 
     def __getattr__(self, name):
         """Dynamically wraps methods to enforce safety checks."""
-        orig = getattr(self._inst, name)
+        orig = getattr(self._device, name)
 
         # Power Supply safety limits
-        if self._instrument_type == "power_supply":
+        if self._device_type == "power_supply":
             if name == "set_voltage":
                 return self._safe_set_voltage_wrapper(orig)
             elif name == "set_current":
                 return self._safe_set_current_wrapper(orig)
 
         # Waveform Generator safety limits
-        elif self._instrument_type == "waveform_generator":
+        elif self._device_type == "waveform_generator":
             if name == "set_amplitude":
                 return self._safe_set_amplitude_wrapper(orig)
             elif name == "set_frequency":
                 return self._safe_set_frequency_wrapper(orig)
 
         # DC Active Load safety limits
-        elif self._instrument_type == "dc_active_load":
+        elif self._device_type == "dc_active_load":
             if name == "set_load":
                 return self._safe_set_load_wrapper(orig)
 
@@ -182,23 +183,24 @@ class SafeInstrumentWrapper:
 
 
 class Bench:
-    """Manages a collection of test instruments as a single entity.
+    """Manages a collection of test devices as a single entity.
 
     The `Bench` class is the primary entry point for interacting with a test setup
     defined in a YAML configuration file. It handles:
     - Loading and validating the bench configuration.
-    - Initializing and connecting to all specified instruments.
-    - Wrapping instruments with safety limit enforcement where specified.
+    - Initializing and connecting to all specified devices.
+    - Wrapping devices with safety limit enforcement where specified.
     - Running pre- and post-experiment automation hooks.
-    - Providing easy access to instruments by their aliases (e.g., `bench.psu1`).
+    - Providing easy access to devices by their aliases (e.g., `bench.psu1`).
     - Exposing traceability and planning information from the config.
     """
 
     def __init__(self, config: BenchConfigExtended):
         self._config = config
-        self._instrument_instances: dict[str, Instrument] = {}
-        self._instrument_wrappers: dict[str, Any] = {}
-        self._channel_config: dict[str, list[int]] = {}  # Stores channel config for each instrument
+        self._device_instances: dict[str, Device] = {}
+        self._instrument_instances: dict[str, Instrument[Any]] = {}
+        self._device_wrappers: dict[str, Any] = {}
+        self._channel_config: dict[str, list[int]] = {}
         self._experiment: Experiment | None = None
         self._db: MeasurementDatabase | None = None
 
@@ -208,7 +210,7 @@ class Bench:
 
         This class method acts as the main factory for creating a `Bench` instance.
         It orchestrates the loading of the YAML file, the execution of any custom
-        validation rules, and the initialization of all instruments.
+        validation rules, and the initialization of all devices.
 
         Args:
             filepath: The path to the bench.yaml configuration file.
@@ -219,7 +221,7 @@ class Bench:
         Raises:
             FileNotFoundError: If the specified YAML file doesn't exist.
             ValidationError: If the configuration fails validation.
-            InstrumentConfigurationError: If instrument configuration is invalid.
+            InstrumentConfigurationError: If device configuration is invalid.
         """
         logger.info(f"Loading bench configuration from {filepath}")
         config = load_bench_yaml(filepath)
@@ -230,7 +232,7 @@ class Bench:
         run_custom_validations(config, context)
 
         bench = cls(config)
-        bench._initialize_instruments()
+        bench._initialize_devices()
         bench._run_automation_hook("pre_experiment")
         logger.info(f"Bench '{config.bench_name}' initialized successfully")
 
@@ -240,36 +242,40 @@ class Bench:
 
         return bench
 
-    def _initialize_instruments(self):
-        """Initializes and connects to all instruments defined in the config."""
-        # Importing compliance ensures that the necessary patches are applied
-        # before any instruments are created, which might generate results.
-
-        logger.info("Initializing instruments")
+    def _initialize_devices(self):
+        """Initializes and connects to all devices defined in the config."""
+        logger.info("Initializing devices")
         connection_errors = []
 
-        for alias, entry in self._config.instruments.items():
+        entries: list[tuple[str, DeviceEntry, bool]] = [
+            (alias, entry, False) for alias, entry in self._config.devices.items()
+        ]
+        entries.extend((alias, entry, True) for alias, entry in self._config.instruments.items())
+
+        for alias, entry, must_be_instrument in entries:
             try:
-                self._initialize_instrument(alias, entry)
-                logger.info(f"Instrument '{alias}' initialized successfully")
+                self._initialize_device(alias, entry, must_be_instrument=must_be_instrument)
+                logger.info(f"Device '{alias}' initialized successfully")
             except Exception as e:
-                error_msg = f"Failed to initialize instrument '{alias}': {str(e)}"
+                error_msg = f"Failed to initialize device '{alias}': {str(e)}"
                 logger.error(error_msg)
                 connection_errors.append(error_msg)
 
-                # Continue with other instruments even if one fails
-                if getattr(self._config, "continue_on_instrument_error", False):
+                # Continue with other devices even if one fails
+                if getattr(self._config, "continue_on_device_error", False):
                     logger.warning(
-                        f"Failed to initialize instrument '{alias}'. Continuing with other instruments."
+                        f"Failed to initialize device '{alias}'. Continuing with other devices."
                     )
                 else:
                     raise
 
         if connection_errors:
-            logger.warning(f"Some instruments failed to connect: {len(connection_errors)} errors")
+            logger.warning(f"Some devices failed to connect: {len(connection_errors)} errors")
 
-    def _initialize_instrument(self, alias: str, entry: InstrumentEntry):
-        """Initialize a single instrument from its configuration entry."""
+    def _initialize_device(
+        self, alias: str, entry: DeviceEntry | InstrumentEntry, *, must_be_instrument: bool = False
+    ):
+        """Initialize a single device from its configuration entry."""
         # Determine the final simulation mode
         simulate_flag = self._config.simulate
         if entry.simulate is not None:
@@ -282,50 +288,47 @@ class Bench:
             backend_type_hint = entry.backend.get("type")
             timeout_override_ms = entry.backend.get("timeout_ms")
 
-        # Extract channel configuration if present
-        # (No channel config in InstrumentEntry; skip extraction)
-
-        # Create instrument instance
-        logger.debug(f"Creating instrument '{alias}' from profile '{entry.profile}'")
-        instrument = AutoInstrument.from_config(
+        logger.debug(f"Creating device '{alias}' from profile '{entry.profile}'")
+        factory = AutoInstrument if must_be_instrument else AutoDevice
+        device = factory.from_config(
             config_source=entry.profile,
             simulate=simulate_flag,
             backend_type_hint=backend_type_hint,
             address_override=entry.address,
-            serial_number=entry.serial_number,  # <-- Pass serial_number to factory
+            serial_number=entry.serial_number,
             timeout_override_ms=timeout_override_ms,
         )
 
-        # Connect to the backend
-        logger.debug(f"Connecting instrument '{alias}' to backend")
-        instrument.connect_backend()
+        logger.debug(f"Connecting device '{alias}' to backend")
+        device.connect_backend()
 
-        # Detect instrument type for safety wrapper
-        instrument_type = self._detect_instrument_type(instrument)
+        device_type = self._detect_device_type(device)
 
-        # Apply safety limits if configured
         if entry.safety_limits:
-            wrapped = SafeInstrumentWrapper(instrument, entry.safety_limits, instrument_type)
-            logger.debug(f"Instrument '{alias}' is running with a safety wrapper")
-            self._instrument_instances[alias] = instrument
-            self._instrument_wrappers[alias] = wrapped
+            wrapped = SafeDeviceWrapper(device, entry.safety_limits, device_type)
+            logger.debug(f"Device '{alias}' is running with a safety wrapper")
+            self._device_instances[alias] = device
+            if isinstance(device, Instrument):
+                self._instrument_instances[alias] = device
+            self._device_wrappers[alias] = wrapped
             setattr(self, alias, wrapped)
         else:
-            # Otherwise, add the raw instrument to the bench
-            self._instrument_instances[alias] = instrument
-            setattr(self, alias, instrument)
+            self._device_instances[alias] = device
+            if isinstance(device, Instrument):
+                self._instrument_instances[alias] = device
+            setattr(self, alias, device)
 
-    def _detect_instrument_type(self, instrument: Instrument) -> str:
-        """Detect the type of instrument based on its methods and attributes."""
-        if hasattr(instrument, "set_voltage") and hasattr(instrument, "set_current"):
+    def _detect_device_type(self, device: Device) -> str:
+        """Detect the type of device based on its methods and attributes."""
+        if hasattr(device, "set_voltage") and hasattr(device, "set_current"):
             return "power_supply"
-        elif hasattr(instrument, "set_frequency") and hasattr(instrument, "set_amplitude"):
+        elif hasattr(device, "set_frequency") and hasattr(device, "set_amplitude"):
             return "waveform_generator"
-        elif hasattr(instrument, "set_load") and hasattr(instrument, "set_mode"):
+        elif hasattr(device, "set_load") and hasattr(device, "set_mode"):
             return "dc_active_load"
-        elif hasattr(instrument, "set_measurement_function") and hasattr(instrument, "measure"):
+        elif hasattr(device, "set_measurement_function") and hasattr(device, "measure"):
             return "multimeter"
-        elif hasattr(instrument, "set_timebase") and hasattr(instrument, "read_channels"):
+        elif hasattr(device, "set_timebase") and hasattr(device, "read_channels"):
             return "oscilloscope"
         return "unknown"
 
@@ -334,7 +337,7 @@ class Bench:
 
         This method runs a series of commands defined in the `automation` section
         of the bench config. It supports running shell commands, Python scripts,
-        and instrument macros.
+        and device macros.
 
         Args:
             hook: The name of the hook to run (e.g., "pre_experiment").
@@ -353,7 +356,7 @@ class Bench:
                 if cmd.strip().startswith("python "):
                     self._run_python_script(cmd)
                 elif ":" in cmd:
-                    self._run_instrument_macro(cmd)
+                    self._run_device_macro(cmd)
                 else:
                     self._run_shell_command(cmd)
             except Exception as e:
@@ -399,45 +402,41 @@ class Bench:
                 logger.error(f"Command stderr: {e.stderr.strip()}")
             raise
 
-    def _run_instrument_macro(self, cmd: str):
-        """Run an instrument macro command as part of an automation hook."""
-        alias, instr_cmd = cmd.split(":", 1)
+    def _run_device_macro(self, cmd: str):
+        """Run a device macro command as part of an automation hook."""
+        alias, device_cmd = cmd.split(":", 1)
         alias = alias.strip()
-        instr_cmd = instr_cmd.strip()
+        device_cmd = device_cmd.strip()
 
-        # Get the instrument instance (wrapper or raw)
-        inst = self._instrument_wrappers.get(alias) or self._instrument_instances.get(alias)
-        if inst is None:
-            error_msg = f"Instrument '{alias}' not found for macro '{cmd}'"
+        device = self._device_wrappers.get(alias) or self._device_instances.get(alias)
+        if device is None:
+            error_msg = f"Device '{alias}' not found for macro '{cmd}'"
             logger.error(error_msg)
             raise InstrumentMacroError(error_msg)
 
-        logger.info(f"[Automation] Running instrument macro: {alias}: {instr_cmd}")
+        logger.info(f"[Automation] Running device macro: {alias}: {device_cmd}")
 
-        # Handle common macros
-        if instr_cmd.lower() == "output all off":
-            self._execute_output_all_off(inst, alias)
-        elif instr_cmd.lower() == "autoscale":
-            self._execute_autoscale(inst, alias)
+        if device_cmd.lower() == "output all off":
+            self._execute_output_all_off(device, alias)
+        elif device_cmd.lower() == "autoscale":
+            self._execute_autoscale(device, alias)
         else:
-            self._execute_custom_macro(inst, alias, instr_cmd)
+            self._execute_custom_macro(device, alias, device_cmd)
 
-    def _execute_output_all_off(self, inst, alias: str):
-        """Execute the 'output all OFF' macro for an instrument."""
-        if not hasattr(inst, "output"):
-            error_msg = f"Instrument '{alias}' does not support 'output' method"
+    def _execute_output_all_off(self, device, alias: str):
+        """Execute the 'output all OFF' macro for a device."""
+        if not hasattr(device, "output"):
+            error_msg = f"Device '{alias}' does not support 'output' method"
             logger.error(error_msg)
             raise InstrumentMacroError(error_msg)
 
-        # Get channels for this instrument from config or use default range
         channels = self._channel_config.get(alias, range(1, 4))
 
-        # Turn off all channels
         errors = []
         for ch in channels:
             try:
                 logger.debug(f"Turning off output for {alias} channel {ch}")
-                inst.output(ch, False)
+                device.output(ch, False)
             except Exception as e:
                 error_msg = f"Failed to turn off output for {alias} channel {ch}: {str(e)}"
                 logger.warning(error_msg)
@@ -448,16 +447,16 @@ class Bench:
             if not getattr(self._config, "continue_on_automation_error", False):
                 raise InstrumentMacroError(f"Failed to turn off all outputs for '{alias}'")
 
-    def _execute_autoscale(self, inst, alias: str):
-        """Execute the 'autoscale' macro for an instrument."""
-        if not hasattr(inst, "auto_scale"):
-            error_msg = f"Instrument '{alias}' does not support 'auto_scale' method"
+    def _execute_autoscale(self, device, alias: str):
+        """Execute the 'autoscale' macro for a device."""
+        if not hasattr(device, "auto_scale"):
+            error_msg = f"Device '{alias}' does not support 'auto_scale' method"
             logger.error(error_msg)
             raise InstrumentMacroError(error_msg)
 
         try:
             logger.debug(f"Executing auto scale for {alias}")
-            inst.auto_scale()
+            device.auto_scale()
         except Exception as e:
             error_msg = f"Failed to autoscale for {alias}: {str(e)}"
             logger.error(error_msg)
@@ -468,7 +467,7 @@ class Bench:
         logger.warning(f"Unknown macro for {alias}: {macro}. Custom macros not implemented.")
 
     def close_all(self):
-        """Runs post-experiment hooks and closes all instrument connections."""
+        """Runs post-experiment hooks and closes all device connections."""
         logger.info("Closing bench and running post-experiment hooks")
 
         try:
@@ -476,42 +475,42 @@ class Bench:
         except Exception as e:
             logger.error(f"Error in post-experiment hooks: {str(e)}")
 
-        # Close all instrument connections
-        logger.debug("Closing instrument connections")
+        logger.debug("Closing device connections")
         errors: list[Exception] = []
-        for inst in self._instrument_instances.values():
-            if hasattr(inst, "close"):
+        for device in self._device_instances.values():
+            if hasattr(device, "close"):
                 try:
-                    inst.close()
+                    device.close()
                 except Exception as exc:  # pragma: no cover - defensive logging
                     errors.append(exc)
 
         if errors:
-            logger.error(f"{len(errors)} errors occurred while closing instruments")
+            logger.error(f"{len(errors)} errors occurred while closing devices")
             for err in errors:
-                logger.error(f"Instrument close error: {str(err)}")
+                logger.error(f"Device close error: {str(err)}")
 
     def health_check(self) -> dict[str, HealthReport]:
-        """Run health checks on all instruments that support it.
+        """Run health checks on all devices that support it.
 
         Returns:
-            A dictionary mapping instrument aliases to their health reports.
+            A dictionary mapping device aliases to their health reports.
         """
-        logger.info("Running health check on all instruments")
+        logger.info("Running health check on all devices")
         health_reports = {}
 
-        for alias, inst in self._instrument_instances.items():
-            if hasattr(inst, "health_check"):
+        for alias, device in self._device_instances.items():
+            health_check = getattr(device, "health_check", None)
+            if callable(health_check):
                 try:
                     logger.debug(f"Running health check for {alias}")
-                    health_reports[alias] = inst.health_check()
+                    health_reports[alias] = health_check()
                 except Exception as e:
                     logger.error(f"Health check failed for {alias}: {str(e)}")
                     health_reports[alias] = HealthReport(
                         status=HealthStatus.ERROR, errors=[f"Health check failed: {str(e)}"]
                     )
             else:
-                logger.debug(f"Instrument {alias} does not support health checks")
+                logger.debug(f"Device {alias} does not support health checks")
 
         return health_reports
 
@@ -523,17 +522,17 @@ class Bench:
         """Synchronous context manager exit."""
         self.close_all()
 
-    def __getattr__(self, name: str) -> Instrument:
-        """Access instruments by alias."""
-        if name in self._instrument_wrappers:
-            return self._instrument_wrappers[name]
-        if name in self._instrument_instances:
-            return self._instrument_instances[name]
-        raise AttributeError(f"The bench has no instrument with the alias '{name}'.")
+    def __getattr__(self, name: str) -> Device:
+        """Access devices by alias."""
+        if name in self._device_wrappers:
+            return self._device_wrappers[name]
+        if name in self._device_instances:
+            return self._device_instances[name]
+        raise AttributeError(f"The bench has no device with the alias '{name}'.")
 
     def __dir__(self):
-        """Include instrument aliases in dir() output for autocomplete."""
-        return list(super().__dir__()) + list(self._instrument_instances.keys())
+        """Include device aliases in dir() output for autocomplete."""
+        return list(super().__dir__()) + list(self._device_instances.keys())
 
     @property
     def name(self) -> str:
@@ -551,13 +550,13 @@ class Bench:
         return self._config.version
 
     @property
-    def instruments(self) -> dict[str, Instrument]:
-        """Provides programmatic access to all instrument instances.
+    def devices(self) -> dict[str, Device]:
+        """Provides programmatic access to all device instances."""
+        return self._device_instances
 
-        Returns:
-            A dictionary where keys are instrument aliases and values are the
-            corresponding instrument instances.
-        """
+    @property
+    def instruments(self) -> dict[str, Instrument[Any]]:
+        """Provides programmatic access to device instances that are instruments."""
         return self._instrument_instances
 
     @property
@@ -629,7 +628,7 @@ class Bench:
     @property
     def simulate(self) -> bool:
         """Whether the bench is in simulation mode."""
-        return self._config.simulate
+        return bool(self._config.simulate)
 
     @property
     def automation(self):
@@ -639,4 +638,8 @@ class Bench:
     @property
     def safety_limits(self):
         """Access safety limits configuration."""
-        return self._config.safety_limits
+        return {
+            alias: entry.safety_limits
+            for alias, entry in (self._config.devices | self._config.instruments).items()
+            if entry.safety_limits is not None
+        }

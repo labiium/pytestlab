@@ -19,16 +19,16 @@ simulate: true
 
 # Continue on errors
 continue_on_automation_error: true
-continue_on_instrument_error: false
+continue_on_device_error: false
 
-# Default backend configuration for all instruments
+# Default backend configuration for all devices
 backend_defaults:
     type: "lamb"
     url: "http://lamb-server:8000"
     timeout_ms: 15000
 
-# Instrument definitions
-instruments:
+# Device definitions
+devices:
     # Keysight DSOX1204G Digital Oscilloscope
     osc:
         profile: "keysight/DSOX1204G"
@@ -112,7 +112,7 @@ traceability:
 # Measurement plan
 measurement_plan:
     - name: "Signal Generation Test"
-      instrument: "awg"
+      device: "awg"
       probe_location: "DUT input"
       settings:
           function: "SINE"
@@ -121,7 +121,7 @@ measurement_plan:
       notes: "Generate 1kHz sine wave"
 
     - name: "Voltage Measurement"
-      instrument: "dmm"
+      device: "dmm"
       probe_location: "DUT power rail"
       settings:
           function: "DC_VOLTAGE"
@@ -129,7 +129,7 @@ measurement_plan:
       notes: "Measure supply voltage"
 
     - name: "Waveform Capture"
-      instrument: "osc"
+      device: "osc"
       probe_location: "DUT output"
       settings:
           timebase: "1ms/div"
@@ -137,7 +137,7 @@ measurement_plan:
       notes: "Capture output waveform"
 
     - name: "Power Supply Setup"
-      instrument: "psu"
+      device: "psu"
       probe_location: "DUT Vdd"
       settings:
           voltage: 3.3

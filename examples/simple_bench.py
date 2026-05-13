@@ -4,14 +4,15 @@ PyTestLab Simple Bench Example
 
 This example demonstrates:
   - Loading a bench from a YAML configuration file
-  - Accessing instruments by name
+  - Accessing devices by name
   - Using the bench context manager for automatic cleanup
-  - Running basic operations on multiple instruments
+  - Running basic operations on multiple devices
 
 The bench uses simulation mode - no hardware required.
 """
 
 from pathlib import Path
+
 from pytestlab import Bench
 
 
@@ -31,20 +32,20 @@ def main():
     with Bench.open(bench_path) as bench:
         print(f"✓ Bench loaded: {bench.name}")
         print(f"  Simulation mode: {bench.simulate}")
-        print(f"  Number of instruments: {len(bench.instruments)}")
+        print(f"  Number of devices: {len(bench.devices)}")
 
-        # Access instruments by their alias
-        print("\n--- Accessing Instruments ---")
+        # Access devices by their alias
+        print("\n--- Accessing Devices ---")
 
         # Access the power supply
         psu = bench.psu
-        print(f"\nPower Supply (psu):")
+        print("\nPower Supply (psu):")
         print(f"  Model: {psu.config.model}")
         print(f"  ID: {psu.id()}")
 
         # Access the multimeter
         dmm = bench.dmm
-        print(f"\nMultimeter (dmm):")
+        print("\nMultimeter (dmm):")
         print(f"  Model: {dmm.config.model}")
         print(f"  ID: {dmm.id()}")
 
@@ -74,10 +75,10 @@ def main():
         psu.output(1, False)
         print("\n3. Power supply output turned off")
 
-    # The context manager automatically closes all instruments
+    # The context manager automatically closes all devices
     print("\n" + "=" * 60)
     print("Bench example completed successfully!")
-    print("All instruments cleaned up automatically.")
+    print("All devices cleaned up automatically.")
     print("=" * 60)
 
 

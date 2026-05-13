@@ -13,6 +13,13 @@ from pydantic import ValidationError
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
+from ..devices.registry import get_config_model
+from ..devices.registry import get_config_registry
+from ..devices.registry import load_import_path
+from ..devices.registry import register_config_model
+from ..devices.registry import validate_config_model
+from .device_config import DeviceConfig
+from .device_config import GenericDeviceConfig
 from .instrument_config import InstrumentConfig
 
 
@@ -28,12 +35,12 @@ class ConfigLoader:
 
 
 # Global cache for discovered models to avoid re-discovering on every call
-_MODEL_REGISTRY_CACHE: dict[str, type[InstrumentConfig]] | None = None
+_MODEL_REGISTRY_CACHE: dict[str, type[DeviceConfig]] | None = None
 
 
-def _discover_models() -> dict[str, type[InstrumentConfig]]:
+def _discover_models() -> dict[str, type[DeviceConfig]]:
     pkg = importlib.import_module("pytestlab.config")
-    registry: dict[str, type[InstrumentConfig]] = {}
+    registry: dict[str, type[DeviceConfig]] = {}
 
     for name, member in inspect.getmembers(pkg):
         if name.startswith("_"):
@@ -82,11 +89,10 @@ def _discover_models() -> dict[str, type[InstrumentConfig]]:
     return registry
 
 
-def get_model_registry() -> dict[str, type[InstrumentConfig]]:
-    global _MODEL_REGISTRY_CACHE
-    if _MODEL_REGISTRY_CACHE is None:
-        _MODEL_REGISTRY_CACHE = _discover_models()
-    return _MODEL_REGISTRY_CACHE
+def get_model_registry() -> dict[str, type[DeviceConfig]]:
+    registry = get_config_registry()
+    registry.update(_discover_models())
+    return registry
 
 
 def resolve_profile_key_to_path(key: str) -> Path:
@@ -115,8 +121,8 @@ def resolve_profile_key_to_path(key: str) -> Path:
     return profile_path
 
 
-def load_profile(key_or_path_or_dict: str | Path | dict[str, Any]) -> InstrumentConfig:
-    """Loads an instrument profile from a key, file path, or dictionary.
+def load_device_profile(key_or_path_or_dict: str | Path | dict[str, Any]) -> DeviceConfig:
+    """Loads a device profile from a key, file path, or dictionary.
 
     This is the single entry-point for loading profiles. Drivers should never
     read YAML themselves.
@@ -126,7 +132,7 @@ def load_profile(key_or_path_or_dict: str | Path | dict[str, Any]) -> Instrument
             dictionary containing profile data.
 
     Returns:
-        An ``InstrumentConfig`` object.
+        A ``DeviceConfig`` object.
 
     Raises:
         TypeError: If the input is not a string, Path, or dictionary.
@@ -160,14 +166,24 @@ def load_profile(key_or_path_or_dict: str | Path | dict[str, Any]) -> Instrument
     if not device_type:
         raise ValueError("Profile data must contain a 'device_type' field.")
 
-    model_registry = get_model_registry()
-    model_cls = model_registry.get(device_type)
+    model_cls = None
+    config_model_path = data.get("config_model")
+    if isinstance(config_model_path, str):
+        model_cls = validate_config_model(load_import_path(config_model_path), config_model_path)
+        register_config_model(device_type, model_cls, replace=True)
+    if model_cls is None:
+        model_cls = get_config_model(device_type) or get_model_registry().get(device_type)
 
     if model_cls is None:
-        raise ValueError(
-            f"No Pydantic model found for device_type '{device_type}'. "
-            f"Discovered models: {list(model_registry.keys())}"
-        )
+        if data.get("driver"):
+            model_cls = GenericDeviceConfig
+        else:
+            model_registry = get_model_registry()
+            raise ValueError(
+                f"No Pydantic model found for device_type '{device_type}'. "
+                "Provide 'config_model' or 'driver' for a custom device. "
+                f"Discovered models: {list(model_registry.keys())}"
+            )
 
     # Pop simulation-specific fields before validation, as they're not part of the config model
     if "simulation" in data:
@@ -180,9 +196,9 @@ def load_profile(key_or_path_or_dict: str | Path | dict[str, Any]) -> Instrument
     except (ValidationError, ValueError) as e:
         raise ValueError(f"Profile for device_type '{device_type}' is invalid: {e}") from e
 
-    if not isinstance(validated_model, InstrumentConfig):
+    if not isinstance(validated_model, DeviceConfig):
         raise TypeError(
-            f"Validated model for {device_type} is not an instance of InstrumentConfig."
+            f"Validated model for {device_type} is not an instance of DeviceConfig."
         )
 
     return validated_model

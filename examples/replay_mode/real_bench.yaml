@@ -11,13 +11,13 @@ metadata:
 # Use real hardware (not simulation)
 simulate: false
 
-# Default backend configuration for all instruments
+# Default backend configuration for all devices
 backend_defaults:
   type: "lamb"
   url: "http://lamb-server:8000"
   timeout_ms: 15000
 
-instruments:
+devices:
   psu:
     profile: "keysight/EDU36311A"
     description: "Keysight EDU36311A Triple Output Power Supply"
@@ -25,7 +25,7 @@ instruments:
       type: "lamb"
       url: "http://lamb-server:8000"
       timeout_ms: 15000
-      # Optional: specify exact instrument if multiple of same model
+      # Optional: specify exact device if multiple of same model
       # model_name: "EDU36311A"
       # serial_number: "MY12345678"
     safety_limits:
@@ -47,7 +47,7 @@ instruments:
       type: "lamb"
       url: "http://lamb-server:8000"
       timeout_ms: 15000
-      # Optional: specify exact instrument if multiple of same model
+      # Optional: specify exact device if multiple of same model
       # model_name: "DSOX1204G"
       # serial_number: "MY87654321"
     configuration:
@@ -87,26 +87,26 @@ macros:
   safe_startup:
     description: "Safely initialize all instruments"
     steps:
-      - instrument: "psu"
+      - device: "psu"
         action: "set_voltage"
         channel: 1
         value: 0.0
-      - instrument: "psu"
+      - device: "psu"
         action: "set_current"
         channel: 1
         value: 0.1
-      - instrument: "osc"
+      - device: "osc"
         action: "set_timebase_scale"
         value: 0.001
 
   safe_shutdown:
     description: "Safely shut down all instruments"
     steps:
-      - instrument: "psu"
+      - device: "psu"
         action: "output"
         channel: 1
         value: false
-      - instrument: "psu"
+      - device: "psu"
         action: "set_voltage"
         channel: 1
         value: 0.0

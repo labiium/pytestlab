@@ -59,7 +59,8 @@ def main_callback(
     pass
 
 
-profile_app = typer.Typer(name="profile", help="Manage instrument profiles.")
+profile_app = typer.Typer(name="profile", help="Manage device profiles.")
+device_app = typer.Typer(name="device", help="Interact with lab devices.")
 instrument_app = typer.Typer(name="instrument", help="Interact with instruments.")
 bench_app = typer.Typer(name="bench", help="Manage bench configurations.")
 sim_profile_app = typer.Typer(name="sim-profile", help="Manage simulation profiles.")
@@ -69,6 +70,7 @@ replay_app = typer.Typer(name="replay", help="Record and replay complex measurem
 app.add_typer(replay_app)
 
 app.add_typer(profile_app)
+app.add_typer(device_app)
 app.add_typer(instrument_app)
 app.add_typer(bench_app)
 app.add_typer(sim_profile_app)
@@ -193,8 +195,8 @@ def sim_profile_diff(profile_key: Annotated[str, typer.Argument(help="Profile ke
 
 @sim_profile_app.command("record")
 def sim_profile_record(
-    profile_key: Annotated[str, typer.Argument(help="Profile key of the instrument to record.")],
-    address: Annotated[str | None, typer.Option(help="VISA address of the instrument.")] = None,
+    profile_key: Annotated[str, typer.Argument(help="Profile key of the device to record.")],
+    address: Annotated[str | None, typer.Option(help="VISA address of the device.")] = None,
     output_path: Annotated[
         Path | None,
         typer.Option(
@@ -202,24 +204,24 @@ def sim_profile_record(
         ),
     ] = None,
     script: Annotated[
-        Path | None, typer.Option(help="Path to a Python script to run against the instrument.")
+        Path | None, typer.Option(help="Path to a Python script to run against the device.")
     ] = None,
     simulate: Annotated[
-        bool, typer.Option(help="Use a simulated instrument for recording.")
+        bool, typer.Option(help="Use a simulated device for recording.")
     ] = False,
 ):
-    """Records instrument interactions to create a simulation profile."""
-    from pytestlab.config.loader import load_profile
-    from pytestlab.instruments.AutoInstrument import AutoInstrument
+    """Records device interactions to create a simulation profile."""
+    from pytestlab.config.loader import load_device_profile
+    from pytestlab.devices import AutoDevice
+    from pytestlab.devices import DeviceIO
     from pytestlab.instruments.backends.recording_backend import RecordingBackend
-    from pytestlab.instruments.instrument import InstrumentIO
 
-    instrument = None
+    device = None
     final_output_path = output_path  # Ensure defined even if an early exception occurs
     try:
         if not simulate and not address:
             rich.print(
-                "[bold red]Error: The --address option is required for recording from a real instrument.[/bold red]"
+                "[bold red]Error: The --address option is required for recording from a real device.[/bold red]"
             )
             raise typer.Exit(code=1)
 
@@ -232,22 +234,22 @@ def sim_profile_record(
             )
 
         if simulate:
-            rich.print(f"Connecting to simulated instrument '{profile_key}'...")
+            rich.print(f"Connecting to simulated device '{profile_key}'...")
         else:
-            rich.print(f"Connecting to instrument '{profile_key}' at address '{address}'...")
+            rich.print(f"Connecting to device '{profile_key}' at address '{address}'...")
 
-        instrument = AutoInstrument.from_config(
+        device = AutoDevice.from_config(
             config_source=profile_key, simulate=simulate, address_override=address
         )
-        instrument.connect_backend()
+        device.connect_backend()
 
         # Wrap the real backend with the recording backend
-        base_profile_model = load_profile(profile_key)
+        base_profile_model = load_device_profile(profile_key)
         base_profile = base_profile_model.model_dump()
         recording_backend = RecordingBackend(
-            instrument._backend, str(final_output_path), base_profile=base_profile
+            device._backend, str(final_output_path), base_profile=base_profile
         )
-        instrument._backend = cast(InstrumentIO, recording_backend)
+        device._backend = cast(DeviceIO, recording_backend)
 
         rich.print("[bold green]Connection successful. Recording started.[/bold green]")
 
@@ -258,10 +260,10 @@ def sim_profile_record(
                 script_module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(script_module)
                 if hasattr(script_module, "main"):
-                    script_module.main(instrument)
+                    script_module.main(device)
                 else:
                     rich.print(
-                        "[bold yellow]Warning: No 'main(instrument)' function found in script.[/bold yellow]"
+                        "[bold yellow]Warning: No 'main(device)' function found in script.[/bold yellow]"
                     )
             else:
                 rich.print(f"[bold red]Error: Could not load script '{script}'.[/bold red]")
@@ -272,7 +274,7 @@ def sim_profile_record(
             # Basic REPL for demonstration
             code.interact(
                 banner="PyTestLab Interactive Recording Session",
-                local=dict(globals(), **{"instrument": instrument}),
+                local=dict(globals(), **{"device": device}),
                 exitmsg="REPL finished.",
             )
 
@@ -283,9 +285,9 @@ def sim_profile_record(
         traceback.print_exc()
         raise typer.Exit(code=1) from None
     finally:
-        if instrument:
+        if device:
             rich.print("\nClosing connection and saving profile...")
-            instrument.close()
+            device.close()
             rich.print(f"[bold green]Profile saved to {final_output_path}.[/bold green]")
 
 
@@ -294,7 +296,7 @@ def sim_profile_record(
 def list_profiles(
     profile_dir: Annotated[Path | None, typer.Option(help="Custom directory for profiles.")] = None,
 ):
-    """Lists available YAML instrument profiles."""
+    """Lists available YAML device profiles."""
     try:
         profile_paths = []
         # Logic to find profiles in default package dir (pytestlab/profiles)
@@ -382,7 +384,7 @@ def validate_profiles(
     ],
 ):
     """Validates YAML profiles against their corresponding Pydantic models."""
-    from pytestlab.config.loader import load_profile
+    from pytestlab.config.loader import load_device_profile
 
     if not profiles_path.exists():
         rich.print(f"[bold red]Error: Path '{profiles_path}' does not exist.[/bold red]")
@@ -410,7 +412,7 @@ def validate_profiles(
 
     for profile_file in profile_files:
         try:
-            load_profile(profile_file)
+            load_device_profile(profile_file)
             rich.print(f"  [green]✔[/green] [cyan]{profile_file.name}[/cyan] - Valid")
             success_count += 1
         except Exception as e:
@@ -431,8 +433,8 @@ def validate_profiles(
 
 @profile_app.command("schema")
 def profile_schema(
-    instrument_type: Annotated[
-        str, typer.Argument(help="Instrument type (e.g., oscilloscope, power_supply)")
+    device_type: Annotated[
+        str, typer.Argument(help="Device type (e.g., oscilloscope, power_supply)")
     ],
     output_file: Annotated[
         Path | None, typer.Option("--output", "-o", help="Output file for the schema")
@@ -441,19 +443,19 @@ def profile_schema(
         bool, typer.Option("--no-format", "-n", help="Don't format JSON output")
     ] = False,
 ):
-    """Outputs the JSON schema for a given instrument type."""
+    """Outputs the JSON schema for a given device type."""
     from pytestlab.config.schema_validator import SchemaValidator
 
     try:
         validator = SchemaValidator()
-        schema = validator.get_instrument_schema(instrument_type, format_output=not no_format)
+        schema = validator.get_device_schema(device_type, format_output=not no_format)
 
         if output_file:
             with open(output_file, "w") as f:
                 f.write(schema)
             rich.print(f"[bold green]Schema written to:[/bold green] {output_file}")
         else:
-            rich.print(f"[bold]Schema for {instrument_type}:[/bold]")
+            rich.print(f"[bold]Schema for {device_type}:[/bold]")
             syntax = Syntax(schema, "json", theme="monokai", line_numbers=True)
             rich.print(syntax)
 
@@ -467,8 +469,8 @@ def profile_schema(
 
 @profile_app.command("schema-info")
 def profile_schema_info(
-    instrument_type: Annotated[
-        str, typer.Argument(help="Instrument type (e.g., oscilloscope, power_supply)")
+    device_type: Annotated[
+        str, typer.Argument(help="Device type (e.g., oscilloscope, power_supply)")
     ],
 ):
     """Shows information about a schema without the full content."""
@@ -476,23 +478,18 @@ def profile_schema_info(
 
     try:
         validator = SchemaValidator()
-        info = validator.get_schema_info(instrument_type)
+        info = validator.get_schema_info(device_type)
 
-        table = Table(title=f"Schema Information for {instrument_type}")
+        table = Table(title=f"Schema Information for {device_type}")
         table.add_column("Property", style="cyan")
         table.add_column("Value", style="green")
 
+        table.add_row("Device Type", info["device_type"])
         table.add_row("Model Class", info["model_class"])
-        table.add_row("Title", info["title"] or "N/A")
+        table.add_row("Module", info["module"])
         table.add_row("Description", info["description"] or "N/A")
-        table.add_row("Required Fields", str(len(info["required_fields"])))
-        table.add_row("Properties Count", str(info["properties_count"]))
-        table.add_row("Excluded Fields", ", ".join(info["excluded_fields"]))
 
         rich.print(table)
-
-        if info["required_fields"]:
-            rich.print(f"\n[bold]Required Fields:[/bold] {', '.join(info['required_fields'])}")
 
     except ValueError as e:
         rich.print(f"[bold red]Error:[/bold red] {e}")
@@ -505,12 +502,12 @@ def profile_schema_info(
 @profile_app.command("validate-schema")
 def profile_validate_schema(
     yaml_file: Annotated[Path, typer.Argument(help="Path to the YAML file to validate")],
-    instrument_type: Annotated[
+    device_type: Annotated[
         str | None,
-        typer.Option("--instrument-type", "-t", help="Explicit instrument type override"),
+        typer.Option("--device-type", "-t", help="Explicit device type override"),
     ] = None,
 ):
-    """Validates a YAML profile against the appropriate instrument schema."""
+    """Validates a YAML profile against the appropriate device schema."""
     if not yaml_file.exists():
         rich.print(f"[bold red]Error: YAML file not found: {yaml_file}[/bold red]")
         raise typer.Exit(code=1) from None
@@ -519,10 +516,10 @@ def profile_validate_schema(
 
     try:
         validator = SchemaValidator()
-        result = validator.validate_yaml_profile(yaml_file, instrument_type)
+        result = validator.validate_yaml_profile(yaml_file, device_type)
 
         rich.print(f"[bold]Validation result for {yaml_file.name}:[/bold]")
-        rich.print(f"  Instrument type: {result.instrument_type}")
+        rich.print(f"  Device type: {result.device_type}")
         rich.print(f"  Schema used: {result.schema_used}")
 
         if result.is_valid:
@@ -550,14 +547,14 @@ def profile_validate_schema(
 
 @profile_app.command("list-schemas")
 def profile_list_schemas():
-    """Lists all supported instrument types and their aliases."""
+    """Lists all supported device types and their aliases."""
     from pytestlab.config.schema_validator import SchemaValidator
 
     try:
         validator = SchemaValidator()
-        instruments = validator.list_supported_instruments()
+        devices = validator.list_supported_devices()
 
-        table = Table(title="Supported Instrument Types")
+        table = Table(title="Supported Device Types")
         table.add_column("Primary Name", style="cyan")
         table.add_column("Aliases", style="magenta")
         table.add_column("Configuration Class", style="green")
@@ -572,8 +569,8 @@ def profile_list_schemas():
         }
 
         for primary, aliases in primary_names.items():
-            if primary in instruments:
-                alias_list = [alias for alias in aliases[1:] if alias in instruments]
+            if primary in devices:
+                alias_list = [alias for alias in aliases[1:] if alias in devices]
                 alias_str = ", ".join(alias_list) if alias_list else "None"
                 table.add_row(primary, alias_str, aliases[0])
 
@@ -584,7 +581,47 @@ def profile_list_schemas():
         raise typer.Exit(code=1) from e
 
 
-# --- Instrument Commands ---
+# --- Device / Instrument Commands ---
+def _device_idn_impl(profile_key_or_path: str, address: str | None, simulate: bool) -> None:
+    from pytestlab.config.loader import load_device_profile
+    from pytestlab.devices import AutoDevice
+
+    device = None
+    try:
+        config_model = load_device_profile(profile_key_or_path)
+        device = AutoDevice.from_config(
+            config_source=config_model, simulate=simulate, address_override=address
+        )
+        device.connect_backend()
+        idn = getattr(device, "id", None)
+        idn_response = idn() if callable(idn) else device.query("*IDN?")
+        rich.print(f"[bold green]IDN Response:[/] {idn_response}")
+    except FileNotFoundError:
+        rich.print(
+            f"[bold red]Error: Profile '{rich_escape(str(profile_key_or_path))}' not found.[/]\n"
+            "Please check for typos or ensure the profile exists in the 'pytestlab/profiles' directory."
+        )
+        raise typer.Exit(code=1) from None
+    except Exception as e:
+        rich.print(f"[bold red]An error occurred during the device IDN query: {rich_escape(str(e))}[/]")
+        raise typer.Exit(code=1) from None
+    finally:
+        if device:
+            device.close()
+
+
+@device_app.command("idn")
+def device_idn(
+    profile_key_or_path: Annotated[str, typer.Argument(help="Profile key or path.")],
+    address: Annotated[
+        str | None, typer.Option(help="VISA address. Overrides profile if provided.")
+    ] = None,
+    simulate: Annotated[bool, typer.Option(help="Run in simulation mode.")] = False,
+):
+    """Connects to a device and prints its *IDN? response when supported."""
+    _device_idn_impl(profile_key_or_path, address, simulate)
+
+
 @instrument_app.command("idn")
 def instrument_idn(
     profile_key_or_path: Annotated[str, typer.Argument(help="Profile key or path.")],
@@ -594,34 +631,7 @@ def instrument_idn(
     simulate: Annotated[bool, typer.Option(help="Run in simulation mode.")] = False,
 ):
     """Connects to an instrument and prints its *IDN? response."""
-    from pytestlab.config.loader import load_profile
-    from pytestlab.instruments.AutoInstrument import AutoInstrument
-
-    instrument = None  # Initialize instrument to None
-    try:
-        inst_config_model = load_profile(profile_key_or_path)
-
-        instrument = AutoInstrument.from_config(
-            config_source=inst_config_model, simulate=simulate, address_override=address
-        )
-        instrument.connect_backend()
-        idn_response = instrument.id()
-        rich.print(f"[bold green]IDN Response:[/] {idn_response}")
-
-    except FileNotFoundError:
-        rich.print(
-            f"[bold red]Error: Profile '{rich_escape(str(profile_key_or_path))}' not found.[/]\n"
-            "Please check for typos or ensure the profile exists in the 'pytestlab/profiles' directory."
-        )
-        raise typer.Exit(code=1) from None
-    except Exception as e:
-        rich.print(
-            f"[bold red]An error occurred during the instrument IDN query: {rich_escape(str(e))}[/]"
-        )
-        raise typer.Exit(code=1) from None
-    finally:
-        if instrument:
-            instrument.close()
+    _device_idn_impl(profile_key_or_path, address, simulate)
 
 
 @instrument_app.command("test")
@@ -681,25 +691,25 @@ def instrument_test(
                 # Override profile keys in test modules when available
                 if KIND in ("multimeter","mm","all"):
                     try:
-                        m = importlib.import_module("pytestlab.tests.instruments.test_multimeter")
+                        m = importlib.import_module("pytestlab.tests.devices.test_multimeter")
                         setattr(m, "MM_CONFIG_KEY", PROFILE)
                     except Exception:
                         pass
                 if KIND in ("psu","supply","power","power-supply","all"):
                     try:
-                        m = importlib.import_module("pytestlab.tests.instruments.test_psu")
+                        m = importlib.import_module("pytestlab.tests.devices.test_psu")
                         setattr(m, "PSU_CONFIG_KEY", PROFILE)
                     except Exception:
                         pass
                 if KIND in ("oscilloscope","scope","osc","all"):
                     try:
-                        m = importlib.import_module("pytestlab.tests.instruments.test_oscilloscope")
+                        m = importlib.import_module("pytestlab.tests.devices.test_oscilloscope")
                         setattr(m, "OSC_CONFIG_KEY", PROFILE)
                     except Exception:
                         pass
                 if KIND in ("awg","waveform","generator","all"):
                     try:
-                        m = importlib.import_module("pytestlab.tests.instruments.test_awg")
+                        m = importlib.import_module("pytestlab.tests.devices.test_awg")
                         setattr(m, "AWG_PROFILE_KEY", PROFILE)
                     except Exception:
                         pass
@@ -750,7 +760,7 @@ def instrument_test(
 
 @bench_app.command("ls")
 def bench_ls(bench_yaml_path: Annotated[Path, typer.Argument(help="Path to the bench.yaml file.")]):
-    """Lists instruments in a bench configuration."""
+    """Lists devices in a bench configuration."""
     from pytestlab.config.bench_config import BenchConfigExtended
 
     try:
@@ -760,11 +770,14 @@ def bench_ls(bench_yaml_path: Annotated[Path, typer.Argument(help="Path to the b
         table = Table(title=f"Bench: {config.bench_name}")
         table.add_column("Alias", style="cyan")
         table.add_column("Profile", style="magenta")
+        table.add_column("Kind", style="cyan")
         table.add_column("Address", style="green")
         table.add_column("Backend Type", style="yellow")
         table.add_column("Simulate", style="blue")
 
-        for alias, entry in config.instruments.items():
+        entries = [(alias, entry, "device") for alias, entry in config.devices.items()]
+        entries.extend((alias, entry, "instrument") for alias, entry in config.instruments.items())
+        for alias, entry, kind in entries:
             sim_status = "Global" if entry.simulate is None else str(entry.simulate)
             addr = entry.address or "N/A (simulated)"
             backend_type = (
@@ -774,7 +787,7 @@ def bench_ls(bench_yaml_path: Annotated[Path, typer.Argument(help="Path to the b
                 if config.backend_defaults
                 else "visa"
             )
-            table.add_row(alias, entry.profile, addr, backend_type, sim_status)
+            table.add_row(alias, entry.profile, kind, addr, backend_type, sim_status)
         rich.print(table)
     except FileNotFoundError:
         rich.print(
@@ -786,7 +799,7 @@ def bench_ls(bench_yaml_path: Annotated[Path, typer.Argument(help="Path to the b
         raise typer.Exit(code=1) from None
     except Exception as e:
         rich.print(
-            f"[bold red]An unexpected error occurred while listing the bench instruments: {e}[/bold red]"
+            f"[bold red]An unexpected error occurred while listing the bench devices: {e}[/bold red]"
         )
         raise typer.Exit(code=1) from None
 
@@ -797,7 +810,7 @@ def bench_validate_cli(
 ):
     """Validates a bench configuration file (dry-run)."""
     from pytestlab.config.bench_config import BenchConfigExtended
-    from pytestlab.config.loader import load_profile
+    from pytestlab.config.loader import load_device_profile
 
     try:
         with open(bench_yaml_path) as f:
@@ -805,11 +818,12 @@ def bench_validate_cli(
         config = BenchConfigExtended.model_validate(data)
         rich.print(f"[bold green]Bench configuration '{bench_yaml_path}' is valid.[/bold green]")
 
-        rich.print("Validating individual instrument profiles...")
+        rich.print("Validating individual device profiles...")
         all_profiles_valid = True
-        for alias, entry in config.instruments.items():
+        entries = list(config.devices.items()) + list(config.instruments.items())
+        for alias, entry in entries:
             try:
-                load_profile(entry.profile)
+                load_device_profile(entry.profile)
                 rich.print(
                     f"  [green]✔[/green] Profile '[magenta]{entry.profile}[/magenta]' for alias '[cyan]{alias}[/cyan]' loaded successfully."
                 )
@@ -846,30 +860,32 @@ def bench_validate_cli(
 def bench_id_cli(
     bench_yaml_path: Annotated[Path, typer.Argument(help="Path to the bench.yaml file.")],
 ):
-    """Connects to real instruments in a bench and prints their *IDN? responses."""
+    """Connects to real devices in a bench and prints their *IDN? responses."""
     from pytestlab.bench import Bench
 
     bench = None
     try:
         bench = Bench.open(bench_yaml_path)
         rich.print(
-            f"Querying *IDN? for instruments in bench: [bold]{bench.config.bench_name}[/bold]"
+            f"Querying *IDN? for devices in bench: [bold]{bench._config.bench_name}[/bold]"
         )
 
-        table = Table(title="Instrument IDN Responses")
+        table = Table(title="Device IDN Responses")
         table.add_column("Alias", style="cyan")
         table.add_column("Profile", style="magenta")
         table.add_column("IDN Response / Status", style="green")
 
-        for alias, instrument in bench._instrument_instances.items():
-            entry = bench.config.instruments[alias]
-            is_simulated = bench.config.simulate
+        config_entries = bench._config.devices | bench._config.instruments
+        for alias, device in bench.devices.items():
+            entry = config_entries[alias]
+            is_simulated = bench._config.simulate
             if entry.simulate is not None:
                 is_simulated = entry.simulate
 
             if not is_simulated:
                 try:
-                    idn_str = instrument.id()
+                    idn = getattr(device, "id", None)
+                    idn_str = idn() if callable(idn) else device.query("*IDN?")
                     table.add_row(alias, entry.profile, idn_str)
                 except Exception as e_idn:
                     table.add_row(
@@ -911,13 +927,13 @@ def bench_sim_cli(
 
         sim_config_data = config.model_dump(mode="python")
         sim_config_data["simulate"] = True
-        for alias_key in sim_config_data["instruments"]:
-            sim_config_data["instruments"][alias_key]["simulate"] = True
-            sim_config_data["instruments"][alias_key]["address"] = "sim"
-            if sim_config_data["instruments"][alias_key].get("backend"):
-                sim_config_data["instruments"][alias_key]["backend"]["type"] = "sim"
+        for alias_key in sim_config_data["devices"]:
+            sim_config_data["devices"][alias_key]["simulate"] = True
+            sim_config_data["devices"][alias_key]["address"] = "sim"
+            if sim_config_data["devices"][alias_key].get("backend"):
+                sim_config_data["devices"][alias_key]["backend"]["type"] = "sim"
             else:
-                sim_config_data["instruments"][alias_key]["backend"] = {
+                sim_config_data["devices"][alias_key]["backend"] = {
                     "type": "sim",
                     "timeout_ms": 5000,
                 }
@@ -974,12 +990,13 @@ def replay_record(
         bench = Bench.open(bench_config)
         recorded_data = {}
 
-        rich.print("\n[bold]Wrapping instrument backends for recording:[/bold]")
-        for alias, instrument in bench.instruments.items():
-            profile_key = bench.config.instruments[alias].profile
+        rich.print("\n[bold]Wrapping device backends for recording:[/bold]")
+        config_entries = bench._config.devices | bench._config.instruments
+        for alias, device in bench.devices.items():
+            profile_key = config_entries[alias].profile
             session_log: list[dict[str, Any]] = []
             recorded_data[alias] = {"profile": profile_key, "log": session_log}
-            instrument._backend = SessionRecordingBackend(instrument._backend, session_log)
+            device._backend = SessionRecordingBackend(device._backend, session_log)
             rich.print(f"  - Wrapped '{alias}'")
 
         rich.print("\n[bold]Executing script...[/bold]")
@@ -1020,7 +1037,7 @@ def replay_run(
     ],
 ):
     """Replays a recorded measurement session against a simulated bench."""
-    from pytestlab.instruments.AutoInstrument import AutoInstrument
+    from pytestlab.devices import AutoDevice
     from pytestlab.instruments.backends.replay_backend import ReplayBackend
 
     if isinstance(script, str):
@@ -1040,28 +1057,28 @@ def replay_run(
         session_data = yaml.safe_load(f)
 
     replay_bench = types.SimpleNamespace()
-    instrument_instances = {}
-    instrument_aliases = list(session_data.keys())
+    device_instances = {}
+    device_aliases = list(session_data.keys())
 
     try:
         rich.print("\n[bold]Building replay bench from session file:[/bold]")
-        for alias in instrument_aliases:
+        for alias in device_aliases:
             data = session_data[alias]
             profile_key = data["profile"]
             session_log: list[dict[str, Any]] = data["log"]
 
             replay_backend = ReplayBackend(session_log, profile_key=alias)
 
-            instrument = AutoInstrument.from_config(
+            device = AutoDevice.from_config(
                 config_source=profile_key, backend_override=replay_backend
             )
-            instrument.connect_backend()
+            device.connect_backend()
 
-            setattr(replay_bench, alias, instrument)
-            instrument_instances[alias] = instrument
-            rich.print(f"  - Created instrument '{alias}' for replay.")
+            setattr(replay_bench, alias, device)
+            device_instances[alias] = device
+            rich.print(f"  - Created device '{alias}' for replay.")
 
-        replay_bench.instruments = instrument_instances
+        replay_bench.devices = device_instances
 
         rich.print("\n[bold]Executing script in replay mode...[/bold]")
         spec = importlib.util.spec_from_file_location("script_module", script)
@@ -1084,8 +1101,8 @@ def replay_run(
         traceback.print_exc()
         raise typer.Exit(code=1) from None
     finally:
-        for inst in instrument_instances.values():
-            inst.close()
+        for device in device_instances.values():
+            device.close()
 
     rich.print("[bold green]Replay complete.[/bold green]")
 
@@ -1182,12 +1199,12 @@ def list_command(
     """List available resources (profiles, bench configs, examples)."""
 
     if resource == "profiles":
-        rich.print("[bold cyan]Available instrument profiles:[/bold cyan]")
+        rich.print("[bold cyan]Available device profiles:[/bold cyan]")
         try:
             spec = importlib.util.find_spec("pytestlab.profiles")
             if spec and spec.origin:
                 profiles_dir = Path(spec.origin).parent
-                table = Table(title="Instrument Profiles")
+                table = Table(title="Device Profiles")
                 table.add_column("Profile Key", style="cyan")
                 table.add_column("Vendor", style="magenta")
                 table.add_column("Model", style="green")

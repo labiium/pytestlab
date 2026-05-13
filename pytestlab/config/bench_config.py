@@ -29,13 +29,17 @@ class SafetyLimits(BaseModel):
     bandwidth_limit: float | None = None
 
 
-class InstrumentEntry(BaseModel):
+class DeviceEntry(BaseModel):
     profile: str
     address: str | None = None
-    serial_number: str | None = None  # <-- Added for bench.yaml support
+    serial_number: str | None = None
     safety_limits: SafetyLimits | None = None
     backend: dict[str, Any] | None = None
     simulate: bool | None = None
+
+
+class InstrumentEntry(DeviceEntry):
+    """Bench entry for resources that must resolve to Instrument subclasses."""
 
 
 class AutomationHooks(BaseModel):
@@ -65,18 +69,30 @@ class Traceability(BaseModel):
 
 class MeasurementPlanEntry(BaseModel):
     name: str
-    instrument: str
+    device: str | None = None
+    instrument: str | None = None
     channel: int | None = None
     probe_location: str | None = None
     settings: dict[str, Any] | None = None
     notes: str | None = None
+
+    @model_validator(mode="after")
+    def check_target(self) -> MeasurementPlanEntry:
+        if (self.device is None) == (self.instrument is None):
+            raise ValueError("Measurement plan entries must define exactly one of 'device' or 'instrument'.")
+        return self
+
+    @property
+    def target(self) -> str:
+        return self.device if self.device is not None else self.instrument or ""
 
 
 class BenchConfigExtended(BaseModel):
     model_config = ConfigDict(extra="forbid")
     bench_name: str = Field(validation_alias=AliasChoices("name", "bench_name"))
     experiment: ExperimentSection | None = None
-    instruments: dict[str, InstrumentEntry]
+    devices: dict[str, DeviceEntry] = Field(default_factory=dict)
+    instruments: dict[str, InstrumentEntry] = Field(default_factory=dict)
     custom_validations: list[str] | None = None
     automation: AutomationHooks | None = None
     traceability: Traceability | None = None
@@ -89,10 +105,14 @@ class BenchConfigExtended(BaseModel):
     simulate: bool | None = False
     description: str | None = None
     continue_on_automation_error: bool | None = False
-    continue_on_instrument_error: bool | None = False
+    continue_on_device_error: bool | None = False
 
     @model_validator(mode="after")
-    def check_instruments(self) -> BenchConfigExtended:
-        if not self.instruments:
-            raise ValueError("At least one instrument must be defined in 'instruments'.")
+    def check_resources(self) -> BenchConfigExtended:
+        if not self.devices and not self.instruments:
+            raise ValueError("At least one device or instrument must be defined.")
+        duplicate_aliases = set(self.devices) & set(self.instruments)
+        if duplicate_aliases:
+            duplicates = ", ".join(sorted(duplicate_aliases))
+            raise ValueError(f"Aliases cannot be defined in both devices and instruments: {duplicates}")
         return self

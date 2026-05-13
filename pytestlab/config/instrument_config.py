@@ -7,6 +7,7 @@ from pydantic import ConfigDict
 from pydantic import Field
 
 from .accuracy import AccuracySpec
+from .device_config import DeviceConfig
 
 
 class SCPIParameterSpec(BaseModel):
@@ -86,7 +87,7 @@ class SCPISection(BaseModel):
     )
 
 
-class InstrumentConfig(BaseModel):
+class InstrumentConfig(DeviceConfig):
     model_config = ConfigDict(validate_assignment=True, extra="ignore")  # Added model_config
 
     manufacturer: str = Field(..., description="Manufacturer of the instrument")

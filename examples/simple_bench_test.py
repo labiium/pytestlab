@@ -25,29 +25,29 @@ def main():
     print(f"✓ Bench loaded: {bench.name}")
     print(f"  Version: {bench.version}")
     print(f"  Simulation: {bench.simulate}")
-    print(f"  Instruments: {len(bench.instruments)}")
+    print(f"  Devices: {len(bench.devices)}")
 
     # Access instruments
     print("\n" + "=" * 70)
-    print("INSTRUMENTS")
+    print("DEVICES")
     print("=" * 70)
 
     # Multimeter
     print("\n📏 Multimeter (DMM)")
-    dmm = bench.instruments["dmm"]
+    dmm = bench.devices["dmm"]
     print(f"  Model: {dmm.config.model}")
     print(f"  ID: {dmm.id()}")
 
     # Power Supply
     print("\n⚡ Power Supply (PSU)")
-    psu = bench.instruments["psu"]
+    psu = bench.devices["psu"]
     print(f"  Model: {psu.config.model}")
     print(f"  ID: {psu.id()}")
     print(f"  Channels: {len(psu.config.channels)}")
 
     # Oscilloscope
     print("\n📊 Oscilloscope (OSC)")
-    osc = bench.instruments["osc"]
+    osc = bench.devices["osc"]
     print(f"  Model: {osc.config.model}")
     print(f"  ID: {osc.id()}")
     print(f"  Channels: {len(osc.config.channels)}")
@@ -55,7 +55,7 @@ def main():
 
     # Waveform Generator
     print("\n🌊 Waveform Generator (AWG)")
-    awg = bench.instruments["awg"]
+    awg = bench.devices["awg"]
     print(f"  Model: {awg.config.model}")
     print(f"  ID: {awg.id()}")
     print(f"  Channels: {len(awg.config.channels)}")
@@ -93,8 +93,8 @@ def main():
     print("\n" + "=" * 70)
     print("✅ BENCH TEST COMPLETED")
     print("=" * 70)
-    print("\nAll instruments are accessible and functional:")
-    print(f"  • {len(bench.instruments)} instruments loaded")
+    print("\nAll devices are accessible and functional:")
+    print(f"  • {len(bench.devices)} devices loaded")
     print(f"  • Configuration: {bench.name}")
     print(f"  • Mode: {'Simulation' if bench.simulate else 'Hardware'}")
 

@@ -17,9 +17,15 @@ __version__ = "0.3.0"  # Update this line to change the version
 
 __all__ = [
     "Session",
+    "AutoDevice",
     "AutoInstrument",
     "Bench",
+    "Device",
+    "DeviceConfig",
+    "DeviceIO",
     "Experiment",
+    "Instrument",
+    "InstrumentConfig",
     "MeasurementResult",
     "InstrumentConfigurationError",
     "InstrumentParameterError",
@@ -32,9 +38,15 @@ __all__ = [
 
 _LAZY_ATTRS: dict[str, tuple[str, str]] = {
     "Session": ("pytestlab.measurements.session", "MeasurementSession"),
+    "AutoDevice": ("pytestlab.devices", "AutoDevice"),
     "AutoInstrument": ("pytestlab.instruments.AutoInstrument", "AutoInstrument"),
     "Bench": ("pytestlab.bench", "Bench"),
+    "Device": ("pytestlab.devices", "Device"),
+    "DeviceConfig": ("pytestlab.config", "DeviceConfig"),
+    "DeviceIO": ("pytestlab.devices", "DeviceIO"),
     "Experiment": ("pytestlab.experiments", "Experiment"),
+    "Instrument": ("pytestlab.instruments", "Instrument"),
+    "InstrumentConfig": ("pytestlab.config", "InstrumentConfig"),
     "MeasurementResult": ("pytestlab.experiments", "MeasurementResult"),
     "InstrumentConfigurationError": (
         "pytestlab.errors",

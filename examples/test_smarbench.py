@@ -1,7 +1,7 @@
 """
 Test script for smarbench.yaml configuration.
 
-This script tests the Smart Bench configuration with all four instruments:
+This script tests the Smart Bench configuration with all four devices:
 - Keysight DSOX1204G Oscilloscope
 - Keysight EDU33212A Waveform Generator
 - Keysight EDU36311A Power Supply
@@ -42,30 +42,30 @@ def test_smarbench_loading(smart_bench):
     print(f"\n✓ Bench loaded: {bench.name}")
     print(f"  Description: {bench.description}")
     print(f"  Version: {bench.version}")
-    print(f"  Instruments: {len(bench.instruments)}")
+    print(f"  Devices: {len(bench.devices)}")
 
-    # Verify all instruments are loaded
-    assert "osc" in bench.instruments, "Oscilloscope not found"
-    assert "awg" in bench.instruments, "AWG not found"
-    assert "psu" in bench.instruments, "PSU not found"
-    assert "dmm" in bench.instruments, "DMM not found"
+    # Verify all devices are loaded
+    assert "osc" in bench.devices, "Oscilloscope not found"
+    assert "awg" in bench.devices, "AWG not found"
+    assert "psu" in bench.devices, "PSU not found"
+    assert "dmm" in bench.devices, "DMM not found"
 
-    print("\n  Instrument List:")
-    for name, inst in bench.instruments.items():
+    print("\n  Device List:")
+    for name, inst in bench.devices.items():
         print(f"    - {name}: {inst.config.manufacturer} {inst.config.model}")
 
     assert bench is not None
 
 
 def test_instrument_identity(smart_bench):
-    """Test instrument identity queries."""
+    """Test device identity queries."""
     print("\n" + "=" * 70)
     print("TEST 2: Instrument Identity Check")
     print("=" * 70)
 
     bench = smart_bench
 
-    for name, inst in bench.instruments.items():
+    for name, inst in bench.devices.items():
         try:
             identity = inst.id()
             print(f"\n  {name.upper()}:")
@@ -84,7 +84,7 @@ def test_oscilloscope_config(smart_bench):
 
     bench = smart_bench
 
-    osc = bench.instruments["osc"]
+    osc = bench.devices["osc"]
     print(f"\n  Model: {osc.config.model}")
     print(f"  Channels: {len(osc.config.channels)}")
     print(f"  Bandwidth: {osc.config.bandwidth / 1e6} MHz")
@@ -108,7 +108,7 @@ def test_awg_config(smart_bench):
 
     bench = smart_bench
 
-    awg = bench.instruments["awg"]
+    awg = bench.devices["awg"]
     print(f"\n  Model: {awg.config.model}")
     print(f"  Channels: {len(awg.config.channels)}")
 
@@ -141,7 +141,7 @@ def test_psu_config(smart_bench):
 
     bench = smart_bench
 
-    psu = bench.instruments["psu"]
+    psu = bench.devices["psu"]
     print(f"\n  Model: {psu.config.model}")
     print(f"  Channels: {len(psu.config.channels)}")
 
@@ -176,7 +176,7 @@ def test_dmm_config(smart_bench):
 
     bench = smart_bench
 
-    dmm = bench.instruments["dmm"]
+    dmm = bench.devices["dmm"]
     print(f"\n  Model: {dmm.config.model}")
     print(f"  Device Type: {dmm.config.device_type}")
 
@@ -207,6 +207,7 @@ def test_bench_metadata(smart_bench):
     if bench._config.experiment:
         print("\n  Experiment:")
         try:
+            exp = bench._config.experiment
             print(f"    Title: {exp.title if hasattr(exp, 'title') else 'N/A'}")
             print(f"    Operator: {exp.operator if hasattr(exp, 'operator') else 'N/A'}")
             print(f"    Date: {exp.date if hasattr(exp, 'date') else 'N/A'}")
@@ -215,7 +216,7 @@ def test_bench_metadata(smart_bench):
 
 
 def test_instrument_coordination(smart_bench):
-    """Test coordinated operation of multiple instruments."""
+    """Test coordinated operation of multiple devices."""
     print("\n" + "=" * 70)
     print("TEST 8: Instrument Coordination")
     print("=" * 70)
@@ -227,22 +228,22 @@ def test_instrument_coordination(smart_bench):
     # Simulate a coordinated test setup
     try:
         # 1. Configure power supply
-        psu = bench.instruments["psu"]
+        psu = bench.devices["psu"]
         print("    1. PSU: Ready for configuration")
         assert psu is not None
 
         # 2. Configure AWG
-        awg = bench.instruments["awg"]
+        awg = bench.devices["awg"]
         print("    2. AWG: Ready for signal generation")
         assert awg is not None
 
         # 3. Configure oscilloscope
-        osc = bench.instruments["osc"]
+        osc = bench.devices["osc"]
         print("    3. OSC: Ready for capture")
         assert osc is not None
 
         # 4. Configure DMM
-        dmm = bench.instruments["dmm"]
+        dmm = bench.devices["dmm"]
         print("    4. DMM: Ready for measurements")
         assert dmm is not None
 
@@ -284,13 +285,13 @@ def run_all_tests():
 
     tests = [
         ("Loading Configuration", test_smarbench_loading),
-        ("Instrument Identity", test_instrument_identity),
+        ("Device Identity", test_instrument_identity),
         ("Oscilloscope Config", test_oscilloscope_config),
         ("AWG Config", test_awg_config),
         ("PSU Config", test_psu_config),
         ("DMM Config", test_dmm_config),
         ("Bench Metadata", test_bench_metadata),
-        ("Instrument Coordination", test_instrument_coordination),
+        ("Device Coordination", test_instrument_coordination),
         ("Signal Routing", test_signal_routing),
     ]
 

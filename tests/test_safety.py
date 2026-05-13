@@ -7,7 +7,7 @@ import pytest
 import yaml
 
 from pytestlab.bench import SafetyLimitError
-from pytestlab.config.loader import load_profile
+from pytestlab.config.loader import load_device_profile
 from pytestlab.instruments import PowerSupply
 
 
@@ -41,7 +41,7 @@ def psu_config():
 @pytest.fixture
 def psu(psu_config):
     """A power supply with a simulated backend."""
-    config = load_profile(psu_config["profile"])
+    config = load_device_profile(psu_config["profile"])
     return PowerSupply(config=config, backend="sim")
 
 

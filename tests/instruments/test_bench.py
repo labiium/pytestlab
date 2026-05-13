@@ -43,15 +43,15 @@ experiment:
 # Set to false to use real instruments with LAMB backend
 simulate: false
 
-# Continue operation even if some instruments fail to connect
-continue_on_instrument_error: true
+# Continue operation even if some devices fail to connect
+continue_on_device_error: true
 continue_on_automation_error: true
 
 backend_defaults:
   type: "lamb"
   timeout_ms: 10000
 
-instruments:
+devices:
   psu:
     profile: "keysight/EDU36311A"
     backend:
@@ -99,7 +99,7 @@ traceability:
 
 measurement_plan:
   - name: "Voltage Measurement"
-    instrument: "dmm"
+    device: "dmm"
     probe_location: "DUT input"
     settings:
       function: "DC_VOLTAGE"
@@ -173,9 +173,9 @@ def test_bench_initialization(bench_config_file):
         assert bench.version == "1.0.0"
         assert bench._config.experiment.title == "Bench End-to-End Test"
 
-        # Verify instruments were created
-        assert "psu" in bench._instrument_instances
-        assert "dmm" in bench._instrument_instances
+        # Verify devices were created
+        assert "psu" in bench.devices
+        assert "dmm" in bench.devices
     finally:
         # Clean up
         bench.close_all()
@@ -191,8 +191,8 @@ def test_bench_context_manager(bench_config_file):
 
     with Bench.open(bench_config_file) as bench:
         assert bench.name == "Test Bench for End-to-End Testing"
-        assert "psu" in bench._instrument_instances
-        assert "dmm" in bench._instrument_instances
+        assert "psu" in bench.devices
+        assert "dmm" in bench.devices
 
     # The bench should be closed after exiting the context manager
     # We can't directly test this without accessing private attributes,
@@ -219,11 +219,11 @@ def test_bench_instrument_access(bench_config_file):
         dmm_id = bench.dmm.id()
         assert isinstance(dmm_id, str)
 
-        # Test bench.instruments dictionary
-        assert "psu" in bench.instruments
-        assert "dmm" in bench.instruments
-        assert bench.instruments["psu"] == bench._instrument_instances["psu"]
-        assert bench.instruments["dmm"] == bench._instrument_instances["dmm"]
+        # Test bench.devices dictionary
+        assert "psu" in bench.devices
+        assert "dmm" in bench.devices
+        assert bench.devices["psu"] is bench.psu
+        assert bench.devices["dmm"] is bench.dmm
 
 
 @pytest.mark.requires_real_hw
@@ -354,7 +354,7 @@ def test_metadata_access(bench_config_file):
         # Test measurement plan access - these are pydantic models, not dicts
         assert len(bench.measurement_plan) >= 1
         assert bench.measurement_plan[0].name == "Voltage Measurement"
-        assert bench.measurement_plan[0].instrument == "dmm"
+        assert bench.measurement_plan[0].device == "dmm"
 
         # Test experiment notes access
         assert bench.experiment_notes is not None
@@ -456,8 +456,8 @@ def test_getattr_error_handling(bench_config_file):
 
     with Bench.open(bench_config_file) as bench:
         with pytest.raises(AttributeError):
-            # This instrument doesn't exist in the config
-            _ = bench.non_existent_instrument
+            # This device doesn't exist in the config
+            _ = bench.non_existent_device
 
 
 @pytest.mark.requires_real_hw
@@ -483,7 +483,7 @@ def test_health_check(bench_config_file):
         pytest.skip(f"Hardware not available: {error_msg}")
 
     with Bench.open(bench_config_file) as bench:
-        # Run health checks on all instruments
+        # Run health checks on all devices
         health_reports = bench.health_check()
 
         # Verify we got health reports
@@ -497,19 +497,19 @@ def test_health_check(bench_config_file):
 
 
 @pytest.mark.requires_real_hw
-def test_instrument_type_detection(bench_config_file):
-    """Test instrument type detection."""
+def test_device_type_detection(bench_config_file):
+    """Test device type detection."""
     # Check if hardware is available
     is_available, error_msg = check_hardware_available()
     if not is_available:
         pytest.skip(f"Hardware not available: {error_msg}")
 
     with Bench.open(bench_config_file) as bench:
-        # Check if the bench correctly identifies instrument types
-        psu_type = bench._detect_instrument_type(bench._instrument_instances["psu"])
+        # Check if the bench correctly identifies device types
+        psu_type = bench._detect_device_type(bench.devices["psu"])
         assert psu_type == "power_supply"
 
-        dmm_type = bench._detect_instrument_type(bench._instrument_instances["dmm"])
+        dmm_type = bench._detect_device_type(bench.devices["dmm"])
         assert dmm_type in ["multimeter", "unknown"]
 
 
@@ -564,9 +564,9 @@ def test_bench_simulation_mode(simulation_bench_config_file):
         assert bench.version == "1.0.0"
         assert bench._config.experiment.title == "Bench End-to-End Test"
 
-        # Verify instruments were created (simulated)
-        assert "psu" in bench._instrument_instances
-        assert "dmm" in bench._instrument_instances
+        # Verify devices were created (simulated)
+        assert "psu" in bench.devices
+        assert "dmm" in bench.devices
 
         # Test accessing instruments by attribute
         assert bench.psu is not None

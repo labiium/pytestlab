@@ -36,14 +36,14 @@ experiment:
 
 simulate: false
 
-# Continue operation even if some instruments fail to connect
-continue_on_instrument_error: true
+# Continue operation even if some devices fail to connect
+continue_on_device_error: true
 continue_on_automation_error: true
 
 backend_defaults:
   type: "lamb"
 
-instruments:
+devices:
   psu:
     profile: "keysight/EDU36311A"
     backend:

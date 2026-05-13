@@ -20,13 +20,13 @@ experiment:
 simulate: true
 
 continue_on_automation_error: true
-continue_on_instrument_error: false
+continue_on_device_error: false
 
 backend_defaults:
   type: "sim"
   timeout_ms: 10000
 
-instruments:
+devices:
   osc:
     profile: "keysight/DSOX1204G"
     address: "SIM::oscilloscope::1"
@@ -81,7 +81,7 @@ traceability:
 
 measurement_plan:
   - name: "Voltage Measurement"
-    instrument: "dmm"
+    device: "dmm"
     probe_location: "DUT input"
     settings:
       function: "DC_VOLTAGE"
@@ -90,7 +90,7 @@ measurement_plan:
     notes: "Measure input voltage characteristics"
 
   - name: "Power Supply Monitoring"
-    instrument: "dmm"
+    device: "dmm"
     probe_location: "DUT Vdd rail"
     settings:
       function: "DC_VOLTAGE"
@@ -99,7 +99,7 @@ measurement_plan:
     notes: "Monitor supply voltage stability during test"
 
   - name: "Waveform Capture"
-    instrument: "osc"
+    device: "osc"
     probe_location: "Output signal"
     settings:
       timebase: "1ms/div"

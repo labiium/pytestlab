@@ -11,6 +11,8 @@ This module demonstrates common measurement patterns using PyTestLab:
 All examples use simulation mode - no hardware required.
 """
 
+import os
+import tempfile
 import time
 
 import numpy as np
@@ -50,8 +52,8 @@ def bench_configuration_example():
 
     with pytestlab.Bench.open("examples/bench.yaml") as bench:
         # Safe operation using facade API
-        print("✓ Bench opened with instruments:")
-        for alias in bench.instruments:
+        print("✓ Bench opened with devices:")
+        for alias in bench.devices:
             print(f"  - {alias}")
 
         # Configure power supply using chainable facade
@@ -112,8 +114,8 @@ def parameter_sweep_measurement():
 
         # Analyze results
         print(f"✓ Total measurements: {len(results.data)}")
-        print(f"✓ Voltage range: 0 to 3.0V")
-        print(f"✓ Temperatures tested: 25°C, 50°C, 75°C")
+        print("✓ Voltage range: 0 to 3.0V")
+        print("✓ Temperatures tested: 25°C, 50°C, 75°C")
 
 
 def advanced_measurement_patterns():
@@ -168,9 +170,6 @@ def database_storage_example():
     """Example of storing measurements in database."""
     print("\n=== Database Storage Example ===")
 
-    import tempfile
-    import os
-
     # Create temporary database
     db_path = tempfile.mktemp(suffix=".db")
 
@@ -194,7 +193,7 @@ def database_storage_example():
         # Clean up
         if os.path.exists(db_path):
             os.remove(db_path)
-            print(f"✓ Cleaned up database")
+            print("✓ Cleaned up database")
 
 
 def main():

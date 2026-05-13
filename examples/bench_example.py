@@ -25,7 +25,7 @@ def main():
         # This will:
         # 1. Load and validate the YAML configuration
         # 2. Run custom validations
-        # 3. Initialize all instruments
+        # 3. Initialize all devices
         # 4. Run pre-experiment automation hooks
         with Bench.open(bench_file) as bench:
             print(f"✅ Bench '{bench.name}' loaded successfully")
@@ -41,23 +41,23 @@ def main():
 
             # Access traceability information
             print("🔍 Calibration Status:")
-            for instrument, cal_info in bench.traceability.calibration.items():
-                print(f"  {instrument}: {cal_info}")
+            for device, cal_info in bench.traceability.calibration.items():
+                print(f"  {device}: {cal_info}")
             print()
 
             # Access measurement plan
             print("📋 Measurement Plan:")
             for i, step in enumerate(bench.measurement_plan, 1):
-                print(f"  {i}. {step.name} ({step.instrument})")
+                print(f"  {i}. {step.name} ({step.device})")
                 if step.notes:
                     print(f"     Notes: {step.notes}")
             print()
 
-            # Demonstrate instrument access
-            print("🔧 Instrument Operations:")
+            # Demonstrate device access
+            print("🔧 Device Operations:")
 
-            # Access instruments by their aliases
-            print("  Getting instrument IDs...")
+            # Access devices by their aliases
+            print("  Getting device IDs...")
             try:
                 vna_id = bench.vna.id()
                 print(f"  VNA ID: {vna_id}")
@@ -90,18 +90,18 @@ def main():
             except Exception as e:
                 print(f"  ℹ️  PSU operation (simulated): {e}")
 
-            # List available instruments
-            print(f"\n🎛️  Available instruments: {list(bench._instrument_instances.keys())}")
+            # List available devices
+            print(f"\n🎛️  Available devices: {list(bench.devices.keys())}")
 
             # Demonstrate measurement plan access
             if bench.measurement_plan:
                 first_measurement = bench.measurement_plan[0]
                 print(f"\n📊 First measurement: {first_measurement.name}")
-                print(f"   Instrument: {first_measurement.instrument}")
+                print(f"   Device: {first_measurement.device}")
                 print(f"   Settings: {first_measurement.settings}")
 
         # When exiting the context manager, post-experiment hooks run
-        # and all instruments are closed automatically
+        # and all devices are closed automatically
         print("\n✅ Bench closed successfully. Post-experiment hooks executed.")
 
     except Exception as e:

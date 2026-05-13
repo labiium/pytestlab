@@ -58,7 +58,7 @@ class _Parameter:
 
 
 @dataclass
-class _InstrumentRecord:
+class _DeviceRecord:
     alias: str
     resource: str
     instance: Any
@@ -92,7 +92,7 @@ class MeasurementSession(contextlib.AbstractContextManager):
         self.tz = tz
         self.created_at = datetime.now().astimezone().isoformat()
         self._parameters: dict[str, _Parameter] = {}
-        self._instruments: dict[str, _InstrumentRecord] = {}
+        self._devices: dict[str, _DeviceRecord] = {}
         self._meas_funcs: list[tuple[str, T_MeasFunc]] = []
         self._tasks: list[tuple[str, T_TaskFunc]] = []
         self._data_rows: list[dict[str, Any]] = []
@@ -112,12 +112,10 @@ class MeasurementSession(contextlib.AbstractContextManager):
             self.name = bench.experiment.name
             self.description = bench.experiment.description
 
-        # Set up instruments
+        # Set up devices
         if self._bench:
-            # Print debug info
-            print(f"DEBUG: Setting up {len(self._bench.instruments)} instruments from bench")
-            for alias, inst in self._bench.instruments.items():
-                self._instruments[alias] = _InstrumentRecord(
+            for alias, inst in self._bench.devices.items():
+                self._devices[alias] = _DeviceRecord(
                     alias=alias,
                     resource=f"bench:{alias}",
                     instance=inst,
@@ -133,7 +131,7 @@ class MeasurementSession(contextlib.AbstractContextManager):
         """Synchronous context manager exit."""
         # Directly call the synchronous disconnect method
         try:
-            self._disconnect_all_instruments()
+            self._disconnect_all_devices()
         except Exception:  # noqa: BLE001
             pass  # Keep original error handling behavior
         return False
@@ -155,8 +153,8 @@ class MeasurementSession(contextlib.AbstractContextManager):
         if compliance is None or compliance is True:
             # Auto-configure (default behavior)
             try:
-                from ..compliance.auto_config import ensure_compliance_config
                 from ..compliance.auto_config import ComplianceDisabledError
+                from ..compliance.auto_config import ensure_compliance_config
                 from ..compliance.session import ComplianceConfig
 
                 config_dict = ensure_compliance_config()
@@ -198,7 +196,7 @@ class MeasurementSession(contextlib.AbstractContextManager):
             }
 
         measurements = []
-        for name, func in self._meas_funcs:
+        for name, _func in self._meas_funcs:
             measurements.append(
                 {
                     "name": name,
@@ -219,22 +217,43 @@ class MeasurementSession(contextlib.AbstractContextManager):
             "measurements": measurements,
         }
 
-    # ─── Instruments ───────────────────────────────────────────────────
+    # ─── Devices / Instruments ────────────────────────────────────────
+    def device(self, alias: str, config_key: str, /, **kw) -> Any:
+        if alias in self._devices:
+            record = self._devices[alias]
+            if not record.resource.startswith("bench:"):
+                raise ValueError(f"Device alias '{alias}' already in use.")
+            return record.instance
+        if self._bench:
+            raise ValueError(
+                f"Device '{alias}' not found on the bench. "
+                "When using a bench, all devices must be defined in the bench configuration."
+            )
+        from ..devices import AutoDevice as _AutoDevice
+
+        inst = _AutoDevice.from_config(config_key, **kw)
+        self._devices[alias] = _DeviceRecord(alias, config_key, inst)
+        return inst
+
     def instrument(self, alias: str, config_key: str, /, **kw) -> Any:
-        if alias in self._instruments:
-            record = self._instruments[alias]
+        if alias in self._devices:
+            record = self._devices[alias]
             if not record.resource.startswith("bench:"):
                 raise ValueError(f"Instrument alias '{alias}' already in use.")
+            from ..instruments import Instrument as _Instrument
+
+            if not isinstance(record.instance, _Instrument):
+                raise TypeError(f"Bench resource '{alias}' is a device, not an Instrument.")
             return record.instance
         if self._bench:
             raise ValueError(
                 f"Instrument '{alias}' not found on the bench. "
-                "When using a bench, all instruments must be defined in the bench configuration."
+                "When using a bench, all devices must be defined in the bench configuration."
             )
         from ..instruments import AutoInstrument as _AutoInstrument
 
         inst = _AutoInstrument.from_config(config_key, **kw)
-        self._instruments[alias] = _InstrumentRecord(alias, config_key, inst)
+        self._devices[alias] = _DeviceRecord(alias, config_key, inst)
         return inst
 
     # ─── Parameters ────────────────────────────────────────────────────
@@ -354,7 +373,7 @@ class MeasurementSession(contextlib.AbstractContextManager):
             for meas_name, func in self._meas_funcs:
                 sig = inspect.signature(func)
                 kwargs: dict[str, Any] = {n: v for n, v in param_ctx.items() if n in sig.parameters}
-                for alias, inst_rec in self._instruments.items():
+                for alias, inst_rec in self._devices.items():
                     if alias in sig.parameters:
                         kwargs[alias] = inst_rec.instance
                 if "ctx" in sig.parameters:
@@ -398,7 +417,7 @@ class MeasurementSession(contextlib.AbstractContextManager):
             sig = inspect.signature(task_func)
             kwargs = {
                 alias: rec.instance
-                for alias, rec in self._instruments.items()
+                for alias, rec in self._devices.items()
                 if alias in sig.parameters
             }
             # Add stop_event to kwargs if the function accepts it
@@ -448,7 +467,7 @@ class MeasurementSession(contextlib.AbstractContextManager):
                 sig = inspect.signature(func)
                 kwargs = {
                     alias: rec.instance
-                    for alias, rec in self._instruments.items()
+                    for alias, rec in self._devices.items()
                     if alias in sig.parameters
                 }
                 if "ctx" in sig.parameters:
@@ -492,8 +511,8 @@ class MeasurementSession(contextlib.AbstractContextManager):
             self._experiment = exp
         self._experiment.add_trial(self.data)
 
-    def _disconnect_all_instruments(self) -> None:
-        for rec in self._instruments.values():
+    def _disconnect_all_devices(self) -> None:
+        for rec in self._devices.values():
             if not rec.auto_close:
                 continue
             try:

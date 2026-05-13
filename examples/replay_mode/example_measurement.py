@@ -14,17 +14,17 @@ def main(bench):
     Main measurement function called by PyTestLab replay system.
 
     Args:
-        bench: Bench object containing instrument references (psu, osc)
+        bench: Bench object containing device references (psu, osc)
     """
     print("Starting comprehensive measurement script...")
 
-    # Get instrument references from bench
-    psu = bench.psu if hasattr(bench, "psu") else bench.instruments["psu"]
-    osc = bench.osc if hasattr(bench, "osc") else bench.instruments["osc"]
+    # Get device references from bench
+    psu = bench.psu if hasattr(bench, "psu") else bench.devices["psu"]
+    osc = bench.osc if hasattr(bench, "osc") else bench.devices["osc"]
 
-    print("Initializing instruments...")
+    print("Initializing devices...")
 
-    # Get instrument identification
+    # Get device identification
     psu_id = psu.id()
     osc_id = osc.id()
     print(f"PSU ID: {psu_id}")
@@ -160,8 +160,8 @@ def main(bench):
 # Additional helper functions for more complex scenarios
 def stress_test_sequence(bench):
     """Extended stress test sequence for thorough validation."""
-    psu = bench.psu if hasattr(bench, "psu") else bench.instruments["psu"]
-    osc = bench.osc if hasattr(bench, "osc") else bench.instruments["osc"]
+    psu = bench.psu if hasattr(bench, "psu") else bench.devices["psu"]
+    osc = bench.osc if hasattr(bench, "osc") else bench.devices["osc"]
 
     print("Running stress test sequence...")
 

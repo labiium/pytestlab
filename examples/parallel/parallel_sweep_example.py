@@ -30,13 +30,13 @@ def main():
     # Define the path to the bench configuration file
     bench_config_path = Path(__file__).parent / "bench_parallel.yaml"
 
-    # Use a Bench object to manage all instruments
+    # Use a Bench object to manage all devices
     with Bench.open(bench_config_path) as bench:
-        print("Bench initialized with the following instruments:")
-        for alias in bench.instruments:
+        print("Bench initialized with the following devices:")
+        for alias in bench.devices:
             print(f"- {alias}")
 
-        # Create a MeasurementSession, inheriting instruments from the bench
+        # Create a MeasurementSession, inheriting devices from the bench
         with Measurement(bench=bench) as session:
             session.name = "Device Ripple Under Dynamic Load"
             session.description = "Measures DUT response while PSU voltage ramps and load changes."
@@ -94,7 +94,7 @@ def main():
             print("\nStarting parallel measurement session for 5 seconds...")
             experiment = session.run(duration=5.0, interval=0.25)
 
-            print(f"\n✅ Measurement Complete!")
+            print("\n✅ Measurement Complete!")
             print(f"   Captured {len(experiment.data)} measurements.")
 
             if len(experiment.data) > 0:

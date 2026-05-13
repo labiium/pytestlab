@@ -1,5 +1,5 @@
 # Simple Bench Configuration
-# A minimal bench setup with two instruments in simulation mode
+# A minimal bench setup with two devices in simulation mode
 
 bench_name: "Simple Test Bench"
 description: "A simple bench configuration for getting started with PyTestLab"
@@ -13,8 +13,8 @@ backend_defaults:
   type: "sim"
   timeout_ms: 5000
 
-# Instrument definitions
-instruments:
+# Device definitions
+devices:
   # Power Supply
   psu:
     profile: "keysight/EDU36311A"
