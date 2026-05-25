@@ -106,7 +106,7 @@ class RecordingBackend:
                 output_file.parent.mkdir(parents=True, exist_ok=True)
                 print(f"DEBUG: Writing to file {output_file}")
                 with open(output_file, "w") as f:
-                    yaml.dump(profile, f, sort_keys=False)
+                    yaml.safe_dump(profile, f, sort_keys=False)
                 print("DEBUG: File write complete.")
                 LOGGER.info(f"Simulation profile saved to {self.output_path}")
             except Exception as e:
@@ -115,7 +115,7 @@ class RecordingBackend:
             # In a real scenario, this would go to a user cache directory.
             # For now, let's just print it if no path is provided.
             print("DEBUG: No output path provided. Printing to stdout.")
-            print(yaml.dump(profile, sort_keys=False))
+            print(yaml.safe_dump(profile, sort_keys=False))
 
     def __getattr__(self, name):
         """Delegate other attributes to the wrapped backend."""

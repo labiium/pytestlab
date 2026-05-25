@@ -1,6 +1,7 @@
 manufacturer: Keysight
 model: MXR404A
 device_type: oscilloscope
+role: measurement
 bandwidth: 4.e+9  # 4 GHz
 sampling_rate: 1.6e+10  # 16 GSa/s
 memory: 2.e+8  # 200 Mpts/ch

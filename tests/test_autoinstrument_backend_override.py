@@ -17,6 +17,7 @@ def sample_instrument_profile():
     """Sample instrument profile for testing."""
     return {
         "device_type": "power_supply",
+        "role": "stimulus",
         "manufacturer": "Keysight",
         "model": "EDU36311A",
         "channels": [
@@ -160,6 +161,7 @@ class TestAutoInstrumentBackendOverride:
         # Create profile with specific backend configuration
         profile_with_backend = {
             "device_type": "power_supply",
+            "role": "stimulus",
             "manufacturer": "Keysight",
             "model": "EDU36311A",
             "channels": [
@@ -362,6 +364,7 @@ def test_backend_override_with_session_recording():
         # Create temporary profile
         profile = {
             "device_type": "power_supply",
+            "role": "stimulus",
             "manufacturer": "Test",
             "model": "TEST001",
             "channels": [

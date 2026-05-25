@@ -1,6 +1,7 @@
 manufacturer: keysight
 model: DSOX3054G
 device_type: oscilloscope
+role: measurement
 trigger:
   types:
     - HIGH

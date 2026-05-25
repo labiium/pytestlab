@@ -13,8 +13,8 @@ backend_defaults:
   type: "sim"
   timeout_ms: 5000
 
-# Device definitions
-devices:
+# Instrument definitions
+instruments:
   # Power Supply
   psu:
     profile: "keysight/EDU36311A"

@@ -1,6 +1,7 @@
 manufacturer: Keysight
 model: HD304MSO
 device_type: oscilloscope
+role: measurement
 trigger:
   types:
     - Zone

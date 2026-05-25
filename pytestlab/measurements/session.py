@@ -114,7 +114,7 @@ class MeasurementSession(contextlib.AbstractContextManager):
 
         # Set up devices
         if self._bench:
-            for alias, inst in self._bench.devices.items():
+            for alias, inst in self._bench.resources.items():
                 self._devices[alias] = _DeviceRecord(
                     alias=alias,
                     resource=f"bench:{alias}",

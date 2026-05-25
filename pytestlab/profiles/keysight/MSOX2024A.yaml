@@ -1,6 +1,7 @@
 manufacturer: keysight
 model: MSOX2024A
 device_type: oscilloscope
+role: measurement
 trigger:
   types:
     - HIGH

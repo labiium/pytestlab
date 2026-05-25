@@ -1,6 +1,7 @@
 manufacturer: keysight
 model: 34460A
 device_type: multimeter
+role: measurement
 resolution: 6.5
 max_voltage: 1000
 max_resistance: 1e8

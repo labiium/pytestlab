@@ -245,7 +245,7 @@ def sim_profile_record(
 
         # Wrap the real backend with the recording backend
         base_profile_model = load_device_profile(profile_key)
-        base_profile = base_profile_model.model_dump()
+        base_profile = base_profile_model.model_dump(mode="json")
         recording_backend = RecordingBackend(
             device._backend, str(final_output_path), base_profile=base_profile
         )

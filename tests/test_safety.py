@@ -16,6 +16,7 @@ def psu_config():
     """Create a temporary profile file for the power supply."""
     profile = {
         "device_type": "power_supply",
+        "role": "stimulus",
         "manufacturer": "Keysight",
         "model": "EDU36311A",
         "channels": [

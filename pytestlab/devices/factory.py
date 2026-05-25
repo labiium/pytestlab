@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import os
 import tempfile
 from pathlib import Path
@@ -9,6 +10,7 @@ import httpx
 import yaml
 
 from ..config.device_config import DeviceConfig
+from ..config.device_config import DeviceRole
 from ..config.device_config import GenericDeviceConfig
 from ..errors import InstrumentConfigurationError
 from .base import Device
@@ -125,11 +127,14 @@ class AutoDevice:
         address_override: str | None = None,
         timeout_override_ms: int | None = None,
         backend_override: DeviceIO | None = None,
+        role_override: str | None = None,
     ) -> Device[Any]:
         if args and isinstance(args[0], str):
             serial_number = args[0]
 
-        config_model, config_data, profile_key = cls._load_config_model(config_source)
+        config_model, config_data, profile_key = cls._load_config_model(
+            config_source, role_override=role_override
+        )
         if serial_number is not None and hasattr(config_model, "serial_number"):
             config_model.serial_number = serial_number
 
@@ -153,31 +158,80 @@ class AutoDevice:
         return device
 
     @classmethod
+    def from_profile(
+        cls,
+        profile_key_or_path: str | Path,
+        *args: Any,
+        serial_number: str | None = None,
+        debug_mode: bool = False,
+        simulate: bool | None = None,
+        backend_type_hint: str | None = None,
+        address_override: str | None = None,
+        timeout_override_ms: int | None = None,
+        backend_override: DeviceIO | None = None,
+        role_override: str | None = None,
+    ) -> Device[Any]:
+        if not isinstance(profile_key_or_path, str | Path):
+            raise TypeError("from_profile expects a profile key or path, not raw config data.")
+        return cls.from_config(
+            str(profile_key_or_path),
+            *args,
+            serial_number=serial_number,
+            debug_mode=debug_mode,
+            simulate=simulate,
+            backend_type_hint=backend_type_hint,
+            address_override=address_override,
+            timeout_override_ms=timeout_override_ms,
+            backend_override=backend_override,
+            role_override=role_override,
+        )
+
+    @classmethod
     def _load_config_model(
-        cls, config_source: str | dict[str, Any] | DeviceConfig
+        cls, config_source: str | dict[str, Any] | DeviceConfig, role_override: str | None = None
     ) -> tuple[DeviceConfig, dict[str, Any], str | None]:
         from ..config.loader import load_device_profile
 
         if isinstance(config_source, DeviceConfig):
+            if role_override is not None:
+                config_source.role = (
+                    role_override if isinstance(role_override, DeviceRole) else DeviceRole(role_override)
+                )
             return config_source, config_source.model_dump(mode="python"), None
         if isinstance(config_source, dict) and "profile" in config_source:
             profile_source = config_source["profile"]
-            config_model = load_device_profile(profile_source)
-            config_data = config_model.model_dump(mode="python")
+            config_data = cls._load_config_data_from_string(str(profile_source))
             for key, value in config_source.items():
                 if key != "profile":
-                    config_data[key] = value
+                    config_data[key] = cls._role_value(value) if key == "role" else value
+            if role_override is not None:
+                config_data["role"] = cls._role_value(role_override)
+            config_model = load_device_profile(config_data)
+            for key, value in config_source.items():
+                if key != "profile":
                     if hasattr(config_model, key):
                         setattr(config_model, key, value)
             return config_model, config_data, str(profile_source)
         if isinstance(config_source, dict):
-            config_model = load_device_profile(config_source)
-            return config_model, dict(config_source), None
+            config_data = {
+                key: cls._role_value(value) if key == "role" else value
+                for key, value in config_source.items()
+            }
+            if role_override is not None:
+                config_data["role"] = cls._role_value(role_override)
+            config_model = load_device_profile(config_data)
+            return config_model, config_data, None
         if isinstance(config_source, str):
             config_data = cls._load_config_data_from_string(config_source)
+            if role_override is not None:
+                config_data["role"] = cls._role_value(role_override)
             config_model = load_device_profile(config_data)
             return config_model, config_data, config_source
         raise TypeError("config_source must be a file path, profile key, dict, or DeviceConfig object.")
+
+    @staticmethod
+    def _role_value(role: str | DeviceRole) -> str:
+        return role.value if isinstance(role, DeviceRole) else role
 
     @classmethod
     def _load_config_data_from_string(cls, config_source: str) -> dict[str, Any]:
@@ -198,13 +252,13 @@ class AutoDevice:
                         f"Configuration '{config_source}' not found in local paths or CDN."
                     ) from None
         try:
-            return cls.get_config_from_cdn(config_source)
+            return cls.get_config_from_local(config_source)
         except FileNotFoundError:
             try:
-                return cls.get_config_from_local(config_source)
+                return cls.get_config_from_cdn(config_source)
             except FileNotFoundError:
                 raise FileNotFoundError(
-                    f"Configuration '{config_source}' not found in CDN or local paths."
+                    f"Configuration '{config_source}' not found in local paths or CDN."
                 ) from None
 
     @classmethod
@@ -269,14 +323,35 @@ class AutoDevice:
     @staticmethod
     def _call_backend_factory(factory: Any, context: BackendBuildContext) -> DeviceIO:
         try:
+            signature = inspect.signature(factory)
+        except (TypeError, ValueError):
             return factory(context)
-        except TypeError:
-            kwargs = dict(context.backend_spec or {})
-            kwargs.pop("type", None)
-            kwargs.pop("import_path", None)
-            kwargs.setdefault("address", context.address)
-            kwargs.setdefault("timeout_ms", context.timeout_ms)
-            return factory(**kwargs)
+
+        params = list(signature.parameters.values())
+        positional = [
+            param
+            for param in params
+            if param.kind
+            in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+        ]
+        has_var_positional = any(param.kind == inspect.Parameter.VAR_POSITIONAL for param in params)
+        has_var_keyword = any(param.kind == inspect.Parameter.VAR_KEYWORD for param in params)
+        accepts_context = (
+            len(positional) == 1
+            and not has_var_positional
+            and not has_var_keyword
+            and positional[0].default is inspect.Parameter.empty
+        )
+
+        if accepts_context:
+            return factory(context)
+
+        kwargs = dict(context.backend_spec or {})
+        kwargs.pop("type", None)
+        kwargs.pop("import_path", None)
+        kwargs.setdefault("address", context.address)
+        kwargs.setdefault("timeout_ms", context.timeout_ms)
+        return factory(**kwargs)
 
     @staticmethod
     def _resolve_simulation_mode(simulate: bool | None) -> bool:
@@ -364,4 +439,3 @@ class AutoDevice:
                 f"Unknown device_type: '{config_model.device_type}'. No registered device class.",
             )
         return driver_class
-

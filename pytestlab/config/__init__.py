@@ -4,6 +4,7 @@ from .base import BaseConfig
 from .config import Config
 from .dc_active_load_config import DCActiveLoadConfig
 from .device_config import DeviceConfig
+from .device_config import DeviceRole
 from .device_config import GenericDeviceConfig
 from .instrument_config import InstrumentConfig
 from .multimeter_config import MultimeterConfig
@@ -21,6 +22,7 @@ __all__ = [
     "Config",
     "DCActiveLoadConfig",
     "DeviceConfig",
+    "DeviceRole",
     "GenericDeviceConfig",
     "InstrumentConfig",
     "ConfigLoader",

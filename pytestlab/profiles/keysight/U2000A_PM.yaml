@@ -2,6 +2,7 @@
 manufacturer: Keysight
 model: U2000A # Example USB Power Sensor
 device_type: power_meter
+role: measurement
 address: "USB0::0x0957::0x2B18::MY55120007::INSTR" # Example USB address for simulation, can also be TCPIP for some PMs
 
 # Optional fields from PowerMeterConfig with example values

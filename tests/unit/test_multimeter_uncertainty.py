@@ -34,6 +34,7 @@ def test_multimeter_uncertainty_calculation():
         manufacturer="Test",
         model="TestDMM",
         device_type="multimeter",
+        role="measurement",
         measurement_functions=MeasurementFunctionsSpec(
             dc_voltage=FunctionSpec(
                 ranges=[
@@ -93,6 +94,7 @@ def test_multimeter_range_field_detection():
         manufacturer="Test",
         model="TestDMM",
         device_type="multimeter",
+        role="measurement",
         measurement_functions=MeasurementFunctionsSpec(
             dc_voltage=FunctionSpec(
                 ranges=[
@@ -163,6 +165,7 @@ def test_multimeter_no_uncertainty_when_no_spec():
         manufacturer="Test",
         model="TestDMM",
         device_type="multimeter",
+        role="measurement",
         measurement_functions=MeasurementFunctionsSpec(
             dc_voltage=FunctionSpec(
                 ranges=[

@@ -11,6 +11,7 @@ from pytestlab.devices import Device
 from pytestlab.devices import register_backend
 from pytestlab.devices import register_config_model
 from pytestlab.devices import register_device_type
+from pytestlab.devices.factory import AutoDevice as AutoDeviceFactory
 from pytestlab.instruments.AutoInstrument import AutoInstrument
 from pytestlab.instruments.DCActiveLoad import DCActiveLoad
 from pytestlab.instruments.instrument import Instrument
@@ -75,6 +76,7 @@ def test_autodevice_creates_registered_custom_device():
     device = AutoDevice.from_config(
         {
             "device_type": "test_widget",
+            "role": "fixture",
             "manufacturer": "PyTestLab",
             "model": "Widget",
             "gain": 2.5,
@@ -117,6 +119,7 @@ def test_autodevice_creates_custom_device_from_import_paths():
     device = AutoDevice.from_config(
         {
             "device_type": "import_widget",
+            "role": "fixture",
             "manufacturer": "PyTestLab",
             "model": "ImportWidget",
             "driver": "tests.test_device_api:WidgetDevice",
@@ -133,6 +136,7 @@ def test_load_device_profile_allows_driver_only_generic_custom_config():
     config = load_device_profile(
         {
             "device_type": "generic_widget",
+            "role": "fixture",
             "manufacturer": "PyTestLab",
             "model": "GenericWidget",
             "driver": "tests.test_device_api:WidgetDevice",
@@ -170,8 +174,90 @@ def test_autoinstrument_rejects_non_instrument_custom_device():
         AutoInstrument.from_config(
             {
                 "device_type": "instrument_reject_widget",
+                "role": "fixture",
                 "manufacturer": "PyTestLab",
                 "model": "Widget",
                 "backend": {"type": "instrument_reject_memory"},
             }
         )
+
+
+def test_from_profile_rejects_raw_config_data():
+    with pytest.raises(TypeError, match="profile key or path"):
+        AutoDevice.from_profile({"device_type": "test_widget"})  # type: ignore[arg-type]
+
+
+def test_local_config_lookup_precedes_cdn(monkeypatch):
+    calls: list[str] = []
+
+    def local(identifier):
+        calls.append(f"local:{identifier}")
+        return {
+            "device_type": "test_widget",
+            "role": "fixture",
+            "manufacturer": "PyTestLab",
+            "model": "Widget",
+            "driver": "tests.test_device_api:WidgetDevice",
+            "backend": {"type": "memory"},
+        }
+
+    def cdn(identifier):
+        calls.append(f"cdn:{identifier}")
+        raise AssertionError("CDN should not be called when local lookup succeeds.")
+
+    register_config_model("test_widget", WidgetConfig, replace=True)
+    register_device_type("test_widget", WidgetDevice, replace=True)
+    register_backend("memory", build_memory_backend, replace=True)
+    monkeypatch.setattr(AutoDeviceFactory, "get_config_from_local", local)
+    monkeypatch.setattr(AutoDeviceFactory, "get_config_from_cdn", cdn)
+
+    device = AutoDevice.from_config("vendor/widget")
+
+    assert isinstance(device, WidgetDevice)
+    assert calls == ["local:vendor/widget"]
+
+
+def test_backend_factory_internal_type_error_is_not_retried():
+    def broken_factory(_context):
+        raise TypeError("internal bug")
+
+    register_config_model("broken_backend_widget", WidgetConfig, replace=True)
+    register_device_type("broken_backend_widget", WidgetDevice, replace=True)
+    register_backend("broken_backend", broken_factory, replace=True)
+
+    with pytest.raises(TypeError, match="internal bug"):
+        AutoDevice.from_config(
+            {
+                "device_type": "broken_backend_widget",
+                "role": "fixture",
+                "manufacturer": "PyTestLab",
+                "model": "Widget",
+                "backend": {"type": "broken_backend"},
+            }
+        )
+
+
+def test_backend_factory_kwargs_convention():
+    def kwargs_factory(address=None, timeout_ms=None):
+        backend = MemoryBackend()
+        backend.address = address
+        backend.timeout_ms = timeout_ms
+        return backend
+
+    register_config_model("kwargs_backend_widget", WidgetConfig, replace=True)
+    register_device_type("kwargs_backend_widget", WidgetDevice, replace=True)
+    register_backend("kwargs_backend", kwargs_factory, replace=True)
+
+    device = AutoDevice.from_config(
+        {
+            "device_type": "kwargs_backend_widget",
+            "role": "fixture",
+            "manufacturer": "PyTestLab",
+            "model": "Widget",
+            "address": "MEM::1",
+            "backend": {"type": "kwargs_backend", "timeout_ms": 1234},
+        }
+    )
+
+    assert device._backend.address == "MEM::1"
+    assert device._backend.timeout_ms == 1234

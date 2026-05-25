@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from ..config.instrument_config import InstrumentConfig
@@ -36,6 +37,7 @@ class AutoInstrument:
         address_override: str | None = None,
         timeout_override_ms: int | None = None,
         backend_override: InstrumentIO | None = None,
+        role_override: str | None = None,
     ) -> Instrument[Any]:
         device = AutoDevice.from_config(
             config_source,
@@ -47,11 +49,45 @@ class AutoInstrument:
             address_override=address_override,
             timeout_override_ms=timeout_override_ms,
             backend_override=backend_override,
+            role_override=role_override,
         )
         if not isinstance(device, Instrument):
             raise InstrumentConfigurationError(
                 config_source,
                 f"Config resolved to {type(device).__name__}, not an Instrument.",
+            )
+        return device
+
+    @classmethod
+    def from_profile(
+        cls: type[AutoInstrument],
+        profile_key_or_path: str | Path,
+        *args: Any,
+        serial_number: str | None = None,
+        debug_mode: bool = False,
+        simulate: bool | None = None,
+        backend_type_hint: str | None = None,
+        address_override: str | None = None,
+        timeout_override_ms: int | None = None,
+        backend_override: InstrumentIO | None = None,
+        role_override: str | None = None,
+    ) -> Instrument[Any]:
+        device = AutoDevice.from_profile(
+            profile_key_or_path,
+            *args,
+            serial_number=serial_number,
+            debug_mode=debug_mode,
+            simulate=simulate,
+            backend_type_hint=backend_type_hint,
+            address_override=address_override,
+            timeout_override_ms=timeout_override_ms,
+            backend_override=backend_override,
+            role_override=role_override,
+        )
+        if not isinstance(device, Instrument):
+            raise InstrumentConfigurationError(
+                profile_key_or_path,
+                f"Profile resolved to {type(device).__name__}, not an Instrument.",
             )
         return device
 

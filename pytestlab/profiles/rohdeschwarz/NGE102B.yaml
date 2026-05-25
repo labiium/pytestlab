@@ -1,6 +1,7 @@
 manufacturer: rohdeschwarz
 model: NGE102B
 device_type: power_supply
+role: stimulus
 channels:
   - channel_id: 1
     description: Channel 1

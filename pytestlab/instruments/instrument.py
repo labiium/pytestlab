@@ -8,7 +8,6 @@ from typing import TypeVar
 
 import numpy as np
 
-from .._log import get_logger
 from ..common.health import HealthReport  # Adjusted import
 from ..common.health import HealthStatus  # Adjusted import
 from ..config import InstrumentConfig  # Assuming InstrumentConfig is the base Pydantic model
@@ -74,18 +73,7 @@ class Instrument(Device[ConfigType], Generic[ConfigType]):
                 f"A valid InstrumentConfig-compatible object must be provided, but got {type(config).__name__}.",
             )
 
-        self.config = config
-        self._backend = backend
-        self._command_log = []
-
-        logger_name = (
-            self.config.model if hasattr(self.config, "model") else self.__class__.__name__
-        )
-        self._logger = get_logger(logger_name)
-
-        self._logger.info(
-            f"Instrument '{logger_name}': Initializing with backend '{type(backend).__name__}'."
-        )
+        super().__init__(config=config, backend=backend, **kwargs)
         # Get SCPI data and convert to compatible format
         if hasattr(self.config, "scpi") and self.config.scpi is not None:
             if hasattr(self.config.scpi, "model_dump"):

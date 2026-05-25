@@ -2,6 +2,7 @@
 manufacturer: Keysight
 model: E5071C
 device_type: vna
+role: measurement
 address: "TCPIP0::localhost::inst1::INSTR" # Example address for simulation
 
 # Optional fields from VNAConfig with example values

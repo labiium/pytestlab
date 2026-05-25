@@ -1,6 +1,7 @@
 manufacturer: Keysight
 model: EL33133A
 device_type: dc_active_load
+role: load
 
 general_specifications:
   max_power_W: 250.0

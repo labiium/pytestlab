@@ -1,4 +1,5 @@
 device_type: multimeter
+role: measurement
 manufacturer: keysight
 model: EDU34450A
 description: "5.5-digit dual-display digital multimeter"

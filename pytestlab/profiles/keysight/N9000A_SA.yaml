@@ -2,6 +2,7 @@
 manufacturer: Keysight
 model: N9000A
 device_type: spectrum_analyzer
+role: measurement
 # Add other fields from SpectrumAnalyzerConfig if they have defaults or are needed
 address: "TCPIP0::localhost::inst0::INSTR" # Example address for simulation
 # Optional fields from SpectrumAnalyzerConfig with example values

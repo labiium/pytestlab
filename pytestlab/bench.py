@@ -1,6 +1,8 @@
 import logging
+import shlex
 import subprocess
 import sys
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +16,7 @@ from .config.bench_loader import load_bench_yaml
 from .config.bench_loader import run_custom_validations
 from .devices import AutoDevice
 from .devices import Device
+from .errors import InstrumentConfigurationError
 from .experiments import Experiment
 from .experiments.database import MeasurementDatabase
 from .instruments import AutoInstrument
@@ -50,43 +53,34 @@ class SafeDeviceWrapper:
         _device_type: Type of device being wrapped (e.g., 'power_supply', 'waveform_generator').
     """
 
-    def __init__(self, device: Device, safety_limits: Any, device_type: str | None = None):
+    def __init__(self, device: Device, safety_limits: Any, role: str):
         self._device = device
         self._safety_limits = safety_limits
-        self._device_type = device_type or self._detect_device_type()
-
-    def _detect_device_type(self) -> str:
-        """Attempt to detect device type based on available methods."""
-        if hasattr(self._device, "set_voltage") and hasattr(self._device, "set_current"):
-            return "power_supply"
-        elif hasattr(self._device, "set_frequency") and hasattr(self._device, "set_amplitude"):
-            return "waveform_generator"
-        elif hasattr(self._device, "set_load") and hasattr(self._device, "set_mode"):
-            return "dc_active_load"
-        return "unknown"
+        self._role = role
 
     def __getattr__(self, name):
         """Dynamically wraps methods to enforce safety checks."""
         orig = getattr(self._device, name)
 
-        # Power Supply safety limits
-        if self._device_type == "power_supply":
-            if name == "set_voltage":
-                return self._safe_set_voltage_wrapper(orig)
-            elif name == "set_current":
-                return self._safe_set_current_wrapper(orig)
-
-        # Waveform Generator safety limits
-        elif self._device_type == "waveform_generator":
-            if name == "set_amplitude":
-                return self._safe_set_amplitude_wrapper(orig)
-            elif name == "set_frequency":
-                return self._safe_set_frequency_wrapper(orig)
-
-        # DC Active Load safety limits
-        elif self._device_type == "dc_active_load":
-            if name == "set_load":
-                return self._safe_set_load_wrapper(orig)
+        if name in {"set_voltage", "set_current"} and self._role in {
+            "stimulus",
+            "source_measure",
+            "conditioning",
+            "load",
+        }:
+            return (
+                self._safe_set_voltage_wrapper(orig)
+                if name == "set_voltage"
+                else self._safe_set_current_wrapper(orig)
+            )
+        if name in {"set_amplitude", "set_frequency"} and self._role == "stimulus":
+            return (
+                self._safe_set_amplitude_wrapper(orig)
+                if name == "set_amplitude"
+                else self._safe_set_frequency_wrapper(orig)
+            )
+        if name == "set_load" and self._role == "load":
+            return self._safe_set_load_wrapper(orig)
 
         # For any other method, return it unwrapped
         return orig
@@ -297,15 +291,24 @@ class Bench:
             address_override=entry.address,
             serial_number=entry.serial_number,
             timeout_override_ms=timeout_override_ms,
+            role_override=entry.role,
         )
+
+        role = self._resolved_device_role(device, alias)
+        if role == "custom":
+            warnings.warn(
+                f"Device '{alias}' uses custom role; safety and reporting semantics are user-defined.",
+                UserWarning,
+                stacklevel=2,
+            )
+        if entry.safety_limits:
+            self._validate_safety_limits_for_role(alias, entry.safety_limits, role)
 
         logger.debug(f"Connecting device '{alias}' to backend")
         device.connect_backend()
 
-        device_type = self._detect_device_type(device)
-
         if entry.safety_limits:
-            wrapped = SafeDeviceWrapper(device, entry.safety_limits, device_type)
+            wrapped = SafeDeviceWrapper(device, entry.safety_limits, role)
             logger.debug(f"Device '{alias}' is running with a safety wrapper")
             self._device_instances[alias] = device
             if isinstance(device, Instrument):
@@ -318,19 +321,38 @@ class Bench:
                 self._instrument_instances[alias] = device
             setattr(self, alias, device)
 
-    def _detect_device_type(self, device: Device) -> str:
-        """Detect the type of device based on its methods and attributes."""
-        if hasattr(device, "set_voltage") and hasattr(device, "set_current"):
-            return "power_supply"
-        elif hasattr(device, "set_frequency") and hasattr(device, "set_amplitude"):
-            return "waveform_generator"
-        elif hasattr(device, "set_load") and hasattr(device, "set_mode"):
-            return "dc_active_load"
-        elif hasattr(device, "set_measurement_function") and hasattr(device, "measure"):
-            return "multimeter"
-        elif hasattr(device, "set_timebase") and hasattr(device, "read_channels"):
-            return "oscilloscope"
-        return "unknown"
+    def _resolved_device_role(self, device: Device, alias: str) -> str:
+        role = getattr(getattr(device, "config", None), "role", None)
+        if role is None:
+            raise InstrumentConfigurationError(alias, "Device config must declare a role.")
+        return getattr(role, "value", role)
+
+    def _validate_safety_limits_for_role(self, alias: str, safety_limits: Any, role: str) -> None:
+        voltage_current_roles = {"stimulus", "source_measure", "conditioning", "load"}
+        amplitude_frequency_roles = {"stimulus"}
+        load_roles = {"load"}
+        supported_roles = voltage_current_roles | amplitude_frequency_roles | load_roles
+
+        if role not in supported_roles:
+            raise InstrumentConfigurationError(
+                alias, f"Safety limits are not supported for device role '{role}'."
+            )
+
+        for channel, limits in (safety_limits.channels or {}).items():
+            if (limits.voltage or limits.current) and role not in voltage_current_roles:
+                raise InstrumentConfigurationError(
+                    alias,
+                    f"Voltage/current safety limits on channel {channel} are not supported for role '{role}'.",
+                )
+            if (limits.amplitude or limits.frequency) and role not in amplitude_frequency_roles:
+                raise InstrumentConfigurationError(
+                    alias,
+                    f"Amplitude/frequency safety limits on channel {channel} are not supported for role '{role}'.",
+                )
+        if safety_limits.load and role not in load_roles:
+            raise InstrumentConfigurationError(
+                alias, f"Load safety limits are not supported for role '{role}'."
+            )
 
     def _run_automation_hook(self, hook: str):
         """Executes automation commands for a given hook (e.g., 'pre_experiment').
@@ -367,12 +389,14 @@ class Bench:
 
     def _run_python_script(self, cmd: str):
         """Run a Python script as part of an automation hook."""
-        script = cmd.strip().split(" ", 1)[1]
-        logger.info(f"[Automation] Running Python script: {script}")
+        tokens = shlex.split(cmd)
+        if len(tokens) < 2:
+            raise InstrumentMacroError("Python automation hook must include a script or module.")
+        logger.info(f"[Automation] Running Python command: {' '.join(tokens[1:])}")
 
         try:
             result = subprocess.run(
-                [sys.executable, script], check=True, capture_output=True, text=True
+                [sys.executable, *tokens[1:]], check=True, capture_output=True, text=True
             )
             logger.debug(f"Script output: {result.stdout.strip()}")
             if result.stderr:
@@ -388,9 +412,15 @@ class Bench:
     def _run_shell_command(self, cmd: str):
         """Run a shell command as part of an automation hook."""
         logger.info(f"[Automation] Running shell command: {cmd}")
+        tokens = shlex.split(cmd)
+        if not tokens:
+            return
+        if tokens[0] == "echo":
+            logger.info("[Automation] %s", " ".join(tokens[1:]))
+            return
 
         try:
-            result = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
+            result = subprocess.run(tokens, check=True, capture_output=True, text=True)
             logger.debug(f"Command output: {result.stdout.strip()}")
             if result.stderr:
                 logger.warning(f"Command stderr: {result.stderr.strip()}")
@@ -551,8 +581,31 @@ class Bench:
 
     @property
     def devices(self) -> dict[str, Device]:
-        """Provides programmatic access to all device instances."""
+        """Compatibility alias for all bench resources.
+
+        Deprecated: in 1.0 this will return support devices only. Use
+        ``resources`` for all resources or ``support_devices`` for non-instruments.
+        """
+        warnings.warn(
+            "Bench.devices currently returns all resources but will return support devices only in 1.0; use Bench.resources for all resources.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self._device_instances
+
+    @property
+    def resources(self) -> dict[str, Device]:
+        """Provides programmatic access to all bench resources."""
+        return self._device_instances
+
+    @property
+    def support_devices(self) -> dict[str, Device]:
+        """Provides programmatic access to non-instrument device instances."""
+        return {
+            alias: device
+            for alias, device in self._device_instances.items()
+            if not isinstance(device, Instrument)
+        }
 
     @property
     def instruments(self) -> dict[str, Instrument[Any]]:

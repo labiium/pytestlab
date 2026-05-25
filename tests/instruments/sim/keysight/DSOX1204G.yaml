@@ -1,6 +1,7 @@
 manufacturer: Keysight
 model: DSOX1204G
 device_type: oscilloscope
+role: measurement
 trigger:
     types:
         - HIGH

@@ -1,6 +1,7 @@
 manufacturer: PyTestLab
 model: Virtual-Instrument-1
 device_type: virtual_instrument
+role: custom
 address: "VIRTUAL::INSTRUMENT"
 
 simulation:

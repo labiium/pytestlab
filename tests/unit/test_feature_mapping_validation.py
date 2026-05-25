@@ -54,7 +54,7 @@ def test_feature_mapping_validation_passes_when_present():
             "beta": SCPICommandSpec(template=":BETA {v}"),
         },
     )
-    cfg = DummyConfig(manufacturer="X", model="Y", device_type="dummy", scpi=scpi)
+    cfg = DummyConfig(manufacturer="X", model="Y", device_type="dummy", role="custom", scpi=scpi)
     inst = DummyInstrument(cfg, backend=DummyBackend())
     # Should not raise
     inst._validate_features_against_scpi(
@@ -64,7 +64,7 @@ def test_feature_mapping_validation_passes_when_present():
 
 def test_feature_mapping_validation_raises_when_missing():
     scpi = SCPISection(commands={"alpha": SCPICommandSpec(template=":ALPH {v}")})
-    cfg = DummyConfig(manufacturer="X", model="Y", device_type="dummy", scpi=scpi)
+    cfg = DummyConfig(manufacturer="X", model="Y", device_type="dummy", role="custom", scpi=scpi)
     inst = DummyInstrument(cfg, backend=DummyBackend())
     with pytest.raises(RuntimeError):
         inst._validate_features_against_scpi(

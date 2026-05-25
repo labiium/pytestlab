@@ -35,6 +35,7 @@ _config_models: dict[str, type[DeviceConfig]] = {}
 _config_model_specs: dict[str, tuple[str, str]] = {}
 _backends: dict[str, BackendFactory] = {}
 _entry_points_loaded = False
+_builtins_registered = False
 
 
 def load_import_path(path: str) -> Any:
@@ -187,8 +188,10 @@ def load_entry_points() -> None:
 
 
 def ensure_builtin_registrations() -> None:
-    if _device_driver_specs:
+    global _builtins_registered
+    if _builtins_registered:
         return
+    _builtins_registered = True
     builtins = {
         "oscilloscope": (
             ("pytestlab.instruments.Oscilloscope", "Oscilloscope"),

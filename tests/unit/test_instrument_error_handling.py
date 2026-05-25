@@ -54,13 +54,17 @@ def error_handling_instrument():
     """Fixture to provide an Instrument instance with ProgrammableErrorSimBackend."""
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
         profile_file = f.name
-        yaml.dump({"device_type": "instrument", "scpi": {"*IDN?": "dummy_idn"}}, f)
+        yaml.dump(
+            {"device_type": "instrument", "role": "custom", "scpi": {"*IDN?": "dummy_idn"}},
+            f,
+        )
     backend = ProgrammableErrorSimBackend(profile_path=profile_file)
     # Minimal config for the instrument
     config = InstrumentConfig(
         manufacturer="Test",
         model="TestErrorInstrument",
         device_type="instrument",
+        role="custom",
         general=dict(id="TestErrorInstrument", driver="GenericInstrument"),
         settings=dict(
             check_errors_on_read=False, check_errors_on_write=False

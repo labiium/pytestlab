@@ -1,6 +1,7 @@
 manufacturer: Keysight
 model: EDU33212A
 device_type: waveform_generator
+role: stimulus
 channels:
     - description: Channel 1
       frequency_range:

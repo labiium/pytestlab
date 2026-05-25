@@ -9,6 +9,8 @@ from pydantic import Field
 from pydantic import RootModel
 from pydantic import model_validator
 
+from .device_config import DeviceRole
+
 
 class ExperimentSection(BaseModel):
     title: str
@@ -22,15 +24,19 @@ class ExperimentSection(BaseModel):
 class SafetyLimitChannel(BaseModel):
     voltage: dict[str, float] | None = None  # e.g., {"max": 5.5}
     current: dict[str, float] | None = None  # e.g., {"max": 2.2}
+    amplitude: dict[str, float] | None = None  # e.g., {"max": 2.0}
+    frequency: dict[str, float] | None = None  # e.g., {"max": 1.0e6}
 
 
 class SafetyLimits(BaseModel):
     channels: dict[int, SafetyLimitChannel] | None = None
     bandwidth_limit: float | None = None
+    load: dict[str, float] | None = None
 
 
 class DeviceEntry(BaseModel):
     profile: str
+    role: DeviceRole | None = None
     address: str | None = None
     serial_number: str | None = None
     safety_limits: SafetyLimits | None = None
@@ -69,6 +75,7 @@ class Traceability(BaseModel):
 
 class MeasurementPlanEntry(BaseModel):
     name: str
+    resource: str | None = None
     device: str | None = None
     instrument: str | None = None
     channel: int | None = None
@@ -78,13 +85,18 @@ class MeasurementPlanEntry(BaseModel):
 
     @model_validator(mode="after")
     def check_target(self) -> MeasurementPlanEntry:
-        if (self.device is None) == (self.instrument is None):
-            raise ValueError("Measurement plan entries must define exactly one of 'device' or 'instrument'.")
+        targets = [value for value in (self.resource, self.device, self.instrument) if value is not None]
+        if len(targets) != 1:
+            raise ValueError(
+                "Measurement plan entries must define exactly one of 'resource', 'device', or 'instrument'."
+            )
+        if self.resource is None:
+            self.resource = self.device if self.device is not None else self.instrument
         return self
 
     @property
     def target(self) -> str:
-        return self.device if self.device is not None else self.instrument or ""
+        return self.resource or ""
 
 
 class BenchConfigExtended(BaseModel):

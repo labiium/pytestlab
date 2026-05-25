@@ -14,6 +14,7 @@ from pytestlab.experiments.results import MeasurementResult
 # now has a 'measurement_accuracy: Optional[dict[str, AccuracySpec]]' field.
 UNC_DMM_CONFIG_DICT = {
     "device_type": "multimeter",
+    "role": "measurement",
     "model": "UncertainDMM",
     "address": "SIM_ADDRESS_UNC_DMM",
     "measurement_accuracy": {
@@ -56,6 +57,7 @@ def test_driver_returns_ufloat_with_sim():
     # Create a mock config with measurement accuracy
     mock_config = MultimeterConfig(
         device_type="multimeter",
+        role="measurement",
         manufacturer="TestCorp",
         model="UncertainDMM",
         address="SIM_ADDRESS_UNC_DMM",
