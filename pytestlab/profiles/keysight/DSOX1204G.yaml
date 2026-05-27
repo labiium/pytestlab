@@ -223,6 +223,10 @@ scpi:
       template: ":WAVeform:POINts:MODE RAW"
     digitize:
       template: "DIGitize {sources}"
+    run:
+      template: "RUN"
+    stop:
+      template: "STOP"
     # Waveform generator (WGEN) — include only if present in config
     wgen_output:
       template: "WGEN:OUTP {state}"

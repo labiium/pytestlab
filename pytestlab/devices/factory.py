@@ -127,6 +127,8 @@ class AutoDevice:
         address_override: str | None = None,
         timeout_override_ms: int | None = None,
         backend_override: DeviceIO | None = None,
+        backend_spec_override: dict[str, Any] | None = None,
+        sim_session: Any | None = None,
         role_override: str | None = None,
     ) -> Device[Any]:
         if args and isinstance(args[0], str):
@@ -148,6 +150,8 @@ class AutoDevice:
             backend_type_hint=backend_type_hint,
             address_override=address_override,
             timeout_override_ms=timeout_override_ms,
+            backend_spec_override=backend_spec_override,
+            sim_session=sim_session,
         )
 
         driver_class = cls._resolve_driver(config_model, config_data, config_source)
@@ -169,6 +173,8 @@ class AutoDevice:
         address_override: str | None = None,
         timeout_override_ms: int | None = None,
         backend_override: DeviceIO | None = None,
+        backend_spec_override: dict[str, Any] | None = None,
+        sim_session: Any | None = None,
         role_override: str | None = None,
     ) -> Device[Any]:
         if not isinstance(profile_key_or_path, str | Path):
@@ -183,6 +189,8 @@ class AutoDevice:
             address_override=address_override,
             timeout_override_ms=timeout_override_ms,
             backend_override=backend_override,
+            backend_spec_override=backend_spec_override,
+            sim_session=sim_session,
             role_override=role_override,
         )
 
@@ -274,20 +282,26 @@ class AutoDevice:
         backend_type_hint: str | None,
         address_override: str | None,
         timeout_override_ms: int | None,
+        backend_spec_override: dict[str, Any] | None,
+        sim_session: Any | None,
     ) -> DeviceIO:
         final_simulation_mode = cls._resolve_simulation_mode(simulate)
         actual_address = address_override if address_override is not None else getattr(config_model, "address", None)
         actual_timeout = cls._resolve_timeout(config_model, timeout_override_ms)
-        backend_spec = cls._resolve_backend_spec(config_model, config_data)
+        backend_spec = cls._resolve_backend_spec(
+            config_model,
+            config_data,
+            backend_spec_override=backend_spec_override,
+        )
 
-        if final_simulation_mode:
-            chosen_backend_type = "sim"
-        elif backend_spec and backend_spec.get("import_path"):
+        if backend_spec and backend_spec.get("import_path"):
             chosen_backend_type = str(backend_spec.get("type") or "custom")
         elif backend_type_hint:
             chosen_backend_type = backend_type_hint.lower()
         elif backend_spec and backend_spec.get("type"):
             chosen_backend_type = str(backend_spec["type"]).lower()
+        elif final_simulation_mode:
+            chosen_backend_type = "sim"
         elif actual_address and "LAMB::" in actual_address.upper():
             chosen_backend_type = "lamb"
         elif actual_address:
@@ -309,6 +323,7 @@ class AutoDevice:
             backend_spec=backend_spec,
             profile_path=profile_path,
             debug_mode=debug_mode,
+            sim_session=sim_session,
         )
         if backend_spec and backend_spec.get("import_path") and chosen_backend_type != "sim":
             factory = validate_backend(load_import_path(str(backend_spec["import_path"])), str(backend_spec["import_path"]))
@@ -376,9 +391,21 @@ class AutoDevice:
 
     @staticmethod
     def _resolve_backend_spec(
-        config_model: DeviceConfig, config_data: dict[str, Any]
+        config_model: DeviceConfig,
+        config_data: dict[str, Any],
+        *,
+        backend_spec_override: dict[str, Any] | None = None,
     ) -> dict[str, Any] | None:
         spec = config_data.get("backend")
+        if isinstance(spec, dict):
+            merged = dict(spec)
+        else:
+            model_spec = getattr(config_model, "backend", None)
+            merged = dict(model_spec) if isinstance(model_spec, dict) else {}
+        if backend_spec_override:
+            merged.update(backend_spec_override)
+        if merged:
+            return merged
         if isinstance(spec, dict):
             return spec
         model_spec = getattr(config_model, "backend", None)

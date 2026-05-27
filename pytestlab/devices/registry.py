@@ -27,6 +27,7 @@ class BackendBuildContext:
     backend_spec: dict[str, Any] | None = None
     profile_path: str | None = None
     debug_mode: bool = False
+    sim_session: Any | None = None
 
 
 _device_drivers: dict[str, type[Device[Any]]] = {}
@@ -241,6 +242,12 @@ def ensure_builtin_registrations() -> None:
     register_backend("visa", _build_visa_backend, replace=True)
     register_backend("lamb", _build_lamb_backend, replace=True)
     register_backend("sim", _build_sim_backend, replace=True)
+    try:
+        from ..instruments.backends.circuit_sim_backend import build_circuit_sim_backend
+
+        register_backend("circuit_sim", build_circuit_sim_backend, replace=True)
+    except ModuleNotFoundError:
+        pass
 
 
 def _build_visa_backend(context: BackendBuildContext) -> DeviceIO:

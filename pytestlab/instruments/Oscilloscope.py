@@ -562,6 +562,26 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             )
         return ScopeChannelFacade(self, ch_num)
 
+    @validate_call
+    def run(self) -> None:
+        """Start continuous acquisition."""
+        try:
+            commands = self.scpi_engine.build("run")
+        except KeyError:
+            commands = ["RUN"]
+        for cmd in commands:
+            self._send_command(cmd)
+
+    @validate_call
+    def stop(self) -> None:
+        """Stop acquisition."""
+        try:
+            commands = self.scpi_engine.build("stop")
+        except KeyError:
+            commands = ["STOP"]
+        for cmd in commands:
+            self._send_command(cmd)
+
     @classmethod
     def from_config(
         cls: type[Oscilloscope], config: InstrumentConfig, debug_mode: bool = False

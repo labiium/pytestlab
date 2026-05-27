@@ -7,7 +7,10 @@ from typing import Any
 
 import yaml
 
+from ..devices.factory import AutoDevice
+from ..errors import InstrumentConfigurationError
 from .bench_config import BenchConfigExtended
+from .bench_config import SimCircuitConfig
 
 
 def load_bench_yaml(path_or_dict: str | Path | dict) -> BenchConfigExtended:
@@ -21,6 +24,109 @@ def load_bench_yaml(path_or_dict: str | Path | dict) -> BenchConfigExtended:
         raise TypeError("Input must be a path or dict.")
     config = BenchConfigExtended.model_validate(data)
     return config
+
+
+def load_sim_bench_yaml(path: str | Path) -> tuple[BenchConfigExtended, Any | None]:
+    """Load a bench YAML and build the shared circuit-simulation Session when configured."""
+    config = load_bench_yaml(path)
+    if config.sim_circuit is None:
+        return config, None
+
+    from pytestlab_sim import KernelSettings
+    from pytestlab_sim import Session
+    from pytestlab_sim import circuit_from_netlist
+    from pytestlab_sim import noise_config_from_preset
+    from pytestlab_sim.noise import NoisePreset
+
+    bench_path = Path(path)
+    sc = config.sim_circuit
+    netlist_path = (bench_path.parent / sc.netlist).resolve()
+    circuit = circuit_from_netlist(
+        netlist_path,
+        metadata={
+            "title": netlist_path.stem,
+            "author": "pytestlab",
+            "license": "UNLICENSED",
+            "intended_analyses": ["op", "tran", "ac"],
+        },
+    )
+    sim_bench = _build_sim_bench_from_bench_config(config)
+    wiring = _build_sim_wiring_from_entries(sc)
+    noise = noise_config_from_preset(NoisePreset(sc.noise_preset), seed=sc.noise_seed)
+    kernel_settings = KernelSettings(**sc.kernel_settings) if sc.kernel_settings else None
+    session = Session(
+        circuit=circuit,
+        bench=sim_bench,
+        wiring=wiring,
+        seed=sc.seed,
+        noise=noise,
+        kernel_settings=kernel_settings,
+    )
+
+    return config, session
+
+
+def _build_sim_bench_from_bench_config(config: BenchConfigExtended):
+    from pytestlab_sim.bench import AWG
+    from pytestlab_sim.bench import DMM
+    from pytestlab_sim.bench import PSU
+    from pytestlab_sim.bench import BenchConfig as SimBenchConfig
+    from pytestlab_sim.bench import PSUChannel
+    from pytestlab_sim.bench import Scope
+
+    instruments: dict[str, Any] = {}
+    for alias, entry in {**config.devices, **config.instruments}.items():
+        if not entry.backend or entry.backend.get("type") != "circuit_sim":
+            continue
+        device_type = _device_type_for_profile(entry.profile)
+        if device_type == "waveform_generator":
+            instruments[alias] = AWG(vpp_max=10.0)
+        elif device_type == "power_supply":
+            instruments[alias] = PSU(channels=[PSUChannel(name="CH1", v_max=60.0, i_max=5.0)])
+        elif device_type == "oscilloscope":
+            instruments[alias] = Scope(channels=4)
+        elif device_type == "multimeter":
+            instruments[alias] = DMM()
+        else:
+            raise InstrumentConfigurationError(
+                alias,
+                f"circuit_sim does not support profile '{entry.profile}' "
+                f"with device_type '{device_type}'.",
+            )
+    return SimBenchConfig(bench_id=config.bench_name, instruments=instruments)
+
+
+def _device_type_for_profile(profile: str) -> str:
+    try:
+        config_data = AutoDevice._load_config_data_from_string(profile)
+    except Exception as exc:
+        raise InstrumentConfigurationError(
+            profile,
+            f"Could not load profile for circuit_sim backend: {exc}",
+        ) from exc
+    device_type = config_data.get("device_type")
+    if not isinstance(device_type, str) or not device_type:
+        raise InstrumentConfigurationError(profile, "Profile must declare a device_type.")
+    return device_type
+
+
+def _build_sim_wiring_from_entries(sc: SimCircuitConfig):
+    from pytestlab_sim.wiring import Connection
+    from pytestlab_sim.wiring import WiringConfig
+    from pytestlab_sim.wiring import WiringRules
+
+    connections = [
+        Connection(from_=_normalize_sim_terminal(term), to=str(node))
+        for term, node in sc.wiring.items()
+    ]
+    return WiringConfig(
+        connections=connections,
+        rules=WiringRules(allow_output_sharing=True),
+    )
+
+
+def _normalize_sim_terminal(term: str) -> str:
+    return term.replace("+", ".HI").replace("-", ".LO")
 
 
 def build_validation_context(config: BenchConfigExtended) -> dict[str, Any]:

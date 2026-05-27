@@ -13,6 +13,7 @@ from .config.bench_config import DeviceEntry
 from .config.bench_config import InstrumentEntry
 from .config.bench_loader import build_validation_context
 from .config.bench_loader import load_bench_yaml
+from .config.bench_loader import load_sim_bench_yaml
 from .config.bench_loader import run_custom_validations
 from .devices import AutoDevice
 from .devices import Device
@@ -189,8 +190,9 @@ class Bench:
     - Exposing traceability and planning information from the config.
     """
 
-    def __init__(self, config: BenchConfigExtended):
+    def __init__(self, config: BenchConfigExtended, *, sim_session: Any | None = None):
         self._config = config
+        self._sim_session = sim_session
         self._device_instances: dict[str, Device] = {}
         self._instrument_instances: dict[str, Instrument[Any]] = {}
         self._device_wrappers: dict[str, Any] = {}
@@ -199,7 +201,7 @@ class Bench:
         self._db: MeasurementDatabase | None = None
 
     @classmethod
-    def open(cls, filepath: str | Path) -> "Bench":
+    def open(cls, filepath: str | Path | dict[str, Any]) -> "Bench":
         """Loads, validates, and initializes a bench from a YAML configuration file.
 
         This class method acts as the main factory for creating a `Bench` instance.
@@ -218,14 +220,23 @@ class Bench:
             InstrumentConfigurationError: If device configuration is invalid.
         """
         logger.info(f"Loading bench configuration from {filepath}")
-        config = load_bench_yaml(filepath)
+        if isinstance(filepath, str | Path):
+            config, sim_session = load_sim_bench_yaml(filepath)
+        else:
+            config = load_bench_yaml(filepath)
+            if config.sim_circuit is not None:
+                raise InstrumentConfigurationError(
+                    "sim_circuit",
+                    "Bench.open() requires a filesystem path for sim_circuit netlists.",
+                )
+            sim_session = None
 
         # Run custom validations
         logger.debug("Running custom validations on bench configuration")
         context = build_validation_context(config)
         run_custom_validations(config, context)
 
-        bench = cls(config)
+        bench = cls(config, sim_session=sim_session)
         bench._initialize_devices()
         bench._run_automation_hook("pre_experiment")
         logger.info(f"Bench '{config.bench_name}' initialized successfully")
@@ -281,6 +292,9 @@ class Bench:
         if entry.backend:
             backend_type_hint = entry.backend.get("type")
             timeout_override_ms = entry.backend.get("timeout_ms")
+        backend_spec_override = dict(entry.backend or {})
+        if backend_type_hint == "circuit_sim":
+            backend_spec_override.setdefault("instrument_id", alias)
 
         logger.debug(f"Creating device '{alias}' from profile '{entry.profile}'")
         factory = AutoInstrument if must_be_instrument else AutoDevice
@@ -291,6 +305,8 @@ class Bench:
             address_override=entry.address,
             serial_number=entry.serial_number,
             timeout_override_ms=timeout_override_ms,
+            backend_spec_override=backend_spec_override or None,
+            sim_session=self._sim_session,
             role_override=entry.role,
         )
 
