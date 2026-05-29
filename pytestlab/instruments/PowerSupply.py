@@ -4,15 +4,17 @@ from typing import Any
 from typing import Self
 
 from pydantic import validate_call  # Added validate_call
-from uncertainties import ufloat
 from uncertainties.core import UFloat
 
 from ..common.enums import SCPIOnOff  # Added SCPIOnOff
 from ..config import PowerSupplyConfig  # V2 model
+from ..config.accuracy import MeasurementQuantity
 from ..errors import InstrumentConfigurationError
 from ..errors import InstrumentParameterError
 from .instrument import Instrument
 from .scpi_engine import SCPIEngine
+from .uncertainty_adapters import nonzero_uncertainty_quantity
+from .uncertainty_adapters import psu_measurement_context
 
 
 class PSUChannelFacade:
@@ -77,11 +79,11 @@ class PSUChannelFacade:
         self._psu.output(self._channel, False)
         return self
 
-    def get_voltage(self) -> float | UFloat:
+    def get_voltage(self) -> float | UFloat | MeasurementQuantity:
         """Reads the measured voltage from this channel."""
         return self._psu.read_voltage(self._channel)
 
-    def get_current(self) -> float | UFloat:
+    def get_current(self) -> float | UFloat | MeasurementQuantity:
         """Reads the measured current from this channel."""
         return self._psu.read_current(self._channel)
 
@@ -350,7 +352,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         self._send_command(cmd)
 
     @validate_call
-    def read_voltage(self, channel: int) -> float | UFloat:
+    def read_voltage(self, channel: int) -> float | MeasurementQuantity:
         """Reads the measured output voltage from a specific channel.
 
         Args:
@@ -380,19 +382,18 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
             spec = self.config.measurement_accuracy.get(mode_key)
 
             if spec:
-                sigma = spec.calculate_std_dev(reading, range_value=None)
-                if sigma > 0:
-                    try:
-                        value_to_return = ufloat(reading, sigma)
-                    except Exception:
-                        value_to_return = reading
-                    self._logger.debug(
-                        f"Applied accuracy spec '{mode_key}', value: {value_to_return}"
-                    )
-                else:
-                    self._logger.debug(
-                        f"Accuracy spec '{mode_key}' resulted in sigma=0. Returning float."
-                    )
+                context = psu_measurement_context(
+                    self.config, channel=channel, reading=reading, unit="V", function="read_voltage"
+                )
+                quantity = nonzero_uncertainty_quantity(
+                    spec,
+                    context,
+                    logger=self._logger,
+                    label=f"accuracy spec '{mode_key}'",
+                    strict=self.config.uncertainty_strict,
+                )
+                if quantity is not None:
+                    value_to_return = quantity
             else:
                 self._logger.debug(
                     f"No accuracy spec found for read_voltage on channel {channel} with key '{mode_key}'. Returning float."
@@ -405,7 +406,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         return value_to_return
 
     @validate_call
-    def read_current(self, channel: int) -> float | UFloat:
+    def read_current(self, channel: int) -> float | MeasurementQuantity:
         """Reads the measured output current from a specific channel.
 
         Args:
@@ -435,19 +436,18 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
             spec = self.config.measurement_accuracy.get(mode_key)
 
             if spec:
-                sigma = spec.calculate_std_dev(reading, range_value=None)
-                if sigma > 0:
-                    try:
-                        value_to_return = ufloat(reading, sigma)
-                    except Exception:
-                        value_to_return = reading
-                    self._logger.debug(
-                        f"Applied accuracy spec '{mode_key}', value: {value_to_return}"
-                    )
-                else:
-                    self._logger.debug(
-                        f"Accuracy spec '{mode_key}' resulted in sigma=0. Returning float."
-                    )
+                context = psu_measurement_context(
+                    self.config, channel=channel, reading=reading, unit="A", function="read_current"
+                )
+                quantity = nonzero_uncertainty_quantity(
+                    spec,
+                    context,
+                    logger=self._logger,
+                    label=f"accuracy spec '{mode_key}'",
+                    strict=self.config.uncertainty_strict,
+                )
+                if quantity is not None:
+                    value_to_return = quantity
             else:
                 self._logger.debug(
                     f"No accuracy spec found for read_current on channel {channel} with key '{mode_key}'. Returning float."

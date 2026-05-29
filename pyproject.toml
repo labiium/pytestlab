@@ -26,6 +26,8 @@ dependencies = [
     "aiofiles",
     "typer",
     "Pillow",
+    "pint",
+    "scipy",
     "ruff>=0.12.9",
     "types-pyyaml>=6.0.12.20250809",
     "types-tqdm>=4.67.0.20250809",

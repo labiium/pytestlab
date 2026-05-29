@@ -1,0 +1,30 @@
+device_type: oscilloscope
+role: measurement
+manufacturer: Test
+model: FixtureScope
+bandwidth: 100000000.0
+sampling_rate: 1000000000.0
+memory: 1000000.0
+waveform_update_rate: 1000.0
+trigger:
+  types: [edge]
+  modes: [auto]
+  slopes: [rising]
+channels:
+  - description: CH1
+    channel_range:
+      min_val: -5.0
+      max_val: 5.0
+    input_coupling: [DC]
+    input_impedance: 1000000.0
+    probe_attenuation: [1]
+    timebase:
+      range:
+        min_val: 0.000000001
+        max_val: 1.0
+      horizontal_resolution: 0.000000001
+measurement_accuracy:
+  vpp_ch1:
+    model: expression
+    expression: 0.01*reading + 0.001*bandwidth/1e6
+    distribution: standard

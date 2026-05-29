@@ -19,14 +19,13 @@ Run with:
 
 Requires:
     pytest
-    uncertainties
     pytestlab
 """
 
 import pytest
-from uncertainties.core import UFloat
 
 from pytestlab import AutoInstrument
+from pytestlab.config.accuracy import MeasurementQuantity
 from pytestlab.config.multimeter_config import DMMFunction
 
 # ------------------- CONFIGURE THESE FOR YOUR LAB -------------------
@@ -103,7 +102,7 @@ def test_multimeter_dc_voltage_measurement():
 
         measurement = mm.measure(DMMFunction.VOLTAGE_DC)
         print(f"Measured DC Voltage: {measurement.values} {measurement.units}")
-        assert isinstance(measurement.values, UFloat)
+        assert isinstance(measurement.values, MeasurementQuantity)
         assert measurement.units == "V"
         print("DC Voltage Measurement: PASS")
     finally:
@@ -135,7 +134,7 @@ def test_multimeter_ac_voltage_measurement():
 
         measurement = mm.measure(DMMFunction.VOLTAGE_AC, range_val="1")
         print(f"Measured AC Voltage: {measurement.values} {measurement.units}")
-        assert isinstance(measurement.values, UFloat)
+        assert isinstance(measurement.values, MeasurementQuantity)
         assert measurement.units == "V"
         assert abs(measurement.values.n) <= 1.0
         print("AC Voltage Measurement: PASS")
@@ -168,7 +167,7 @@ def test_multimeter_resistance_measurement():
 
         measurement = mm.measure(DMMFunction.FRESISTANCE)
         print(f"Measured Resistance: {measurement.values} {measurement.units}")
-        assert isinstance(measurement.values, UFloat)
+        assert isinstance(measurement.values, MeasurementQuantity)
         assert measurement.units == "Ω"
         print("Resistance Measurement: PASS")
     finally:
@@ -265,8 +264,8 @@ def test_multimeter_full_workflow():
         # Verify all measurements
         for name, measurement in measurements:
             print(f"{name}: {measurement.values} {measurement.units}")
-            # Handle both UFloat and float (for overload/open circuit conditions)
-            assert isinstance(measurement.values, UFloat | float)
+            # Handle both MeasurementQuantity and float (for overload/open circuit conditions)
+            assert isinstance(measurement.values, MeasurementQuantity | float)
             assert measurement.units in ["V", "Ω", "A"]
 
         # Check no errors accumulated

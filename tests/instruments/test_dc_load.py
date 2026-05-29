@@ -24,14 +24,13 @@ Run with:
 Requires:
     pytest
     numpy
-    uncertainties
     pytestlab
 """
 
 import pytest
-from uncertainties import UFloat
 
 from pytestlab import AutoInstrument
+from pytestlab.config.accuracy import MeasurementQuantity
 from pytestlab.errors import InstrumentParameterError
 from pytestlab.instruments import DCActiveLoad
 
@@ -106,17 +105,17 @@ def test_dc_load_full_real():
 
     current_meas = dcl.measure_current()
     print(f"Measured Current: {current_meas.values}")
-    assert isinstance(current_meas.values, UFloat)
+    assert isinstance(current_meas.values, MeasurementQuantity)
     assert current_meas.units == "A"
 
     voltage_meas = dcl.measure_voltage()
     print(f"Measured Voltage: {voltage_meas.values}")
-    assert isinstance(voltage_meas.values, UFloat)
+    assert isinstance(voltage_meas.values, MeasurementQuantity)
     assert voltage_meas.units == "V"
 
     power_meas = dcl.measure_power()
     print(f"Measured Power: {power_meas.values}")
-    assert isinstance(power_meas.values, UFloat)
+    assert isinstance(power_meas.values, MeasurementQuantity)
     assert power_meas.units == "W"
 
     dcl.enable_input(False)

@@ -64,6 +64,7 @@ device_app = typer.Typer(name="device", help="Interact with lab devices.")
 instrument_app = typer.Typer(name="instrument", help="Interact with instruments.")
 bench_app = typer.Typer(name="bench", help="Manage bench configurations.")
 sim_profile_app = typer.Typer(name="sim-profile", help="Manage simulation profiles.")
+visa_app = typer.Typer(name="visa", help="Discover VISA resources.")
 
 # Create a new Typer app for replay commands
 replay_app = typer.Typer(name="replay", help="Record and replay complex measurement sessions.")
@@ -74,6 +75,7 @@ app.add_typer(device_app)
 app.add_typer(instrument_app)
 app.add_typer(bench_app)
 app.add_typer(sim_profile_app)
+app.add_typer(visa_app)
 
 
 # --- Simulation Profile Helpers ---
@@ -89,6 +91,91 @@ def get_user_recorded_profile_path(profile_key: str) -> Path:
     home_dir = Path.home()
     key_path = Path(profile_key.replace("/", os.sep) + ".yaml")
     return home_dir / ".config" / "pytestlab" / "recorded_sim_profiles" / key_path
+
+
+# --- VISA Discovery Commands ---
+def _create_visa_resource_manager() -> Any:
+    try:
+        import pyvisa
+    except ImportError as exc:
+        raise RuntimeError(
+            "PyVISA is not installed. Install it with 'pip install pyvisa', then install "
+            "a VISA library such as NI-VISA or Keysight IO Libraries."
+        ) from exc
+
+    try:
+        return pyvisa.ResourceManager()
+    except Exception as exc:
+        raise RuntimeError(
+            "Could not initialize a VISA resource manager. Check that a VISA library is "
+            "installed, then run 'python -m pyvisa info' for details."
+        ) from exc
+
+
+@visa_app.command("list")
+def visa_list(
+    idn: Annotated[
+        bool,
+        typer.Option("--idn", help="Query *IDN? for each discovered message-based resource."),
+    ] = False,
+    timeout_ms: Annotated[
+        int,
+        typer.Option(help="Timeout in milliseconds for optional --idn probes."),
+    ] = 2000,
+):
+    """List VISA resource strings visible to PyVISA."""
+    if timeout_ms <= 0:
+        rich.print("[bold red]Error:[/] --timeout-ms must be positive.")
+        raise typer.Exit(code=1)
+
+    try:
+        rm = _create_visa_resource_manager()
+        resources = tuple(rm.list_resources())
+    except RuntimeError as exc:
+        rich.print(f"[bold red]Error:[/] {rich_escape(str(exc))}")
+        raise typer.Exit(code=1) from None
+    except Exception as exc:
+        rich.print(f"[bold red]Error listing VISA resources:[/] {rich_escape(str(exc))}")
+        raise typer.Exit(code=1) from None
+
+    if not resources:
+        rich.print(
+            "No VISA resources found. Check instrument power, cabling/network, USB/GPIB/LAN "
+            "drivers, and run 'python -m pyvisa info'."
+        )
+        return
+
+    table = Table(title="VISA Resources")
+    table.add_column("Resource", style="cyan", overflow="fold")
+    if idn:
+        table.add_column("*IDN? Response", style="green", overflow="fold")
+
+    for resource_name in resources:
+        if not idn:
+            table.add_row(str(resource_name))
+            continue
+
+        idn_response = ""
+        resource = None
+        try:
+            resource = rm.open_resource(resource_name)
+            if hasattr(resource, "timeout"):
+                resource.timeout = timeout_ms
+            if not hasattr(resource, "query"):
+                idn_response = "[yellow]Not query-capable[/yellow]"
+            else:
+                idn_response = str(resource.query("*IDN?")).strip()
+        except Exception as exc:
+            idn_response = f"[red]Error: {rich_escape(str(exc))}[/red]"
+        finally:
+            if resource is not None and hasattr(resource, "close"):
+                try:
+                    resource.close()
+                except Exception:
+                    pass
+        table.add_row(str(resource_name), idn_response)
+
+    rich.print(table)
 
 
 # --- Simulation Profile Commands ---
@@ -206,9 +293,7 @@ def sim_profile_record(
     script: Annotated[
         Path | None, typer.Option(help="Path to a Python script to run against the device.")
     ] = None,
-    simulate: Annotated[
-        bool, typer.Option(help="Use a simulated device for recording.")
-    ] = False,
+    simulate: Annotated[bool, typer.Option(help="Use a simulated device for recording.")] = False,
 ):
     """Records device interactions to create a simulation profile."""
     from pytestlab.config.loader import load_device_profile
@@ -603,7 +688,9 @@ def _device_idn_impl(profile_key_or_path: str, address: str | None, simulate: bo
         )
         raise typer.Exit(code=1) from None
     except Exception as e:
-        rich.print(f"[bold red]An error occurred during the device IDN query: {rich_escape(str(e))}[/]")
+        rich.print(
+            f"[bold red]An error occurred during the device IDN query: {rich_escape(str(e))}[/]"
+        )
         raise typer.Exit(code=1) from None
     finally:
         if device:
@@ -866,9 +953,7 @@ def bench_id_cli(
     bench = None
     try:
         bench = Bench.open(bench_yaml_path)
-        rich.print(
-            f"Querying *IDN? for devices in bench: [bold]{bench._config.bench_name}[/bold]"
-        )
+        rich.print(f"Querying *IDN? for devices in bench: [bold]{bench._config.bench_name}[/bold]")
 
         table = Table(title="Device IDN Responses")
         table.add_column("Alias", style="cyan")

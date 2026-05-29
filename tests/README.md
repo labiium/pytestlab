@@ -77,6 +77,17 @@ pytest tests/ -m "not requires_real_hw"
 # Only hardware validation (when instruments are wired up)
 pytest tests/ -m requires_real_hw
 
+# Uncertainty feature gate: focused tests plus per-file coverage targets
+coverage erase
+coverage run -m pytest \
+  tests/test_uncertainty.py \
+  tests/test_uncertainty_hardening.py \
+  tests/test_uncertainty_profile_fixtures.py \
+  tests/unit/test_multimeter_uncertainty.py
+coverage report --include='pytestlab/config/accuracy.py' --fail-under=85
+coverage report --include='pytestlab/instruments/uncertainty_adapters.py' --fail-under=90
+coverage report --include='pytestlab/experiments/uncertainty_serialization.py' --fail-under=90
+
 # Specific areas
 pytest tests/instruments/                 # all instrument suites
 pytest tests/experiments/test_database.py # single file

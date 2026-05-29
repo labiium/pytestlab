@@ -1,0 +1,13 @@
+device_type: multimeter
+role: measurement
+manufacturer: Test
+model: FixtureDMM
+measurement_functions:
+  dc_voltage:
+    ranges:
+      - nominal_V: 10.0
+        resolution: 0.001
+        accuracy:
+          model: expression
+          expression: 0.01*reading + 0.001*range
+          distribution: standard

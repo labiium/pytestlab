@@ -12,8 +12,6 @@ import numpy as np
 import polars as pl
 from PIL import Image
 from pydantic import validate_call
-from uncertainties import ufloat
-from uncertainties.core import UFloat
 
 from ..analysis import fft as analysis_fft
 from ..common.enums import AcquisitionType
@@ -22,6 +20,7 @@ from ..common.enums import TriggerSlope
 from ..common.enums import WaveformType
 from ..common.health import HealthReport
 from ..common.health import HealthStatus
+from ..config.accuracy import MeasurementQuantity
 from ..config.instrument_config import InstrumentConfig  # Import base config
 
 # from ..config import OscilloscopeConfig, ConfigRequires # OscilloscopeConfig is V2
@@ -31,6 +30,8 @@ from ..errors import InstrumentDataError
 from ..errors import InstrumentParameterError
 from ..experiments import MeasurementResult
 from .instrument import Instrument
+from .uncertainty_adapters import nonzero_uncertainty_quantity
+from .uncertainty_adapters import oscilloscope_measurement_context
 
 if TYPE_CHECKING:  # for type checkers only; avoids runtime import cycles
     from ..plotting.simple import PlotSpec
@@ -992,7 +993,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         q = self.scpi_engine.build("measure_vpp", channel=channel)[0]
         reading = float(self.scpi_engine.parse("measure_vpp", self._query(q)))
 
-        value_to_return: float | UFloat = reading
+        value_to_return: float | MeasurementQuantity = reading
 
         if self.config.measurement_accuracy:
             mode_key = f"vpp_ch{channel}"
@@ -1001,16 +1002,18 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             )
             spec = self.config.measurement_accuracy.get(mode_key)
             if spec:
-                sigma = spec.calculate_std_dev(reading, range_value=None)
-                if sigma > 0:
-                    value_to_return = ufloat(reading, sigma)
-                    self._logger.debug(
-                        f"Applied accuracy spec '{mode_key}', value: {value_to_return}"
-                    )
-                else:
-                    self._logger.debug(
-                        f"Accuracy spec '{mode_key}' resulted in sigma=0. Returning float."
-                    )
+                context = oscilloscope_measurement_context(
+                    self.config, channel=channel, reading=reading, unit="V", function="measure_vpp"
+                )
+                quantity = nonzero_uncertainty_quantity(
+                    spec,
+                    context,
+                    logger=self._logger,
+                    label=f"accuracy spec '{mode_key}'",
+                    strict=self.config.uncertainty_strict,
+                )
+                if quantity is not None:
+                    value_to_return = quantity
             else:
                 self._logger.debug(
                     f"No accuracy spec found for Vpp on channel {channel} with key '{mode_key}'. Returning float."
@@ -1050,7 +1053,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         q = self.scpi_engine.build("measure_vrms", channel=channel)[0]
         reading = float(self.scpi_engine.parse("measure_vrms", self._query(q)))
 
-        value_to_return: float | UFloat = reading
+        value_to_return: float | MeasurementQuantity = reading
 
         if self.config.measurement_accuracy:
             mode_key = f"vrms_ch{channel}"
@@ -1059,16 +1062,18 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             )
             spec = self.config.measurement_accuracy.get(mode_key)
             if spec:
-                sigma = spec.calculate_std_dev(reading, range_value=None)
-                if sigma > 0:
-                    value_to_return = ufloat(reading, sigma)
-                    self._logger.debug(
-                        f"Applied accuracy spec '{mode_key}', value: {value_to_return}"
-                    )
-                else:
-                    self._logger.debug(
-                        f"Accuracy spec '{mode_key}' resulted in sigma=0. Returning float."
-                    )
+                context = oscilloscope_measurement_context(
+                    self.config, channel=channel, reading=reading, unit="V", function="measure_vrms"
+                )
+                quantity = nonzero_uncertainty_quantity(
+                    spec,
+                    context,
+                    logger=self._logger,
+                    label=f"accuracy spec '{mode_key}'",
+                    strict=self.config.uncertainty_strict,
+                )
+                if quantity is not None:
+                    value_to_return = quantity
             else:
                 self._logger.debug(
                     f"No accuracy spec found for Vrms on channel {channel} with key '{mode_key}'. Returning float."

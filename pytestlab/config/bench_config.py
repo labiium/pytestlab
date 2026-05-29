@@ -85,7 +85,9 @@ class MeasurementPlanEntry(BaseModel):
 
     @model_validator(mode="after")
     def check_target(self) -> MeasurementPlanEntry:
-        targets = [value for value in (self.resource, self.device, self.instrument) if value is not None]
+        targets = [
+            value for value in (self.resource, self.device, self.instrument) if value is not None
+        ]
         if len(targets) != 1:
             raise ValueError(
                 "Measurement plan entries must define exactly one of 'resource', 'device', or 'instrument'."
@@ -99,6 +101,15 @@ class MeasurementPlanEntry(BaseModel):
         return self.resource or ""
 
 
+class SimCircuitConfig(BaseModel):
+    netlist: str
+    wiring: dict[str, str] = Field(default_factory=dict)
+    seed: int = 1337
+    noise_preset: str = "none"
+    noise_seed: int | None = None
+    kernel_settings: dict[str, Any] | None = None
+
+
 class BenchConfigExtended(BaseModel):
     model_config = ConfigDict(extra="forbid")
     bench_name: str = Field(validation_alias=AliasChoices("name", "bench_name"))
@@ -109,6 +120,7 @@ class BenchConfigExtended(BaseModel):
     automation: AutomationHooks | None = None
     traceability: Traceability | None = None
     measurement_plan: list[MeasurementPlanEntry] | None = None
+    sim_circuit: SimCircuitConfig | None = None
     version: str | None = None
     last_modified: str | None = None
     changelog: str | None = None
@@ -126,5 +138,7 @@ class BenchConfigExtended(BaseModel):
         duplicate_aliases = set(self.devices) & set(self.instruments)
         if duplicate_aliases:
             duplicates = ", ".join(sorted(duplicate_aliases))
-            raise ValueError(f"Aliases cannot be defined in both devices and instruments: {duplicates}")
+            raise ValueError(
+                f"Aliases cannot be defined in both devices and instruments: {duplicates}"
+            )
         return self

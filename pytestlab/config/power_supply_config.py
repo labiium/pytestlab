@@ -10,7 +10,8 @@ from __future__ import annotations
 from pydantic import BaseModel
 from pydantic import Field
 
-from .accuracy import AccuracySpec
+from .accuracy import AccuracyModel
+from .accuracy import AccuracySpec as AccuracySpec
 from .instrument_config import InstrumentConfig
 
 # RangeSpec will be defined in this file
@@ -31,7 +32,9 @@ class RangeSpec(BaseModel):
 
     resolution: float | None = Field(None, description="Resolution for this range")
 
-    accuracy: AccuracySpec | None = Field(None, description="Accuracy specification for this range")
+    accuracy: AccuracyModel | None = Field(
+        None, description="Accuracy specification for this range"
+    )
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -112,11 +115,11 @@ class MeasurementSpec(BaseModel):
 
     model_config = {"arbitrary_types_allowed": True}
 
-    voltage_accuracy: AccuracySpec | None = Field(None, description="Voltage measurement accuracy")
+    voltage_accuracy: AccuracyModel | None = Field(None, description="Voltage measurement accuracy")
 
-    current_accuracy: AccuracySpec | None = Field(None, description="Current measurement accuracy")
+    current_accuracy: AccuracyModel | None = Field(None, description="Current measurement accuracy")
 
-    power_accuracy: AccuracySpec | None = Field(None, description="Power measurement accuracy")
+    power_accuracy: AccuracyModel | None = Field(None, description="Power measurement accuracy")
 
     # SCPI command requirements for measurement functionality
     required_scpi_commands: list[str] = Field(

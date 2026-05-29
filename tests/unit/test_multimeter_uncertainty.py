@@ -2,6 +2,10 @@
 
 from unittest.mock import Mock
 
+import pytest
+
+from pytestlab.config.accuracy import MeasurementQuantity
+from pytestlab.config.device_config import DeviceRole
 from pytestlab.config.multimeter_config import AccuracySpec
 from pytestlab.config.multimeter_config import FunctionSpec
 from pytestlab.config.multimeter_config import MeasurementFunctionsSpec
@@ -34,17 +38,17 @@ def test_multimeter_uncertainty_calculation():
         manufacturer="Test",
         model="TestDMM",
         device_type="multimeter",
-        role="measurement",
+        role=DeviceRole.MEASUREMENT,
         measurement_functions=MeasurementFunctionsSpec(
             dc_voltage=FunctionSpec(
                 ranges=[
                     RangeSpec(
                         nominal_V=1.0,
-                        accuracy=AccuracySpec(percent_reading=0.1, percent_range=0.05),
+                        accuracy=AccuracySpec(reading_percent=0.1, range_percent=0.05),
                     ),
                     RangeSpec(
                         nominal_V=10.0,
-                        accuracy=AccuracySpec(percent_reading=0.2, percent_range=0.1),
+                        accuracy=AccuracySpec(reading_percent=0.2, range_percent=0.1),
                     ),
                 ]
             )
@@ -55,7 +59,7 @@ def test_multimeter_uncertainty_calculation():
     multimeter = Multimeter(config=config, backend=mock_backend)
 
     # Mock the get_config method to return a known range
-    multimeter.get_config = Mock(return_value=Mock(range_value=1.0))
+    object.__setattr__(multimeter, "get_config", Mock(return_value=Mock(range_value=1.0)))
 
     # Mock the SCPI engine to avoid actual SCPI communication
     mock_scpi_engine = Mock()
@@ -94,20 +98,20 @@ def test_multimeter_range_field_detection():
         manufacturer="Test",
         model="TestDMM",
         device_type="multimeter",
-        role="measurement",
+        role=DeviceRole.MEASUREMENT,
         measurement_functions=MeasurementFunctionsSpec(
             dc_voltage=FunctionSpec(
                 ranges=[
                     RangeSpec(
                         nominal_V=1.0,
-                        accuracy=AccuracySpec(percent_reading=0.1, percent_range=0.05),
+                        accuracy=AccuracySpec(reading_percent=0.1, range_percent=0.05),
                     )
                 ]
             ),
             dc_current=FunctionSpec(
                 ranges=[
                     RangeSpec(
-                        nominal_A=0.1, accuracy=AccuracySpec(percent_reading=0.2, percent_range=0.1)
+                        nominal_A=0.1, accuracy=AccuracySpec(reading_percent=0.2, range_percent=0.1)
                     )
                 ]
             ),
@@ -115,7 +119,7 @@ def test_multimeter_range_field_detection():
                 ranges=[
                     RangeSpec(
                         nominal_ohm=1000.0,
-                        accuracy=AccuracySpec(percent_reading=0.3, percent_range=0.15),
+                        accuracy=AccuracySpec(reading_percent=0.3, range_percent=0.15),
                     )
                 ]
             ),
@@ -123,7 +127,7 @@ def test_multimeter_range_field_detection():
     )
 
     multimeter = Multimeter(config=config, backend=mock_backend)
-    multimeter.get_config = Mock(return_value=Mock(range_value=1.0))
+    object.__setattr__(multimeter, "get_config", Mock(return_value=Mock(range_value=1.0)))
 
     # Mock the SCPI engine to avoid actual SCPI communication
     mock_scpi_engine = Mock()
@@ -141,6 +145,51 @@ def test_multimeter_range_field_detection():
     # Test resistance measurement (should use nominal_ohm)
     resistance_measurement = multimeter.measure(DMMFunction.FRESISTANCE)
     assert resistance_measurement.units == "Ω"
+
+
+def test_multimeter_accepts_profile_loaded_advanced_uncertainty_model():
+    mock_backend = Mock()
+    mock_backend.write = Mock()
+
+    def mock_query(query, delay=None):
+        if "SYSTem:ERRor" in query:
+            return '0,"No error"'
+        if "READ" in query or "MEASURE" in query:
+            return "0.5"
+        return "OK"
+
+    mock_backend.query = Mock(side_effect=mock_query)
+
+    config = MultimeterConfig(
+        manufacturer="Test",
+        model="TestDMM",
+        device_type="multimeter",
+        role=DeviceRole.MEASUREMENT,
+        measurement_functions=MeasurementFunctionsSpec(
+            dc_voltage=FunctionSpec(
+                ranges=[
+                    RangeSpec(
+                        nominal_V=1.0,
+                        accuracy={
+                            "model": "expression",
+                            "expression": "0.01*reading + 0.001*range",
+                            "distribution": "standard",
+                        },
+                    )
+                ]
+            )
+        ),
+    )
+
+    multimeter = Multimeter(config=config, backend=mock_backend)
+    object.__setattr__(multimeter, "get_config", Mock(return_value=Mock(range_value=1.0)))
+    multimeter.scpi_engine = Mock(build=Mock(return_value=["READ?"]))
+
+    measurement = multimeter.measure(DMMFunction.VOLTAGE_DC)
+
+    assert isinstance(measurement.values, MeasurementQuantity)
+    assert measurement.values.u == pytest.approx(0.006)
+    assert measurement.values.budget.method == "expression"
 
 
 def test_multimeter_no_uncertainty_when_no_spec():
@@ -165,7 +214,7 @@ def test_multimeter_no_uncertainty_when_no_spec():
         manufacturer="Test",
         model="TestDMM",
         device_type="multimeter",
-        role="measurement",
+        role=DeviceRole.MEASUREMENT,
         measurement_functions=MeasurementFunctionsSpec(
             dc_voltage=FunctionSpec(
                 ranges=[
@@ -179,7 +228,7 @@ def test_multimeter_no_uncertainty_when_no_spec():
     )
 
     multimeter = Multimeter(config=config, backend=mock_backend)
-    multimeter.get_config = Mock(return_value=Mock(range_value=1.0))
+    object.__setattr__(multimeter, "get_config", Mock(return_value=Mock(range_value=1.0)))
 
     # Mock the SCPI engine to avoid actual SCPI communication
     mock_scpi_engine = Mock()
@@ -192,3 +241,72 @@ def test_multimeter_no_uncertainty_when_no_spec():
     # Should return a regular float, not UFloat
     assert isinstance(measurement.values, float)
     assert measurement.units == "V"
+
+
+def test_multimeter_strict_uncertainty_raises_model_errors():
+    mock_backend = Mock()
+    mock_backend.write = Mock()
+    mock_backend.query = Mock(
+        side_effect=lambda query, delay=None: '0,"No error"' if "SYSTem:ERRor" in query else "0.5"
+    )
+
+    config = MultimeterConfig(
+        manufacturer="Test",
+        model="StrictDMM",
+        device_type="multimeter",
+        role=DeviceRole.MEASUREMENT,
+        uncertainty_strict=True,
+        measurement_functions=MeasurementFunctionsSpec(
+            dc_voltage=FunctionSpec(
+                ranges=[
+                    RangeSpec(
+                        nominal_V=1.0,
+                        accuracy={
+                            "model": "expression",
+                            "expression": "0.01*bandwidth",
+                            "distribution": "standard",
+                        },
+                    )
+                ]
+            )
+        ),
+    )
+
+    multimeter = Multimeter(config=config, backend=mock_backend)
+    object.__setattr__(multimeter, "get_config", Mock(return_value=Mock(range_value=1.0)))
+    multimeter.scpi_engine = Mock(build=Mock(return_value=["READ?"]))
+
+    with pytest.raises(ValueError, match="'bandwidth' is required"):
+        multimeter.measure(DMMFunction.VOLTAGE_DC)
+
+
+def test_multimeter_strict_uncertainty_raises_missing_range_context():
+    mock_backend = Mock()
+    mock_backend.write = Mock()
+    mock_backend.query = Mock(
+        side_effect=lambda query, delay=None: '0,"No error"' if "SYSTem:ERRor" in query else "0.5"
+    )
+
+    config = MultimeterConfig(
+        manufacturer="Test",
+        model="StrictDMM",
+        device_type="multimeter",
+        role=DeviceRole.MEASUREMENT,
+        uncertainty_strict=True,
+        measurement_functions=MeasurementFunctionsSpec(
+            dc_voltage=FunctionSpec(
+                ranges=[
+                    RangeSpec(
+                        accuracy=AccuracySpec(range_percent=1.0),
+                    )
+                ]
+            )
+        ),
+    )
+
+    multimeter = Multimeter(config=config, backend=mock_backend)
+    object.__setattr__(multimeter, "get_config", Mock(return_value=Mock(range_value=1.0)))
+    multimeter.scpi_engine = Mock(build=Mock(return_value=["READ?"]))
+
+    with pytest.raises(ValueError, match="Could not find a matching range specification"):
+        multimeter.measure(DMMFunction.VOLTAGE_DC)

@@ -10,7 +10,8 @@ from __future__ import annotations
 from pydantic import BaseModel
 from pydantic import Field
 
-from .accuracy import AccuracySpec
+from .accuracy import AccuracyModel
+from .accuracy import AccuracySpec as AccuracySpec
 from .instrument_config import InstrumentConfig
 
 # RangeSpec is defined in this file
@@ -31,7 +32,9 @@ class RangeSpec(BaseModel):
 
     resolution: float | None = Field(None, description="Resolution for this range")
 
-    accuracy: AccuracySpec | None = Field(None, description="Accuracy specification for this range")
+    accuracy: AccuracyModel | None = Field(
+        None, description="Accuracy specification for this range"
+    )
     max_current_A: float | None = Field(None, description="Maximum current for this range (A)")
     max_voltage_V: float | None = Field(None, description="Maximum voltage for this range (V)")
     readback_accuracy: ReadbackAccuracySpec | None = Field(
@@ -69,11 +72,11 @@ class ReadbackAccuracySpec(BaseModel):
 
     model_config = {"arbitrary_types_allowed": True}
 
-    voltage_accuracy: AccuracySpec | None = Field(None, description="Voltage readback accuracy")
+    voltage_accuracy: AccuracyModel | None = Field(None, description="Voltage readback accuracy")
 
-    current_accuracy: AccuracySpec | None = Field(None, description="Current readback accuracy")
+    current_accuracy: AccuracyModel | None = Field(None, description="Current readback accuracy")
 
-    power_accuracy: AccuracySpec | None = Field(None, description="Power readback accuracy")
+    power_accuracy: AccuracyModel | None = Field(None, description="Power readback accuracy")
 
 
 class ModeSpec(BaseModel):

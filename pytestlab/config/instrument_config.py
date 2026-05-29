@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
 
-from .accuracy import AccuracySpec
+from .accuracy import AccuracyModel
 from .device_config import DeviceConfig
 
 
@@ -99,8 +99,15 @@ class InstrumentConfig(DeviceConfig):
     address: str | None = Field(
         None, description="Instrument connection address (e.g., VISA resource string)"
     )  # Example common field
-    measurement_accuracy: dict[str, AccuracySpec] | None = Field(
+    measurement_accuracy: dict[str, AccuracyModel] | None = Field(
         default_factory=dict, description="Measurement accuracy specifications"
+    )
+    uncertainty_strict: bool = Field(
+        False,
+        description=(
+            "Raise uncertainty model evaluation errors from drivers instead of logging and "
+            "returning the nominal float for backward compatibility."
+        ),
     )
     # further complex yaml
     # ------------------------- NEW  (SCPI) ------------------------------ #

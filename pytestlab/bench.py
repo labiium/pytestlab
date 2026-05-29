@@ -295,6 +295,9 @@ class Bench:
         backend_spec_override = dict(entry.backend or {})
         if backend_type_hint == "circuit_sim":
             backend_spec_override.setdefault("instrument_id", alias)
+        elif simulate_flag:
+            backend_type_hint = "sim"
+            backend_spec_override = {"type": "sim"}
 
         logger.debug(f"Creating device '{alias}' from profile '{entry.profile}'")
         factory = AutoInstrument if must_be_instrument else AutoDevice

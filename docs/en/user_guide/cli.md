@@ -138,6 +138,39 @@ Options:
 - `--address`: VISA address to override the profile.
 - `--simulate`: Use simulation backend instead of real hardware.
 
+---
+
+## VISA Discovery (`pytestlab visa`)
+
+Find VISA resource strings before adding instruments to a script or `bench.yaml`.
+
+### `list`
+List resources visible to PyVISA.
+
+```bash
+pytestlab visa list
+```
+
+Probe each discovered resource with `*IDN?` to identify which instrument is which:
+
+```bash
+pytestlab visa list --idn
+```
+
+Copy the resource string into `bench.yaml`:
+
+```yaml
+simulate: false
+instruments:
+  scope:
+    profile: "keysight/MXR404A"
+    address: "TCPIP0::192.168.0.42::inst0::INSTR"
+```
+
+Options:
+- `--idn`: Query `*IDN?` for each discovered resource.
+- `--timeout-ms`: Timeout for `--idn` probes.
+
 ### `test`
 Run selected real‑hardware tests against a profile (skips gracefully if hardware is absent). This command overrides test module constants to target your selected profile.
 

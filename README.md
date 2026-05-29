@@ -42,6 +42,7 @@
 * **Record & Replay** – record real instrument sessions and replay them exactly for reproducible measurements, offline analysis, and regression testing with strict sequence validation.
 * **Bench descriptors** – group multiple instruments in one `bench.yaml`, define safety limits, automation hooks, traceability and measurement plans.
 * **High-level measurement builder** – notebook-friendly `MeasurementSession` for parameter sweeps that stores data as Polars DataFrames and exports straight to the experiment database.
+* **Scientific uncertainty propagation** – profile-defined accuracy budgets return `MeasurementQuantity` values with units, standard/expanded uncertainty, component provenance, arithmetic propagation, and database round-trips. See [`docs/en/user_guide/uncertainty.md`](docs/en/user_guide/uncertainty.md).
 * **Rich database** – compressed storage of experiments & measurements with full-text search (`MeasurementDatabase`).
 * **Powerful CLI** – `pytestlab …` commands to list/validate profiles, query instruments, convert benches to simulation, replay sessions, etc.
 * **Extensible back-ends** – VISA, Lamb server, pure simulation; drop-in new transports via the `InstrumentIO` protocol.

@@ -12,7 +12,8 @@ from enum import Enum
 from pydantic import BaseModel
 from pydantic import Field
 
-from .accuracy import AccuracySpec
+from .accuracy import AccuracyModel
+from .accuracy import AccuracySpec as AccuracySpec
 from .instrument_config import InstrumentConfig
 
 # RangeSpec will be defined in this file
@@ -39,14 +40,16 @@ class RangeSpec(BaseModel):
 
     resolution: float | None = Field(None, description="Resolution for this range")
 
-    accuracy: AccuracySpec | None = Field(None, description="Accuracy specification for this range")
-    typical_accuracy: AccuracySpec | None = Field(
+    accuracy: AccuracyModel | None = Field(
+        None, description="Accuracy specification for this range"
+    )
+    typical_accuracy: AccuracyModel | None = Field(
         None, description="Typical accuracy when provided instead of 'accuracy'"
     )
-    accuracy_45Hz_10kHz: AccuracySpec | None = Field(
+    accuracy_45Hz_10kHz: AccuracyModel | None = Field(
         None, description="AC accuracy specification for 45 Hz to 10 kHz"
     )
-    accuracy_45Hz_1kHz: AccuracySpec | None = Field(
+    accuracy_45Hz_1kHz: AccuracyModel | None = Field(
         None, description="AC accuracy specification for 45 Hz to 1 kHz"
     )
 

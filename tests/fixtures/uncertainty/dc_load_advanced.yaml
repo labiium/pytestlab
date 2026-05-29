@@ -1,0 +1,16 @@
+device_type: dc_active_load
+role: measurement
+manufacturer: Test
+model: FixtureLoad
+operating_modes:
+  constant_voltage_CV:
+    ranges:
+      - min: 0.0
+        max: 10.0
+        max_voltage_V: 10.0
+        readback_accuracy:
+          voltage_accuracy:
+            model: linear
+            range_percent: 1.0
+            distribution: standard
+            source: fixture-datasheet

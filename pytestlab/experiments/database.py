@@ -11,6 +11,7 @@ from __future__ import annotations
 import contextlib
 import datetime as dt
 import hashlib
+import json
 import lzma
 import pickle
 import sqlite3
@@ -24,6 +25,8 @@ import polars as pl
 
 from .experiments import Experiment
 from .results import MeasurementResult
+from .uncertainty_serialization import deserialize_uncertain_value
+from .uncertainty_serialization import serialize_uncertain_value
 
 
 # --- DUMMY DatabaseBackup for mkdocstrings compatibility ---
@@ -345,6 +348,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
                     WHERE codename = new.codename;
                 END;
             """)
+            self._migrate_measurements_table(conn)
 
             # Indices for performance
             conn.execute("CREATE INDEX IF NOT EXISTS idx_exp_created ON experiments(created_at);")
@@ -354,6 +358,14 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_meas_type ON measurements(measurement_type);"
             )
+
+    @staticmethod
+    def _migrate_measurements_table(conn: sqlite3.Connection) -> None:
+        """Add columns required by newer measurement serializers to existing DBs."""
+
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(measurements)")}
+        if "metadata" not in columns:
+            conn.execute("ALTER TABLE measurements ADD COLUMN metadata TEXT")
 
     # Instrument management
     def _get_or_create_instrument_id(self, conn: sqlite3.Connection, instrument_name: str) -> int:
@@ -567,21 +579,24 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
             # Get instrument ID
             instrument_id = self._get_or_create_instrument_id(conn, measurement.instrument)
 
+            value_data, metadata = serialize_uncertain_value(measurement.values)
+
             # Store measurement
             conn.execute(
                 """
                 INSERT OR REPLACE INTO measurements
-                (codename, instrument_id, timestamp, value_data, units, measurement_type, notes)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                (codename, instrument_id, timestamp, value_data, units, measurement_type, notes, metadata)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     codename,
                     instrument_id,
                     dt.datetime.fromtimestamp(measurement.timestamp),
-                    measurement.values,
+                    value_data,
                     measurement.units,
                     measurement.measurement_type,
                     notes,
+                    json.dumps(metadata) if metadata else None,
                 ),
             )
 
@@ -603,7 +618,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
         conn = self._get_connection()
         cursor = conn.execute(
             """
-            SELECT i.name, m.timestamp, m.value_data, m.units, m.measurement_type
+            SELECT i.name, m.timestamp, m.value_data, m.units, m.measurement_type, m.metadata
             FROM measurements m
             JOIN instruments i ON m.instrument_id = i.instrument_id
             WHERE m.codename = ?
@@ -615,7 +630,13 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
         if not row:
             raise ValueError(f"Measurement '{codename}' not found")
 
-        instrument, timestamp, value_data, units, measurement_type = row
+        instrument, timestamp, value_data, units, measurement_type, metadata_raw = row
+        if metadata_raw:
+            try:
+                metadata = json.loads(metadata_raw)
+            except json.JSONDecodeError:
+                metadata = {}
+            value_data = deserialize_uncertain_value(value_data, metadata)
 
         return MeasurementResult(
             values=value_data,

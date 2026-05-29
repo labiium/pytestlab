@@ -10,11 +10,11 @@ from typing import Any
 from typing import Literal
 
 import numpy as np
-from uncertainties import ufloat
 from uncertainties.core import UFloat
 
 from ..common.health import HealthReport
 from ..common.health import HealthStatus
+from ..config.accuracy import MeasurementQuantity
 from ..config.dc_active_load_config import DCActiveLoadConfig
 from ..config.dc_active_load_config import ModeSpec
 from ..config.dc_active_load_config import ReadbackAccuracySpec
@@ -24,6 +24,10 @@ from ..errors import InstrumentParameterError
 from ..experiments import MeasurementResult
 from .instrument import Instrument
 from .instrument import InstrumentIO
+from .uncertainty_adapters import dc_load_measurement_context
+from .uncertainty_adapters import dc_load_range_value
+from .uncertainty_adapters import dc_load_readback_accuracy
+from .uncertainty_adapters import nonzero_uncertainty_quantity
 
 
 class DCActiveLoad(Instrument):
@@ -231,7 +235,9 @@ class DCActiveLoad(Instrument):
             f"Range for mode {self.current_mode} on channel {channel} set for value {value}."
         )
 
-    def _get_readback_spec(self, mode: str, unit: str) -> ReadbackAccuracySpec | None:
+    def _get_readback_spec(
+        self, mode: str, unit: str
+    ) -> tuple[ReadbackAccuracySpec, float | None] | None:
         """Helper to find the correct readback accuracy spec from the config."""
         mode_map_to_config: dict[str, ModeSpec | None] = {
             "CC": self.config.operating_modes.constant_current_CC,
@@ -269,7 +275,8 @@ class DCActiveLoad(Instrument):
                     best_match_spec = r_spec
 
         if best_match_spec and best_match_spec.readback_accuracy:
-            return best_match_spec.readback_accuracy
+            range_value = dc_load_range_value(best_match_spec, unit)
+            return best_match_spec.readback_accuracy, range_value
         return None
 
     def _measure_with_uncertainty(
@@ -287,28 +294,33 @@ class DCActiveLoad(Instrument):
         q = self.scpi_engine.build("measure", quantity=measurement_type, channel=channel)[0]
         reading = float(self.scpi_engine.parse("measure", self._query(q)))
 
-        value_to_return: float | UFloat = reading
+        value_to_return: float | MeasurementQuantity = reading
 
         # Find and apply accuracy spec if mode is set
         if self.current_mode:
-            readback_spec = self._get_readback_spec(self.current_mode, unit)
-            if readback_spec:
-                # Get the appropriate accuracy spec based on measurement type
-                if measurement_type == "current" and readback_spec.current_accuracy:
-                    accuracy_spec = readback_spec.current_accuracy
-                elif measurement_type == "voltage" and readback_spec.voltage_accuracy:
-                    accuracy_spec = readback_spec.voltage_accuracy
-                elif measurement_type == "power" and readback_spec.power_accuracy:
-                    accuracy_spec = readback_spec.power_accuracy
-                else:
-                    accuracy_spec = None
+            readback_match = self._get_readback_spec(self.current_mode, unit)
+            if readback_match:
+                readback_spec, range_value = readback_match
+                accuracy_spec = dc_load_readback_accuracy(readback_spec, measurement_type)
 
-                if accuracy_spec and hasattr(accuracy_spec, "calculate_std_dev"):
-                    std_dev = accuracy_spec.calculate_std_dev(
-                        reading, reading
-                    )  # Use reading as range for now
-                    if std_dev > 0:
-                        value_to_return = ufloat(reading, std_dev)
+                if accuracy_spec:
+                    context = dc_load_measurement_context(
+                        reading=reading,
+                        unit=unit,
+                        function=measurement_type,
+                        range_value=range_value,
+                        channel=channel,
+                    )
+                    quantity = nonzero_uncertainty_quantity(
+                        accuracy_spec,
+                        context,
+                        logger=self._logger,
+                        label=f"accuracy spec for {measurement_type}",
+                        warning_level="info",
+                        strict=self.config.uncertainty_strict,
+                    )
+                    if quantity is not None:
+                        value_to_return = quantity
                         self._logger.info(f"Measured {measurement_type}: {value_to_return} {unit}")
                 else:
                     self._logger.info(
@@ -331,7 +343,7 @@ class DCActiveLoad(Instrument):
                     value_to_return = float(value_to_return.nominal_value)
         except ImportError:
             pass
-        if not isinstance(value_to_return, float | UFloat):
+        if not isinstance(value_to_return, float | UFloat | MeasurementQuantity):
             value_to_return = float(value_to_return)
 
         return MeasurementResult(

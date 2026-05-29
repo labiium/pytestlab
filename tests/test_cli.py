@@ -98,3 +98,60 @@ def test_list_command():
     result = runner.invoke(app, ["list", "invalid"])
     assert result.exit_code == 1
     assert "Unknown resource type" in result.stdout
+
+
+def test_visa_list_command(monkeypatch):
+    """Test VISA resource discovery without requiring local hardware."""
+
+    class FakeResourceManager:
+        def list_resources(self):
+            return (
+                "USB0::0x0957::0x1798::MY12345678::0::INSTR",
+                "TCPIP0::192.168.0.42::inst0::INSTR",
+            )
+
+    monkeypatch.setattr(
+        "pytestlab.cli._create_visa_resource_manager", lambda: FakeResourceManager()
+    )
+
+    result = runner.invoke(app, ["visa", "list"])
+
+    assert result.exit_code == 0
+    assert "VISA Resources" in result.stdout
+    assert "USB0::0x0957::0x1798::MY12345678::0::INSTR" in result.stdout
+    assert "TCPIP0::192.168.0.42::inst0::INSTR" in result.stdout
+
+
+def test_visa_list_idn_command(monkeypatch):
+    """Test optional *IDN? probing for discovered VISA resources."""
+
+    class FakeResource:
+        timeout = 0
+
+        def __init__(self, name):
+            self.name = name
+
+        def query(self, command):
+            assert command == "*IDN?"
+            return f"KEYSIGHT,{self.name},MY12345678,1.0\n"
+
+        def close(self):
+            pass
+
+    class FakeResourceManager:
+        def list_resources(self):
+            return ("TCPIP0::192.168.0.42::inst0::INSTR",)
+
+        def open_resource(self, name):
+            return FakeResource(name)
+
+    monkeypatch.setattr(
+        "pytestlab.cli._create_visa_resource_manager", lambda: FakeResourceManager()
+    )
+
+    result = runner.invoke(app, ["visa", "list", "--idn", "--timeout-ms", "1234"])
+
+    assert result.exit_code == 0
+    assert "TCPIP0::192.168.0.42::inst0::INSTR" in result.stdout
+    assert "KEYSIGHT" in result.stdout
+    assert "MY12345678,1.0" in result.stdout

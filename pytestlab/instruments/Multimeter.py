@@ -4,11 +4,11 @@
 from dataclasses import dataclass
 from typing import Literal
 
-from uncertainties import ufloat
-from uncertainties.core import UFloat  # For type hinting float | UFloat
-
+from pytestlab.config.accuracy import MeasurementQuantity
 from pytestlab.config.instrument_config import InstrumentConfig
 from pytestlab.config.multimeter_config import MultimeterConfig
+from pytestlab.instruments.uncertainty_adapters import dmm_measurement_context
+from pytestlab.instruments.uncertainty_adapters import nonzero_uncertainty_quantity
 
 from .._log import get_logger
 from ..config.multimeter_config import DMMFunction
@@ -386,7 +386,7 @@ class Multimeter(Instrument[MultimeterConfig]):
                 self.config.model, f"Could not parse measurement reading: '{response_str}'"
             ) from e
 
-        value_to_return: float | UFloat = reading
+        value_to_return: float | MeasurementQuantity = reading
 
         # --- Uncertainty Calculation ---
         function_spec = self._get_function_spec(function)
@@ -493,42 +493,31 @@ class Multimeter(Instrument[MultimeterConfig]):
                 if matching_range_spec:
                     accuracy_spec = matching_range_spec.accuracy
                     if accuracy_spec:
-                        # Use the appropriate range field for the '% of range' calculation
-                        range_for_calc = None
-                        # Use the same field detection logic as above
-                        if function == DMMFunction.VOLTAGE_DC or function == DMMFunction.VOLTAGE_AC:
-                            range_for_calc = getattr(matching_range_spec, "nominal_V", None)
-                        elif (
-                            function == DMMFunction.CURRENT_DC or function == DMMFunction.CURRENT_AC
-                        ):
-                            range_for_calc = getattr(matching_range_spec, "nominal_A", None)
-                        elif (
-                            function == DMMFunction.RESISTANCE
-                            or function == DMMFunction.FRESISTANCE
-                        ):
-                            range_for_calc = getattr(matching_range_spec, "nominal_ohm", None)
-                        elif function == DMMFunction.CAPACITANCE:
-                            range_for_calc = getattr(matching_range_spec, "nominal_F", None)
-
-                        # Fallback to generic fields if specific ones aren't found
-                        if range_for_calc is None:
-                            if hasattr(matching_range_spec, "max"):
-                                range_for_calc = matching_range_spec.max
-                            elif hasattr(matching_range_spec, "max_val"):
-                                range_for_calc = matching_range_spec.max_val
-
-                        if range_for_calc is not None:
-                            std_dev = accuracy_spec.calculate_std_dev(reading, range_for_calc)
-                            if std_dev > 0:
-                                value_to_return = ufloat(reading, std_dev)
-                                self._logger.debug(
-                                    f"Applied accuracy spec for range {range_for_calc}, value: {value_to_return}"
-                                )
-                            else:
-                                self._logger.debug(
-                                    "Calculated uncertainty is zero. Returning float."
-                                )
+                        units_val, measurement_name_val = self._get_measurement_unit_and_type(
+                            function
+                        )
+                        context = dmm_measurement_context(
+                            reading=reading,
+                            unit=units_val,
+                            function=function,
+                            range_spec=matching_range_spec,
+                            measurement_type=measurement_name_val,
+                        )
+                        if context is not None:
+                            quantity = nonzero_uncertainty_quantity(
+                                accuracy_spec,
+                                context,
+                                logger=self._logger,
+                                label=f"accuracy spec for range {context.range_value}",
+                                strict=self.config.uncertainty_strict,
+                            )
+                            if quantity is not None:
+                                value_to_return = quantity
                         else:
+                            if self.config.uncertainty_strict:
+                                raise ValueError(
+                                    "Could not determine range value for uncertainty calculation."
+                                )
                             self._logger.warning(
                                 "Could not determine range value for uncertainty calculation. Returning float."
                             )
@@ -537,11 +526,18 @@ class Multimeter(Instrument[MultimeterConfig]):
                             f"No applicable accuracy specification found for function '{function}' at range {actual_instrument_range}. Returning float."
                         )
                 else:
+                    if self.config.uncertainty_strict:
+                        raise ValueError(
+                            f"Could not find a matching range specification for function '{function}' "
+                            f"at range {actual_instrument_range}."
+                        )
                     self._logger.warning(
                         f"Could not find a matching range specification for function '{function}' at range {actual_instrument_range}. Returning float."
                     )
 
             except Exception as e:
+                if self.config.uncertainty_strict:
+                    raise
                 self._logger.error(f"Error during uncertainty calculation: {e}. Returning float.")
         else:
             self._logger.debug(
