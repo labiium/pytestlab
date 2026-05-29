@@ -324,6 +324,91 @@ print(restored_quantity.budget.components)
 Legacy `uncertainties.ufloat` values also round-trip, but new uncertainty-aware
 drivers use `MeasurementQuantity` so provenance stays attached.
 
+### Accessory Chains
+
+Instrument profiles describe only the instrument. PyTestLab never assumes a
+probe, cable, lead, shunt, or current probe is attached just because an
+instrument profile supports one. Accessories must be declared in `bench.yaml` or
+constructed explicitly in code.
+
+Accessory corrections reuse the same uncertainty model types as instrument
+profiles. A 10:1 probe ratio is a dimensionless `MeasurementQuantity`; applying
+it is ordinary multiplication, so the existing arithmetic propagation preserves
+the instrument budget and adds the accessory components.
+
+```yaml
+accessories:
+  probe_ch1:
+    profile: keysight/N2142A
+    serial_number: MY1234
+    notes: Calibrated 10:1 passive probe used on VIN
+
+measurement_plan:
+  - name: input_ripple_vpp
+    description: Input rail ripple at DUT VIN
+    instrument: scope
+    target:
+      kind: oscilloscope_channel
+      channel: 1
+      measurement: vpp
+    accessories: [probe_ch1]
+```
+
+```python
+with pytestlab.Bench.open("bench.yaml") as bench:
+    print(bench.measurement("input_ripple_vpp").describe())
+    ripple = bench.measure("input_ripple_vpp")
+    print(ripple.envelope["measurement_chain"])
+```
+
+`describe()` is intended to be physically auditable. It reports the path from the
+DUT through the declared accessories into the instrument channel, the driver call
+that will be made, the correction operations, and the accessory provenance from
+`bench.yaml` such as alias, source preset/file, serial number, parameters, and
+notes. A static description cannot know whether the future driver call will
+return a complete instrument uncertainty budget. That status is recorded on the
+measured result envelope after `measure()` or `MeasurementChain.apply()`.
+
+Validate and inspect declared measurements before touching hardware:
+
+```bash
+pytestlab bench validate bench.yaml
+pytestlab bench measurements bench.yaml
+pytestlab bench measurement bench.yaml input_ripple_vpp
+```
+
+Executable `measurement_plan` entries use YAML `target:` for the measurement
+function/channel to call. Existing descriptive entries remain valid, and their
+free-form `settings:` are not interpreted as executable driver arguments. For
+executable entries, PyTestLab rejects unknown settings keys so typos such as
+`resoluton` do not silently change the experiment.
+
+For ad hoc analysis, chains can also be applied directly:
+
+```python
+from pytestlab.accessories import AccessoryProfile, MeasurementChain
+
+probe = AccessoryProfile.from_config("keysight/N2142A")
+raw = scope.measure_voltage_peak_to_peak(1)
+corrected = MeasurementChain([probe]).apply(raw)
+```
+
+Use `AccessoryProfile.from_config()` for packaged PyTestLab presets and
+`AccessoryProfile.from_file()` for local lab profiles. Local bench files should
+use `file: lab/probes/my_probe.yaml`; packaged presets use `profile:
+keysight/N2142A`. Accessory profiles used by executable `measurement_plan`
+entries must declare `compatibility.target_kinds` or explicitly set
+`compatibility.unrestricted_target_kinds: true`; otherwise `bench validate` and
+`Bench.open()` reject the chain before hardware initialization. DMM accessories
+can further narrow compatibility with `compatibility.multimeter_functions`, for
+example a lead-resistance correction should apply only to resistance functions.
+
+If an instrument driver returns a plain float because its profile has no
+uncertainty budget or `uncertainty_strict` is disabled, accessory application is
+still allowed. The resulting envelope states that the instrument contributed no
+uncertainty budget, so the budget is not mistaken for complete instrument-plus
+accessory uncertainty.
+
 ### Strict-Mode Profile Qualification
 
 Use `uncertainty_strict: true` when validating a profile. In strict mode,

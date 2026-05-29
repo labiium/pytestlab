@@ -1,0 +1,25 @@
+accessory_type: dmm_test_leads
+manufacturer: generic
+model: dmm_test_leads
+description: "Generic DMM lead template. Does not assume lead/contact resistance without user calibration."
+review_status: template
+required_parameters: [lead_resistance_ohm]
+compatibility:
+  target_kinds: [multimeter_function]
+  multimeter_functions: [resistance, resistance_4wire]
+sources:
+  - title: "User-supplied lead resistance calibration required"
+    notes: "Use a local profile or parameters from a measured short compensation procedure."
+corrections:
+  - name: series_lead_resistance
+    operation: add
+    nominal: 0.0
+    unit: "ohm"
+    coverage_factor_note: "Template has zero correction until replaced by local calibration."
+    uncertainty:
+      model: linear
+      offset: 0.0
+      offset_unit: "ohm"
+      distribution: standard
+      coverage_factor: 1.0
+      source: "user-calibration-required"

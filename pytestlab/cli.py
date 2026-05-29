@@ -898,6 +898,7 @@ def bench_validate_cli(
     """Validates a bench configuration file (dry-run)."""
     from pytestlab.config.bench_config import BenchConfigExtended
     from pytestlab.config.loader import load_device_profile
+    from pytestlab.measurement_plan import validate_declared_measurements
 
     try:
         with open(bench_yaml_path) as f:
@@ -925,9 +926,18 @@ def bench_validate_cli(
                     f"  [bold red]✖ Error:[/bold red] Failed to load profile '[magenta]{entry.profile}[/magenta]' for alias '[cyan]{alias}[/cyan]': {e_profile}"
                 )
 
+        semantic_errors = validate_declared_measurements(config, base_path=bench_yaml_path.parent)
+        if semantic_errors:
+            all_profiles_valid = False
+            rich.print("[bold red]Measurement plan validation failed:[/bold red]")
+            for error in semantic_errors:
+                rich.print(f"  [bold red]✖[/bold red] {error}")
+
         if not all_profiles_valid:
             raise typer.Exit(code=1)
 
+    except typer.Exit:
+        raise
     except FileNotFoundError:
         rich.print(
             f"[bold red]Error: Bench configuration file not found at '{bench_yaml_path}'.[/bold red]"
@@ -940,6 +950,79 @@ def bench_validate_cli(
         rich.print(
             f"[bold red]An unexpected error occurred during bench validation: {e}[/bold red]"
         )
+        raise typer.Exit(code=1) from None
+
+
+@bench_app.command("measurements")
+def bench_measurements_cli(
+    bench_yaml_path: Annotated[Path, typer.Argument(help="Path to the bench.yaml file.")],
+):
+    """Lists executable measurements declared in measurement_plan."""
+    from pytestlab.config.bench_config import BenchConfigExtended
+    from pytestlab.measurement_plan import prepare_declared_measurements
+
+    try:
+        with open(bench_yaml_path) as f:
+            data = yaml.safe_load(f)
+        config = BenchConfigExtended.model_validate(data)
+        prepared = prepare_declared_measurements(config, base_path=bench_yaml_path.parent)
+        if prepared.errors:
+            rich.print("[bold red]Measurement plan validation failed:[/bold red]")
+            for error in prepared.errors:
+                rich.print(f"  [bold red]✖[/bold red] {error}")
+            raise typer.Exit(code=1)
+        table = Table(title=f"Measurements: {config.bench_name}")
+        table.add_column("Name")
+        table.add_column("Resource")
+        table.add_column("Target")
+        table.add_column("Accessories")
+        for entry in config.measurement_plan or []:
+            if entry.execution_target is None:
+                continue
+            table.add_row(
+                entry.name,
+                entry.target_alias,
+                entry.execution_target.model_dump_json(),
+                ", ".join(entry.accessories) or "-",
+            )
+        rich.print(table)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        rich.print(f"[bold red]Error listing measurements: {e}[/bold red]")
+        raise typer.Exit(code=1) from None
+
+
+@bench_app.command("measurement")
+def bench_measurement_cli(
+    bench_yaml_path: Annotated[Path, typer.Argument(help="Path to the bench.yaml file.")],
+    name: Annotated[str, typer.Argument(help="Measurement name from measurement_plan.")],
+):
+    """Describes one declared measurement without touching hardware."""
+    from pytestlab.config.bench_config import BenchConfigExtended
+    from pytestlab.measurement_plan import describe_declared_measurement
+    from pytestlab.measurement_plan import prepare_declared_measurements
+
+    try:
+        with open(bench_yaml_path) as f:
+            data = yaml.safe_load(f)
+        config = BenchConfigExtended.model_validate(data)
+        entries = {entry.name: entry for entry in config.measurement_plan or []}
+        if name not in entries:
+            rich.print(f"[bold red]Measurement '{name}' not found.[/bold red]")
+            raise typer.Exit(code=1)
+        entry = entries[name]
+        prepared = prepare_declared_measurements(config, base_path=bench_yaml_path.parent)
+        if prepared.errors:
+            rich.print("[bold red]Measurement plan validation failed:[/bold red]")
+            for error in prepared.errors:
+                rich.print(f"  [bold red]✖[/bold red] {error}")
+            raise typer.Exit(code=1)
+        rich.print(describe_declared_measurement(entry, prepared.bound_accessories))
+    except typer.Exit:
+        raise
+    except Exception as e:
+        rich.print(f"[bold red]Error describing measurement: {e}[/bold red]")
         raise typer.Exit(code=1) from None
 
 

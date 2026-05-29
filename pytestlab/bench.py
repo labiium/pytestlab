@@ -6,11 +6,14 @@ import warnings
 from pathlib import Path
 from typing import Any
 
+from .accessories import BoundAccessory
+from .accessories import MeasurementChain
 from .common.health import HealthReport
 from .common.health import HealthStatus
 from .config.bench_config import BenchConfigExtended
 from .config.bench_config import DeviceEntry
 from .config.bench_config import InstrumentEntry
+from .config.bench_config import MeasurementPlanEntry
 from .config.bench_loader import build_validation_context
 from .config.bench_loader import load_bench_yaml
 from .config.bench_loader import load_sim_bench_yaml
@@ -22,6 +25,12 @@ from .experiments import Experiment
 from .experiments.database import MeasurementDatabase
 from .instruments import AutoInstrument
 from .instruments import Instrument
+from .measurement_plan import PreparedMeasurementPlan
+from .measurement_plan import describe_declared_measurement
+from .measurement_plan import execute_declared_measurement
+from .measurement_plan import measurement_chain_for
+from .measurement_plan import prepare_declared_measurements
+from .measurement_plan import raise_for_declared_measurement_errors
 
 # Configure logging
 logger = logging.getLogger("pytestlab.bench")
@@ -190,13 +199,22 @@ class Bench:
     - Exposing traceability and planning information from the config.
     """
 
-    def __init__(self, config: BenchConfigExtended, *, sim_session: Any | None = None):
+    def __init__(
+        self,
+        config: BenchConfigExtended,
+        *,
+        sim_session: Any | None = None,
+        prepared_measurements: PreparedMeasurementPlan | None = None,
+    ):
         self._config = config
         self._sim_session = sim_session
         self._device_instances: dict[str, Device] = {}
         self._instrument_instances: dict[str, Instrument[Any]] = {}
         self._device_wrappers: dict[str, Any] = {}
         self._channel_config: dict[str, list[int]] = {}
+        prepared_measurements = prepared_measurements or prepare_declared_measurements(config)
+        raise_for_declared_measurement_errors(prepared_measurements.errors)
+        self._accessories: dict[str, BoundAccessory] = prepared_measurements.bound_accessories
         self._experiment: Experiment | None = None
         self._db: MeasurementDatabase | None = None
 
@@ -231,12 +249,20 @@ class Bench:
                 )
             sim_session = None
 
+        base_path = Path(filepath).parent if isinstance(filepath, str | Path) else None
+
         # Run custom validations
         logger.debug("Running custom validations on bench configuration")
         context = build_validation_context(config)
         run_custom_validations(config, context)
+        prepared_measurements = prepare_declared_measurements(config, base_path=base_path)
+        raise_for_declared_measurement_errors(prepared_measurements.errors)
 
-        bench = cls(config, sim_session=sim_session)
+        bench = cls(
+            config,
+            sim_session=sim_session,
+            prepared_measurements=prepared_measurements,
+        )
         bench._initialize_devices()
         bench._run_automation_hook("pre_experiment")
         logger.info(f"Bench '{config.bench_name}' initialized successfully")
@@ -339,6 +365,11 @@ class Bench:
             if isinstance(device, Instrument):
                 self._instrument_instances[alias] = device
             setattr(self, alias, device)
+
+    def _load_accessories(self, base_path: Path | None = None) -> None:
+        prepared = prepare_declared_measurements(self._config, base_path=base_path)
+        raise_for_declared_measurement_errors(prepared.errors)
+        self._accessories = prepared.bound_accessories
 
     def _resolved_device_role(self, device: Device, alias: str) -> str:
         role = getattr(getattr(device, "config", None), "role", None)
@@ -676,6 +707,25 @@ class Bench:
             logger.warning("No database is configured. Experiment will not be saved.")
         return None
 
+    def measurement(self, name: str) -> "DeclaredMeasurement":
+        for entry in self._config.measurement_plan or []:
+            if entry.name == name:
+                if entry.execution_target is None:
+                    raise ValueError(f"Measurement plan entry '{name}' is descriptive, not executable.")
+                return DeclaredMeasurement(self, entry)
+        raise KeyError(f"No measurement_plan entry named '{name}'.")
+
+    def measure(self, name: str):
+        """Execute a declared, accessory-aware measurement from measurement_plan."""
+
+        return self.measurement(name).measure()
+
+    def _measurement_chain_for(self, entry: MeasurementPlanEntry):
+        return measurement_chain_for(entry, self._accessories)
+
+    def _execute_declared_measurement(self, entry: MeasurementPlanEntry):
+        return execute_declared_measurement(self, entry, self._accessories)
+
     # --- Accessors for traceability, measurement plan, etc. ---
     @property
     def traceability(self):
@@ -715,3 +765,24 @@ class Bench:
             for alias, entry in (self._config.devices | self._config.instruments).items()
             if entry.safety_limits is not None
         }
+
+
+class DeclaredMeasurement:
+    """Executable measurement_plan entry bound to a Bench."""
+
+    def __init__(self, bench: Bench, entry: MeasurementPlanEntry):
+        self._bench = bench
+        self._entry = entry
+
+    @property
+    def chain(self) -> MeasurementChain:
+        return self._bench._measurement_chain_for(self._entry)
+
+    def measure(self):
+        return self._bench._execute_declared_measurement(self._entry)
+
+    def apply(self, result: Any):
+        return self.chain.apply(result)
+
+    def describe(self) -> str:
+        return describe_declared_measurement(self._entry, self._bench._accessories)

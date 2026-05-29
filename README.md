@@ -40,9 +40,9 @@
   Browse ready-made Keysight profiles in `pytestlab/profiles/keysight`.
 * **Simulation mode** – develop anywhere using the built-in `SimBackend` (no hardware required, deterministic outputs for CI).
 * **Record & Replay** – record real instrument sessions and replay them exactly for reproducible measurements, offline analysis, and regression testing with strict sequence validation.
-* **Bench descriptors** – group multiple instruments in one `bench.yaml`, define safety limits, automation hooks, traceability and measurement plans.
+* **Bench descriptors** – group multiple instruments in one `bench.yaml`, define safety limits, automation hooks, traceability, accessory profiles, and measurement plans.
 * **High-level measurement builder** – notebook-friendly `MeasurementSession` for parameter sweeps that stores data as Polars DataFrames and exports straight to the experiment database.
-* **Scientific uncertainty propagation** – profile-defined accuracy budgets return `MeasurementQuantity` values with units, standard/expanded uncertainty, component provenance, arithmetic propagation, and database round-trips. See [`docs/en/user_guide/uncertainty.md`](docs/en/user_guide/uncertainty.md).
+* **Scientific uncertainty propagation** – profile-defined accuracy budgets return `MeasurementQuantity` values with units, standard/expanded uncertainty, component provenance, arithmetic propagation, explicit accessory chains for probes/leads/cables, and database round-trips. See [`docs/en/user_guide/uncertainty.md`](docs/en/user_guide/uncertainty.md).
 * **Rich database** – compressed storage of experiments & measurements with full-text search (`MeasurementDatabase`).
 * **Powerful CLI** – `pytestlab …` commands to list/validate profiles, query instruments, convert benches to simulation, replay sessions, etc.
 * **Extensible back-ends** – VISA, Lamb server, pure simulation; drop-in new transports via the `InstrumentIO` protocol.
@@ -109,6 +109,42 @@ def run():
         print("Measured:", v.values, v.units)
 
 run()
+```
+
+Bench files can also declare accessory-aware measurements. PyTestLab does not
+assume probes, leads, cables, or shunts from an instrument profile; the physical
+chain must be explicit and can be validated from the CLI before hardware is
+opened.
+
+```yaml
+instruments:
+  scope:
+    profile: keysight/DSOX1204G
+
+accessories:
+  vin_probe:
+    profile: keysight/N2142A
+    serial_number: MY1234
+
+measurement_plan:
+  - name: input_ripple_vpp
+    instrument: scope
+    target:
+      kind: oscilloscope_channel
+      channel: 1
+      measurement: vpp
+    accessories: [vin_probe]
+```
+
+```python
+with pytestlab.Bench.open("bench.yaml") as bench:
+    print(bench.measurement("input_ripple_vpp").describe())
+    ripple = bench.measure("input_ripple_vpp")
+```
+
+```bash
+pytestlab bench validate bench.yaml
+pytestlab bench measurement bench.yaml input_ripple_vpp
 ```
 
 ### 4. Record & Replay Sessions

@@ -580,6 +580,10 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
             instrument_id = self._get_or_create_instrument_id(conn, measurement.instrument)
 
             value_data, metadata = serialize_uncertain_value(measurement.values)
+            envelope = getattr(measurement, "envelope", None)
+            if envelope:
+                metadata = dict(metadata)
+                metadata["measurement_envelope"] = envelope
 
             # Store measurement
             conn.execute(
@@ -631,11 +635,13 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
             raise ValueError(f"Measurement '{codename}' not found")
 
         instrument, timestamp, value_data, units, measurement_type, metadata_raw = row
+        envelope = {}
         if metadata_raw:
             try:
                 metadata = json.loads(metadata_raw)
             except json.JSONDecodeError:
                 metadata = {}
+            envelope = metadata.pop("measurement_envelope", {}) or {}
             value_data = deserialize_uncertain_value(value_data, metadata)
 
         return MeasurementResult(
@@ -644,6 +650,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
             units=units,
             measurement_type=measurement_type,
             timestamp=timestamp.timestamp() if hasattr(timestamp, "timestamp") else time.time(),
+            envelope=envelope,
         )
 
     def list_measurements(

@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+from typing import Annotated
 from typing import Any
+from typing import Literal
 
 from pydantic import AliasChoices
 from pydantic import BaseModel
 from pydantic import ConfigDict
+from pydantic import Discriminator
 from pydantic import Field
 from pydantic import RootModel
+from pydantic import Tag
 from pydantic import model_validator
 
 from .device_config import DeviceRole
@@ -73,7 +77,80 @@ class Traceability(BaseModel):
     dut: TraceabilityDUT | None = None
 
 
+class AccessoryEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    profile: str | None = None
+    file: str | None = None
+    serial_number: str | None = None
+    parameters: dict[str, float | str | bool] | None = None
+    notes: str | None = None
+
+    @model_validator(mode="after")
+    def check_source(self) -> AccessoryEntry:
+        if (self.profile is None) == (self.file is None):
+            raise ValueError("Accessory entries must define exactly one of 'profile' or 'file'.")
+        return self
+
+
+class OscilloscopeChannelTarget(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["oscilloscope_channel"]
+    channel: int = Field(..., ge=1)
+    measurement: Literal["vpp", "rms_voltage"]
+
+
+class MultimeterFunctionTarget(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["multimeter_function"]
+    function: Literal[
+        "voltage_dc",
+        "voltage_ac",
+        "current_dc",
+        "current_ac",
+        "resistance",
+        "resistance_4wire",
+        "capacitance",
+        "frequency",
+        "temperature",
+    ]
+
+
+class PowerSupplyReadbackTarget(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["power_supply_readback"]
+    channel: int = Field(..., ge=1)
+    quantity: Literal["voltage", "current"]
+
+
+class DCLoadReadbackTarget(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["dc_load_readback"]
+    quantity: Literal["voltage", "current", "power"]
+
+
+def _measurement_target_discriminator(value: Any) -> str | None:
+    if isinstance(value, dict):
+        return value.get("kind")
+    return getattr(value, "kind", None)
+
+
+MeasurementTarget = Annotated[
+    Annotated[OscilloscopeChannelTarget, Tag("oscilloscope_channel")]
+    | Annotated[MultimeterFunctionTarget, Tag("multimeter_function")]
+    | Annotated[PowerSupplyReadbackTarget, Tag("power_supply_readback")]
+    | Annotated[DCLoadReadbackTarget, Tag("dc_load_readback")],
+    Discriminator(_measurement_target_discriminator),
+]
+
+
 class MeasurementPlanEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str
     resource: str | None = None
     device: str | None = None
@@ -82,6 +159,13 @@ class MeasurementPlanEntry(BaseModel):
     probe_location: str | None = None
     settings: dict[str, Any] | None = None
     notes: str | None = None
+    description: str | None = None
+    execution_target: MeasurementTarget | None = Field(
+        default=None,
+        validation_alias=AliasChoices("target", "execution_target"),
+        serialization_alias="target",
+    )
+    accessories: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def check_target(self) -> MeasurementPlanEntry:
@@ -94,11 +178,43 @@ class MeasurementPlanEntry(BaseModel):
             )
         if self.resource is None:
             self.resource = self.device if self.device is not None else self.instrument
+        if self.execution_target is None and self.accessories:
+            raise ValueError("measurement_plan accessories require an executable target block.")
+        if self.execution_target is not None and (
+            self.channel is not None or self.probe_location is not None
+        ):
+            raise ValueError(
+                "Executable measurement_plan entries must put channel information in "
+                "target.channel and accessories in accessories; legacy channel/probe_location "
+                "fields cannot coexist with target."
+            )
+        self._validate_executable_settings()
         return self
 
     @property
     def target(self) -> str:
         return self.resource or ""
+
+    @property
+    def target_alias(self) -> str:
+        return self.resource or ""
+
+    def _validate_executable_settings(self) -> None:
+        if self.execution_target is None:
+            return
+        settings = set((self.settings or {}).keys())
+        if isinstance(self.execution_target, MultimeterFunctionTarget):
+            allowed = {"range", "resolution"}
+        else:
+            allowed = set()
+        unknown = settings - allowed
+        if unknown:
+            names = ", ".join(sorted(unknown))
+            target_kind = self.execution_target.kind
+            raise ValueError(
+                f"Unsupported settings for executable measurement target "
+                f"{target_kind}: {names}"
+            )
 
 
 class SimCircuitConfig(BaseModel):
@@ -116,6 +232,7 @@ class BenchConfigExtended(BaseModel):
     experiment: ExperimentSection | None = None
     devices: dict[str, DeviceEntry] = Field(default_factory=dict)
     instruments: dict[str, InstrumentEntry] = Field(default_factory=dict)
+    accessories: dict[str, AccessoryEntry] = Field(default_factory=dict)
     custom_validations: list[str] | None = None
     automation: AutomationHooks | None = None
     traceability: Traceability | None = None
