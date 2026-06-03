@@ -33,8 +33,10 @@
 
 ## ✨ Key Features
 
-* **Unified driver layer** – consistent high-level API across oscilloscopes, PSUs, DMMs, VNAs, AWGs, spectrum & power meters, DC loads, …
-  (see `pytestlab.instruments.*`).
+* **Unified device layer** – `Device` is the root abstraction for every automatable
+  lab resource; `Instrument` is the measurement/stimulus subtype used by
+  oscilloscopes, PSUs, DMMs, VNAs, AWGs, spectrum & power meters, DC loads, …
+  (see `pytestlab.devices.*` and `pytestlab.instruments.*`).
 * **Chainable facade API** – fluent method chaining for readable instrument control: `psu.channel(1).set(5.0, 0.1).on()`.
 * **Plug-and-play profiles** – YAML descriptors validated by Pydantic & JSON-schema.
   Browse ready-made Keysight profiles in `pytestlab/profiles/keysight`.
@@ -45,7 +47,10 @@
 * **Scientific uncertainty propagation** – profile-defined accuracy budgets return `MeasurementQuantity` values with units, standard/expanded uncertainty, component provenance, arithmetic propagation, explicit accessory chains for probes/leads/cables, and database round-trips. See [`docs/en/user_guide/uncertainty.md`](docs/en/user_guide/uncertainty.md).
 * **Rich database** – compressed storage of experiments & measurements with full-text search (`MeasurementDatabase`).
 * **Powerful CLI** – `pytestlab …` commands to list/validate profiles, query instruments, convert benches to simulation, replay sessions, etc.
-* **Extensible back-ends** – VISA, Lamb server, pure simulation; drop-in new transports via the `InstrumentIO` protocol.
+* **Extensible back-ends** – VISA, Lamb server, pure simulation, and custom
+  drivers/backends via `AutoDevice`; non-SCPI resources such as cameras,
+  gantries, fixtures, and switch matrices are devices first, not forced into
+  SCPI instrument semantics.
 * **Docs & examples** – Jupyter tutorials, MkDocs site, and 40+ ready-to-run scripts in `examples/`.
 
 ---
@@ -67,7 +72,7 @@ pip install pytestlab[full]     # + plotting, uncertainties, etc.
 from pytestlab import AutoInstrument
 
 def main():
-    scope = AutoInstrument.from_config("keysight/DSOX1204G", simulate=True)
+    scope = AutoInstrument.from_preset("keysight/DSOX1204G", simulate=True)
     scope.connect_backend()
 
     # simple façade usage with method chaining
@@ -83,6 +88,37 @@ main()
 ```
 
 ### 3. Build a Bench
+
+### Device vs Instrument hierarchy
+
+Use `AutoInstrument` when a profile must resolve to a measurement/stimulus
+instrument driver. Use `AutoDevice` for any automatable lab resource, including
+non-SCPI fixtures, cameras, gantries/positioners, switch matrices, safety
+controllers, and custom hardware.
+
+```python
+from pytestlab import AutoDevice, AutoInstrument
+
+# Packaged pytestlab preset.
+scope = AutoInstrument.from_preset("keysight/DSOX1204G", simulate=True)
+
+# Local lab-owned YAML. This is intentionally not a preset lookup.
+camera = AutoDevice.from_file("./devices/inspection_camera.yaml")
+
+# In-memory or generated config.
+fixture = AutoDevice.from_dict({
+    "device_type": "fixture_controller",
+    "role": "fixture",
+    "manufacturer": "Acme",
+    "model": "RelayBox",
+    "driver": "my_lab.drivers:RelayBox",
+    "backend": {"import_path": "my_lab.backends:relay_backend"},
+})
+```
+
+`from_config("...")` remains as a compatibility dispatcher for existing code, but
+new code should choose `from_preset()` for packaged profiles or `from_file()` for
+local YAML/JSON so reviews can tell exactly where a device definition came from.
 
 ```yaml
 # bench.yaml  (excerpt)
@@ -126,9 +162,19 @@ accessories:
     profile: keysight/N2142A
     serial_number: MY1234
 
+routes:
+  scope_ch1_to_dut_input:
+    description: "Scope CH1 is physically connected to DUT VIN."
+    connects:
+      - from: scope.CH1
+        to: dut.input
+        path: [front-panel-bnc, test-point-vin]
+    accessories: [vin_probe]
+
 measurement_plan:
   - name: input_ripple_vpp
     instrument: scope
+    route: scope_ch1_to_dut_input
     target:
       kind: oscilloscope_channel
       channel: 1
@@ -139,11 +185,22 @@ measurement_plan:
 ```python
 with pytestlab.Bench.open("bench.yaml") as bench:
     print(bench.measurement("input_ripple_vpp").describe())
+    print(bench.route("scope_ch1_to_dut_input").describe())
+    # PyTestLab does not silently switch hardware while measuring.
+    # If this route declares an active switch device, apply it explicitly:
+    # bench.route("scope_ch1_to_dut_input").apply()
     ripple = bench.measure("input_ripple_vpp")
 ```
 
+For v1 executable measurements, a route's `accessories:` list must match the
+measurement's `accessories:` list in order. This prevents route provenance from
+claiming one physical probe/cable chain while the applied uncertainty
+corrections use another.
+
 ```bash
 pytestlab bench validate bench.yaml
+pytestlab bench routes bench.yaml
+pytestlab bench route bench.yaml scope_ch1_to_dut_input
 pytestlab bench measurement bench.yaml input_ripple_vpp
 ```
 

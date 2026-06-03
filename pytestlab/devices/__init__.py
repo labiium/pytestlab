@@ -12,6 +12,7 @@ from .registry import get_device_registry
 from .registry import register_backend
 from .registry import register_config_model
 from .registry import register_device_type
+from .switch_matrix import SwitchMatrixDevice
 
 __all__ = [
     "AutoDevice",
@@ -26,4 +27,5 @@ __all__ = [
     "register_backend",
     "register_config_model",
     "register_device_type",
+    "SwitchMatrixDevice",
 ]

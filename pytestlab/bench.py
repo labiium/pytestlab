@@ -20,6 +20,7 @@ from .config.bench_loader import load_sim_bench_yaml
 from .config.bench_loader import run_custom_validations
 from .devices import AutoDevice
 from .devices import Device
+from .devices import SwitchMatrixDevice
 from .errors import InstrumentConfigurationError
 from .experiments import Experiment
 from .experiments.database import MeasurementDatabase
@@ -27,6 +28,7 @@ from .instruments import AutoInstrument
 from .instruments import Instrument
 from .measurement_plan import PreparedMeasurementPlan
 from .measurement_plan import describe_declared_measurement
+from .measurement_plan import describe_declared_route
 from .measurement_plan import execute_declared_measurement
 from .measurement_plan import measurement_chain_for
 from .measurement_plan import prepare_declared_measurements
@@ -205,14 +207,18 @@ class Bench:
         *,
         sim_session: Any | None = None,
         prepared_measurements: PreparedMeasurementPlan | None = None,
+        base_path: Path | None = None,
     ):
         self._config = config
         self._sim_session = sim_session
+        self._base_path = base_path
         self._device_instances: dict[str, Device] = {}
         self._instrument_instances: dict[str, Instrument[Any]] = {}
         self._device_wrappers: dict[str, Any] = {}
         self._channel_config: dict[str, list[int]] = {}
-        prepared_measurements = prepared_measurements or prepare_declared_measurements(config)
+        prepared_measurements = prepared_measurements or prepare_declared_measurements(
+            config, base_path=base_path
+        )
         raise_for_declared_measurement_errors(prepared_measurements.errors)
         self._accessories: dict[str, BoundAccessory] = prepared_measurements.bound_accessories
         self._experiment: Experiment | None = None
@@ -262,6 +268,7 @@ class Bench:
             config,
             sim_session=sim_session,
             prepared_measurements=prepared_measurements,
+            base_path=base_path,
         )
         bench._initialize_devices()
         bench._run_automation_hook("pre_experiment")
@@ -308,7 +315,7 @@ class Bench:
     ):
         """Initialize a single device from its configuration entry."""
         # Determine the final simulation mode
-        simulate_flag = self._config.simulate
+        simulate_flag = bool(self._config.simulate)
         if entry.simulate is not None:
             simulate_flag = entry.simulate
 
@@ -325,19 +332,56 @@ class Bench:
             backend_type_hint = "sim"
             backend_spec_override = {"type": "sim"}
 
-        logger.debug(f"Creating device '{alias}' from profile '{entry.profile}'")
-        factory = AutoInstrument if must_be_instrument else AutoDevice
-        device = factory.from_config(
-            config_source=entry.profile,
-            simulate=simulate_flag,
-            backend_type_hint=backend_type_hint,
-            address_override=entry.address,
-            serial_number=entry.serial_number,
-            timeout_override_ms=timeout_override_ms,
-            backend_spec_override=backend_spec_override or None,
-            sim_session=self._sim_session,
-            role_override=entry.role,
-        )
+        logger.debug(f"Creating device '{alias}' from {entry.source_kind} '{entry.source}'")
+        resolved_backend_spec = backend_spec_override or None
+        if entry.file is not None:
+            source_path = Path(entry.file)
+            if not source_path.is_absolute() and self._base_path is not None:
+                source_path = self._base_path / source_path
+            device = self._instantiate_device_from_file(
+                source_path,
+                must_be_instrument=must_be_instrument,
+                simulate=simulate_flag,
+                backend_type_hint=backend_type_hint,
+                address_override=entry.address,
+                serial_number=entry.serial_number,
+                timeout_override_ms=timeout_override_ms,
+                backend_spec_override=resolved_backend_spec,
+                role_override=entry.role,
+            )
+        elif entry.profile is not None and entry.profile_is_local_file(base_path=self._base_path):
+            warnings.warn(
+                f"Bench entry '{alias}' uses profile: {entry.profile!r} as a local file path. "
+                "Use file: for local YAML/JSON profiles; profile: is for packaged presets.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            source_path = Path(entry.profile)
+            if not source_path.is_absolute() and self._base_path is not None:
+                source_path = self._base_path / source_path
+            device = self._instantiate_device_from_file(
+                source_path,
+                must_be_instrument=must_be_instrument,
+                simulate=simulate_flag,
+                backend_type_hint=backend_type_hint,
+                address_override=entry.address,
+                serial_number=entry.serial_number,
+                timeout_override_ms=timeout_override_ms,
+                backend_spec_override=resolved_backend_spec,
+                role_override=entry.role,
+            )
+        else:
+            device = self._instantiate_device_from_preset(
+                entry.profile or "",
+                must_be_instrument=must_be_instrument,
+                simulate=simulate_flag,
+                backend_type_hint=backend_type_hint,
+                address_override=entry.address,
+                serial_number=entry.serial_number,
+                timeout_override_ms=timeout_override_ms,
+                backend_spec_override=resolved_backend_spec,
+                role_override=entry.role,
+            )
 
         role = self._resolved_device_role(device, alias)
         if role == "custom":
@@ -365,6 +409,80 @@ class Bench:
             if isinstance(device, Instrument):
                 self._instrument_instances[alias] = device
             setattr(self, alias, device)
+
+    def _instantiate_device_from_file(
+        self,
+        path: Path,
+        *,
+        must_be_instrument: bool,
+        simulate: bool,
+        backend_type_hint: str | None,
+        address_override: str | None,
+        serial_number: str | None,
+        timeout_override_ms: int | None,
+        backend_spec_override: dict[str, Any] | None,
+        role_override: Any | None,
+    ) -> Device[Any]:
+        if must_be_instrument:
+            return AutoInstrument.from_file(
+                path,
+                simulate=simulate,
+                backend_type_hint=backend_type_hint,
+                address_override=address_override,
+                serial_number=serial_number,
+                timeout_override_ms=timeout_override_ms,
+                backend_spec_override=backend_spec_override,
+                sim_session=self._sim_session,
+                role_override=role_override,
+            )
+        return AutoDevice.from_file(
+            path,
+            simulate=simulate,
+            backend_type_hint=backend_type_hint,
+            address_override=address_override,
+            serial_number=serial_number,
+            timeout_override_ms=timeout_override_ms,
+            backend_spec_override=backend_spec_override,
+            sim_session=self._sim_session,
+            role_override=role_override,
+        )
+
+    def _instantiate_device_from_preset(
+        self,
+        preset_key: str,
+        *,
+        must_be_instrument: bool,
+        simulate: bool,
+        backend_type_hint: str | None,
+        address_override: str | None,
+        serial_number: str | None,
+        timeout_override_ms: int | None,
+        backend_spec_override: dict[str, Any] | None,
+        role_override: Any | None,
+    ) -> Device[Any]:
+        if must_be_instrument:
+            return AutoInstrument.from_preset(
+                preset_key,
+                simulate=simulate,
+                backend_type_hint=backend_type_hint,
+                address_override=address_override,
+                serial_number=serial_number,
+                timeout_override_ms=timeout_override_ms,
+                backend_spec_override=backend_spec_override,
+                sim_session=self._sim_session,
+                role_override=role_override,
+            )
+        return AutoDevice.from_preset(
+            preset_key,
+            simulate=simulate,
+            backend_type_hint=backend_type_hint,
+            address_override=address_override,
+            serial_number=serial_number,
+            timeout_override_ms=timeout_override_ms,
+            backend_spec_override=backend_spec_override,
+            sim_session=self._sim_session,
+            role_override=role_override,
+        )
 
     def _load_accessories(self, base_path: Path | None = None) -> None:
         prepared = prepare_declared_measurements(self._config, base_path=base_path)
@@ -715,10 +833,32 @@ class Bench:
                 return DeclaredMeasurement(self, entry)
         raise KeyError(f"No measurement_plan entry named '{name}'.")
 
+    def describe_measurement(self, name: str) -> str:
+        """Describe a declared measurement without executing it."""
+
+        for entry in self._config.measurement_plan or []:
+            if entry.name == name:
+                return describe_declared_measurement(
+                    entry,
+                    self._accessories,
+                    self._config.routes,
+                )
+        raise KeyError(f"No measurement_plan entry named '{name}'.")
+
+    def measurement_chain(self, name: str) -> MeasurementChain:
+        """Return the explicit accessory chain for a declared measurement."""
+
+        return self.measurement(name).chain
+
     def measure(self, name: str):
         """Execute a declared, accessory-aware measurement from measurement_plan."""
 
         return self.measurement(name).measure()
+
+    def route(self, name: str) -> "DeclaredRoute":
+        if name in self._config.routes:
+            return DeclaredRoute(self, name)
+        raise KeyError(f"No route named '{name}'.")
 
     def _measurement_chain_for(self, entry: MeasurementPlanEntry):
         return measurement_chain_for(entry, self._accessories)
@@ -785,4 +925,33 @@ class DeclaredMeasurement:
         return self.chain.apply(result)
 
     def describe(self) -> str:
-        return describe_declared_measurement(self._entry, self._bench._accessories)
+        return describe_declared_measurement(
+            self._entry,
+            self._bench._accessories,
+            self._bench._config.routes,
+        )
+
+
+class DeclaredRoute:
+    """Dry-run route declaration bound to a Bench."""
+
+    def __init__(self, bench: Bench, name: str):
+        self._bench = bench
+        self._name = name
+
+    def describe(self) -> str:
+        return describe_declared_route(self._name, self._bench._config.routes[self._name])
+
+    def apply(self) -> None:
+        route = self._bench._config.routes[self._name]
+        if route.device is None:
+            raise NotImplementedError(
+                "This route has no switching device; it is a dry-run physical declaration."
+            )
+        device = getattr(self._bench, route.device)
+        if isinstance(device, SwitchMatrixDevice):
+            device.apply_route(self._name, route)
+            return
+        raise NotImplementedError(
+            f"Route device '{route.device}' is not a SwitchMatrixDevice."
+        )

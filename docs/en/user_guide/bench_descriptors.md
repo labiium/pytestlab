@@ -6,7 +6,7 @@ The configuration for a bench is defined in a YAML file.
 
 ## The `bench.yaml` File
 
-A `bench.yaml` file is a declarative way to describe your entire test setup. It can include instrument definitions, safety limits, automation scripts, and metadata for traceability.
+A `bench.yaml` file is a declarative way to describe your entire test setup. It can include instrument definitions, non-instrument devices, safety limits, route declarations, accessory chains, automation scripts, and metadata for traceability.
 
 ```yaml
 bench_name: "Power Amplifier Characterization"
@@ -45,8 +45,12 @@ instruments:
     profile: "keysight/34470A"
     address: "USB0::0x0957::0x1B07::MY56430012::INSTR"
 
+  scope:
+    profile: "keysight/DSOX1204G"
+    address: "TCPIP0::172.22.1.20::inst0::INSTR"
+
   source1:
-    profile: "my_custom_profiles/custom_signal_generator.yaml"
+    file: "my_custom_profiles/custom_signal_generator.yaml"
     address: "lamb::SG001"
     backend:
       type: "lamb"
@@ -60,6 +64,41 @@ instruments:
     profile: "keysight/EDU36311A"
     # Address defaults to "sim" if not provided
     # simulate: true
+
+devices:
+  # Devices are automatable lab resources that are not necessarily instruments.
+  # Examples: switch matrices, cameras, gantries, fixtures, safety controllers.
+  matrix:
+    file: "./devices/matrix.yaml"
+    role: switching
+    simulate: false
+
+accessories:
+  vin_probe:
+    profile: keysight/N2142A
+    serial_number: MY1234
+
+routes:
+  scope_ch1_to_dut_input:
+    description: "Scope CH1 is physically connected to DUT input."
+    device: matrix
+    connects:
+      - from: scope.CH1
+        to: dut.input
+        path: [M1.C1, M1.R5]
+    accessories: [vin_probe]
+    settling_time_s: 0.1
+
+measurement_plan:
+  - name: input_ripple_vpp
+    description: "Input ripple through the declared probe and route."
+    instrument: scope
+    route: scope_ch1_to_dut_input
+    target:
+      kind: oscilloscope_channel
+      channel: 1
+      measurement: vpp
+    accessories: [vin_probe]
 
 automation:
   pre_experiment:
@@ -85,6 +124,10 @@ traceability:
     -   `profile` (string): The instrument profile to use (e.g., `"keysight/EDU36311A"`).
     -   `address` (string): The VISA resource string or other connection identifier.
     -   `safety_limits` (dict): Defines maximum voltage/current to prevent accidental damage.
+-   `devices` (dict): Non-instrument automatable resources. Use this for switch matrices, gantries, cameras, fixture controllers, and custom hardware.
+-   `accessories` (dict): Passive probes, cables, leads, shunts, attenuators, and similar correction sources. PyTestLab does not assume instrument-default probes.
+-   `routes` (dict): Dry-run physical path declarations. Routes describe endpoints, switch paths, route accessories, and settling metadata. They can be validated and described before hardware use. Routes are not applied implicitly by `bench.measure()`.
+-   `measurement_plan` (list): Named executable or descriptive measurements. Executable entries use `target:` and can reference a route with `route:`. For v1 auditable measurements, a referenced route's `accessories:` list must match the measurement's `accessories:` list in order.
 -   `automation` (dict): A place to define scripts or commands to run before (`pre_experiment`) or after (`post_experiment`) your main script.
 -   `traceability` (dict): A section for metadata about your test, such as calibration dates or information about the Device Under Test (DUT).
 
@@ -112,6 +155,14 @@ def main():
             # Perform a measurement with the DMM.
             dc_voltage = bench.dmm.measure_voltage_dc()
             print(f"Measured Voltage: {dc_voltage.values:.4f} V")
+
+            # Review and execute a declared route/accessory-aware measurement.
+            print(bench.route("scope_ch1_to_dut_input").describe())
+            print(bench.measurement("input_ripple_vpp").describe())
+            # Routes are never applied implicitly by measure().
+            # If the route uses an active switch matrix, apply it deliberately:
+            bench.route("scope_ch1_to_dut_input").apply()
+            ripple = bench.measure("input_ripple_vpp")
 
         # Post-experiment hooks are run automatically upon exiting the 'with' block.
         print("✅ Bench closed successfully.")
@@ -148,6 +199,16 @@ PyTestLab provides CLI commands to manage and inspect bench configurations.
 -   **Validate a bench configuration:**
     ```bash
     pytestlab bench validate path/to/bench.yaml
+    ```
+-   **List and describe declared routes without touching hardware:**
+    ```bash
+    pytestlab bench routes path/to/bench.yaml
+    pytestlab bench route path/to/bench.yaml scope_ch1_to_dut_input
+    ```
+-   **List and describe executable measurements:**
+    ```bash
+    pytestlab bench measurements path/to/bench.yaml
+    pytestlab bench measurement path/to/bench.yaml input_ripple_vpp
     ```
 -   **Identify instruments in a bench (IDN query):**
     ```bash

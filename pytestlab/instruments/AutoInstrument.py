@@ -63,6 +63,164 @@ class AutoInstrument:
         return device
 
     @classmethod
+    def from_preset(
+        cls: type[AutoInstrument],
+        preset_key: str,
+        *args: Any,
+        serial_number: str | None = None,
+        debug_mode: bool = False,
+        simulate: bool | None = None,
+        backend_type_hint: str | None = None,
+        address_override: str | None = None,
+        timeout_override_ms: int | None = None,
+        backend_override: InstrumentIO | None = None,
+        backend_spec_override: dict[str, Any] | None = None,
+        sim_session: Any | None = None,
+        role_override: str | None = None,
+    ) -> Instrument[Any]:
+        """Instantiate an instrument from a packaged pytestlab profile preset."""
+
+        device = AutoDevice.from_preset(
+            preset_key,
+            *args,
+            serial_number=serial_number,
+            debug_mode=debug_mode,
+            simulate=simulate,
+            backend_type_hint=backend_type_hint,
+            address_override=address_override,
+            timeout_override_ms=timeout_override_ms,
+            backend_override=backend_override,
+            backend_spec_override=backend_spec_override,
+            sim_session=sim_session,
+            role_override=role_override,
+        )
+        if not isinstance(device, Instrument):
+            raise InstrumentConfigurationError(
+                preset_key,
+                f"Preset resolved to {type(device).__name__}, not an Instrument.",
+            )
+        return device
+
+    @classmethod
+    def from_file(
+        cls: type[AutoInstrument],
+        path: str | Path,
+        *args: Any,
+        serial_number: str | None = None,
+        debug_mode: bool = False,
+        simulate: bool | None = None,
+        backend_type_hint: str | None = None,
+        address_override: str | None = None,
+        timeout_override_ms: int | None = None,
+        backend_override: InstrumentIO | None = None,
+        backend_spec_override: dict[str, Any] | None = None,
+        sim_session: Any | None = None,
+        role_override: str | None = None,
+    ) -> Instrument[Any]:
+        """Instantiate an instrument from a local YAML/JSON profile file."""
+
+        device = AutoDevice.from_file(
+            path,
+            *args,
+            serial_number=serial_number,
+            debug_mode=debug_mode,
+            simulate=simulate,
+            backend_type_hint=backend_type_hint,
+            address_override=address_override,
+            timeout_override_ms=timeout_override_ms,
+            backend_override=backend_override,
+            backend_spec_override=backend_spec_override,
+            sim_session=sim_session,
+            role_override=role_override,
+        )
+        if not isinstance(device, Instrument):
+            raise InstrumentConfigurationError(
+                path,
+                f"File resolved to {type(device).__name__}, not an Instrument.",
+            )
+        return device
+
+    @classmethod
+    def from_dict(
+        cls: type[AutoInstrument],
+        config_data: dict[str, Any],
+        *args: Any,
+        serial_number: str | None = None,
+        debug_mode: bool = False,
+        simulate: bool | None = None,
+        backend_type_hint: str | None = None,
+        address_override: str | None = None,
+        timeout_override_ms: int | None = None,
+        backend_override: InstrumentIO | None = None,
+        backend_spec_override: dict[str, Any] | None = None,
+        sim_session: Any | None = None,
+        role_override: str | None = None,
+    ) -> Instrument[Any]:
+        """Instantiate an instrument from an in-memory configuration mapping."""
+
+        device = AutoDevice.from_dict(
+            config_data,
+            *args,
+            serial_number=serial_number,
+            debug_mode=debug_mode,
+            simulate=simulate,
+            backend_type_hint=backend_type_hint,
+            address_override=address_override,
+            timeout_override_ms=timeout_override_ms,
+            backend_override=backend_override,
+            backend_spec_override=backend_spec_override,
+            sim_session=sim_session,
+            role_override=role_override,
+        )
+        if not isinstance(device, Instrument):
+            raise InstrumentConfigurationError(
+                config_data,
+                f"Config resolved to {type(device).__name__}, not an Instrument.",
+            )
+        return device
+
+    @classmethod
+    def from_model(
+        cls: type[AutoInstrument],
+        config: InstrumentConfig,
+        *args: Any,
+        serial_number: str | None = None,
+        debug_mode: bool = False,
+        simulate: bool | None = None,
+        backend_type_hint: str | None = None,
+        address_override: str | None = None,
+        timeout_override_ms: int | None = None,
+        backend_override: InstrumentIO | None = None,
+        backend_spec_override: dict[str, Any] | None = None,
+        sim_session: Any | None = None,
+        role_override: str | None = None,
+    ) -> Instrument[Any]:
+        """Instantiate an instrument from an InstrumentConfig model object."""
+
+        if not isinstance(config, InstrumentConfig):
+            raise TypeError("from_model() expects an InstrumentConfig object.")
+        device = AutoDevice.from_model(
+            config,
+            *args,
+            serial_number=serial_number,
+            debug_mode=debug_mode,
+            simulate=simulate,
+            backend_type_hint=backend_type_hint,
+            address_override=address_override,
+            timeout_override_ms=timeout_override_ms,
+            backend_override=backend_override,
+            backend_spec_override=backend_spec_override,
+            sim_session=sim_session,
+            role_override=role_override,
+        )
+        if not isinstance(device, Instrument):
+            raise InstrumentConfigurationError(
+                config,
+                f"Config resolved to {type(device).__name__}, not an Instrument.",
+            )
+        return device
+
+    @classmethod
     def from_profile(
         cls: type[AutoInstrument],
         profile_key_or_path: str | Path,

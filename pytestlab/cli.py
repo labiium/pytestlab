@@ -874,7 +874,7 @@ def bench_ls(bench_yaml_path: Annotated[Path, typer.Argument(help="Path to the b
                 if config.backend_defaults
                 else "visa"
             )
-            table.add_row(alias, entry.profile, kind, addr, backend_type, sim_status)
+            table.add_row(alias, entry.source, kind, addr, backend_type, sim_status)
         rich.print(table)
     except FileNotFoundError:
         rich.print(
@@ -894,11 +894,16 @@ def bench_ls(bench_yaml_path: Annotated[Path, typer.Argument(help="Path to the b
 @bench_app.command("validate")
 def bench_validate_cli(
     bench_yaml_path: Annotated[Path, typer.Argument(help="Path to the bench.yaml file.")],
+    strict: Annotated[
+        bool,
+        typer.Option("--strict", help="Enable strict pre-hardware validation checks."),
+    ] = False,
 ):
     """Validates a bench configuration file (dry-run)."""
     from pytestlab.config.bench_config import BenchConfigExtended
     from pytestlab.config.loader import load_device_profile
     from pytestlab.measurement_plan import validate_declared_measurements
+    from pytestlab.measurement_plan import validate_declared_routes
 
     try:
         with open(bench_yaml_path) as f:
@@ -911,27 +916,51 @@ def bench_validate_cli(
         entries = list(config.devices.items()) + list(config.instruments.items())
         for alias, entry in entries:
             try:
-                load_device_profile(entry.profile)
+                load_device_profile(entry.resolved_source(base_path=bench_yaml_path.parent))
                 rich.print(
-                    f"  [green]✔[/green] Profile '[magenta]{entry.profile}[/magenta]' for alias '[cyan]{alias}[/cyan]' loaded successfully."
+                    f"  [green]✔[/green] {entry.source_kind.title()} '[magenta]{entry.source}[/magenta]' for alias '[cyan]{alias}[/cyan]' loaded successfully."
                 )
             except FileNotFoundError:
                 all_profiles_valid = False
                 rich.print(
-                    f"  [bold red]✖ Error:[/bold red] Profile '[magenta]{entry.profile}[/magenta]' for alias '[cyan]{alias}[/cyan]' not found."
+                    f"  [bold red]✖ Error:[/bold red] {entry.source_kind.title()} '[magenta]{entry.source}[/magenta]' for alias '[cyan]{alias}[/cyan]' not found."
                 )
             except Exception as e_profile:
                 all_profiles_valid = False
                 rich.print(
-                    f"  [bold red]✖ Error:[/bold red] Failed to load profile '[magenta]{entry.profile}[/magenta]' for alias '[cyan]{alias}[/cyan]': {e_profile}"
+                    f"  [bold red]✖ Error:[/bold red] Failed to load {entry.source_kind} '[magenta]{entry.source}[/magenta]' for alias '[cyan]{alias}[/cyan]': {e_profile}"
                 )
 
-        semantic_errors = validate_declared_measurements(config, base_path=bench_yaml_path.parent)
+        semantic_errors = validate_declared_measurements(
+            config,
+            base_path=bench_yaml_path.parent,
+            include_route_validation=strict,
+        )
         if semantic_errors:
             all_profiles_valid = False
             rich.print("[bold red]Measurement plan validation failed:[/bold red]")
             for error in semantic_errors:
                 rich.print(f"  [bold red]✖[/bold red] {error}")
+        if config.routes:
+            rich.print("Validating declared routes...")
+            if strict:
+                route_errors = validate_declared_routes(config, base_path=bench_yaml_path.parent)
+                if route_errors:
+                    all_profiles_valid = False
+                    rich.print("  [bold red]✖[/bold red] Strict route validation failed:")
+                    for error in route_errors:
+                        rich.print(f"    [bold red]✖[/bold red] {error}")
+                else:
+                    for route_name in config.routes:
+                        rich.print(
+                            f"  [green]✔[/green] Route '[cyan]{route_name}[/cyan]' dry-run validated."
+                        )
+            else:
+                for route_name in config.routes:
+                    rich.print(
+                        f"  [yellow]•[/yellow] Route '[cyan]{route_name}[/cyan]' syntax loaded; "
+                        "use --strict for pre-hardware route validation."
+                    )
 
         if not all_profiles_valid:
             raise typer.Exit(code=1)
@@ -975,6 +1004,7 @@ def bench_measurements_cli(
         table.add_column("Name")
         table.add_column("Resource")
         table.add_column("Target")
+        table.add_column("Route")
         table.add_column("Accessories")
         for entry in config.measurement_plan or []:
             if entry.execution_target is None:
@@ -983,6 +1013,7 @@ def bench_measurements_cli(
                 entry.name,
                 entry.target_alias,
                 entry.execution_target.model_dump_json(),
+                entry.route or "-",
                 ", ".join(entry.accessories) or "-",
             )
         rich.print(table)
@@ -1018,11 +1049,83 @@ def bench_measurement_cli(
             for error in prepared.errors:
                 rich.print(f"  [bold red]✖[/bold red] {error}")
             raise typer.Exit(code=1)
-        rich.print(describe_declared_measurement(entry, prepared.bound_accessories))
+        rich.print(describe_declared_measurement(entry, prepared.bound_accessories, config.routes))
     except typer.Exit:
         raise
     except Exception as e:
         rich.print(f"[bold red]Error describing measurement: {e}[/bold red]")
+        raise typer.Exit(code=1) from None
+
+
+@bench_app.command("routes")
+def bench_routes_cli(
+    bench_yaml_path: Annotated[Path, typer.Argument(help="Path to the bench.yaml file.")],
+):
+    """Lists dry-run routes declared in a bench file."""
+    from pytestlab.config.bench_config import BenchConfigExtended
+    from pytestlab.measurement_plan import validate_declared_routes
+
+    try:
+        with open(bench_yaml_path) as f:
+            data = yaml.safe_load(f)
+        config = BenchConfigExtended.model_validate(data)
+        errors = validate_declared_routes(config, base_path=bench_yaml_path.parent)
+        if errors:
+            rich.print("[bold red]Route validation failed:[/bold red]")
+            for error in errors:
+                rich.print(f"  [bold red]✖[/bold red] {error}")
+            raise typer.Exit(code=1)
+        table = Table(title=f"Routes: {config.bench_name}")
+        table.add_column("Name")
+        table.add_column("Device")
+        table.add_column("Connections")
+        table.add_column("Accessories")
+        for name, route in config.routes.items():
+            connections = "; ".join(
+                f"{connection.from_endpoint}->{connection.to}" for connection in route.connects
+            )
+            table.add_row(
+                name,
+                route.device or "-",
+                connections,
+                ", ".join(route.accessories) or "-",
+            )
+        rich.print(table)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        rich.print(f"[bold red]Error listing routes: {e}[/bold red]")
+        raise typer.Exit(code=1) from None
+
+
+@bench_app.command("route")
+def bench_route_cli(
+    bench_yaml_path: Annotated[Path, typer.Argument(help="Path to the bench.yaml file.")],
+    name: Annotated[str, typer.Argument(help="Route name from routes.")],
+):
+    """Describes one dry-run route without touching hardware."""
+    from pytestlab.config.bench_config import BenchConfigExtended
+    from pytestlab.measurement_plan import describe_declared_route
+    from pytestlab.measurement_plan import validate_declared_routes
+
+    try:
+        with open(bench_yaml_path) as f:
+            data = yaml.safe_load(f)
+        config = BenchConfigExtended.model_validate(data)
+        if name not in config.routes:
+            rich.print(f"[bold red]Route '{name}' not found.[/bold red]")
+            raise typer.Exit(code=1)
+        errors = validate_declared_routes(config, base_path=bench_yaml_path.parent)
+        if errors:
+            rich.print("[bold red]Route validation failed:[/bold red]")
+            for error in errors:
+                rich.print(f"  [bold red]✖[/bold red] {error}")
+            raise typer.Exit(code=1)
+        rich.print(describe_declared_route(name, config.routes[name]))
+    except typer.Exit:
+        raise
+    except Exception as e:
+        rich.print(f"[bold red]Error describing route: {e}[/bold red]")
         raise typer.Exit(code=1) from None
 
 
@@ -1054,13 +1157,13 @@ def bench_id_cli(
                 try:
                     idn = getattr(device, "id", None)
                     idn_str = idn() if callable(idn) else device.query("*IDN?")
-                    table.add_row(alias, entry.profile, idn_str)
+                    table.add_row(alias, entry.source, idn_str)
                 except Exception as e_idn:
                     table.add_row(
-                        alias, entry.profile, f"[bold red]Error querying IDN - {e_idn}[/bold red]"
+                        alias, entry.source, f"[bold red]Error querying IDN - {e_idn}[/bold red]"
                     )
             else:
-                table.add_row(alias, entry.profile, "[blue]Simulated[/blue]")
+                table.add_row(alias, entry.source, "[blue]Simulated[/blue]")
 
         rich.print(table)
     except FileNotFoundError:

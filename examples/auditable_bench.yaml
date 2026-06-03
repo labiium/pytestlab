@@ -1,0 +1,32 @@
+bench_name: auditable_route_measurement
+simulate: true
+
+instruments:
+  scope:
+    profile: keysight/DSOX1204G
+
+accessories:
+  vin_probe:
+    profile: keysight/N2142A
+    serial_number: EXAMPLE-PROBE-001
+    notes: Example 10:1 probe explicitly declared by the user.
+
+routes:
+  scope_ch1_to_dut_input:
+    description: Scope CH1 measures DUT input through the declared probe.
+    connects:
+      - from: scope.CH1
+        to: dut.input
+        path: [front-panel-bnc, test-point-vin]
+    accessories: [vin_probe]
+
+measurement_plan:
+  - name: input_ripple_vpp
+    description: Peak-to-peak input ripple through the explicit route/accessory chain.
+    instrument: scope
+    route: scope_ch1_to_dut_input
+    target:
+      kind: oscilloscope_channel
+      channel: 1
+      measurement: vpp
+    accessories: [vin_probe]

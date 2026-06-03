@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from importlib import import_module
 from importlib import metadata
 from typing import Any
+from typing import cast
 
 from pydantic import BaseModel
 
@@ -172,7 +173,12 @@ def load_entry_points() -> None:
         try:
             entry_points = metadata.entry_points(group=group)
         except TypeError:
-            entry_points = metadata.entry_points().get(group, [])
+            discovered = metadata.entry_points()
+            if hasattr(discovered, "select"):
+                entry_points = discovered.select(group=group)
+            else:
+                legacy_entry_points = cast(Any, discovered)
+                entry_points = legacy_entry_points.get(group, [])
         except Exception:
             continue
         for ep in entry_points:
@@ -233,6 +239,10 @@ def ensure_builtin_registrations() -> None:
         "virtual_instrument": (
             ("pytestlab.instruments.VirtualInstrument", "VirtualInstrument"),
             ("pytestlab.config.virtual_instrument_config", "VirtualInstrumentConfig"),
+        ),
+        "switch_matrix": (
+            ("pytestlab.devices.switch_matrix", "SwitchMatrixDevice"),
+            ("pytestlab.config.switch_matrix_config", "SwitchMatrixConfig"),
         ),
     }
     for key, (driver_spec, config_spec) in builtins.items():
@@ -300,7 +310,7 @@ def validate_driver(candidate: Any, source: str) -> type[Device[Any]]:
 def validate_backend(candidate: Any, source: str) -> BackendFactory:
     if not callable(candidate):
         raise InstrumentConfigurationError(source, f"{source} must resolve to a backend callable.")
-    return candidate
+    return cast(BackendFactory, candidate)
 
 
 def is_pydantic_model(candidate: Any) -> bool:

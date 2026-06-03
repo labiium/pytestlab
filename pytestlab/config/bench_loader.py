@@ -50,7 +50,7 @@ def load_sim_bench_yaml(path: str | Path) -> tuple[BenchConfigExtended, Any | No
             "intended_analyses": ["op", "tran", "ac"],
         },
     )
-    sim_bench = _build_sim_bench_from_bench_config(config)
+    sim_bench = _build_sim_bench_from_bench_config(config, base_path=bench_path.parent)
     wiring = _build_sim_wiring_from_entries(sc)
     noise = noise_config_from_preset(NoisePreset(sc.noise_preset), seed=sc.noise_seed)
     kernel_settings = KernelSettings(**sc.kernel_settings) if sc.kernel_settings else None
@@ -66,7 +66,7 @@ def load_sim_bench_yaml(path: str | Path) -> tuple[BenchConfigExtended, Any | No
     return config, session
 
 
-def _build_sim_bench_from_bench_config(config: BenchConfigExtended):
+def _build_sim_bench_from_bench_config(config: BenchConfigExtended, *, base_path: Path | None = None):
     from pytestlab_sim.bench import AWG
     from pytestlab_sim.bench import DMM
     from pytestlab_sim.bench import PSU
@@ -78,7 +78,7 @@ def _build_sim_bench_from_bench_config(config: BenchConfigExtended):
     for alias, entry in {**config.devices, **config.instruments}.items():
         if not entry.backend or entry.backend.get("type") != "circuit_sim":
             continue
-        device_type = _device_type_for_profile(entry.profile)
+        device_type = _device_type_for_profile(entry.resolved_source(base_path=base_path))
         if device_type == "waveform_generator":
             instruments[alias] = AWG(vpp_max=10.0)
         elif device_type == "power_supply":
@@ -90,15 +90,15 @@ def _build_sim_bench_from_bench_config(config: BenchConfigExtended):
         else:
             raise InstrumentConfigurationError(
                 alias,
-                f"circuit_sim does not support profile '{entry.profile}' "
+                f"circuit_sim does not support {entry.source_kind} '{entry.source}' "
                 f"with device_type '{device_type}'.",
             )
     return SimBenchConfig(bench_id=config.bench_name, instruments=instruments)
 
 
-def _device_type_for_profile(profile: str) -> str:
+def _device_type_for_profile(profile: str | Path) -> str:
     try:
-        config_data = AutoDevice._load_config_data_from_string(profile)
+        config_data = AutoDevice._load_config_data_from_string(str(profile))
     except Exception as exc:
         raise InstrumentConfigurationError(
             profile,
@@ -201,25 +201,27 @@ def _eval_node(node: ast.AST, context: dict[str, Any]) -> Any:
     if isinstance(node, ast.Tuple):
         return tuple(_eval_node(item, context) for item in node.elts)
     if isinstance(node, ast.Dict):
-        return {
-            _eval_node(key, context): _eval_node(value, context)
-            for key, value in zip(node.keys, node.values, strict=True)
-        }
+        result: dict[Any, Any] = {}
+        for key, value in zip(node.keys, node.values, strict=True):
+            if key is None:
+                raise ValueError("Dictionary unpacking is not supported in validation expressions.")
+            result[_eval_node(key, context)] = _eval_node(value, context)
+        return result
     if isinstance(node, ast.BoolOp):
         if isinstance(node.op, ast.And):
-            result = True
+            bool_result: Any = True
             for value in node.values:
-                result = _eval_node(value, context)
-                if not result:
-                    return result
-            return result
+                bool_result = _eval_node(value, context)
+                if not bool_result:
+                    return bool_result
+            return bool_result
         if isinstance(node.op, ast.Or):
-            result = False
+            bool_result = False
             for value in node.values:
-                result = _eval_node(value, context)
-                if result:
-                    return result
-            return result
+                bool_result = _eval_node(value, context)
+                if bool_result:
+                    return bool_result
+            return bool_result
     if isinstance(node, ast.UnaryOp) and type(node.op) in _UNARY_OPS:
         return _UNARY_OPS[type(node.op)](_eval_node(node.operand, context))
     if isinstance(node, ast.BinOp) and type(node.op) in _BIN_OPS:

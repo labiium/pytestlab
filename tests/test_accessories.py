@@ -241,6 +241,56 @@ def test_database_round_trips_measurement_chain_envelope(tmp_path):
     assert restored.values.nominal == pytest.approx(10.0)
 
 
+def test_database_round_trips_route_and_measurement_chain_envelope(tmp_path):
+    config = BenchConfigExtended.model_validate(
+        {
+            "bench_name": "Route Bench",
+            "instruments": {"scope": {"profile": "keysight/DSOX1204G"}},
+            "accessories": {"probe": {"profile": "keysight/N2142A"}},
+            "routes": {
+                "scope_ch1_to_dut_input": {
+                    "description": "Scope CH1 through the declared input probe.",
+                    "connects": [
+                        {
+                            "from": "scope.CH1",
+                            "to": "dut.input",
+                            "path": ["front-panel-bnc", "test-point-vin"],
+                        }
+                    ],
+                    "accessories": ["probe"],
+                }
+            },
+            "measurement_plan": [
+                {
+                    "name": "input_ripple_vpp",
+                    "instrument": "scope",
+                    "route": "scope_ch1_to_dut_input",
+                    "target": {
+                        "kind": "oscilloscope_channel",
+                        "channel": 1,
+                        "measurement": "vpp",
+                    },
+                    "accessories": ["probe"],
+                }
+            ],
+        }
+    )
+    bench = Bench(config)
+    bench._device_instances["scope"] = cast(Any, FakeScope())
+    corrected = bench.measure("input_ripple_vpp")
+
+    with MeasurementDatabase(tmp_path / "chain_route") as db:
+        key = db.store_measurement(None, corrected)
+        restored = db.retrieve_measurement(key)
+
+    assert restored.envelope["route"]["name"] == "scope_ch1_to_dut_input"
+    assert restored.envelope["route"]["connects"][0]["path"] == [
+        "front-panel-bnc",
+        "test-point-vin",
+    ]
+    assert restored.envelope["measurement_chain"]["steps"][0]["accessory"] == "Keysight N2142A"
+
+
 def test_bound_accessory_provenance_round_trips_through_database(tmp_path):
     bound = BoundAccessory(
         alias="input_probe",

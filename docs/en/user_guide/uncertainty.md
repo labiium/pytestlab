@@ -343,10 +343,20 @@ accessories:
     serial_number: MY1234
     notes: Calibrated 10:1 passive probe used on VIN
 
+routes:
+  scope_ch1_to_vin:
+    description: Scope CH1 cabled to DUT VIN.
+    connects:
+      - from: scope.CH1
+        to: dut.vin
+        path: [front-panel-bnc, vin-test-point]
+    accessories: [probe_ch1]
+
 measurement_plan:
   - name: input_ripple_vpp
     description: Input rail ripple at DUT VIN
     instrument: scope
+    route: scope_ch1_to_vin
     target:
       kind: oscilloscope_channel
       channel: 1
@@ -356,7 +366,12 @@ measurement_plan:
 
 ```python
 with pytestlab.Bench.open("bench.yaml") as bench:
+    print(bench.route("scope_ch1_to_vin").describe())
     print(bench.measurement("input_ripple_vpp").describe())
+    # PyTestLab records route provenance during measure(), but it does not
+    # silently actuate switch hardware. If a route declares an active switch
+    # matrix, apply it explicitly before measuring:
+    # bench.route("scope_ch1_to_vin").apply()
     ripple = bench.measure("input_ripple_vpp")
     print(ripple.envelope["measurement_chain"])
 ```
@@ -368,11 +383,16 @@ that will be made, the correction operations, and the accessory provenance from
 notes. A static description cannot know whether the future driver call will
 return a complete instrument uncertainty budget. That status is recorded on the
 measured result envelope after `measure()` or `MeasurementChain.apply()`.
+For v1 auditable measurements, a referenced route's `accessories:` list must
+match the measurement's `accessories:` list in order, so the physical route
+provenance and the uncertainty correction chain cannot diverge silently.
 
 Validate and inspect declared measurements before touching hardware:
 
 ```bash
 pytestlab bench validate bench.yaml
+pytestlab bench routes bench.yaml
+pytestlab bench route bench.yaml scope_ch1_to_vin
 pytestlab bench measurements bench.yaml
 pytestlab bench measurement bench.yaml input_ripple_vpp
 ```

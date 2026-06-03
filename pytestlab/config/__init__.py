@@ -27,6 +27,7 @@ from .oscilloscope_config import OscilloscopeConfig
 from .power_meter_config import PowerMeterConfig
 from .power_supply_config import PowerSupplyConfig
 from .spectrum_analyzer_config import SpectrumAnalyzerConfig
+from .switch_matrix_config import SwitchMatrixConfig
 from .virtual_instrument_config import VirtualInstrumentConfig
 from .vna_config import VNAConfig
 from .waveform_generator_config import WaveformGeneratorConfig
@@ -53,6 +54,7 @@ __all__ = [
     "PowerMeterConfig",
     "PowerSupplyConfig",
     "SpectrumAnalyzerConfig",
+    "SwitchMatrixConfig",
     "UncertaintyBudget",
     "UncertaintyComponent",
     "UncertaintyContext",

@@ -3,6 +3,7 @@ from __future__ import annotations
 import inspect
 import os
 import tempfile
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -116,6 +117,60 @@ class AutoDevice:
         raise FileNotFoundError(f"No configuration found for identifier '{identifier}'.")
 
     @classmethod
+    def get_config_from_preset(cls, preset_key: str) -> dict[str, Any]:
+        """Load a packaged pytestlab profile preset by key, never a local path."""
+
+        if not isinstance(preset_key, str):
+            raise TypeError("preset_key must be a string.")
+        candidate = Path(preset_key)
+        if (
+            candidate.is_absolute()
+            or candidate.suffix in {".yaml", ".yml", ".json"}
+        ):
+            raise ValueError(
+                "from_preset() accepts packaged preset keys only; use from_file() for local files."
+            )
+        import pytestlab as ptl
+
+        pkg_file = getattr(ptl, "__file__", None)
+        pkg_dir = Path(pkg_file).resolve().parent if pkg_file is not None else Path(__file__).resolve().parent
+        profiles_dir = (pkg_dir / "profiles").resolve()
+        path = (profiles_dir / os.path.normpath(preset_key)).with_suffix(".yaml").resolve()
+        try:
+            path.relative_to(profiles_dir)
+        except ValueError as exc:
+            raise ValueError("from_preset() preset keys cannot escape packaged presets.") from exc
+        if not path.is_file():
+            raise FileNotFoundError(f"Device preset '{preset_key}' not found at '{path}'.")
+        return cls._load_config_data_file(path, str(preset_key))
+
+    @classmethod
+    def get_config_from_file(cls, path: str | Path) -> dict[str, Any]:
+        """Load a local YAML/JSON device profile file, never a packaged preset key."""
+
+        profile_path = Path(path)
+        if profile_path.suffix not in {".yaml", ".yml", ".json"}:
+            raise ValueError("from_file() requires a YAML or JSON file path.")
+        if not profile_path.is_file():
+            raise FileNotFoundError(f"Device profile file '{profile_path}' not found.")
+        return cls._load_config_data_file(profile_path, str(profile_path))
+
+    @staticmethod
+    def _load_config_data_file(path: Path, source: str) -> dict[str, Any]:
+        try:
+            with open(path) as file:
+                loaded_config = yaml.safe_load(file.read())
+        except yaml.YAMLError as exc:
+            raise InstrumentConfigurationError(
+                source, f"Error parsing YAML from local file '{path}': {exc}"
+            ) from exc
+        if not isinstance(loaded_config, dict):
+            raise InstrumentConfigurationError(
+                source, f"Local config file '{path}' did not load as a dictionary."
+            )
+        return loaded_config
+
+    @classmethod
     def from_config(
         cls,
         config_source: str | dict[str, Any] | DeviceConfig,
@@ -131,12 +186,54 @@ class AutoDevice:
         sim_session: Any | None = None,
         role_override: str | None = None,
     ) -> Device[Any]:
+        if isinstance(config_source, str):
+            warnings.warn(
+                "AutoDevice.from_config(str) is a compatibility dispatcher. "
+                "Use from_preset(<packaged key>) or from_file(<local YAML/JSON path>) "
+                "to make the profile source explicit.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         if args and isinstance(args[0], str):
             serial_number = args[0]
 
         config_model, config_data, profile_key = cls._load_config_model(
             config_source, role_override=role_override
         )
+        return cls._instantiate_loaded_config(
+            config_model=config_model,
+            config_data=config_data,
+            config_source=config_source,
+            profile_key=profile_key,
+            serial_number=serial_number,
+            debug_mode=debug_mode,
+            simulate=simulate,
+            backend_type_hint=backend_type_hint,
+            address_override=address_override,
+            timeout_override_ms=timeout_override_ms,
+            backend_override=backend_override,
+            backend_spec_override=backend_spec_override,
+            sim_session=sim_session,
+        )
+
+    @classmethod
+    def _instantiate_loaded_config(
+        cls,
+        *,
+        config_model: DeviceConfig,
+        config_data: dict[str, Any],
+        config_source: Any,
+        profile_key: str | None,
+        serial_number: str | None,
+        debug_mode: bool,
+        simulate: bool | None,
+        backend_type_hint: str | None,
+        address_override: str | None,
+        timeout_override_ms: int | None,
+        backend_override: DeviceIO | None,
+        backend_spec_override: dict[str, Any] | None,
+        sim_session: Any | None,
+    ) -> Device[Any]:
         if serial_number is not None and hasattr(config_model, "serial_number"):
             config_model.serial_number = serial_number
 
@@ -160,6 +257,156 @@ class AutoDevice:
             print(f"Instantiated {driver_class.__name__} with {type(backend_instance).__name__}.")
             print("Note: Backend connection is not established by __init__. Call connect_backend().")
         return device
+
+    @classmethod
+    def from_preset(
+        cls,
+        preset_key: str,
+        *args: Any,
+        serial_number: str | None = None,
+        debug_mode: bool = False,
+        simulate: bool | None = None,
+        backend_type_hint: str | None = None,
+        address_override: str | None = None,
+        timeout_override_ms: int | None = None,
+        backend_override: DeviceIO | None = None,
+        backend_spec_override: dict[str, Any] | None = None,
+        sim_session: Any | None = None,
+        role_override: str | None = None,
+    ) -> Device[Any]:
+        """Instantiate a device from a packaged pytestlab profile preset."""
+
+        if args and isinstance(args[0], str):
+            serial_number = args[0]
+        config_data = cls.get_config_from_preset(preset_key)
+        config_model, config_data, _ = cls._load_config_model(
+            config_data, role_override=role_override
+        )
+        return cls._instantiate_loaded_config(
+            config_model=config_model,
+            config_data=config_data,
+            config_source=preset_key,
+            profile_key=preset_key,
+            serial_number=serial_number,
+            debug_mode=debug_mode,
+            simulate=simulate,
+            backend_type_hint=backend_type_hint,
+            address_override=address_override,
+            timeout_override_ms=timeout_override_ms,
+            backend_override=backend_override,
+            backend_spec_override=backend_spec_override,
+            sim_session=sim_session,
+        )
+
+    @classmethod
+    def from_file(
+        cls,
+        path: str | Path,
+        *args: Any,
+        serial_number: str | None = None,
+        debug_mode: bool = False,
+        simulate: bool | None = None,
+        backend_type_hint: str | None = None,
+        address_override: str | None = None,
+        timeout_override_ms: int | None = None,
+        backend_override: DeviceIO | None = None,
+        backend_spec_override: dict[str, Any] | None = None,
+        sim_session: Any | None = None,
+        role_override: str | None = None,
+    ) -> Device[Any]:
+        """Instantiate a device from a local YAML/JSON profile file."""
+
+        if args and isinstance(args[0], str):
+            serial_number = args[0]
+        config_data = cls.get_config_from_file(path)
+        config_model, config_data, _ = cls._load_config_model(
+            config_data, role_override=role_override
+        )
+        return cls._instantiate_loaded_config(
+            config_model=config_model,
+            config_data=config_data,
+            config_source=str(path),
+            profile_key=str(path),
+            serial_number=serial_number,
+            debug_mode=debug_mode,
+            simulate=simulate,
+            backend_type_hint=backend_type_hint,
+            address_override=address_override,
+            timeout_override_ms=timeout_override_ms,
+            backend_override=backend_override,
+            backend_spec_override=backend_spec_override,
+            sim_session=sim_session,
+        )
+
+    @classmethod
+    def from_dict(
+        cls,
+        config_data: dict[str, Any],
+        *args: Any,
+        serial_number: str | None = None,
+        debug_mode: bool = False,
+        simulate: bool | None = None,
+        backend_type_hint: str | None = None,
+        address_override: str | None = None,
+        timeout_override_ms: int | None = None,
+        backend_override: DeviceIO | None = None,
+        backend_spec_override: dict[str, Any] | None = None,
+        sim_session: Any | None = None,
+        role_override: str | None = None,
+    ) -> Device[Any]:
+        """Instantiate a device from an in-memory configuration mapping."""
+
+        if not isinstance(config_data, dict):
+            raise TypeError("from_dict() expects a configuration mapping.")
+        return cls.from_config(
+            config_data,
+            *args,
+            serial_number=serial_number,
+            debug_mode=debug_mode,
+            simulate=simulate,
+            backend_type_hint=backend_type_hint,
+            address_override=address_override,
+            timeout_override_ms=timeout_override_ms,
+            backend_override=backend_override,
+            backend_spec_override=backend_spec_override,
+            sim_session=sim_session,
+            role_override=role_override,
+        )
+
+    @classmethod
+    def from_model(
+        cls,
+        config: DeviceConfig,
+        *args: Any,
+        serial_number: str | None = None,
+        debug_mode: bool = False,
+        simulate: bool | None = None,
+        backend_type_hint: str | None = None,
+        address_override: str | None = None,
+        timeout_override_ms: int | None = None,
+        backend_override: DeviceIO | None = None,
+        backend_spec_override: dict[str, Any] | None = None,
+        sim_session: Any | None = None,
+        role_override: str | None = None,
+    ) -> Device[Any]:
+        """Instantiate a device from a DeviceConfig model object."""
+
+        if not isinstance(config, DeviceConfig):
+            raise TypeError("from_model() expects a DeviceConfig object.")
+        return cls.from_config(
+            config,
+            *args,
+            serial_number=serial_number,
+            debug_mode=debug_mode,
+            simulate=simulate,
+            backend_type_hint=backend_type_hint,
+            address_override=address_override,
+            timeout_override_ms=timeout_override_ms,
+            backend_override=backend_override,
+            backend_spec_override=backend_spec_override,
+            sim_session=sim_session,
+            role_override=role_override,
+        )
 
     @classmethod
     def from_profile(
@@ -205,7 +452,7 @@ class AutoDevice:
                 config_source.role = (
                     role_override if isinstance(role_override, DeviceRole) else DeviceRole(role_override)
                 )
-            return config_source, config_source.model_dump(mode="python"), None
+            return config_source, config_source.model_dump(mode="json"), None
         if isinstance(config_source, dict) and "profile" in config_source:
             profile_source = config_source["profile"]
             config_data = cls._load_config_data_from_string(str(profile_source))
@@ -429,7 +676,7 @@ class AutoDevice:
                 if os.path.exists(key):
                     return os.path.abspath(key)
         with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as tf:
-            yaml.dump(config_data, tf)
+            yaml.safe_dump(config_data, tf)
             return os.path.abspath(tf.name)
 
     @classmethod

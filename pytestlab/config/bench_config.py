@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated
 from typing import Any
 from typing import Literal
@@ -39,13 +40,46 @@ class SafetyLimits(BaseModel):
 
 
 class DeviceEntry(BaseModel):
-    profile: str
+    model_config = ConfigDict(extra="forbid")
+
+    profile: str | None = None
+    file: str | None = None
+    description: str | None = None
     role: DeviceRole | None = None
     address: str | None = None
     serial_number: str | None = None
     safety_limits: SafetyLimits | None = None
     backend: dict[str, Any] | None = None
     simulate: bool | None = None
+
+    @model_validator(mode="after")
+    def check_source(self) -> DeviceEntry:
+        if (self.profile is None) == (self.file is None):
+            raise ValueError("Device entries must define exactly one of 'profile' or 'file'.")
+        return self
+
+    @property
+    def source(self) -> str:
+        return self.profile if self.profile is not None else self.file or ""
+
+    @property
+    def source_kind(self) -> Literal["profile", "file"]:
+        return "profile" if self.profile is not None else "file"
+
+    def profile_is_local_file(self, *, base_path: Path | None = None) -> bool:
+        if self.profile is None:
+            return False
+        candidate = Path(self.profile)
+        return candidate.is_absolute() or candidate.suffix in {".yaml", ".yml", ".json"}
+
+    def resolved_source(self, *, base_path: Path | None = None) -> str | Path:
+        if self.file is not None:
+            path = Path(self.file)
+            return base_path / path if not path.is_absolute() and base_path is not None else path
+        if self.profile_is_local_file(base_path=base_path):
+            path = Path(self.profile or "")
+            return base_path / path if not path.is_absolute() and base_path is not None else path
+        return self.profile or ""
 
 
 class InstrumentEntry(DeviceEntry):
@@ -90,6 +124,38 @@ class AccessoryEntry(BaseModel):
     def check_source(self) -> AccessoryEntry:
         if (self.profile is None) == (self.file is None):
             raise ValueError("Accessory entries must define exactly one of 'profile' or 'file'.")
+        return self
+
+
+class RouteConnection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source: str | None = Field(default=None, validation_alias=AliasChoices("from", "source"))
+    to: str
+    path: list[str] = Field(default_factory=list)
+
+    @property
+    def from_endpoint(self) -> str:
+        return self.source or ""
+
+
+class RouteEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    device: str | None = None
+    description: str | None = None
+    connects: list[RouteConnection] = Field(default_factory=list)
+    accessories: list[str] = Field(default_factory=list)
+    settling_time_s: float | None = Field(default=None, ge=0)
+    exclusive_group: str | None = None
+
+    @model_validator(mode="after")
+    def check_connections(self) -> RouteEntry:
+        if not self.connects:
+            raise ValueError("routes must declare at least one connection in 'connects'.")
+        for connection in self.connects:
+            if not connection.from_endpoint:
+                raise ValueError("route connections must define 'from' and 'to' endpoints.")
         return self
 
 
@@ -160,6 +226,7 @@ class MeasurementPlanEntry(BaseModel):
     settings: dict[str, Any] | None = None
     notes: str | None = None
     description: str | None = None
+    route: str | None = None
     execution_target: MeasurementTarget | None = Field(
         default=None,
         validation_alias=AliasChoices("target", "execution_target"),
@@ -233,6 +300,7 @@ class BenchConfigExtended(BaseModel):
     devices: dict[str, DeviceEntry] = Field(default_factory=dict)
     instruments: dict[str, InstrumentEntry] = Field(default_factory=dict)
     accessories: dict[str, AccessoryEntry] = Field(default_factory=dict)
+    routes: dict[str, RouteEntry] = Field(default_factory=dict)
     custom_validations: list[str] | None = None
     automation: AutomationHooks | None = None
     traceability: Traceability | None = None
