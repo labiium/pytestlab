@@ -285,12 +285,19 @@ class MeasurementPlanEntry(BaseModel):
 
 
 class SimCircuitConfig(BaseModel):
-    netlist: str
+    netlist: str | None = None
+    twin_package: str | None = None
     wiring: dict[str, str] = Field(default_factory=dict)
     seed: int = 1337
     noise_preset: str = "none"
     noise_seed: int | None = None
     kernel_settings: dict[str, Any] | None = None
+
+    @model_validator(mode="after")
+    def check_source(self) -> SimCircuitConfig:
+        if (self.netlist is None) == (self.twin_package is None):
+            raise ValueError("sim_circuit must define exactly one of netlist or twin_package")
+        return self
 
 
 class BenchConfigExtended(BaseModel):

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import json
 import operator
 from pathlib import Path
 from typing import Any
@@ -40,30 +41,119 @@ def load_sim_bench_yaml(path: str | Path) -> tuple[BenchConfigExtended, Any | No
 
     bench_path = Path(path)
     sc = config.sim_circuit
-    netlist_path = (bench_path.parent / sc.netlist).resolve()
-    circuit = circuit_from_netlist(
-        netlist_path,
-        metadata={
-            "title": netlist_path.stem,
-            "author": "pytestlab",
-            "license": "UNLICENSED",
-            "intended_analyses": ["op", "tran", "ac"],
-        },
-    )
+    netlist_path, twin_payload = _resolve_sim_circuit_source(sc, base_path=bench_path.parent)
+    metadata = {
+        "title": netlist_path.stem,
+        "author": "pytestlab",
+        "license": "UNLICENSED",
+        "intended_analyses": ["op", "tran", "ac"],
+    }
+    if twin_payload is not None:
+        metadata.update(
+            {
+                "twin_package": str(twin_payload["package_path"]),
+                "base_netlist_hash": twin_payload.get("base_netlist_hash"),
+                "rendered_netlist_hash": twin_payload.get("rendered_netlist_hash"),
+                "parameter_hash": twin_payload.get("parameter_hash"),
+            }
+        )
+    circuit = circuit_from_netlist(netlist_path, metadata=metadata)
     sim_bench = _build_sim_bench_from_bench_config(config, base_path=bench_path.parent)
     wiring = _build_sim_wiring_from_entries(sc)
     noise = noise_config_from_preset(NoisePreset(sc.noise_preset), seed=sc.noise_seed)
     kernel_settings = KernelSettings(**sc.kernel_settings) if sc.kernel_settings else None
-    session = Session(
-        circuit=circuit,
-        bench=sim_bench,
-        wiring=wiring,
-        seed=sc.seed,
-        noise=noise,
-        kernel_settings=kernel_settings,
-    )
+    model_params = dict(twin_payload["model_params"]) if twin_payload is not None else {}
+    session_kwargs: dict[str, Any] = {
+        "circuit": circuit,
+        "bench": sim_bench,
+        "wiring": wiring,
+        "seed": sc.seed,
+        "noise": noise,
+        "kernel_settings": kernel_settings,
+    }
+    try:
+        session = Session(**session_kwargs, model_params=model_params)
+    except TypeError as exc:
+        if "model_params" not in str(exc):
+            raise
+        session = Session(**session_kwargs)
+        session.model_params = model_params
+    if twin_payload is not None:
+        session.twin_package = twin_payload
 
     return config, session
+
+
+def _resolve_sim_circuit_source(
+    sc: SimCircuitConfig, *, base_path: Path
+) -> tuple[Path, dict[str, Any] | None]:
+    if sc.twin_package is None:
+        if sc.netlist is None:
+            raise InstrumentConfigurationError(
+                "sim_circuit",
+                "sim_circuit must define either netlist or twin_package.",
+            )
+        return (base_path / sc.netlist).resolve(), None
+    package_path = (base_path / sc.twin_package).resolve()
+    return _load_twin_package(package_path)
+
+
+def _load_twin_package(package_path: Path) -> tuple[Path, dict[str, Any]]:
+    manifest_path = package_path / "manifest.json" if package_path.is_dir() else package_path
+    if not manifest_path.exists():
+        raise InstrumentConfigurationError(
+            "sim_circuit.twin_package",
+            f"Twin package manifest not found: {manifest_path}",
+        )
+    try:
+        manifest = json.loads(manifest_path.read_text())
+    except json.JSONDecodeError as exc:
+        raise InstrumentConfigurationError(
+            "sim_circuit.twin_package",
+            f"Twin package manifest is not valid JSON: {manifest_path}",
+        ) from exc
+    if not isinstance(manifest, dict):
+        raise InstrumentConfigurationError(
+            "sim_circuit.twin_package",
+            "Twin package manifest must be a JSON object.",
+        )
+
+    root = manifest_path.parent
+    rendered_name = manifest.get("rendered_netlist") or manifest.get("rendered_netlist_path")
+    rendered_path = root / str(rendered_name) if rendered_name else root / "rendered_netlist.sp"
+    if not rendered_path.exists():
+        raise InstrumentConfigurationError(
+            "sim_circuit.twin_package",
+            f"Twin package rendered netlist not found: {rendered_path}",
+        )
+
+    raw_parameters = manifest.get("parameters", {})
+    if not isinstance(raw_parameters, dict):
+        raise InstrumentConfigurationError(
+            "sim_circuit.twin_package",
+            "Twin package parameters must be an object.",
+        )
+    model_params: dict[str, float] = {}
+    for name, spec in raw_parameters.items():
+        value = spec.get("value") if isinstance(spec, dict) else spec
+        try:
+            model_params[str(name)] = float(value)
+        except (TypeError, ValueError) as exc:
+            raise InstrumentConfigurationError(
+                "sim_circuit.twin_package",
+                f"Twin package parameter {name!r} must be numeric.",
+            ) from exc
+
+    payload = dict(manifest)
+    payload.update(
+        {
+            "package_path": package_path,
+            "manifest_path": manifest_path,
+            "rendered_netlist_path": rendered_path,
+            "model_params": model_params,
+        }
+    )
+    return rendered_path.resolve(), payload
 
 
 def _build_sim_bench_from_bench_config(config: BenchConfigExtended, *, base_path: Path | None = None):

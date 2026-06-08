@@ -220,3 +220,105 @@ sim_circuit:
 
     with pytest.raises(InstrumentConfigurationError, match="does not support"):
         Bench.open(bench_path)
+
+
+def test_bench_open_circuit_sim_twin_package_loads_model_params(tmp_path):
+    pytest.importorskip("pytestlab_sim")
+    twin_dir = tmp_path / "amp.twin"
+    twin_dir.mkdir()
+    (twin_dir / "rendered_netlist.sp").write_text("RLOAD vload 0 {rload}\n.end\n")
+    (twin_dir / "manifest.json").write_text(
+        """
+{
+  "schema_version": 1,
+  "base_netlist_hash": "base-hash",
+  "rendered_netlist_hash": "rendered-hash",
+  "parameter_hash": "parameter-hash",
+  "parameters": {
+    "rload": {"value": 100.0, "unit": "ohm", "bounds": [10.0, 1000.0]},
+    "gain": 2.5
+  }
+}
+"""
+    )
+    bench_path = tmp_path / "bench_sim.yaml"
+    bench_path.write_text(
+        """
+bench_name: "Circuit Sim Twin Bench"
+simulate: true
+instruments:
+  psu1:
+    profile: "keysight/EDU36311A"
+    simulate: true
+    backend:
+      type: circuit_sim
+sim_circuit:
+  twin_package: amp.twin
+  seed: 42
+  wiring:
+    psu1.CH1+: vload
+    psu1.CH1-: "0"
+"""
+    )
+
+    bench = Bench.open(bench_path)
+    try:
+        backend = bench.psu1._backend
+        assert isinstance(backend, CircuitSimBackend)
+        assert bench._sim_session is not None
+        assert backend._inner.session is bench._sim_session
+        assert bench._sim_session.model_params == {"rload": 100.0, "gain": 2.5}
+        assert bench._sim_session.twin_package["parameter_hash"] == "parameter-hash"
+        assert bench._sim_session.circuit.metadata["twin_package"].endswith("amp.twin")
+    finally:
+        bench.close_all()
+
+
+def test_sim_circuit_requires_exactly_one_source():
+    from pydantic import ValidationError
+
+    from pytestlab.config.bench_loader import load_bench_yaml
+
+    with pytest.raises(ValidationError, match="exactly one"):
+        load_bench_yaml(
+            {
+                "bench_name": "Bad Sim Bench",
+                "instruments": {
+                    "psu1": {
+                        "profile": "keysight/EDU36311A",
+                        "backend": {"type": "circuit_sim"},
+                    }
+                },
+                "sim_circuit": {"netlist": "circuit.sp", "twin_package": "amp.twin"},
+            }
+        )
+
+
+def test_twin_package_manifest_loader_extracts_rendered_netlist_and_params(tmp_path):
+    from pytestlab.config.bench_loader import _load_twin_package
+
+    twin_dir = tmp_path / "amp.twin"
+    twin_dir.mkdir()
+    rendered = twin_dir / "rendered_netlist.sp"
+    rendered.write_text("RLOAD vload 0 100\n.end\n")
+    (twin_dir / "manifest.json").write_text(
+        """
+{
+  "schema_version": 1,
+  "base_netlist_hash": "base-hash",
+  "rendered_netlist_hash": "rendered-hash",
+  "parameter_hash": "parameter-hash",
+  "parameters": {
+    "rload": {"value": 100.0, "unit": "ohm"},
+    "gain": 2.5
+  }
+}
+"""
+    )
+
+    netlist_path, payload = _load_twin_package(twin_dir)
+
+    assert netlist_path == rendered.resolve()
+    assert payload["model_params"] == {"rload": 100.0, "gain": 2.5}
+    assert payload["parameter_hash"] == "parameter-hash"
+    assert payload["package_path"] == twin_dir.resolve()
