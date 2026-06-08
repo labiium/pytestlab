@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import math
+import zipfile
 
 import pytest
 
@@ -222,25 +224,30 @@ sim_circuit:
         Bench.open(bench_path)
 
 
+def _write_real_twin_package(path):
+    from pytestlab_sim.calibration import TwinPackage
+    from pytestlab_sim.calibration import save_twin_package
+    from pytestlab_sim.parameters import ParameterSet
+    from pytestlab_sim.parameters import ParameterSpec
+
+    params = ParameterSet.from_values(
+        {"rload": 100.0, "gain": 2.5},
+        specs={"rload": ParameterSpec("rload", 100.0, 10.0, 1000.0, unit="ohm")},
+    )
+    package = TwinPackage(
+        netlist_text="RLOAD vload 0 {rload}\n.end\n",
+        parameters=params,
+        manifest={"base_netlist_hash": "base-hash"},
+        validation_report={"validation_status": "synthetic_only", "hardware_validated": False},
+    )
+    save_twin_package(package, path)
+    return package
+
+
 def test_bench_open_circuit_sim_twin_package_loads_model_params(tmp_path):
     pytest.importorskip("pytestlab_sim")
     twin_dir = tmp_path / "amp.twin"
-    twin_dir.mkdir()
-    (twin_dir / "rendered_netlist.sp").write_text("RLOAD vload 0 {rload}\n.end\n")
-    (twin_dir / "manifest.json").write_text(
-        """
-{
-  "schema_version": 1,
-  "base_netlist_hash": "base-hash",
-  "rendered_netlist_hash": "rendered-hash",
-  "parameter_hash": "parameter-hash",
-  "parameters": {
-    "rload": {"value": 100.0, "unit": "ohm", "bounds": [10.0, 1000.0]},
-    "gain": 2.5
-  }
-}
-"""
-    )
+    package = _write_real_twin_package(twin_dir)
     bench_path = tmp_path / "bench_sim.yaml"
     bench_path.write_text(
         """
@@ -268,7 +275,10 @@ sim_circuit:
         assert bench._sim_session is not None
         assert backend._inner.session is bench._sim_session
         assert bench._sim_session.model_params == {"rload": 100.0, "gain": 2.5}
-        assert bench._sim_session.twin_package["parameter_hash"] == "parameter-hash"
+        assert (
+            bench._sim_session.twin_package["parameter_hash"]
+            == package.to_manifest()["parameter_hash"]
+        )
         assert bench._sim_session.circuit.metadata["twin_package"].endswith("amp.twin")
     finally:
         bench.close_all()
@@ -298,27 +308,74 @@ def test_twin_package_manifest_loader_extracts_rendered_netlist_and_params(tmp_p
     from pytestlab.config.bench_loader import _load_twin_package
 
     twin_dir = tmp_path / "amp.twin"
-    twin_dir.mkdir()
-    rendered = twin_dir / "rendered_netlist.sp"
-    rendered.write_text("RLOAD vload 0 100\n.end\n")
-    (twin_dir / "manifest.json").write_text(
-        """
-{
-  "schema_version": 1,
-  "base_netlist_hash": "base-hash",
-  "rendered_netlist_hash": "rendered-hash",
-  "parameter_hash": "parameter-hash",
-  "parameters": {
-    "rload": {"value": 100.0, "unit": "ohm"},
-    "gain": 2.5
-  }
-}
-"""
-    )
+    package = _write_real_twin_package(twin_dir)
 
     netlist_path, payload = _load_twin_package(twin_dir)
 
-    assert netlist_path == rendered.resolve()
+    assert netlist_path == (twin_dir / "rendered_netlist.sp").resolve()
     assert payload["model_params"] == {"rload": 100.0, "gain": 2.5}
-    assert payload["parameter_hash"] == "parameter-hash"
+    assert payload["parameter_hash"] == package.to_manifest()["parameter_hash"]
     assert payload["package_path"] == twin_dir.resolve()
+
+
+def test_twin_package_rejects_rendered_netlist_escape(tmp_path):
+    from pytestlab.config.bench_loader import _load_twin_package
+    from pytestlab.errors import InstrumentConfigurationError
+
+    twin_dir = tmp_path / "amp.twin"
+    _write_real_twin_package(twin_dir)
+    manifest_path = twin_dir / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["rendered_netlist"] = "../escape.sp"
+    manifest_path.write_text(json.dumps(manifest))
+
+    with pytest.raises(InstrumentConfigurationError, match="escapes package root"):
+        _load_twin_package(twin_dir)
+
+
+def test_twin_package_zip_rejects_rendered_netlist_escape(tmp_path):
+    from pytestlab.config.bench_loader import _load_twin_package
+    from pytestlab.errors import InstrumentConfigurationError
+
+    twin_zip = tmp_path / "amp.twin.zip"
+    package = _write_real_twin_package(twin_zip)
+    manifest = package.to_manifest()
+    manifest["rendered_netlist"] = "../escape.sp"
+
+    with zipfile.ZipFile(twin_zip, "w") as zf:
+        zf.writestr("manifest.json", json.dumps(manifest))
+        zf.writestr("parameters.json", json.dumps(package.parameters.to_dict()))
+        zf.writestr("../escape.sp", package.rendered_netlist_text())
+
+    with pytest.raises(InstrumentConfigurationError, match="escapes package root"):
+        _load_twin_package(twin_zip)
+
+
+def test_twin_package_zip_rejects_rendered_netlist_tamper(tmp_path):
+    from pytestlab.config.bench_loader import _load_twin_package
+    from pytestlab.errors import InstrumentConfigurationError
+
+    twin_zip = tmp_path / "amp.twin.zip"
+    package = _write_real_twin_package(twin_zip)
+    manifest = package.to_manifest()
+    tampered = package.rendered_netlist_text().replace(".param rload=100", ".param rload=999")
+
+    with zipfile.ZipFile(twin_zip, "w") as zf:
+        zf.writestr("manifest.json", json.dumps(manifest))
+        zf.writestr("parameters.json", json.dumps(package.parameters.to_dict()))
+        zf.writestr("rendered_netlist.sp", tampered)
+
+    with pytest.raises(InstrumentConfigurationError, match="rendered_netlist_hash"):
+        _load_twin_package(twin_zip)
+
+
+def test_twin_package_rejects_hash_mismatch(tmp_path):
+    from pytestlab.config.bench_loader import _load_twin_package
+    from pytestlab.errors import InstrumentConfigurationError
+
+    twin_dir = tmp_path / "amp.twin"
+    _write_real_twin_package(twin_dir)
+    (twin_dir / "rendered_netlist.sp").write_text("RLOAD vload 0 101\n.end\n")
+
+    with pytest.raises(InstrumentConfigurationError, match="rendered_netlist_hash"):
+        _load_twin_package(twin_dir)

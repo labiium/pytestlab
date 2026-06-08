@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import ast
-import json
+import hashlib
 import operator
 from pathlib import Path
 from typing import Any
@@ -58,6 +58,9 @@ def load_sim_bench_yaml(path: str | Path) -> tuple[BenchConfigExtended, Any | No
             }
         )
     circuit = circuit_from_netlist(netlist_path, metadata=metadata)
+    # pytestlab_sim.CircuitPackage stores manifest metadata, but pytestlab callers
+    # need a stable branch-free place to inspect twin provenance too.
+    circuit.metadata = dict(metadata)
     sim_bench = _build_sim_bench_from_bench_config(config, base_path=bench_path.parent)
     wiring = _build_sim_wiring_from_entries(sc)
     noise = noise_config_from_preset(NoisePreset(sc.noise_preset), seed=sc.noise_seed)
@@ -71,13 +74,7 @@ def load_sim_bench_yaml(path: str | Path) -> tuple[BenchConfigExtended, Any | No
         "noise": noise,
         "kernel_settings": kernel_settings,
     }
-    try:
-        session = Session(**session_kwargs, model_params=model_params)
-    except TypeError as exc:
-        if "model_params" not in str(exc):
-            raise
-        session = Session(**session_kwargs)
-        session.model_params = model_params
+    session = Session(**session_kwargs, model_params=model_params)
     if twin_payload is not None:
         session.twin_package = twin_payload
 
@@ -99,64 +96,108 @@ def _resolve_sim_circuit_source(
 
 
 def _load_twin_package(package_path: Path) -> tuple[Path, dict[str, Any]]:
-    manifest_path = package_path / "manifest.json" if package_path.is_dir() else package_path
-    if not manifest_path.exists():
-        raise InstrumentConfigurationError(
-            "sim_circuit.twin_package",
-            f"Twin package manifest not found: {manifest_path}",
-        )
+    """Load a canonical pytestlab_sim twin package and verify provenance.
+
+    The package producer lives in pytestlab_sim; pytestlab deliberately consumes
+    that public contract instead of maintaining a third manifest dialect here.
+    """
+    from pytestlab_sim.calibration import load_twin_package
+    from pytestlab_sim.parameters import parameter_hash
+
+    package_path = package_path.resolve()
     try:
-        manifest = json.loads(manifest_path.read_text())
-    except json.JSONDecodeError as exc:
+        package = load_twin_package(package_path)
+    except Exception as exc:
         raise InstrumentConfigurationError(
             "sim_circuit.twin_package",
-            f"Twin package manifest is not valid JSON: {manifest_path}",
+            f"Could not load twin package {package_path}: {exc}",
         ) from exc
-    if not isinstance(manifest, dict):
-        raise InstrumentConfigurationError(
-            "sim_circuit.twin_package",
-            "Twin package manifest must be a JSON object.",
-        )
 
-    root = manifest_path.parent
-    rendered_name = manifest.get("rendered_netlist") or manifest.get("rendered_netlist_path")
-    rendered_path = root / str(rendered_name) if rendered_name else root / "rendered_netlist.sp"
-    if not rendered_path.exists():
-        raise InstrumentConfigurationError(
-            "sim_circuit.twin_package",
-            f"Twin package rendered netlist not found: {rendered_path}",
-        )
+    manifest = dict(package.manifest)
+    rendered_path = _materialize_twin_netlist(package_path, package)
+    rendered_hash = _sha256_text(rendered_path.read_text())
+    param_hash = parameter_hash(package.parameters)
 
-    raw_parameters = manifest.get("parameters", {})
-    if not isinstance(raw_parameters, dict):
+    declared_rendered_hash = manifest.get("rendered_netlist_hash")
+    if declared_rendered_hash is not None and str(declared_rendered_hash) != rendered_hash:
         raise InstrumentConfigurationError(
             "sim_circuit.twin_package",
-            "Twin package parameters must be an object.",
+            "Twin package rendered_netlist_hash does not match rendered netlist content.",
         )
-    model_params: dict[str, float] = {}
-    for name, spec in raw_parameters.items():
-        value = spec.get("value") if isinstance(spec, dict) else spec
-        try:
-            model_params[str(name)] = float(value)
-        except (TypeError, ValueError) as exc:
-            raise InstrumentConfigurationError(
-                "sim_circuit.twin_package",
-                f"Twin package parameter {name!r} must be numeric.",
-            ) from exc
+    declared_param_hash = manifest.get("parameter_hash")
+    if declared_param_hash is not None and not _hash_matches(str(declared_param_hash), param_hash):
+        raise InstrumentConfigurationError(
+            "sim_circuit.twin_package",
+            "Twin package parameter_hash does not match parameter content.",
+        )
 
     payload = dict(manifest)
     payload.update(
         {
             "package_path": package_path,
-            "manifest_path": manifest_path,
+            "manifest_path": _manifest_path_for(package_path),
             "rendered_netlist_path": rendered_path,
-            "model_params": model_params,
+            "model_params": package.model_params,
+            "rendered_netlist_hash": rendered_hash,
+            "parameter_hash": param_hash,
         }
     )
-    return rendered_path.resolve(), payload
+    return rendered_path, payload
 
 
-def _build_sim_bench_from_bench_config(config: BenchConfigExtended, *, base_path: Path | None = None):
+def _materialize_twin_netlist(package_path: Path, package) -> Path:
+    if package_path.is_dir():
+        root = package_path
+        rendered_name = str(
+            package.manifest.get("rendered_netlist")
+            or package.manifest.get("rendered_netlist_path")
+            or "rendered_netlist.sp"
+        )
+        candidate = (root / rendered_name).resolve()
+        if not candidate.is_relative_to(root.resolve()):
+            raise InstrumentConfigurationError(
+                "sim_circuit.twin_package",
+                "Twin package rendered netlist path escapes package root.",
+            )
+        if candidate.exists():
+            return candidate
+    else:
+        root = package_path.parent / ".pytestlab_sim" / package_path.stem
+        root.mkdir(parents=True, exist_ok=True)
+    rendered_path = (root / "rendered_netlist.sp").resolve()
+    if not rendered_path.is_relative_to(root.resolve()):
+        raise InstrumentConfigurationError(
+            "sim_circuit.twin_package",
+            "Twin package rendered netlist path escapes package root.",
+        )
+    rendered_path.write_text(package.rendered_netlist_text())
+    return rendered_path
+
+
+def _manifest_path_for(package_path: Path) -> Path:
+    if package_path.is_dir():
+        manifest_json = package_path / "manifest.json"
+        if manifest_json.exists():
+            return manifest_json.resolve()
+        return (package_path / "manifest.yaml").resolve()
+    return package_path.resolve()
+
+
+def _sha256_text(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _hash_matches(declared: str, actual: str) -> bool:
+    return (
+        declared == actual
+        or declared == f"sha256:{actual}"
+        or declared.removeprefix("sha256:") == actual
+    )
+
+
+def _build_sim_bench_from_bench_config(
+    config: BenchConfigExtended, *, base_path: Path | None = None
+):
     from pytestlab_sim.bench import AWG
     from pytestlab_sim.bench import DMM
     from pytestlab_sim.bench import PSU
