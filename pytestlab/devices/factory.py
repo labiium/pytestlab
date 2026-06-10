@@ -255,7 +255,7 @@ class AutoDevice:
         device = driver_class(config=config_model, backend=backend_instance)
         if debug_mode:
             print(f"Instantiated {driver_class.__name__} with {type(backend_instance).__name__}.")
-            print("Note: Backend connection is not established by __init__. Call connect_backend().")
+            print("Note: Backend connection is lazy and will open automatically on first use.")
         return device
 
     @classmethod

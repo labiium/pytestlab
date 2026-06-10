@@ -5,6 +5,7 @@ from typing import Any
 import pytest
 import yaml
 
+from pytestlab.config.device_config import DeviceRole
 from pytestlab.config.instrument_config import InstrumentConfig
 from pytestlab.errors import InstrumentCommunicationError
 from pytestlab.instruments.backends.sim_backend import SimBackend
@@ -55,7 +56,7 @@ def error_handling_instrument():
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
         profile_file = f.name
         yaml.dump(
-            {"device_type": "instrument", "role": "custom", "scpi": {"*IDN?": "dummy_idn"}},
+            {"device_type": "instrument", "role": DeviceRole.CUSTOM.value, "scpi": {"*IDN?": "dummy_idn"}},
             f,
         )
     backend = ProgrammableErrorSimBackend(profile_path=profile_file)
@@ -64,16 +65,10 @@ def error_handling_instrument():
         manufacturer="Test",
         model="TestErrorInstrument",
         device_type="instrument",
-        role="custom",
-        general=dict(id="TestErrorInstrument", driver="GenericInstrument"),
-        settings=dict(
-            check_errors_on_read=False, check_errors_on_write=False
-        ),  # Disable auto checks for these tests
+        role=DeviceRole.CUSTOM,
     )
     instrument = Instrument(config=config, backend=backend, address="SIM::ERRTEST")
-    # instrument.connect() # connect might do an error check, skip for manual control initially
-    # Manually set connected state if needed, or ensure connect doesn't auto-error-check
-    instrument._connected = True  # pylint: disable=protected-access
+    instrument.connect_backend()
     yield instrument, backend
     Path(profile_file).unlink(missing_ok=True)
 

@@ -126,7 +126,52 @@ def test_autodevice_creates_registered_custom_device():
 
     assert isinstance(device, WidgetDevice)
     assert device.config.gain == 2.5
+    backend = cast(MemoryBackend, device._backend)
+    assert not backend.connected
     assert device.ping() == "reply:PING"
+    assert backend.connected
+
+
+def test_autodevice_connects_lazily_before_backend_operations():
+    register_config_model("lazy_widget", WidgetConfig, replace=True)
+    register_device_type("lazy_widget", WidgetDevice, replace=True)
+    register_backend("lazy_memory", build_memory_backend, replace=True)
+
+    device = AutoDevice.from_config(
+        {
+            "device_type": "lazy_widget",
+            "role": "fixture",
+            "manufacturer": "PyTestLab",
+            "model": "LazyWidget",
+            "backend": {"type": "lazy_memory"},
+        }
+    )
+
+    backend = cast(MemoryBackend, device._backend)
+    assert not backend.connected
+    assert device.query("PING") == "reply:PING"
+    assert backend.connected
+
+
+def test_connect_backend_remains_idempotent_for_explicit_lifecycle_control():
+    register_config_model("idempotent_widget", WidgetConfig, replace=True)
+    register_device_type("idempotent_widget", WidgetDevice, replace=True)
+    register_backend("idempotent_memory", build_memory_backend, replace=True)
+
+    device = AutoDevice.from_config(
+        {
+            "device_type": "idempotent_widget",
+            "role": "fixture",
+            "manufacturer": "PyTestLab",
+            "model": "IdempotentWidget",
+            "backend": {"type": "idempotent_memory"},
+        }
+    )
+
+    device.connect_backend()
+    device.connect_backend()
+
+    assert cast(MemoryBackend, device._backend).connected
 
 
 def test_autodevice_explicit_source_factories_are_unambiguous(tmp_path):

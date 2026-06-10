@@ -22,7 +22,6 @@ import os
 import sys
 from pathlib import Path
 
-
 ENV_STATE_DIR = "PYTESTLAB_STATE_DIR"
 
 

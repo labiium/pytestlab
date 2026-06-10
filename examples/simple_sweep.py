@@ -13,6 +13,7 @@ All instruments run in simulation mode - no hardware required.
 """
 
 import numpy as np
+
 from pytestlab import MeasurementSession
 
 

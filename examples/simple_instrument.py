@@ -22,9 +22,8 @@ def power_supply_example():
     psu = AutoInstrument.from_config("keysight/EDU36311A", simulate=True)
 
     try:
-        # Connect to the instrument
-        psu.connect_backend()
-        print(f"Connected to: {psu.id()}")
+        # id() opens the simulated backend automatically on first use.
+        print(f"Instrument: {psu.id()}")
 
         # Method 1: Direct API calls
         print("\nMethod 1: Direct API calls")
@@ -44,9 +43,9 @@ def power_supply_example():
         print("\nAll channels turned off")
 
     finally:
-        # Always close the connection
+        # Always close resources when not using Bench.open(...).
         psu.close()
-        print("Power supply connection closed")
+        print("Power supply resources closed")
 
 
 def multimeter_example():
@@ -57,8 +56,7 @@ def multimeter_example():
     dmm = AutoInstrument.from_config("keysight/EDU34450A", simulate=True)
 
     try:
-        dmm.connect_backend()
-        print(f"Connected to: {dmm.id()}")
+        print(f"Instrument: {dmm.id()}")
 
         # Note: In simulation mode, measurements return simulated values
         print("\nMeasurement functions available:")
@@ -68,17 +66,16 @@ def multimeter_example():
         print("  - measure() with DMMFunction.RESISTANCE - 2-wire resistance")
 
         # The Multimeter class uses the measure() method with DMMFunction enum
-        from pytestlab.config.multimeter_config import DMMFunction
 
         # Note: In simulation mode, this demonstrates the API
         # In real use, this would return actual measurements
-        print(f"\nTo perform a measurement:")
-        print(f"  result = dmm.measure(DMMFunction.VOLTAGE_DC)")
-        print(f"  # Returns a MeasurementResult with value and units")
+        print("\nTo perform a measurement:")
+        print("  result = dmm.measure(DMMFunction.VOLTAGE_DC)")
+        print("  # Returns a MeasurementResult with value and units")
 
     finally:
         dmm.close()
-        print("Multimeter connection closed")
+        print("Multimeter resources closed")
 
 
 def oscilloscope_example():
@@ -89,8 +86,7 @@ def oscilloscope_example():
     scope = AutoInstrument.from_config("keysight/DSOX1204G", simulate=True)
 
     try:
-        scope.connect_backend()
-        print(f"Connected to: {scope.id()}")
+        print(f"Instrument: {scope.id()}")
 
         # Configure channel using direct API
         print("\nConfiguring channel 1...")
@@ -111,7 +107,7 @@ def oscilloscope_example():
 
     finally:
         scope.close()
-        print("Oscilloscope connection closed")
+        print("Oscilloscope resources closed")
 
 
 def main():

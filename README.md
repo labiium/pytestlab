@@ -73,7 +73,6 @@ from pytestlab import AutoInstrument
 
 def main():
     scope = AutoInstrument.from_preset("keysight/DSOX1204G", simulate=True)
-    scope.connect_backend()
 
     # simple façade usage with method chaining
     scope.channel(1).setup(scale=0.5).enable()
@@ -87,9 +86,10 @@ def main():
 main()
 ```
 
-### 3. Build a Bench
+PyTestLab opens instrument/device backends automatically on first use; experiment
+code does not need manual connection boilerplate.
 
-### Device vs Instrument hierarchy
+### 3. Choose the right device factory
 
 Use `AutoInstrument` when a profile must resolve to a measurement/stimulus
 instrument driver. Use `AutoDevice` for any automatable lab resource, including
@@ -119,6 +119,8 @@ fixture = AutoDevice.from_dict({
 `from_config("...")` remains as a compatibility dispatcher for existing code, but
 new code should choose `from_preset()` for packaged profiles or `from_file()` for
 local YAML/JSON so reviews can tell exactly where a device definition came from.
+
+### 4. Build a Bench
 
 ```yaml
 # bench.yaml  (excerpt)
@@ -275,8 +277,6 @@ def main():
         backend_override=replay_backend
     )
 
-    psu.connect_backend()
-
     # This will replay the exact recorded sequence
     psu.set_voltage(1, 5.0)
     voltage = psu.read_voltage(1)
@@ -383,7 +383,6 @@ from pytestlab import AutoInstrument
 from pytestlab.plotting import PlotSpec
 
 scope = AutoInstrument.from_config("keysight/DSOX1204G", simulate=True)
-scope.connect_backend()
 
 result = scope.read_channels(1)  # MeasurementResult with a Polars DataFrame inside
 fig = result.plot(PlotSpec(title="DSOX1204G CH1"))
@@ -422,7 +421,6 @@ psu.close()
 ### Oscilloscope Example
 ```python
 scope = AutoInstrument.from_config("keysight/DSOX1204G", simulate=True)
-scope.connect_backend()
 
 # Configure multiple channels with chaining
 scope.channel(1).setup(scale=0.5, offset=0, coupling="DC").enable()
@@ -719,7 +717,6 @@ PyTestLab provides built-in compliance features for regulated environments:
 from pytestlab import AutoInstrument
 
 dmm = AutoInstrument.from_config("keysight/34470A")
-dmm.connect_backend()
 
 # Every measurement is automatically signed
 result = dmm.measure_voltage_dc()
@@ -772,7 +769,6 @@ from pytestlab.compliance import Signature
 
 # Create instrument state snapshot
 psu = AutoInstrument.from_config("keysight/E36311A")
-psu.connect_backend()
 
 # Configure instrument
 psu.channel(1).set_voltage(5.0).set_current_limit(1.0)

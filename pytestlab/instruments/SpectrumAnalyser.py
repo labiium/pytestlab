@@ -1,11 +1,11 @@
 from ..config.spectrum_analyzer_config import SpectrumAnalyzerConfig
+from ..errors import InstrumentDataError
 from .instrument import Instrument
 
 # from ..experiments.results import MeasurementResult # If this is the return type for traces
 # from .scpi_maps import CommonSCPI, SystemSCPI # And a specific SA SCPI map
 
 
-# Define a placeholder for MeasurementResult if not readily available or too complex for this first pass
 class PlaceholderMeasurementResult:
     def __init__(
         self,
@@ -49,23 +49,25 @@ class SpectrumAnalyser(Instrument[SpectrumAnalyzerConfig]):
     def get_trace(
         self, channel: int = 1
     ) -> PlaceholderMeasurementResult:  # Use actual MeasurementResult later
-        # Example: Query trace data, parse it (often CSV or binary)
-        # raw_data_str = self._query(f"TRAC:DATA? TRACE{channel}") # Use SCPI_MAP
-        # For simulation, SimBackend needs to be taught to respond to this
-        # For now, return dummy data
-        # freqs = [1e9, 2e9, 3e9] # Dummy frequencies
-        # amps = [-20, -30, -25]  # Dummy amplitudes
-        # return PlaceholderMeasurementResult(x=freqs, y=amps)
-        self._logger.warning(
-            "get_trace for SpectrumAnalyser is a placeholder and returns dummy data."
-        )
-        # Simulating a basic trace for now
-        sim_freqs = [
-            self.config.frequency_center
-            or 1e9
-            - (self.config.frequency_span or 100e6) / 2
-            + i * ((self.config.frequency_span or 100e6) / 10)
-            for i in range(11)
-        ]
-        sim_amps = [-20.0 - i * 2 for i in range(11)]  # Dummy amplitudes
-        return PlaceholderMeasurementResult(x=sim_freqs, y=sim_amps)
+        raw_data = self._query(f"TRAC:DATA? TRACE{channel}")
+        try:
+            amplitudes = [float(part.strip()) for part in raw_data.split(",") if part.strip()]
+        except ValueError as exc:
+            raise InstrumentDataError(
+                self.config.model,
+                f"Could not parse spectrum trace response {raw_data!r}.",
+            ) from exc
+
+        if not amplitudes:
+            raise InstrumentDataError(self.config.model, "Spectrum trace response was empty.")
+
+        center = self.config.frequency_center or 1e9
+        span = self.config.frequency_span or 100e6
+        if len(amplitudes) == 1:
+            frequencies = [center]
+        else:
+            start = center - span / 2
+            step = span / (len(amplitudes) - 1)
+            frequencies = [start + i * step for i in range(len(amplitudes))]
+
+        return PlaceholderMeasurementResult(x=frequencies, y=amplitudes)

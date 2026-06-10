@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from importlib import import_module
@@ -271,7 +272,9 @@ def _build_visa_backend(context: BackendBuildContext) -> DeviceIO:
 def _build_lamb_backend(context: BackendBuildContext) -> DeviceIO:
     from ..instruments.backends.lamb import LambBackend
 
-    lamb_server_url = getattr(context.config, "lamb_url", "http://lamb-server:8000")
+    lamb_server_url = getattr(
+        context.config, "lamb_url", os.getenv("LAMB_SERVER", "http://lamb-server:8000")
+    )
     if context.address:
         return LambBackend(address=context.address, url=lamb_server_url, timeout_ms=context.timeout_ms)
     return LambBackend(

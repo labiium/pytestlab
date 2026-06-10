@@ -30,6 +30,9 @@ from ..errors import InstrumentDataError
 from ..errors import InstrumentParameterError
 from ..experiments import MeasurementResult
 from .instrument import Instrument
+from .scpi_binary import BinaryBlockParseError
+from .scpi_binary import definite_length_block_to_array
+from .scpi_binary import strip_definite_length_block
 from .uncertainty_adapters import nonzero_uncertainty_quantity
 from .uncertainty_adapters import oscilloscope_measurement_context
 
@@ -1773,26 +1776,12 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         This is a more standard interpretation of SCPI binary blocks.
         The actual data type (e.g., int8, int16) depends on :WAVeform:FORMat.
         """
-        if not binary_block.startswith(b"#"):
+        try:
+            return definite_length_block_to_array(binary_block, dtype=np.int8)
+        except BinaryBlockParseError as exc:
             raise InstrumentDataError(
-                self.config.model, "Invalid binary block format: does not start with #"
-            )
-
-        len_digits = int(binary_block[1:2].decode("ascii"))
-        data_len = int(binary_block[2 : 2 + len_digits].decode("ascii"))
-
-        actual_data_start_index = 2 + len_digits
-        raw_data_bytes = binary_block[actual_data_start_index : actual_data_start_index + data_len]
-
-        dt = np.dtype(np.int8)
-        data_array = np.frombuffer(raw_data_bytes, dtype=dt)
-
-        if len(data_array) != data_len:
-            self._logger.debug(
-                f"Warning: Binary block data length mismatch. Expected {data_len}, got {len(data_array)}"
-            )
-
-        return data_array
+                self.config.model, f"Invalid binary block format: {exc}"
+            ) from exc
 
     @validate_call
     def read_fft_data(self, channel: int, window: str | None = "hann") -> FFTResult:
@@ -1870,20 +1859,12 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         """
         binary_data_response: bytes = self._query_raw(self.scpi_engine.build("screenshot")[0])
 
-        if not binary_data_response.startswith(b"#"):
+        try:
+            image_data_bytes = strip_definite_length_block(binary_data_response)
+        except BinaryBlockParseError as exc:
             raise InstrumentDataError(
-                self.config.model, "Invalid screenshot data format: does not start with #"
-            )
-
-        length_of_length_field: int = int(chr(binary_data_response[1]))
-        png_data_length_str: str = binary_data_response[2 : 2 + length_of_length_field].decode(
-            "ascii"
-        )
-        png_data_length: int = int(png_data_length_str)
-        png_data_start_index: int = 2 + length_of_length_field
-        image_data_bytes: bytes = binary_data_response[
-            png_data_start_index : png_data_start_index + png_data_length
-        ]
+                self.config.model, f"Invalid screenshot data format: {exc}"
+            ) from exc
 
         return Image.open(BytesIO(image_data_bytes))
 

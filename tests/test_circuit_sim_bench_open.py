@@ -3,11 +3,14 @@ from __future__ import annotations
 import json
 import math
 import zipfile
+from typing import Any
+from typing import cast
 
 import pytest
 
 from pytestlab.bench import Bench
 from pytestlab.common.enums import SCPIOnOff
+from pytestlab.config.device_config import DeviceConfig
 from pytestlab.config.multimeter_config import DMMFunction
 from pytestlab.devices.registry import BackendBuildContext
 from pytestlab.errors import InstrumentConfigurationError
@@ -65,7 +68,7 @@ sim_circuit:
         assert backend._inner.session is bench._sim_session
         assert "_sim_session" not in (bench._config.instruments["psu1"].backend or {})
 
-        bench.psu1.set_voltage(1, 2.5)
+        cast(Any, bench.psu1).set_voltage(1, 2.5)
         channel_state = bench._sim_session.psus["psu1"].state.channels["CH1"]
         assert channel_state.voltage_setpoint == pytest.approx(2.5)
     finally:
@@ -129,6 +132,7 @@ sim_circuit:
         result = run_experiment(bench)
         assert _nominal(result["voltage"].values) == pytest.approx(0.0, abs=1e-3)
         assert math.isfinite(float(result["current"]))
+        assert bench._sim_session is not None
         channel_state = bench._sim_session.psus["psu1"].state.channels["CH1"]
         assert channel_state.enabled is True
         assert channel_state.current_limit == pytest.approx(0.1)
@@ -164,12 +168,14 @@ sim_circuit:
     bench = Bench.open(bench_path)
     try:
         assert bench._sim_session is not None
-        assert bench._config.instruments["psu1"].backend["_sim_session"] == "sentinel"
+        backend_config = bench._config.instruments["psu1"].backend
+        assert backend_config is not None
+        assert backend_config["_sim_session"] == "sentinel"
     finally:
         bench.close_all()
 
     context = BackendBuildContext(
-        config=bench._config.instruments["psu1"],
+        config=cast(DeviceConfig, bench._config.instruments["psu1"]),
         config_source="keysight/EDU36311A",
         address=None,
         timeout_ms=5_000,
@@ -239,6 +245,72 @@ def _write_real_twin_package(path):
         parameters=params,
         manifest={"base_netlist_hash": "base-hash"},
         validation_report={"validation_status": "synthetic_only", "hardware_validated": False},
+    )
+    save_twin_package(package, path)
+    return package
+
+
+def _validation_report_v2(netlist_text, parameters):
+    import hashlib
+
+    from pytestlab_sim.calibration import TwinPackage
+    from pytestlab_sim.calibration import validation_report_hash
+    from pytestlab_sim.parameters import parameter_hash
+
+    provisional = TwinPackage(netlist_text=netlist_text, parameters=parameters)
+    metric_values = {
+        "vout_mae_v": (0.02, 0.05, "<=", "V"),
+        "supply_current_mae_ma": (0.03, 0.1, "<=", "mA"),
+        "state_classification_accuracy": (1.0, 0.98, ">=", "ratio"),
+        "transition_boundary_mae_v": (0.01, 0.05, "<=", "V"),
+        "transition_boundary_max_error_v": (0.02, 0.08, "<=", "V"),
+    }
+    report = {
+        "schema_version": 2,
+        "validation_status": "hardware_validated",
+        "hardware_validated": True,
+        "source": "hardware",
+        "circuit_id": "two_transistor_amp",
+        "dataset_hashes": {"train": "sha256:train", "validation": "sha256:validation"},
+        "package_hashes": {
+            "base_netlist_hash": hashlib.sha256(netlist_text.encode()).hexdigest(),
+            "rendered_netlist_hash": hashlib.sha256(
+                provisional.rendered_netlist_text().encode()
+            ).hexdigest(),
+            "parameter_hash": parameter_hash(parameters),
+        },
+        "thresholds": {
+            name: {"limit": limit, "comparator": comparator}
+            for name, (_value, limit, comparator, _units) in metric_values.items()
+        },
+        "metrics": {
+            name: {"value": value, "passed": True, "units": units}
+            for name, (value, _limit, _comparator, units) in metric_values.items()
+        },
+        "split": {
+            "strategy": "sweep_id_holdout",
+            "train_sweep_ids": ["sweep-train"],
+            "validation_sweep_ids": ["sweep-validation"],
+        },
+        "environment": {},
+        "provenance": {},
+        "non_claim": None,
+    }
+    return report, validation_report_hash(report)
+
+
+def _write_v2_twin_package(path):
+    from pytestlab_sim.calibration import TwinPackage
+    from pytestlab_sim.calibration import save_twin_package
+    from pytestlab_sim.parameters import ParameterSet
+
+    netlist_text = "RLOAD vload 0 {rload}\n.end\n"
+    parameters = ParameterSet.from_values({"rload": 100.0})
+    report, _hash = _validation_report_v2(netlist_text, parameters)
+    package = TwinPackage(
+        netlist_text=netlist_text,
+        parameters=parameters,
+        validation_report=report,
     )
     save_twin_package(package, path)
     return package
@@ -316,6 +388,60 @@ def test_twin_package_manifest_loader_extracts_rendered_netlist_and_params(tmp_p
     assert payload["model_params"] == {"rload": 100.0, "gain": 2.5}
     assert payload["parameter_hash"] == package.to_manifest()["parameter_hash"]
     assert payload["package_path"] == twin_dir.resolve()
+
+
+def test_twin_package_v2_validation_metadata_exposed_to_session(tmp_path):
+    pytest.importorskip("pytestlab_sim")
+    package = _write_v2_twin_package(tmp_path / "amp.twin")
+    bench_path = tmp_path / "bench_sim.yaml"
+    bench_path.write_text(
+        """
+bench_name: "Circuit Sim V2 Twin Bench"
+simulate: true
+instruments:
+  psu1:
+    profile: "keysight/EDU36311A"
+    simulate: true
+    backend:
+      type: circuit_sim
+sim_circuit:
+  twin_package: amp.twin
+  seed: 42
+  wiring:
+    psu1.CH1+: vload
+    psu1.CH1-: "0"
+"""
+    )
+
+    bench = Bench.open(bench_path)
+    try:
+        assert bench._sim_session is not None
+        twin = bench._sim_session.twin_package
+        assert twin["validation_status"] == "hardware_validated"
+        assert twin["hardware_validated"] is True
+        assert twin["validation_report_hash"] == package.to_manifest()["validation_report_hash"]
+        assert twin["validation_report"]["schema_version"] == 2
+        assert bench._sim_session.circuit.metadata["validation_status"] == "hardware_validated"
+        assert bench._sim_session.circuit.metadata["hardware_validated"] is True
+    finally:
+        bench.close_all()
+
+
+def test_twin_package_v2_validation_report_tamper_rejected_by_pytestlab(tmp_path):
+    from pytestlab.config.bench_loader import _load_twin_package
+    from pytestlab.errors import InstrumentConfigurationError
+
+    twin_dir = tmp_path / "amp.twin"
+    _write_v2_twin_package(twin_dir)
+    report = json.loads((twin_dir / "validation_report.json").read_text())
+    report["metrics"]["vout_mae_v"]["value"] = 999.0
+    (twin_dir / "validation_report.json").write_text(json.dumps(report))
+
+    with pytest.raises(
+        InstrumentConfigurationError,
+        match="validation_report_hash|passed disagrees with threshold",
+    ):
+        _load_twin_package(twin_dir)
 
 
 def test_twin_package_rejects_rendered_netlist_escape(tmp_path):

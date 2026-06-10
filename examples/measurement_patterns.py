@@ -3,7 +3,7 @@
 PyTestLab Measurement Patterns Examples
 
 This module demonstrates common measurement patterns using PyTestLab:
-- Basic instrument connection and configuration
+- Basic standalone instrument configuration
 - Bench-based measurement with YAML configuration
 - Parameter sweeps with MeasurementSession
 - Error handling and resource management
@@ -23,12 +23,11 @@ from pytestlab.measurements import MeasurementSession
 
 
 def basic_instrument_usage():
-    """Basic instrument connection and measurement."""
+    """Basic standalone instrument configuration and measurement."""
     print("\n=== Basic Instrument Usage ===")
 
-    # Connect to oscilloscope with simulation
+    # Create a simulated oscilloscope; backend I/O opens automatically on first use.
     scope = AutoInstrument.from_config("keysight/DSOX1204G", simulate=True)
-    scope.connect_backend()
 
     try:
         # Configure channels using direct API (more reliable in simulation)
@@ -125,16 +124,14 @@ def advanced_measurement_patterns():
     instruments = []
 
     try:
-        # Connect multiple instruments
+        # Create multiple simulated instruments. Backends open automatically on first use.
         psu = AutoInstrument.from_config("keysight/EDU36311A", simulate=True)
-        psu.connect_backend()
         instruments.append(psu)
 
         awg = AutoInstrument.from_config("keysight/EDU33212A", simulate=True)
-        awg.connect_backend()
         instruments.append(awg)
 
-        print(f"✓ Connected {len(instruments)} instruments")
+        print(f"✓ Created {len(instruments)} instruments")
 
         # Configure power supply
         psu.channel(1).set(voltage=5.0, current_limit=0.1).on()

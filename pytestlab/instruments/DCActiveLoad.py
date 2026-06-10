@@ -59,39 +59,12 @@ class DCActiveLoad(Instrument):
         cls: type[DCActiveLoad], config: InstrumentConfig, debug_mode: bool = False
     ) -> DCActiveLoad:
         """
-        Factory method aligning with base Instrument.from_config signature.
-        Backend selection is handled by the factory layer; direct use constructs the driver only.
+        Direct construction is disabled because backend selection is handled by AutoInstrument.
         """
-        if not isinstance(config, DCActiveLoadConfig):
-            config = DCActiveLoadConfig(**dict(config))
-
-        # Provide a minimal no-op backend to satisfy typing when constructing directly.
-        class _NoopBackend:
-            def connect(self) -> None:
-                return None
-
-            def disconnect(self) -> None:
-                return None
-
-            def write(self, cmd: str) -> None:
-                return None
-
-            def query(self, cmd: str, delay: float | None = None) -> str:
-                return ""
-
-            def query_raw(self, cmd: str, delay: float | None = None) -> bytes:
-                return b""
-
-            def close(self) -> None:
-                return None
-
-            def set_timeout(self, timeout_ms: int) -> None:
-                return None
-
-            def get_timeout(self) -> int:
-                return 5000
-
-        return cls(config=config, backend=_NoopBackend(), debug_mode=debug_mode)
+        raise NotImplementedError(
+            "DCActiveLoad.from_config() does not select communication backends. "
+            "Use AutoInstrument.from_config() or instantiate DCActiveLoad with an explicit backend."
+        )
 
     def set_mode(self, mode: str) -> None:
         """Sets the operating mode of the electronic load.

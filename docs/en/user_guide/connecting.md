@@ -1,39 +1,36 @@
-# Connecting to Instruments
+# Using Instruments and Connections
 
-PyTestLab provides a unified and straightforward way to connect to both real and simulated instruments.
+PyTestLab separates **selecting a device** from **opening communication**. Your experiment code creates an instrument or opens a bench, then uses ordinary measurement/control methods. PyTestLab opens the underlying backend automatically when the first command or query needs it.
 
 ---
 
 ## Using `AutoInstrument`
 
-The `pytestlab.AutoInstrument` factory is the primary way to create a single instrument instance. You need to provide a configuration source, which can be a profile key (e.g., `"keysight/DSOX1204G"`) or a path to a YAML file.
+Use `pytestlab.AutoInstrument` when you want a single instrument from a packaged preset, a local profile file, or an in-memory config.
 
-!!! note "Connection Process"
-    Creating an instrument instance with `AutoInstrument.from_config()` does **not** establish the connection.
-    You must always call the `connect_backend()` method on the created instrument object.
+!!! note "Automatic backend opening"
+    `AutoInstrument.from_preset()`, `from_file()`, and `from_config()` build a configured Python object. They do not immediately touch hardware. The first operation that needs I/O, such as `id()`, `query()`, `read_channels()`, or `measure_voltage_dc()`, opens the backend automatically.
 
 ---
 
-### Connecting to a Real Instrument
+### Real Instrument
 
-To connect to a physical instrument, you typically need its VISA address.
+For physical instruments, provide the address or backend settings required by your lab. The first instrument operation performs the actual connection.
 
 ```python
 import pytestlab
 
 def main():
-    # Create an instrument instance from a profile and specify its address
-    dmm = pytestlab.AutoInstrument.from_config(
+    dmm = pytestlab.AutoInstrument.from_preset(
         "keysight/34470A",
         address_override="USB0::0x0957::0x1B07::MY56430012::INSTR"
     )
 
-    # Establish the connection
-    dmm.connect_backend()
+    # id() is the first I/O operation, so PyTestLab opens the backend here.
+    print(f"Instrument: {dmm.id()}")
 
-    print(f"Connected to: {dmm.id()}")
-
-    # ... perform operations ...
+    voltage = dmm.measure_voltage_dc()
+    print(f"Measured voltage: {voltage}")
 
     dmm.close()
 
@@ -42,31 +39,30 @@ main()
 
 ---
 
-### Connecting to a Simulated Instrument
+### Simulated Instrument
 
-To create a simulated instrument for development or testing, set the `simulate=True` flag. No address is needed.
+For development, CI, and notebooks, use simulation mode. No hardware address is needed.
 
 ```python
 import pytestlab
 
 def main():
-    scope_sim = pytestlab.AutoInstrument.from_config("keysight/DSOX1204G", simulate=True)
-    scope_sim.connect_backend()
+    scope = pytestlab.AutoInstrument.from_preset("keysight/DSOX1204G", simulate=True)
 
-    print(f"Connected to simulated instrument: {scope_sim.id()}")
+    scope.channel(1).setup(scale=0.5).enable()
+    trace = scope.read_channels(1)
+    print(trace.values.head())
 
-    scope_sim.close()
+    scope.close()
 
 main()
 ```
-
-Simulation mode is ideal for development, CI, and testing when hardware is unavailable.
 
 ---
 
 ## Using a Bench
 
-For managing multiple instruments, the `pytestlab.Bench` class is the recommended approach. It handles the connection and cleanup for all instruments defined in your `bench.yaml` file automatically.
+For complete experiments, prefer `pytestlab.Bench`. A bench descriptor declares the instruments, addresses, backend defaults, safety limits, accessories, and measurement plan in one reviewable YAML file. `Bench.open()` validates the file, initializes the devices, and closes them when the `with` block exits.
 
 ```python
 import pytestlab
@@ -74,11 +70,11 @@ import pytestlab
 def main():
     with pytestlab.Bench.open("bench.yaml") as bench:
         print(f"Bench loaded: {bench.config.bench_name}")
-        # Access instruments by alias, e.g.:
+
         bench.psu.channel(1).set(voltage=3.3, current_limit=0.5).on()
         voltage = bench.dmm.measure_voltage_dc()
         print(f"Measured: {voltage.values:.4f} V")
-    # All instruments are closed automatically here
+    # All bench devices are closed automatically here.
 
 main()
 ```
@@ -87,10 +83,11 @@ See the [Working with Benches](bench_descriptors.md) guide for more details.
 
 ---
 
-## Troubleshooting Connections
+## Troubleshooting
 
 - **VISA Not Found:** Ensure you have installed a VISA library (NI-VISA, Keysight IO Libraries, etc.) and that it is accessible in your system's PATH.
-- **Address Errors:** Double-check your instrument's VISA address. Use `pytestlab profile list` and `pytestlab bench ls` to inspect available profiles and bench configurations.
+- **Address Errors:** Double-check the instrument address in your code or `bench.yaml`. Use `pytestlab profile list` and `pytestlab bench ls` to inspect available profiles and bench configurations.
+- **Failure point:** Connection failures usually appear at the first I/O operation, because backend opening is automatic and lazy for standalone instruments.
 - **Simulation:** If you encounter persistent connection issues, try running in simulation mode to isolate hardware vs. software problems.
 
 ---

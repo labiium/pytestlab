@@ -48,6 +48,7 @@ class Device(Generic[ConfigType]):
             )
         self.config = config
         self._backend = backend
+        self._backend_connected = False
         self._command_log = []
         logger_name = getattr(config, "model", self.__class__.__name__)
         self._logger = get_logger(logger_name)
@@ -58,9 +59,20 @@ class Device(Generic[ConfigType]):
         )
 
     def connect_backend(self) -> None:
+        """Open the device backend if it is not already connected.
+
+        This method remains public for backwards compatibility and explicit
+        lifecycle control, but normal user code should not need to call it:
+        PyTestLab connects lazily before the first backend operation and
+        Bench.open() connects configured devices during bench initialization.
+        """
+        if self._backend_connected:
+            return
+
         logger_name = getattr(self.config, "model", self.__class__.__name__)
         try:
             self._backend.connect()
+            self._backend_connected = True
             self._logger.info("Device '%s': Backend connected.", logger_name)
         except Exception as exc:
             self._logger.error("Device '%s': Failed to connect backend: %s", logger_name, exc)
@@ -77,15 +89,23 @@ class Device(Generic[ConfigType]):
                 instrument=logger_name, message=f"Failed to connect backend: {exc}"
             ) from exc
 
+    def _ensure_backend_connected(self) -> None:
+        """Connect lazily so user code never has to call connect_backend()."""
+        if not self._backend_connected:
+            self.connect_backend()
+
     def close(self) -> None:
         self._backend.close()
+        self._backend_connected = False
 
     def write(self, cmd: str) -> None:
+        self._ensure_backend_connected()
         self._backend.write(cmd)
 
     def query(self, cmd: str, delay: float | None = None) -> str:
+        self._ensure_backend_connected()
         return self._backend.query(cmd, delay=delay)
 
     def query_raw(self, cmd: str, delay: float | None = None) -> bytes:
+        self._ensure_backend_connected()
         return self._backend.query_raw(cmd, delay=delay)
-

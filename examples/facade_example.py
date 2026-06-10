@@ -24,8 +24,7 @@ def power_supply_example():
     )
 
     try:
-        psu.connect_backend()
-        print(f"Connected to: {psu.id()}")
+        print(f"Instrument: {psu.id()}")
 
         # OLD WAY (before refactor) - required multiple separate statements:
         # channel1 = psu.channel(1)
@@ -63,8 +62,7 @@ def waveform_generator_example():
     )
 
     try:
-        awg.connect_backend()
-        print(f"Connected to: {awg.id()}")
+        print(f"Instrument: {awg.id()}")
 
         # NEW WAY - setup and enable in one chain:
         awg.channel(1).setup_sine(frequency=1e3, amplitude=2.0, offset=0.5).enable()
@@ -98,8 +96,7 @@ def oscilloscope_example():
     )
 
     try:
-        scope.connect_backend()
-        print(f"Connected to: {scope.id()}")
+        print(f"Instrument: {scope.id()}")
 
         # Setup channels using direct API (more reliable in simulation)
         scope.set_channel_axis(1, scale=0.5, offset=0.0)  # 500mV/div
@@ -142,10 +139,6 @@ def complex_test_sequence():
         # Load multiple instruments
         psu = AutoInstrument.from_config("keysight/EDU36311A", simulate=True)
         awg = AutoInstrument.from_config("keysight/EDU33212A", simulate=True)
-
-        # Connect all instruments
-        psu.connect_backend()
-        awg.connect_backend()
 
         print("\nSetting up test environment...")
 

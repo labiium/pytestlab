@@ -8,7 +8,7 @@ Welcome to PyTestLab! This guide will walk you through the essential first steps
 
 The best way to get started is with our interactive **10-Minute Tour**. This Jupyter Notebook will guide you through:
 
-- Connecting to a simulated instrument.
+- Creating and using a simulated instrument.
 - Using the synchronous, facade-based API for instrument control.
 - Performing a simple measurement.
 - Storing results in a database.
@@ -37,7 +37,7 @@ pip install pytestlab[full]
 
 PyTestLab uses a clean synchronous API that's easy to understand and use. All instrument operations are straightforward function calls.
 
-Here's how to connect to a simulated oscilloscope and acquire data:
+Here's how to create a simulated oscilloscope and acquire data. PyTestLab opens the simulated backend automatically when the first instrument command runs:
 
 ```python
 from pytestlab import AutoInstrument
@@ -45,7 +45,6 @@ from pytestlab import AutoInstrument
 def main():
     # Create a simulated oscilloscope
     scope = AutoInstrument.from_config("keysight/DSOX1204G", simulate=True)
-    scope.connect_backend()
 
     # Configure channel and trigger
     scope.channel(1).setup(scale=0.5, offset=0).enable()

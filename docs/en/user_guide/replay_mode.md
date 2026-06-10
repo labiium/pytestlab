@@ -72,8 +72,6 @@ def record_session():
         backend_override=recording_backend
     )
 
-    psu.connect_backend()
-
     # Perform measurements (will be recorded)
     psu.set_voltage(1, 5.0)
     voltage = psu.read_voltage(1)
@@ -90,8 +88,6 @@ def replay_session():
         "keysight/EDU36311A",
         backend_override=replay_backend
     )
-
-    psu.connect_backend()
 
     # This will replay the exact recorded sequence
     psu.set_voltage(1, 5.0)  # Must match recorded command

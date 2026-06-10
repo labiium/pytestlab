@@ -87,13 +87,11 @@ def record_real_instruments_session() -> Path | None:
         psu = AutoInstrument.from_config(
             "keysight/EDU36311A", simulate=False, backend_type_hint="lamb"
         )
-        psu.connect_backend()
 
         print("Connecting to Oscilloscope via LAMB...")
         osc = AutoInstrument.from_config(
             "keysight/DSOX1204G", simulate=False, backend_type_hint="lamb"
         )
-        osc.connect_backend()
 
         # Wrap backends for recording
         psu._backend = SessionRecordingBackend(psu._backend, "psu_session.yaml")

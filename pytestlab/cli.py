@@ -65,6 +65,7 @@ instrument_app = typer.Typer(name="instrument", help="Interact with instruments.
 bench_app = typer.Typer(name="bench", help="Manage bench configurations.")
 sim_profile_app = typer.Typer(name="sim-profile", help="Manage simulation profiles.")
 visa_app = typer.Typer(name="visa", help="Discover VISA resources.")
+lamb_app = typer.Typer(name="lamb", help="Interact with LAMB instrument server.")
 
 # Create a new Typer app for replay commands
 replay_app = typer.Typer(name="replay", help="Record and replay complex measurement sessions.")
@@ -76,6 +77,7 @@ app.add_typer(instrument_app)
 app.add_typer(bench_app)
 app.add_typer(sim_profile_app)
 app.add_typer(visa_app)
+app.add_typer(lamb_app)
 
 
 # --- Simulation Profile Helpers ---
@@ -176,6 +178,66 @@ def visa_list(
         table.add_row(str(resource_name), idn_response)
 
     rich.print(table)
+
+
+@lamb_app.command("list")
+def lamb_list(
+    url: Annotated[
+        str,
+        typer.Option(
+            help="LAMB server base URL. Overrides LAMB_SERVER environment variable."
+        ),
+    ] = os.getenv("LAMB_SERVER", "http://lamb-server:8000"),
+    timeout_ms: Annotated[
+        int,
+        typer.Option(help="Timeout in milliseconds for server requests."),
+    ] = 5000,
+):
+    """List VISA resources available via a LAMB instrument server."""
+    import httpx
+
+    if timeout_ms <= 0:
+        rich.print("[bold red]Error:[/] --timeout-ms must be positive.")
+        raise typer.Exit(code=1)
+
+    base_url = url.rstrip("/")
+    try:
+        with httpx.Client(timeout=timeout_ms / 1000.0) as client:
+            response = client.get(f"{base_url}/list_resources")
+            response.raise_for_status()
+            data = response.json()
+    except httpx.HTTPStatusError as exc:
+        rich.print(
+            f"[bold red]Error:[/] LAMB server returned {exc.response.status_code} - {rich_escape(exc.response.text)}"
+        )
+        raise typer.Exit(code=1) from None
+    except httpx.RequestError as exc:
+        rich.print(
+            f"[bold red]Error:[/] Could not connect to LAMB server at {base_url}: {rich_escape(str(exc))}"
+        )
+        raise typer.Exit(code=1) from None
+    except Exception as exc:
+        rich.print(f"[bold red]Error listing LAMB resources:[/] {rich_escape(str(exc))}")
+        raise typer.Exit(code=1) from None
+
+    active = data.get("active", [])
+    inactive = data.get("inactive", [])
+
+    if not active and not inactive:
+        rich.print("No VISA resources found on the LAMB server.")
+        return
+
+    table = Table(title=f"LAMB Resources — {base_url}")
+    table.add_column("Resource", style="cyan", overflow="fold")
+    table.add_column("Status", style="green")
+
+    for resource in active:
+        table.add_row(str(resource), "[green]active[/green]")
+    for resource in inactive:
+        table.add_row(str(resource), "[yellow]inactive[/yellow]")
+
+    rich.print(table)
+    rich.print(f"\nTotal: {len(active)} active, {len(inactive)} inactive")
 
 
 # --- Simulation Profile Commands ---

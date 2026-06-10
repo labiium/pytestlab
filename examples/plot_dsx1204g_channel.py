@@ -3,7 +3,6 @@ from pytestlab import AutoInstrument
 
 def main():
     scope = AutoInstrument.from_config("keysight/DSOX1204G")
-    scope.connect_backend()
 
     res = scope.reset()
 

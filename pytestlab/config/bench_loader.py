@@ -55,6 +55,9 @@ def load_sim_bench_yaml(path: str | Path) -> tuple[BenchConfigExtended, Any | No
                 "base_netlist_hash": twin_payload.get("base_netlist_hash"),
                 "rendered_netlist_hash": twin_payload.get("rendered_netlist_hash"),
                 "parameter_hash": twin_payload.get("parameter_hash"),
+                "validation_status": twin_payload.get("validation_status"),
+                "hardware_validated": twin_payload.get("hardware_validated"),
+                "validation_report_hash": twin_payload.get("validation_report_hash"),
             }
         )
     circuit = circuit_from_netlist(netlist_path, metadata=metadata)
@@ -140,6 +143,10 @@ def _load_twin_package(package_path: Path) -> tuple[Path, dict[str, Any]]:
             "model_params": package.model_params,
             "rendered_netlist_hash": rendered_hash,
             "parameter_hash": param_hash,
+            "validation_report_hash": manifest.get("validation_report_hash"),
+            "validation_status": manifest.get("validation_status"),
+            "hardware_validated": manifest.get("hardware_validated"),
+            "validation_report": dict(package.validation_report),
         }
     )
     return rendered_path, payload

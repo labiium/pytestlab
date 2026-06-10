@@ -9,21 +9,17 @@ These tests verify that:
 5. Custom compliance configurations work
 """
 
+import importlib.util
 import os
-import tempfile
-from pathlib import Path
 from unittest import mock
 
 import pytest
 
 from pytestlab import Session
 from pytestlab.compliance import ComplianceConfig
-from pytestlab.compliance.auto_config import (
-    ensure_compliance_config,
-    get_key_info,
-    is_compliance_available,
-    reset_keys,
-)
+from pytestlab.compliance.auto_config import ensure_compliance_config
+from pytestlab.compliance.auto_config import get_key_info
+from pytestlab.compliance.auto_config import is_compliance_available
 
 
 @pytest.fixture
@@ -58,7 +54,7 @@ class TestAutoComplianceConfiguration:
         assert not key_dir.exists() or not any(key_dir.iterdir())
 
         # Create session (should auto-configure)
-        with Session("test") as session:
+        with Session("test"):
             pass
 
         # Keys should now exist
@@ -71,7 +67,7 @@ class TestAutoComplianceConfiguration:
         home = isolated_compliance_dir
 
         # First session creates keys
-        with Session("test1") as session1:
+        with Session("test1"):
             pass
 
         key_dir = home / "state" / "keys"
@@ -79,7 +75,7 @@ class TestAutoComplianceConfiguration:
         first_key_content = private_key.read_bytes()
 
         # Second session should reuse same keys
-        with Session("test2") as session2:
+        with Session("test2"):
             pass
 
         second_key_content = private_key.read_bytes()
@@ -90,12 +86,7 @@ class TestAutoComplianceConfiguration:
         # Should be available if cryptography installed
         available = is_compliance_available()
 
-        try:
-            import cryptography
-
-            assert available is True
-        except ImportError:
-            assert available is False
+        assert available is (importlib.util.find_spec("cryptography") is not None)
 
 
 class TestSessionComplianceIntegration:
@@ -248,8 +239,6 @@ class TestKeyManagement:
         """Test key info retrieval."""
         pytest.importorskip("cryptography")
 
-        home = isolated_compliance_dir
-
         # Before key generation
         info_before = get_key_info()
         assert info_before["private_key_exists"] is False
@@ -295,7 +284,6 @@ class TestComplianceConfigPresets:
         with Session("temp") as _:
             pass
 
-        home = isolated_compliance_dir
         config = ComplianceConfig(regulation="FDA_21CFR11")
 
         assert config.signing is not None

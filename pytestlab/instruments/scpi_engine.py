@@ -237,13 +237,13 @@ def _parse_binblock(data: str | bytes, spec: _ResponseSpec):
     if isinstance(data, str):
         data = data.encode("utf-8")
 
-    if not data.startswith(b"#"):
-        raise ParseError("binblock: data does not start with '#' header")
+    from .scpi_binary import BinaryBlockParseError
+    from .scpi_binary import strip_definite_length_block
 
-    n_digits = int(chr(data[1]))
-    length = int(data[2 : 2 + n_digits].decode())
-    start = 2 + n_digits
-    return data[start : start + length]
+    try:
+        return strip_definite_length_block(data)
+    except (BinaryBlockParseError, UnicodeDecodeError) as exc:
+        raise ParseError(f"binblock: {exc}") from exc
 
 
 # ------------------------------------------------------------------------------

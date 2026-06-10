@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import TYPE_CHECKING
 
 import httpx
@@ -10,6 +11,8 @@ from ...errors import InstrumentConnectionError
 
 # if TYPE_CHECKING:
 from ..instrument import InstrumentIO
+
+DEFAULT_LAMB_URL = "http://lamb-server:8000"
 
 try:
     from ..._log import get_logger
@@ -31,7 +34,7 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
     def __init__(
         self,
         address: str | None = None,
-        url: str = "http://lamb-server:8000",
+        url: str | None = None,
         timeout_ms: int | None = 10000,
         model_name: str | None = None,
         serial_number: str | None = None,
@@ -44,7 +47,7 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
             model_name: Model name for auto-connect.
             serial_number: Serial number for auto-connect.
         """
-        self.base_url: str = url.rstrip("/")
+        self.base_url: str = (url or os.getenv("LAMB_SERVER", DEFAULT_LAMB_URL)).rstrip("/")
         self.instrument_address: str | None = address  # visa_string
         self.model_name: str | None = model_name
         self.serial_number: str | None = serial_number

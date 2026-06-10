@@ -34,7 +34,6 @@ def demonstrate_successful_replay():
 
     print("Creating PSU instrument with replay backend...")
     psu = AutoInstrument.from_config("keysight/EDU36311A", backend_override=psu_backend)
-    psu.connect_backend()
 
     print("Executing commands in exact recorded sequence...")
     try:
@@ -87,7 +86,6 @@ def demonstrate_mismatch_detection():
 
     print("Creating PSU instrument with replay backend...")
     psu = AutoInstrument.from_config("keysight/EDU36311A", backend_override=psu_backend)
-    psu.connect_backend()
 
     print("Executing sequence with intentional deviation...")
     try:

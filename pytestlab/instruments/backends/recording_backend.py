@@ -24,6 +24,16 @@ class RecordingBackend:
         self.log: list[dict[str, Any]] = []
         self.start_time = time.monotonic()
 
+    def connect(self) -> None:
+        """Connect the wrapped backend when it exposes a connection lifecycle."""
+        if hasattr(self.backend, "connect") and callable(self.backend.connect):
+            self.backend.connect()
+
+    def disconnect(self) -> None:
+        """Disconnect the wrapped backend when it exposes a connection lifecycle."""
+        if hasattr(self.backend, "disconnect") and callable(self.backend.disconnect):
+            self.backend.disconnect()
+
     def write(self, command: str, *args, **kwargs):
         """Write a command to the instrument and log it."""
         self.log.append({"type": "write", "command": command.strip()})
@@ -70,7 +80,6 @@ class RecordingBackend:
 
     def generate_profile(self):
         """Generate the YAML simulation profile from the log."""
-        print(f"DEBUG: generate_profile called. Output path: {self.output_path}")
         output_path = Path(self.output_path) if self.output_path else None
         binary_root = output_path.parent if output_path else Path.cwd()
         scpi_map = {}
@@ -98,23 +107,14 @@ class RecordingBackend:
         if "simulation" not in profile:
             profile["simulation"] = {}
         profile["simulation"]["scpi"] = scpi_map
-        print(f"DEBUG: Profile data to be written: {profile}")
         if output_path:
-            try:
-                output_file = output_path
-                print(f"DEBUG: Creating parent directory for {output_file}")
-                output_file.parent.mkdir(parents=True, exist_ok=True)
-                print(f"DEBUG: Writing to file {output_file}")
-                with open(output_file, "w") as f:
-                    yaml.safe_dump(profile, f, sort_keys=False)
-                print("DEBUG: File write complete.")
-                LOGGER.info(f"Simulation profile saved to {self.output_path}")
-            except Exception as e:
-                print(f"DEBUG: ERROR in generate_profile: {e}")
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(output_path, "w") as f:
+                yaml.safe_dump(profile, f, sort_keys=False)
+            LOGGER.info("Simulation profile saved to %s", output_path)
         else:
             # In a real scenario, this would go to a user cache directory.
             # For now, let's just print it if no path is provided.
-            print("DEBUG: No output path provided. Printing to stdout.")
             print(yaml.safe_dump(profile, sort_keys=False))
 
     def __getattr__(self, name):

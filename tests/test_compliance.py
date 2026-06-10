@@ -8,7 +8,6 @@ These tests validate the decorator-based compliance system:
 Note: These tests require `cryptography`.
 """
 
-import json
 import sqlite3
 import tempfile
 from pathlib import Path

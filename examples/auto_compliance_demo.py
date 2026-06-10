@@ -113,7 +113,7 @@ def demo_custom_compliance():
             return {"systolic": 120, "diastolic": 80}
 
         status = session.verify_compliance()
-        print(f"Using FDA 21 CFR Part 11 preset:")
+        print("Using FDA 21 CFR Part 11 preset:")
         print(f"  - Signing: {status['config']['signed']}")
         print(f"  - Auditing: {status['config']['audited']}")
         print(f"  - Timestamping: {status['config']['timestamped']}")
@@ -128,7 +128,8 @@ def demo_key_info():
     print()
 
     try:
-        from pytestlab.compliance.auto_config import get_key_info, show_compliance_status
+        from pytestlab.compliance.auto_config import get_key_info
+        from pytestlab.compliance.auto_config import show_compliance_status
 
         show_compliance_status()
 

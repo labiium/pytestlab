@@ -143,7 +143,7 @@ def example_mixed_compliance():
         # Register without compliance wrapper
         session._meas_funcs.append(("quick_check", quick_check))
 
-        exp = session.run()
+        session.run()
 
 
 # =============================================================================
@@ -235,7 +235,7 @@ def example_config_from_file():
         def measurement(dmm):
             return {"v": dmm.read_voltage()}
 
-        exp = session.run()
+        session.run()
 
 
 # =============================================================================
@@ -255,7 +255,7 @@ def example_convenience_function():
         def m1(dmm):
             return {"v": 1.0}
 
-        exp = session.run()
+        session.run()
 
     # Or with dict config
     with create_compliant_session(
@@ -270,7 +270,7 @@ def example_convenience_function():
         def m2(dmm):
             return {"v": 2.0}
 
-        exp = session.run()
+        session.run()
 
 
 # =============================================================================

@@ -26,9 +26,6 @@ def test_simulated_psu_dmm_sweep(simulated_psu_profile, simulated_dmm_profile): 
     psu = AutoInstrument.from_config(config_source=psu_config, simulate=True)
     dmm = AutoInstrument.from_config(config_source=simulated_dmm_profile, simulate=True)
 
-    psu.connect_backend()  # Explicitly connect if needed
-    dmm.connect_backend()
-
     # Using facade if available
     # psu.channel(1).set(voltage=5.0)
     # psu.channel(1).on()
@@ -40,12 +37,6 @@ def test_simulated_psu_dmm_sweep(simulated_psu_profile, simulated_dmm_profile): 
     # :MEAS:VOLT:DC? query, as defined in the YAML profile.
     measured_val_str = dmm.query(":MEAS:VOLT:DC?")
     measured_val = float(measured_val_str)
-
-    assert np.isclose(measured_val, 5.0, atol=0.01), f"Expected ~5.0V, got {measured_val}V"
-
-    psu.close()
-    dmm.close()
-    print("CI Example: PSU-DMM sweep ran successfully.")
 
     assert np.isclose(measured_val, 5.0, atol=0.01), f"Expected ~5.0V, got {measured_val}V"
 

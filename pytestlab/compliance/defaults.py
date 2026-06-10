@@ -17,24 +17,19 @@ import hashlib
 import json
 import os
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from .._log import get_logger
+from .interfaces import AuditEntry
+from .interfaces import AuditError
+from .interfaces import Signature
+from .interfaces import SigningError
+from .interfaces import TimestampToken
 from .paths import audit_db_path
 from .paths import key_dir
-from .interfaces import (
-    AuditEntry,
-    AuditError,
-    Auditor,
-    Signature,
-    Signer,
-    SigningError,
-    TimestampError,
-    TimestampToken,
-    Timestamper,
-)
 
 _LOG = get_logger("compliance.defaults")
 
@@ -172,7 +167,7 @@ class FileSystemSigner:
                 value=base64.b64encode(signature_bytes).decode(),
                 algorithm=self.algorithm,
                 key_fingerprint=self.key_fingerprint,
-                timestamp=datetime.now(timezone.utc).isoformat(),
+                timestamp=datetime.now(UTC).isoformat(),
             )
         except Exception as e:
             raise SigningError(f"Signing failed: {e}") from e
@@ -183,9 +178,10 @@ class FileSystemSigner:
             raise SigningError("Public key not available")
 
         try:
+            import base64
+
             from cryptography.hazmat.primitives import hashes
             from cryptography.hazmat.primitives.asymmetric import ec
-            import base64
 
             signature_bytes = base64.b64decode(signature.value)
             self._public_key.verify(signature_bytes, data, ec.ECDSA(hashes.SHA256()))
@@ -348,7 +344,7 @@ class LocalTimestamper:
 
     def timestamp(self, data_hash: str) -> TimestampToken:
         """Create local timestamp."""
-        timestamp = datetime.now(timezone.utc).isoformat()
+        timestamp = datetime.now(UTC).isoformat()
 
         # Create simple token (not cryptographically secure!)
         token_data = f"{data_hash}:{timestamp}".encode()

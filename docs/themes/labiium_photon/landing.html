@@ -547,7 +547,6 @@ document.addEventListener("DOMContentLoaded", function() {
     scope = AutoInstrument.from_config(
         <span class="token string">"keysight/DSOX1204G"</span>, <span class="token parameter">simulate</span>=<span class="token boolean">True</span>
     )
-    scope.connect_backend()
 
     <span class="token comment"># Use a clean, chainable API</span>
     scope.channel(<span class="token number">1</span>).setup(scale=<span class="token number">0.5</span>).enable()

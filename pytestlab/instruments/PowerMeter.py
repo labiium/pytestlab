@@ -1,6 +1,7 @@
 from typing import get_args
 
 from ..config.power_meter_config import PowerMeterConfig
+from ..errors import InstrumentDataError
 from .instrument import Instrument
 
 
@@ -70,8 +71,7 @@ class PowerMeter(Instrument[PowerMeterConfig]):
     def read_power(self, channel: int = 1) -> float:
         """Reads the power from a specified sensor channel.
 
-        This method queries the instrument for a power reading. Note that this
-        is a placeholder implementation and currently returns simulated data.
+        This method queries the instrument for a power reading.
 
         Args:
             channel: The sensor channel number to read from (default is 1).
@@ -80,24 +80,11 @@ class PowerMeter(Instrument[PowerMeterConfig]):
             The measured power as a float. The units depend on the current
             instrument configuration.
         """
-        # In a real implementation, you would query the instrument.
-        # Example: raw_power_str = self._query(f"FETC{channel}?")
-        # The SimBackend would need to be configured to provide realistic responses.
-        self._logger.warning(
-            f"read_power for PowerMeter channel {channel} is a placeholder and returns dummy data."
-        )
-
-        # Simulate a power reading based on the configured units.
-        sim_power = -10.0  # Default dummy power in dBm
-        if self.config.power_units == "W":
-            sim_power = 0.0001  # 100uW
-        elif self.config.power_units == "mW":
-            sim_power = 0.1  # 0.1mW
-        elif self.config.power_units == "uW":
-            sim_power = 100.0  # 100uW
-
-        # For more realistic simulations, a small random variation could be added.
-        # import random
-        # sim_power *= (1 + random.uniform(-0.01, 0.01))
-
-        return sim_power
+        response = self._query(f"FETC{channel}?")
+        try:
+            return float(response.strip())
+        except ValueError as exc:
+            raise InstrumentDataError(
+                self.config.model,
+                f"Could not parse power reading from response {response!r}.",
+            ) from exc

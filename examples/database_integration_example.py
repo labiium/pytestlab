@@ -20,7 +20,6 @@ Note: This example runs in simulation mode - no hardware required.
 import os
 import random
 import time
-from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -58,9 +57,7 @@ def run_experiment_with_bench(name, description, base_voltages, collector_range,
             session.parameter("V_base", base_voltages, unit="V", notes="Base voltage")
             session.parameter("V_collector", collector_range, unit="V", notes="Collector voltage")
 
-            # Get instruments from bench
-            psu = bench.psu
-            dmm = bench.dmm
+            # Instruments are injected into acquisitions by alias.
 
             @session.acquire
             def measure_transistor(V_base, V_collector, psu, dmm):
@@ -167,7 +164,7 @@ def main():
         )
 
         # Run second experiment - High voltage test
-        experiment2 = run_experiment_with_bench(
+        run_experiment_with_bench(
             name="Transistor High Voltage Test",
             description="Testing transistor at higher base voltages",
             base_voltages=np.linspace(0.8, 1.0, 3),

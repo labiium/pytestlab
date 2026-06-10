@@ -34,11 +34,10 @@ from pytestlab.measurements import MeasurementSession
 from pytestlab import AutoInstrument
 
 def main():
-    # Create instrument instances (simulated for this example)
+    # Create instrument instances (simulated for this example).
+    # PyTestLab opens each backend automatically when the first command runs.
     dmm = AutoInstrument.from_config("keysight/EDU34450A", simulate=True)
     psu = AutoInstrument.from_config("keysight/EDU36311A", simulate=True)
-    dmm.connect_backend()
-    psu.connect_backend()
 
     # Start a measurement session
     with MeasurementSession(

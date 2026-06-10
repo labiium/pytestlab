@@ -1,8 +1,8 @@
 from ..config.vna_config import VNAConfig
+from ..errors import InstrumentDataError
 from .instrument import Instrument
 
 
-# Placeholder for S-parameter data
 class SParameterData:
     def __init__(
         self, frequencies: list[float], s_params: list[list[complex]], param_names: list[str]
@@ -47,36 +47,42 @@ class VectorNetworkAnalyser(Instrument[VNAConfig]):
         self._logger.info("VNA measurement configured (simulated).")
 
     def get_s_parameter_data(self) -> SParameterData:
-        # Example: Query S-parameter data. This is often complex, involving selecting
-        # the S-parameter, then querying data (e.g., in Real, Imaginary or LogMag, Phase format).
-        # raw_data_str = self._query(f"CALC:DATA? SDAT") # Example SCPI for S-parameter data
-        # For simulation, SimBackend needs to be taught to respond.
-        self._logger.warning(
-            "get_s_parameter_data for VNA is a placeholder and returns dummy data."
-        )
-
         num_points = self.config.num_points or 101
         start_f = self.config.start_frequency or 1e9
         stop_f = self.config.stop_frequency or 2e9
-
         frequencies = [
             start_f + i * (stop_f - start_f) / (num_points - 1 if num_points > 1 else 1)
             for i in range(num_points)
         ]
-
         s_params_to_measure = self.config.s_parameters or ["S11"]
-        sim_s_params_data: list[list[complex]] = []
 
+        raw_data = self._query("CALC:DATA? SDAT")
+        try:
+            values = [float(part.strip()) for part in raw_data.split(",") if part.strip()]
+        except ValueError as exc:
+            raise InstrumentDataError(
+                self.config.model,
+                f"Could not parse S-parameter response {raw_data!r}.",
+            ) from exc
+
+        expected_values = len(s_params_to_measure) * num_points * 2
+        if len(values) != expected_values:
+            raise InstrumentDataError(
+                self.config.model,
+                f"Expected {expected_values} S-parameter values, got {len(values)}.",
+            )
+
+        s_params_data: list[list[complex]] = []
+        cursor = 0
         for _ in s_params_to_measure:
-            # Dummy data: e.g., S11 a simple reflection, S21 a simple transmission
             param_data = []
-            for i in range(num_points):
-                # Create some varying complex numbers
-                real_part = -0.1 * i / num_points
-                imag_part = -0.05 * (1 - i / num_points)
+            for _point_index in range(num_points):
+                real_part = values[cursor]
+                imag_part = values[cursor + 1]
+                cursor += 2
                 param_data.append(complex(real_part, imag_part))
-            sim_s_params_data.append(param_data)
+            s_params_data.append(param_data)
 
         return SParameterData(
-            frequencies=frequencies, s_params=sim_s_params_data, param_names=s_params_to_measure
+            frequencies=frequencies, s_params=s_params_data, param_names=s_params_to_measure
         )
