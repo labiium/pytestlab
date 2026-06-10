@@ -1958,9 +1958,11 @@ dependencies = [
     { name = "aiofiles" },
     { name = "cryptography" },
     { name = "httpx" },
+    { name = "matplotlib" },
     { name = "numpy" },
     { name = "pillow" },
     { name = "pint" },
+    { name = "plotly" },
     { name = "polars" },
     { name = "pydantic" },
     { name = "pyscpi" },
@@ -2018,14 +2020,6 @@ docs = [
     { name = "pymdown-extensions" },
     { name = "watchdog" },
 ]
-full = [
-    { name = "matplotlib" },
-    { name = "plotly" },
-]
-plot = [
-    { name = "matplotlib" },
-    { name = "plotly" },
-]
 
 [package.dev-dependencies]
 dev = [
@@ -2041,11 +2035,9 @@ requires-dist = [
     { name = "ghp-import", marker = "extra == 'docs'", specifier = ">=2.1.0" },
     { name = "httpx" },
     { name = "httpx", marker = "extra == 'dev'" },
-    { name = "matplotlib", marker = "extra == 'dev'" },
+    { name = "matplotlib" },
     { name = "matplotlib", marker = "extra == 'dev'", specifier = ">=3.10.3" },
     { name = "matplotlib", marker = "extra == 'docs'", specifier = ">=3.10.3" },
-    { name = "matplotlib", marker = "extra == 'full'" },
-    { name = "matplotlib", marker = "extra == 'plot'" },
     { name = "mkdocs", marker = "extra == 'dev'", specifier = ">=1.6.1" },
     { name = "mkdocs", marker = "extra == 'docs'", specifier = ">=1.6.1" },
     { name = "mkdocs-autorefs", marker = "extra == 'dev'", specifier = ">=1.4.2" },
@@ -2067,11 +2059,9 @@ requires-dist = [
     { name = "numpy" },
     { name = "pillow" },
     { name = "pint" },
-    { name = "plotly", marker = "extra == 'dev'" },
+    { name = "plotly" },
     { name = "plotly", marker = "extra == 'dev'", specifier = ">=6.2.0" },
     { name = "plotly", marker = "extra == 'docs'", specifier = ">=6.2.0" },
-    { name = "plotly", marker = "extra == 'full'" },
-    { name = "plotly", marker = "extra == 'plot'" },
     { name = "polars" },
     { name = "pre-commit", marker = "extra == 'dev'" },
     { name = "pydantic" },

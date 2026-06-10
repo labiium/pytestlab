@@ -28,6 +28,8 @@ dependencies = [
     "Pillow",
     "pint",
     "scipy",
+    "matplotlib",
+    "plotly",
 ]
 
 [tool.hatch.version]
@@ -50,10 +52,12 @@ docs = [
     "pymdown-extensions>=10.16",
     "watchdog>=6.0.0",
 ]
-plot = ["matplotlib", "plotly"]
-full = ["pytestlab[plot]"]
+# Backward-compatible extras retained for existing install commands.
+# Plotting is included in the default install.
+plot = []
+full = []
 dev = [
-    "pytestlab[full,docs]",
+    "pytestlab[docs]",
     "ruff",
     "ty>=0.0.1a29",
     "pytest",

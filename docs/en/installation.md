@@ -21,13 +21,15 @@ For the core functionality:
 pip install pytestlab
 ```
 
-### Full Installation
+### Default Installation Includes Plotting
 
-To include all optional dependencies for plotting, extended data formats, and development tools:
+Plotting and scientific data features are included in the default install:
 
 ```bash
-pip install pytestlab[full]
+pip install pytestlab
 ```
+
+For development dependencies, install the project with its `dev` extra from a checkout.
 
 ## VISA Backend Support
 

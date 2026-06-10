@@ -2,9 +2,8 @@
 Simple plotting utilities (Phase 1) for PyTestLab.
 
 Goals:
-- Provide a lightweight, optional plotting layer (matplotlib-based).
+- Provide a lightweight plotting layer (matplotlib-based).
 - Offer consistent .plot() convenience for Experiment, MeasurementSession, MeasurementResult.
-- Gracefully degrade if matplotlib is not installed.
 - Keep API surface small so future phases (registry, interactive backends, live updates) can extend.
 
 Future Enhancements (Phase 2+ ideas):
@@ -22,14 +21,17 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Any
 
 import polars as pl
 
-# Optional backend import -----------------------------------------------------
+# Lazy backend import --------------------------------------------------------
 try:
-    import matplotlib.pyplot as _plt
+    import matplotlib.pyplot as _matplotlib_pyplot
 except Exception:  # pragma: no cover
-    _plt = None  # Will trigger graceful failure in _require_backend()
+    _plt: Any = None  # Will trigger graceful failure in _require_backend()
+else:
+    _plt: Any = _matplotlib_pyplot
 
 
 # Public Types ----------------------------------------------------------------
@@ -69,7 +71,8 @@ def _require_backend():
     """
     if _plt is None:
         raise RuntimeError(
-            "matplotlib not available. Install extras: pip install 'pytestlab[plot]'"
+            "matplotlib not available. Reinstall or upgrade PyTestLab; "
+            "plotting is included in the default install."
         )
     return _plt
 

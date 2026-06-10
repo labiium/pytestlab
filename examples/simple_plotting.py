@@ -78,8 +78,8 @@ def main():
             print(f"  Cleaned up: {output_file}")
 
     except Exception as e:
-        print(f"  Note: Plotting requires matplotlib: {e}")
-        print("  To install: pip install 'pytestlab[plot]'")
+        print(f"  Note: Plotting requires matplotlib from the default install: {e}")
+        print("  Reinstall or upgrade PyTestLab if matplotlib is missing.")
 
     print("\n" + "=" * 60)
     print("Plotting example completed successfully!")

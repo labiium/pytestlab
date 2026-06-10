@@ -25,11 +25,7 @@ Before you begin, make sure you have PyTestLab installed. If not, see the [Insta
 pip install pytestlab
 ```
 
-For full functionality (plotting, uncertainty, etc.), use:
-
-```bash
-pip install pytestlab[full]
-```
+Plotting and uncertainty support are included in the default install.
 
 ---
 

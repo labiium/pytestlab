@@ -60,8 +60,7 @@
 ### 1. Install
 
 ```bash
-pip install pytestlab           # core
-pip install pytestlab[full]     # + plotting, uncertainties, etc.
+pip install pytestlab           # includes plotting and scientific helpers
 ```
 
 > Need VISA? Install NI-VISA or Keysight IO Libraries, then `pip install pyvisa`.
@@ -329,10 +328,10 @@ See `examples/replay_mode/` for complete working examples and tutorials.
 
 ## 📈 Plotting
 
-PyTestLab includes a lightweight, backend-agnostic plotting layer with a default matplotlib backend. Install plotting extras:
+PyTestLab includes a lightweight, backend-agnostic plotting layer with a default matplotlib backend. Plotting is included in the default install:
 
 ```bash
-pip install 'pytestlab[plot]'
+pip install pytestlab
 ```
 
 ### What you get
