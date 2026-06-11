@@ -73,6 +73,7 @@ dev = [
 
 [project.scripts]
 pytestlab = "pytestlab.cli:main"
+ptl = "pytestlab.cli:main"
 [tool.commitizen]
 name = "cz_conventional_commits"
 version = "0.1.5"
