@@ -115,6 +115,8 @@ scpi:
       template: "*OPC"
     system_lock:
       template: ":SYSTem:LOCK {state}"
+    header_off:
+      template: ":SYSTem:HEADer OFF"
     auto_scale:
       template: ":AUToscale"
     set_time_axis:
@@ -138,7 +140,7 @@ scpi:
       enums:
         state: { on: "ON", off: "OFF", true: "ON", false: "OFF", "1": "ON", "0": "OFF" }
     probe_set:
-      template: ":CHANnel{channel}:PROBe {scale}"
+      template: ":CHANnel{channel}:PROBe:ATTenuation {scale}"
       validators:
         channel: { min: 1, max: 4 }
     channel_bandwidth:
@@ -199,44 +201,48 @@ scpi:
       template: ":SYSTem:VERSion?"
       response:
         type: str
+    header_query:
+      template: ":SYSTem:HEADer?"
+      response:
+        type: str
     get_timebase_scale:
       template: ":TIMebase:SCALe?"
       response:
-        type: float
+        type: scpi_float
     get_timebase_position:
       template: ":TIMebase:POSition?"
       response:
-        type: float
+        type: scpi_float
     get_channel_scale:
       template: ":CHANnel{channel}:SCALe?"
       validators:
         channel: { min: 1, max: 4 }
       response:
-        type: float
+        type: scpi_float
     get_channel_offset:
       template: ":CHANnel{channel}:OFFSet?"
       validators:
         channel: { min: 1, max: 4 }
       response:
-        type: float
+        type: scpi_float
     probe_get:
-      template: ":CHANnel{channel}:PROBe?"
+      template: ":CHANnel{channel}:PROBe:ATTenuation?"
       validators:
         channel: { min: 1, max: 4 }
       response:
-        type: float
+        type: scpi_float
     measure_vpp:
       template: ":MEASure:VPP? CHANnel{channel}"
       validators:
         channel: { min: 1, max: 4 }
       response:
-        type: float
+        type: scpi_float
     measure_vrms:
       template: ":MEASure:VRMS? CHANnel{channel}"
       validators:
         channel: { min: 1, max: 4 }
       response:
-        type: float
+        type: scpi_float
     acquire_points:
       template: ":ACQuire:POINts:ANALog?"
       response:
@@ -244,7 +250,7 @@ scpi:
     acquire_sample_rate:
       template: ":ACQuire:SRATe:ANALog?"
       response:
-        type: float
+        type: scpi_float
     acquire_setup:
       template: ":ACQuire?"
       response:

@@ -1103,6 +1103,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         *channels: int | list[int] | tuple[int, ...],
         run_after: bool = True,
         timebase: float | None = None,
+        timeout_ms: int | None = None,
         **kwargs,
     ) -> ChannelReadingResult:
         """
@@ -1112,7 +1113,18 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         This implementation queries a fresh waveform preamble **for every channel**
         so that Y-axis scaling (yinc/yorg/yref) is applied correctly even when the
         channels have different vertical settings.
+
+        Args:
+            timeout_ms: Optional one-shot communication budget for this acquisition.
+                Keep the backend default low for normal commands and pass a larger
+                value only for expected long acquisitions or large waveform transfers.
         """
+        if timeout_ms is not None:
+            with self.temporary_communication_timeout(timeout_ms):
+                return self.read_channels(
+                    *channels, run_after=run_after, timebase=timebase, timeout_ms=None, **kwargs
+                )
+
         # ---------------------- argument normalisation (unchanged) ----------------------
         if "runAfter" in kwargs:
             warnings.warn(
@@ -1784,7 +1796,9 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             ) from exc
 
     @validate_call
-    def read_fft_data(self, channel: int, window: str | None = "hann") -> FFTResult:
+    def read_fft_data(
+        self, channel: int, window: str | None = "hann", timeout_ms: int | None = None
+    ) -> FFTResult:
         """
         Acquires time-domain data for the specified channel and computes the FFT using
         the analysis submodule.
@@ -1793,6 +1807,8 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             channel (int): The channel number to perform FFT on.
             window (Optional[str]): The windowing function to apply before FFT
                                      (e.g., 'hann', 'hamming', None).
+            timeout_ms: Optional one-shot communication budget for the underlying
+                waveform acquisition. Use for long on-device/readback workflows.
 
         Returns:
             FFTResult: An object containing the computed FFT data (frequency and linear magnitude).
@@ -1810,7 +1826,9 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             )
 
         # 1. Acquire raw time-domain waveform data
-        waveform_data: ChannelReadingResult = self.read_channels(channel)
+        waveform_data: ChannelReadingResult = self.read_channels(
+            channel, timeout_ms=timeout_ms
+        )
 
         if not isinstance(waveform_data.values, pl.DataFrame) or waveform_data.values.is_empty():
             self._logger.warning(
@@ -1851,13 +1869,18 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         )
 
     @validate_call
-    def screenshot(self) -> Image.Image:
+    def screenshot(self, timeout_ms: int | None = None) -> Image.Image:
         """
         Capture a screenshot of the oscilloscope display.
 
+        Args:
+            timeout_ms: Optional one-shot communication budget for this screenshot
+                transfer. Defaults to the backend's normal communication timeout.
+
         :return Image: A PIL Image object containing the screenshot.
         """
-        binary_data_response: bytes = self._query_raw(self.scpi_engine.build("screenshot")[0])
+        with self.temporary_communication_timeout(timeout_ms):
+            binary_data_response: bytes = self._query_raw(self.scpi_engine.build("screenshot")[0])
 
         try:
             image_data_bytes = strip_definite_length_block(binary_data_response)

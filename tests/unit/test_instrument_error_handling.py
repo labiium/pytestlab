@@ -85,6 +85,15 @@ def test_error_check_no_error(error_handling_instrument):
     assert backend.get_syst_err_query_count() == 1
 
 
+def test_error_check_accepts_bare_zero_no_error(error_handling_instrument):
+    """Some transports return a bare zero for an empty SCPI error queue."""
+    instrument, backend = error_handling_instrument
+    backend.set_error_responses(["0"])
+
+    instrument._error_check()
+    assert backend.get_syst_err_query_count() == 1
+
+
 def test_error_check_with_error(error_handling_instrument):
     """Test _error_check() when SimBackend returns an error string."""
     instrument, backend = error_handling_instrument
@@ -107,6 +116,17 @@ def test_get_error_no_error(error_handling_instrument):
     code, message = instrument.get_error()
     assert code == 0
     assert message == "No error"
+    assert backend.get_syst_err_query_count() == 1
+
+
+def test_get_error_accepts_bare_plus_zero(error_handling_instrument):
+    """A bare +0 is equivalent to the standard '+0,\"No error\"' form."""
+    instrument, backend = error_handling_instrument
+    backend.set_error_responses(["+0"])
+
+    code, message = instrument.get_error()
+    assert code == 0
+    assert message == ""
     assert backend.get_syst_err_query_count() == 1
 
 

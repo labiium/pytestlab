@@ -97,7 +97,9 @@ class InstrumentOperationWaiter:
                     q = instrument.scpi_engine.build("opc_query")[0]
                 except Exception:
                     q = "*OPC?"
-                response = instrument._query(q)
+                timeout_ms = max(1, int(timeout * 1000))
+                with instrument.temporary_communication_timeout(timeout_ms):
+                    response = instrument._query(q)
                 instrument._logger.debug("Operation complete query (*OPC?) returned.")
                 if response.strip() != "1":
                     instrument._logger.debug(

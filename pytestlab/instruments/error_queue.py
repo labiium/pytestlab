@@ -16,6 +16,24 @@ class InstrumentErrorQueue:
     def __init__(self, instrument: Instrument[Any]) -> None:
         self.instrument = instrument
 
+    @staticmethod
+    def _parse_error_response(response: str) -> tuple[int, str]:
+        """Parse common SCPI error queue response variants.
+
+        Most instruments return ``<code>,"<message>"``.  Some USBTMC/LAMB
+        paths return a bare ``0``/``+0`` for "no error"; accepting that
+        no-error form prevents successful commands from failing during the
+        follow-up error check.
+        """
+        raw = response.strip().strip('"')
+        if raw in {"0", "+0"}:
+            return 0, ""
+
+        code_str, msg_part = raw.split(",", 1)
+        code = int(code_str)
+        message = msg_part.strip().strip('"')
+        return code, message
+
     def check(self) -> None:
         instrument = self.instrument
         q = ":SYSTem:ERRor?"
@@ -27,19 +45,13 @@ class InstrumentErrorQueue:
                 q = ":SYSTem:ERRor?"
             error_response = instrument._backend.query(q).strip()
 
-            code = 0
-            message = ""
             try:
-                code_str, msg_part = error_response.split(",", 1)
-                code = int(code_str)
-                message = msg_part.strip().strip('"')
+                code, message = self._parse_error_response(error_response)
             except (ValueError, IndexError) as e:
                 if q != ":SYSTem:ERRor?":
                     try:
                         raw_resp = instrument._backend.query(":SYSTem:ERRor?").strip()
-                        code_str, msg_part = raw_resp.split(",", 1)
-                        code = int(code_str)
-                        message = msg_part.strip().strip('"')
+                        code, message = self._parse_error_response(raw_resp)
                     except Exception:
                         raise InstrumentCommunicationError(
                             instrument=instrument.config.model,
@@ -119,9 +131,7 @@ class InstrumentErrorQueue:
             q = "SYSTem:ERRor?"
         response = (instrument._query(q, skip_check=True)).strip()
         try:
-            code_str, msg_part = response.split(",", 1)
-            code = int(code_str)
-            message = msg_part.strip().strip('"')
+            code, message = self._parse_error_response(response)
         except (ValueError, IndexError) as e:
             instrument._logger.debug(
                 f"Warning: Unexpected error response format: '{response}'. Raising error."

@@ -13,6 +13,8 @@ from ...errors import InstrumentConnectionError
 from ..instrument import InstrumentIO
 
 DEFAULT_LAMB_URL = "http://lamb-server:8000"
+DEFAULT_TIMEOUT_MS = 30_000
+HTTP_TIMEOUT_GRACE_SEC = 5.0
 
 try:
     from ..._log import get_logger
@@ -35,7 +37,7 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
         self,
         address: str | None = None,
         url: str | None = None,
-        timeout_ms: int | None = 10000,
+        timeout_ms: int | None = DEFAULT_TIMEOUT_MS,
         model_name: str | None = None,
         serial_number: str | None = None,
     ):
@@ -43,7 +45,7 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
         Args:
             address: The visa_string or unique instrument address. If not provided, model_name and serial_number must be provided.
             url: Lamb server base URL.
-            timeout_ms: Communication timeout in ms.
+            timeout_ms: Communication timeout in ms. Defaults to 30 seconds; use per-operation overrides for exceptional long operations.
             model_name: Model name for auto-connect.
             serial_number: Serial number for auto-connect.
         """
@@ -51,7 +53,8 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
         self.instrument_address: str | None = address  # visa_string
         self.model_name: str | None = model_name
         self.serial_number: str | None = serial_number
-        self._timeout_sec: float = (timeout_ms / 1000.0) if timeout_ms and timeout_ms > 0 else 5.0
+        effective_timeout_ms = DEFAULT_TIMEOUT_MS if timeout_ms is None else max(1, timeout_ms)
+        self._timeout_sec: float = effective_timeout_ms / 1000.0
         self._client: httpx.Client | None = None
         self._auto_connect_performed: bool = False
 
@@ -77,7 +80,7 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
             payload = {"model_name": self.model_name}
             if self.serial_number:
                 payload["serial_number"] = self.serial_number
-            with httpx.Client(timeout=self._timeout_sec) as client:
+            with httpx.Client(timeout=self._http_timeout_sec()) as client:
                 response = client.post(
                     f"{self.base_url}/add",
                     json=payload,
@@ -115,14 +118,37 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
         )
         pass
 
+    def _http_timeout_sec(self) -> float:
+        """HTTP timeout for LAMB requests.
+
+        The payload timeout is the instrument operation budget enforced by
+        LAMB/VISA. The HTTP client gets an additional grace window so server
+        504/structured errors can return instead of PyTestLab timing out first.
+        """
+        return self._timeout_sec + HTTP_TIMEOUT_GRACE_SEC
+
+    def _instrument_payload(self, cmd: str) -> dict[str, str | int]:
+        """Build a LAMB instrument operation payload.
+
+        LAMB servers before per-request operation budgets ignore the timeout
+        field, while newer servers use it to keep server-side VISA/USBTMC
+        budgets aligned with the existing PyTestLab backend timeout setting.
+        """
+        timeout_ms = max(1, int(self._timeout_sec * 1000))
+        return {
+            "visa_string": self.instrument_address or "",
+            "command": cmd,
+            "timeout_ms": timeout_ms,
+        }
+
     def write(self, cmd: str) -> None:
         self._ensure_connected()
         lamb_logger.debug(f"WRITE to '{self.instrument_address}': {cmd}")
         try:
-            with httpx.Client(timeout=self._timeout_sec) as client:
+            with httpx.Client(timeout=self._http_timeout_sec()) as client:
                 response = client.post(
                     f"{self.base_url}/instrument/write",
-                    json={"visa_string": self.instrument_address, "command": cmd},
+                    json=self._instrument_payload(cmd),
                     headers={"Accept": "application/json", "Accept-Charset": "utf-8"},
                 )
                 response.raise_for_status()
@@ -137,10 +163,10 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
         self._ensure_connected()
         lamb_logger.debug(f"QUERY to '{self.instrument_address}': {cmd}")
         try:
-            with httpx.Client(timeout=self._timeout_sec) as client:
+            with httpx.Client(timeout=self._http_timeout_sec()) as client:
                 response = client.post(
                     f"{self.base_url}/instrument/query",
-                    json={"visa_string": self.instrument_address, "command": cmd},
+                    json=self._instrument_payload(cmd),
                     headers={"Accept": "application/json", "Accept-Charset": "utf-8"},
                 )
                 response.raise_for_status()
@@ -157,10 +183,10 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
         self._ensure_connected()
         lamb_logger.debug(f"QUERY_RAW to '{self.instrument_address}': {cmd}")
         try:
-            with httpx.Client(timeout=self._timeout_sec) as client:
+            with httpx.Client(timeout=self._http_timeout_sec()) as client:
                 response = client.post(
                     f"{self.base_url}/instrument/query_raw",
-                    json={"visa_string": self.instrument_address, "command": cmd},
+                    json=self._instrument_payload(cmd),
                     headers={"Accept": "application/octet-stream"},
                 )
                 response.raise_for_status()

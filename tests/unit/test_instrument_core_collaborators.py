@@ -12,6 +12,8 @@ from pytestlab.instruments.instrument import Instrument
 class CoreBackend:
     def __init__(self):
         self.connected = False
+        self.timeout_ms = 5000
+        self.timeout_history: list[int] = []
         self.writes: list[str] = []
         self.queries: list[str] = []
         self.raw_queries: list[str] = []
@@ -49,9 +51,10 @@ class CoreBackend:
 
     def set_timeout(self, timeout_ms: int) -> None:
         self.timeout_ms = timeout_ms
+        self.timeout_history.append(timeout_ms)
 
     def get_timeout(self) -> int:
-        return getattr(self, "timeout_ms", 5000)
+        return self.timeout_ms
 
 
 @pytest.fixture
@@ -125,3 +128,38 @@ def test_base_health_monitor_preserves_status_mapping(core_instrument):
     assert report.status is HealthStatus.WARNING
     assert report.instrument_idn == "PyTestLab,Core,001,1.0"
     assert report.warnings == ["Stored Error: -101 - Command error"]
+
+
+def test_temporary_communication_timeout_restores_backend_timeout(core_instrument):
+    instrument, backend = core_instrument
+
+    assert instrument.get_communication_timeout() == 5000
+    with instrument.temporary_communication_timeout(300_000):
+        assert backend.timeout_ms == 300_000
+
+    assert backend.timeout_ms == 5000
+    assert backend.timeout_history == [300_000, 5000]
+
+
+def test_wait_for_operation_complete_applies_method_timeout_hint(core_instrument):
+    instrument, backend = core_instrument
+
+    response = instrument.wait_for_operation_complete(timeout=123.456)
+
+    assert response == "1"
+    assert "*OPC?" in backend.queries
+    assert backend.timeout_history[-2:] == [123_456, 5000]
+    assert backend.timeout_ms == 5000
+
+
+def test_low_level_helpers_accept_one_shot_timeout(core_instrument):
+    instrument, backend = core_instrument
+
+    instrument._send_command("CONF:VOLT", timeout_ms=40_000)
+    response = instrument._query("*IDN?", timeout_ms=50_000)
+    raw = instrument._query_raw("RAW?", timeout_ms=60_000)
+
+    assert response == "PyTestLab,Core,001,1.0"
+    assert raw == b"\x01\x02"
+    assert backend.timeout_history == [40_000, 5000, 50_000, 5000, 60_000, 5000]
+    assert backend.timeout_ms == 5000

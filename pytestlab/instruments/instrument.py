@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any
 from typing import Generic
 from typing import TypeVar
@@ -172,22 +174,35 @@ class Instrument(Device[ConfigType], Generic[ConfigType]):
                 self.config.model, "Failed to parse binary data from instrument."
             ) from e
 
-    def _send_command(self, command: str, skip_check: bool = False) -> None:
+    def _send_command(
+        self, command: str, skip_check: bool = False, timeout_ms: int | None = None
+    ) -> None:
         """Sends a command to the instrument and logs the interaction.
 
         This is a low-level compatibility wrapper. The implementation lives in
         ``InstrumentCommandSession`` so command transport and logging can be
         tested independently from the base driver surface.
         """
-        self._command_session.send_command(command, skip_check=skip_check)
+        with self.temporary_communication_timeout(timeout_ms):
+            self._command_session.send_command(command, skip_check=skip_check)
 
-    def _query(self, query: str, delay: float | None = None, skip_check: bool = False) -> str:
+    def _query(
+        self,
+        query: str,
+        delay: float | None = None,
+        skip_check: bool = False,
+        timeout_ms: int | None = None,
+    ) -> str:
         """Sends a query to the instrument and returns a string response."""
-        return self._command_session.query(query, delay=delay, skip_check=skip_check)
+        with self.temporary_communication_timeout(timeout_ms):
+            return self._command_session.query(query, delay=delay, skip_check=skip_check)
 
-    def _query_raw(self, query: str, delay: float | None = None) -> bytes:
+    def _query_raw(
+        self, query: str, delay: float | None = None, timeout_ms: int | None = None
+    ) -> bytes:
         """Sends a query and returns a raw binary response."""
-        return self._command_session.query_raw(query, delay=delay)
+        with self.temporary_communication_timeout(timeout_ms):
+            return self._command_session.query_raw(query, delay=delay)
 
     def lock_panel(self, lock: bool = True) -> None:
         """
@@ -373,6 +388,28 @@ class Instrument(Device[ConfigType], Generic[ConfigType]):
         return self._operation_waiter.wait_for_operation_complete(
             query_instrument=query_instrument, timeout=timeout
         )
+
+    @contextmanager
+    def temporary_communication_timeout(self, timeout_ms: int | None) -> Iterator[None]:
+        """Temporarily override the backend timeout for one long operation.
+
+        Normal SCPI calls should keep the backend's configured default timeout
+        low. Use this context for known long-running operations, such as deep
+        waveform transfers or instrument-side analysis, so the larger time
+        budget is scoped to exactly the operation that needs it.
+        """
+        if timeout_ms is None:
+            yield
+            return
+        if timeout_ms <= 0:
+            raise ValueError("timeout_ms must be positive")
+
+        previous_timeout_ms = self.get_communication_timeout()
+        self.set_communication_timeout(timeout_ms)
+        try:
+            yield
+        finally:
+            self.set_communication_timeout(previous_timeout_ms)
 
     def set_communication_timeout(self, timeout_ms: int) -> None:
         """Sets the communication timeout on the backend."""

@@ -53,6 +53,7 @@ scpi:
 from __future__ import annotations
 
 import numbers
+import re
 import string
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -193,6 +194,35 @@ def _parse_float(data: str | bytes, spec: _ResponseSpec):
         data.decode("utf-8", errors="ignore") if isinstance(data, bytes | bytearray) else str(data)
     )
     return float(txt.strip())
+
+
+@_register_parser("scpi_float")
+def _parse_scpi_float(data: str | bytes, spec: _ResponseSpec):
+    """Parse SCPI numeric responses that may include headers or qualifiers.
+
+    Keysight scopes can return values such as ``1.00000E+00,RAT`` for
+    measurements, or include a command header before the numeric value when
+    response headers are enabled.  This parser keeps normal ``float`` strict for
+    generic use while allowing profiles to opt into SCPI-specific extraction.
+    """
+    txt = (
+        data.decode("utf-8", errors="ignore") if isinstance(data, bytes | bytearray) else str(data)
+    ).strip()
+    try:
+        return float(txt)
+    except ValueError:
+        pass
+
+    first_field = txt.split(",", 1)[0].strip()
+    try:
+        return float(first_field)
+    except ValueError:
+        pass
+
+    matches = re.findall(r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][-+]?\d+)?", txt)
+    if not matches:
+        raise ValueError(f"could not find a numeric value in {txt!r}")
+    return float(matches[-1])
 
 
 @_register_parser("csv")
