@@ -505,3 +505,36 @@ def test_twin_package_rejects_hash_mismatch(tmp_path):
 
     with pytest.raises(InstrumentConfigurationError, match="rendered_netlist_hash"):
         _load_twin_package(twin_dir)
+
+
+def test_bench_open_rejects_wiring_to_unknown_netlist_node(tmp_path):
+    """A wiring target that is not a real netlist node must fail at open time
+    with a did-you-mean suggestion, never silently float to ~0 V."""
+    pytest.importorskip("pytestlab_sim")
+    from pytestlab_sim.wiring import UnknownNode
+
+    netlist_path = tmp_path / "circuit.sp"
+    netlist_path.write_text("RLOAD vload 0 100\n.end\n")
+    bench_path = tmp_path / "bench_sim.yaml"
+    bench_path.write_text(
+        """
+bench_name: "Circuit Sim Bench"
+simulate: true
+instruments:
+  psu1:
+    profile: "keysight/EDU36311A"
+    simulate: true
+    backend:
+      type: circuit_sim
+sim_circuit:
+  netlist: circuit.sp
+  seed: 42
+  wiring:
+    psu1.CH1+: vlod
+    psu1.CH1-: "0"
+"""
+    )
+
+    # 'vlod' is a typo for 'vload'; opening the bench must reject it.
+    with pytest.raises(UnknownNode, match="vlod"):
+        Bench.open(bench_path)
