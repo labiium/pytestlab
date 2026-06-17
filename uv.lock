@@ -2087,7 +2087,7 @@ requires-dist = [
     { name = "watchdog", marker = "extra == 'dev'", specifier = ">=6.0.0" },
     { name = "watchdog", marker = "extra == 'docs'", specifier = ">=6.0.0" },
 ]
-provides-extras = ["dev", "docs", "full", "plot"]
+provides-extras = ["circuit", "dev", "docs", "full", "plot"]
 
 [package.metadata.requires-dev]
 dev = [{ name = "ruff", specifier = ">=0.12.9" }]

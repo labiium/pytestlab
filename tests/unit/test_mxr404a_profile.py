@@ -37,6 +37,9 @@ def test_mxr404a_profile_exposes_core_scpi_aliases():
     assert scope.scpi_engine.build("acquire_sample_rate") == [":ACQuire:SRATe:ANALog?"]
     assert scope.scpi_engine.build("acquire_points") == [":ACQuire:POINts:ANALog?"]
     assert scope.scpi_engine.build("wave_preamble") == [":WAVeform:PREamble?"]
+    assert scope.scpi_engine.build("measure_vrms", channel=1) == [
+        ":MEASure:VRMS? CYCLe,AC,CHANnel1"
+    ]
 
     assert scope.scpi_engine.parse("measure_vpp", "1.00000E+00,RAT") == 1.0
     assert scope.scpi_engine.parse("get_channel_scale", ":CHANnel1:SCALe 5.000E-1") == 0.5

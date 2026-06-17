@@ -65,7 +65,7 @@ class UncertaintyBudget:
     has_correlations: bool = False
 
     @classmethod
-    def from_quantity(cls, quantity: "Quantity") -> "UncertaintyBudget":
+    def from_quantity(cls, quantity: Quantity) -> UncertaintyBudget:
         reg = quantity.registry
         entries: list[BudgetEntry] = []
         for uid, c in quantity.grad.items():
@@ -85,10 +85,7 @@ class UncertaintyBudget:
                 )
             )
         entries.sort(key=lambda e: e.contribution, reverse=True)
-        has_corr = any(
-            quantity.grad.get(a) and quantity.grad.get(b)
-            for (a, b) in reg._covariances
-        )
+        has_corr = any(quantity.grad.get(a) and quantity.grad.get(b) for (a, b) in reg._covariances)
         return cls(
             nominal=quantity.nominal,
             unit=quantity.unit,
@@ -127,7 +124,11 @@ class UncertaintyBudget:
     def expanded_uncertainty(
         self, coverage_factor: float | None = None, *, confidence: float | None = None
     ) -> float:
-        k = self.coverage_factor_for(confidence) if confidence is not None else (coverage_factor or 2.0)
+        k = (
+            self.coverage_factor_for(confidence)
+            if confidence is not None
+            else (coverage_factor or 2.0)
+        )
         return self.combined_standard_uncertainty * k
 
     def coverage_interval(self, *, confidence: float = 0.95) -> tuple[float, float]:
@@ -140,7 +141,7 @@ class UncertaintyBudget:
             return {e.uid: 0.0 for e in self.entries}
         return {e.uid: 100.0 * e.variance_contribution / total for e in self.entries}
 
-    def report(self, *, confidence: float = 0.95) -> "UncertaintyReport":
+    def report(self, *, confidence: float = 0.95) -> UncertaintyReport:
         return UncertaintyReport(self, confidence=confidence)
 
 
@@ -168,8 +169,13 @@ class UncertaintyReport:
             y_round = round(self.budget.nominal, decimals)
         else:
             y_round = self.budget.nominal
-        return y_round, u_round, round_to_significant(
-            self.budget.expanded_uncertainty(confidence=self.confidence), self.uncertainty_sig_figs
+        return (
+            y_round,
+            u_round,
+            round_to_significant(
+                self.budget.expanded_uncertainty(confidence=self.confidence),
+                self.uncertainty_sig_figs,
+            ),
         )
 
     def __str__(self) -> str:

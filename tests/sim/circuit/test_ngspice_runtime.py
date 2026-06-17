@@ -22,6 +22,7 @@ def test_ngspice_not_found_message_lists_real_install_paths():
         assert hint in text.lower()
 
 
-def test_ngspice_available_reports_missing_binary():
-    # A clearly bogus command name is never on PATH.
+def test_ngspice_available_reports_missing_binary(tmp_path, monkeypatch):
+    # Bogus command name, and an empty HOME so no managed install is discovered.
+    monkeypatch.setenv("HOME", str(tmp_path))
     assert ngspice_available("ngspice-definitely-not-installed-xyz") is False

@@ -131,6 +131,18 @@ class AtomRegistry:
         self.atoms.setdefault(atom.uid, atom)
         return self.atoms[atom.uid]
 
+    def clear(self) -> None:
+        """Drop all atoms and correlations.
+
+        Instrument reads reuse atoms via identity-stable keys, so the registry
+        stays bounded; this is for long-running sessions that evaluate many
+        *unkeyed* ad-hoc models in the shared default registry. Quantities built
+        before a clear keep working only if their atoms are re-registered.
+        """
+
+        self.atoms.clear()
+        self._covariances.clear()
+
     def get(self, uid: str) -> InfluenceQuantity:
         return self.atoms[uid]
 
@@ -138,6 +150,12 @@ class AtomRegistry:
     @staticmethod
     def _pair(uid_a: str, uid_b: str) -> tuple[str, str]:
         return (uid_a, uid_b) if uid_a <= uid_b else (uid_b, uid_a)
+
+    @property
+    def has_correlations(self) -> bool:
+        """True if any off-diagonal covariance has been declared."""
+
+        return bool(self._covariances)
 
     def covariance(self, uid_a: str, uid_b: str) -> float:
         if uid_a == uid_b:

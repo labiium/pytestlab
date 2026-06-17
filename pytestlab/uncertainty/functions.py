@@ -20,7 +20,9 @@ def _as_quantity(x: Quantity | Number) -> Quantity:
 
 def _require_dimensionless(q: Quantity, name: str) -> None:
     if not units.is_dimensionless(q.unit):
-        raise units.UnitCompatibilityError(f"{name}() requires a dimensionless argument, got {q.unit!r}")
+        raise units.UnitCompatibilityError(
+            f"{name}() requires a dimensionless argument, got {q.unit!r}"
+        )
 
 
 def _unary(x: Quantity | Number, value: float, deriv: float, unit: str = "") -> Quantity:

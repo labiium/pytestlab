@@ -104,9 +104,10 @@ def sim_doctor() -> None:
         console.print(f"[red]✗[/red] cannot import pytestlab.sim.circuit: {exc}")
 
     from pytestlab.sim.circuit.spice import _NGSPICE_INSTALL_HELP
+    from pytestlab.sim.circuit.spice import resolve_ngspice
 
     cmd = os.getenv("SIMBENCH_NGSPICE_CMD", "ngspice")
-    resolved = shutil.which(cmd)
+    resolved = resolve_ngspice(cmd)
     if resolved:
         version = ""
         try:
@@ -182,10 +183,36 @@ def sim_install_ngspice(
     """
     import subprocess
 
+    from pytestlab.sim.circuit.spice import resolve_ngspice
+
     console = rich.get_console()
     cmd_name = os.getenv("SIMBENCH_NGSPICE_CMD", "ngspice")
-    if shutil.which(cmd_name):
-        console.print(f"[green]✓[/green] ngspice is already installed ({cmd_name}).")
+    existing = resolve_ngspice(cmd_name)
+    if existing:
+        console.print(f"[green]✓[/green] ngspice is already installed ({existing}).")
+        raise typer.Exit(0)
+
+    # On platforms with no upstream/conda-forge build (Linux arm64/armv7) fetch a
+    # prebuilt, relocatable bundle from the mirror -- no package manager, no root.
+    from pytestlab.sim.circuit._mirror import install_from_mirror
+    from pytestlab.sim.circuit._mirror import mirror_asset
+
+    asset = mirror_asset()
+    if asset is not None:
+        console.print(
+            f"Detected [bold]{asset}[/bold] (no system/conda-forge ngspice exists "
+            "for it). PyTestLab can fetch a prebuilt bundle into ~/.pytestlab/ "
+            "(no package manager or root needed)."
+        )
+        if not yes and (not sys.stdin.isatty() or not typer.confirm("Download it now?")):
+            console.print("Not downloading. Re-run with --yes to fetch it.")
+            raise typer.Exit(1)
+        try:
+            path = install_from_mirror(asset, log=lambda m: console.print(f"  {m}"))
+        except Exception as exc:  # network/checksum/extract failure
+            console.print(f"[red]Mirror install failed: {exc}[/red]")
+            raise typer.Exit(1) from None
+        console.print(f"[green]✓ ngspice installed at {path}[/green]")
         raise typer.Exit(0)
 
     detected = _detect_ngspice_manager()

@@ -47,11 +47,13 @@ class Quantity:
 
     # -- constructors -------------------------------------------------------
     @classmethod
-    def constant(cls, value: Number, unit: str = "", registry: AtomRegistry | None = None) -> "Quantity":
+    def constant(
+        cls, value: Number, unit: str = "", registry: AtomRegistry | None = None
+    ) -> Quantity:
         return cls(float(value), unit, {}, registry)
 
     @classmethod
-    def from_atom(cls, atom: InfluenceQuantity, registry: AtomRegistry | None = None) -> "Quantity":
+    def from_atom(cls, atom: InfluenceQuantity, registry: AtomRegistry | None = None) -> Quantity:
         reg = registry or default_registry()
         reg.register(atom)
         return cls(atom.nominal, atom.unit or "", {atom.uid: 1.0}, reg)
@@ -59,16 +61,32 @@ class Quantity:
     # -- uncertainty --------------------------------------------------------
     @property
     def variance(self) -> float:
+        # Cost scales with this quantity's own complexity (k atoms -> O(k^2)
+        # covariance lookups), independent of the registry's total size.
         reg = self.registry
-        var = 0.0
-        for uid, g in self.grad.items():
-            var += g * g * reg.atoms[uid].variance
-        for (a, b), cov in reg._covariances.items():
-            ga = self.grad.get(a)
-            gb = self.grad.get(b)
-            if ga and gb:
-                var += 2.0 * ga * gb * cov
-        return max(var, 0.0)
+        atoms = reg.atoms
+        diagonal = 0.0
+        cross = 0.0
+        items = list(self.grad.items())
+        for i, (uid, g) in enumerate(items):
+            diagonal += g * g * atoms[uid].variance
+            if reg.has_correlations:
+                for uid2, g2 in items[i + 1 :]:
+                    cov = reg.covariance(uid, uid2)
+                    if cov:
+                        cross += 2.0 * g * g2 * cov
+        var = diagonal + cross
+        if var < 0.0:
+            # A meaningfully negative variance means the declared correlations
+            # form a non-positive-semidefinite covariance matrix (a data error);
+            # a tiny negative is floating-point noise and is clamped to zero.
+            if var < -1e-9 * max(diagonal, 1e-300):
+                raise ValueError(
+                    "Combined variance is negative: the declared correlations are not "
+                    "positive semi-definite. Check set_correlation()/set_covariance() inputs."
+                )
+            return 0.0
+        return var
 
     @property
     def u(self) -> float:
@@ -103,13 +121,13 @@ class Quantity:
     def U(self, k: float = 2.0) -> float:
         return self.expanded(k)
 
-    def budget(self) -> "UncertaintyBudget":
+    def budget(self) -> UncertaintyBudget:
         from .budget import UncertaintyBudget
 
         return UncertaintyBudget.from_quantity(self)
 
     # -- low level gradient algebra ----------------------------------------
-    def _combine_grads(self, other: "Quantity", ca: float, cb: float) -> dict[str, float]:
+    def _combine_grads(self, other: Quantity, ca: float, cb: float) -> dict[str, float]:
         """Return ``ca * self.grad + cb * other.grad``."""
 
         out: dict[str, float] = {}
@@ -122,7 +140,7 @@ class Quantity:
     def _scaled_grad(self, factor: float) -> dict[str, float]:
         return {uid: factor * g for uid, g in self.grad.items() if factor * g != 0.0}
 
-    def _lift(self, other: object) -> "Quantity":
+    def _lift(self, other: object) -> Quantity:
         if isinstance(other, Quantity):
             if other.registry is not self.registry:
                 raise ValueError(
@@ -130,15 +148,15 @@ class Quantity:
                     "they would not share a correlation space."
                 )
             return other
-        if isinstance(other, (int, float)):
+        if isinstance(other, int | float):
             return Quantity.constant(other, "", self.registry)
-        return NotImplemented  # type: ignore[return-value]
+        return NotImplemented
 
-    def _new(self, nominal: float, unit: str, grad: dict[str, float]) -> "Quantity":
+    def _new(self, nominal: float, unit: str, grad: dict[str, float]) -> Quantity:
         return Quantity(nominal, unit, grad, self.registry)
 
     # -- arithmetic ---------------------------------------------------------
-    def __add__(self, other: object) -> "Quantity":
+    def __add__(self, other: object) -> Quantity:
         o = self._lift(other)
         if o is NotImplemented:
             return NotImplemented
@@ -151,7 +169,7 @@ class Quantity:
 
     __radd__ = __add__
 
-    def __sub__(self, other: object) -> "Quantity":
+    def __sub__(self, other: object) -> Quantity:
         o = self._lift(other)
         if o is NotImplemented:
             return NotImplemented
@@ -162,13 +180,13 @@ class Quantity:
             unit = self.unit or o.unit
         return self._new(nominal, unit, self._combine_grads(o, 1.0, -1.0))
 
-    def __rsub__(self, other: object) -> "Quantity":
+    def __rsub__(self, other: object) -> Quantity:
         o = self._lift(other)
         if o is NotImplemented:
             return NotImplemented
         return o.__sub__(self)
 
-    def __mul__(self, other: object) -> "Quantity":
+    def __mul__(self, other: object) -> Quantity:
         o = self._lift(other)
         if o is NotImplemented:
             return NotImplemented
@@ -180,7 +198,7 @@ class Quantity:
 
     __rmul__ = __mul__
 
-    def __truediv__(self, other: object) -> "Quantity":
+    def __truediv__(self, other: object) -> Quantity:
         o = self._lift(other)
         if o is NotImplemented:
             return NotImplemented
@@ -188,24 +206,22 @@ class Quantity:
             self.nominal, self.unit, o.nominal, o.unit, "truediv"
         )
         # d(a/b) = (1/b) da - (a/b^2) db, scaled for unit reconciliation
-        grad = self._combine_grads(
-            o, scale / o.nominal, -scale * self.nominal / (o.nominal**2)
-        )
+        grad = self._combine_grads(o, scale / o.nominal, -scale * self.nominal / (o.nominal**2))
         return self._new(nominal, unit, grad)
 
-    def __rtruediv__(self, other: object) -> "Quantity":
+    def __rtruediv__(self, other: object) -> Quantity:
         o = self._lift(other)
         if o is NotImplemented:
             return NotImplemented
         return o.__truediv__(self)
 
-    def __neg__(self) -> "Quantity":
+    def __neg__(self) -> Quantity:
         return self._new(-self.nominal, self.unit, self._scaled_grad(-1.0))
 
-    def __pos__(self) -> "Quantity":
+    def __pos__(self) -> Quantity:
         return self
 
-    def __pow__(self, power: object) -> "Quantity":
+    def __pow__(self, power: object) -> Quantity:
         if isinstance(power, Quantity) and power.grad:
             # a**b = exp(b ln a): d = a**b * (b/a da + ln a db)
             if not units.is_dimensionless(self.unit):
@@ -218,7 +234,7 @@ class Quantity:
             db = math.log(self.nominal) if self.nominal > 0 else 0.0
             grad = self._combine_grads(power, nominal * da, nominal * db)
             return self._new(nominal, "", grad)
-        p = float(power.nominal if isinstance(power, Quantity) else power)
+        p = float(power.nominal) if isinstance(power, Quantity) else float(power)  # type: ignore[arg-type]
         nominal = self.nominal**p
         unit = self._pow_unit(p)
         factor = p * (self.nominal ** (p - 1.0)) if self.nominal != 0 or p >= 1 else 0.0
@@ -254,7 +270,8 @@ class Quantity:
     def to_dict(self) -> dict:
         """Serialize nominal, unit, gradient, referenced atoms and covariances."""
 
-        from .atoms import Distribution, Kind  # noqa: F401
+        from .atoms import Distribution  # noqa: F401
+        from .atoms import Kind  # noqa: F401
 
         reg = self.registry
         atoms = {}
@@ -285,8 +302,10 @@ class Quantity:
         }
 
     @classmethod
-    def from_dict(cls, data: dict, registry: AtomRegistry | None = None) -> "Quantity":
-        from .atoms import Distribution, InfluenceQuantity, Kind
+    def from_dict(cls, data: dict, registry: AtomRegistry | None = None) -> Quantity:
+        from .atoms import Distribution
+        from .atoms import InfluenceQuantity
+        from .atoms import Kind
 
         reg = registry or AtomRegistry()
         for uid, a in data.get("atoms", {}).items():

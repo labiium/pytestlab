@@ -238,7 +238,7 @@ scpi:
       response:
         type: scpi_float
     measure_vrms:
-      template: ":MEASure:VRMS? CHANnel{channel}"
+      template: ":MEASure:VRMS? CYCLe,AC,CHANnel{channel}"
       validators:
         channel: { min: 1, max: 4 }
       response:

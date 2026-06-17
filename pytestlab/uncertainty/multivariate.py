@@ -12,8 +12,7 @@ by minting unit atoms and mixing them with the Cholesky factor.
 
 from __future__ import annotations
 
-import math
-from typing import Sequence
+from collections.abc import Sequence
 
 import numpy as np
 
@@ -90,13 +89,13 @@ class QuantityVector:
         units: Sequence[str] | str = "",
         registry: AtomRegistry | None = None,
         key_prefix: str | None = None,
-    ) -> "QuantityVector":
+    ) -> QuantityVector:
         """Build correlated quantities reproducing ``covariance`` exactly."""
 
         reg = registry or default_registry()
-        means = np.asarray(means, dtype=float)
+        means_arr = np.asarray(means, dtype=float)
         cov = np.asarray(covariance, dtype=float)
-        n = means.size
+        n = means_arr.size
         if cov.shape != (n, n):
             raise ValueError("covariance must be square and match means length.")
         # Cholesky (with a jitter fallback for PSD-but-singular matrices).
@@ -121,7 +120,7 @@ class QuantityVector:
         components = []
         for i in range(n):
             grad = {z[k].uid: float(L[i, k]) for k in range(n) if L[i, k] != 0.0}
-            components.append(Quantity(float(means[i]), unit_list[i], grad, reg))
+            components.append(Quantity(float(means_arr[i]), unit_list[i], grad, reg))
         return cls(components, labels)
 
 
@@ -144,13 +143,13 @@ class ComplexQuantity:
 
         return QuantityVector([self.real, self.imag]).covariance_matrix()
 
-    def __add__(self, other: "ComplexQuantity") -> "ComplexQuantity":
+    def __add__(self, other: ComplexQuantity) -> ComplexQuantity:
         return ComplexQuantity(self.real + other.real, self.imag + other.imag)
 
-    def __sub__(self, other: "ComplexQuantity") -> "ComplexQuantity":
+    def __sub__(self, other: ComplexQuantity) -> ComplexQuantity:
         return ComplexQuantity(self.real - other.real, self.imag - other.imag)
 
-    def __mul__(self, other: "ComplexQuantity") -> "ComplexQuantity":
+    def __mul__(self, other: ComplexQuantity) -> ComplexQuantity:
         # (a+bi)(c+di) = (ac - bd) + (ad + bc) i
         a, b = self.real, self.imag
         c, d = other.real, other.imag

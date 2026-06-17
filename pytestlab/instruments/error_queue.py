@@ -32,7 +32,7 @@ class InstrumentErrorQueue:
         code_str, msg_part = raw.split(",", 1)
         code = int(code_str)
         message = msg_part.strip().strip('"')
-        return code, message
+        return code, message or f"SCPI error {code}"
 
     def check(self) -> None:
         instrument = self.instrument

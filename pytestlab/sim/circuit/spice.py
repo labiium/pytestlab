@@ -174,8 +174,24 @@ def _resolve_engine(session: Session, *, cmd: str | None = None) -> tuple[str, s
     return engine.lower(), resolved_cmd
 
 
+def managed_ngspice_path() -> Path:
+    """Location of a PyTestLab-managed ngspice (installed by `ptl sim install-ngspice`)."""
+    name = "ngspice.exe" if os.name == "nt" else "ngspice"
+    return Path.home() / ".pytestlab" / "ngspice" / "bin" / name
+
+
+def resolve_ngspice(cmd: str = "ngspice") -> str | None:
+    """Resolve the ngspice executable: an explicit/PATH command, else the
+    PyTestLab-managed install under ~/.pytestlab/ngspice/."""
+    found = shutil.which(cmd)
+    if found:
+        return found
+    managed = managed_ngspice_path()
+    return str(managed) if managed.exists() else None
+
+
 def ngspice_available(cmd: str = "ngspice") -> bool:
-    return shutil.which(cmd) is not None
+    return resolve_ngspice(cmd) is not None
 
 
 def simulate_transient(
@@ -194,7 +210,7 @@ def simulate_transient(
     if engine not in {"auto", "ngspice"}:
         raise ValueError(f"Unknown spice engine: {engine!r}")
 
-    ngspice_cmd = shutil.which(resolved_cmd)
+    ngspice_cmd = resolve_ngspice(resolved_cmd)
     if ngspice_cmd is None:
         raise _ngspice_not_found(resolved_cmd)
 
@@ -313,7 +329,7 @@ def simulate_op(
     if engine not in {"auto", "ngspice"}:
         raise ValueError(f"Unknown spice engine: {engine!r}")
 
-    ngspice_cmd = shutil.which(resolved_cmd)
+    ngspice_cmd = resolve_ngspice(resolved_cmd)
     if ngspice_cmd is None:
         raise _ngspice_not_found(resolved_cmd)
 
@@ -402,7 +418,7 @@ def simulate_dc_sweep(
     if engine not in {"auto", "ngspice"}:
         raise ValueError(f"Unknown spice engine: {engine!r}")
 
-    ngspice_cmd = shutil.which(resolved_cmd)
+    ngspice_cmd = resolve_ngspice(resolved_cmd)
     if ngspice_cmd is None:
         raise _ngspice_not_found(resolved_cmd)
 
@@ -502,7 +518,7 @@ def simulate_ac(
     if engine not in {"auto", "ngspice"}:
         raise ValueError(f"Unknown spice engine: {engine!r}")
 
-    ngspice_cmd = shutil.which(resolved_cmd)
+    ngspice_cmd = resolve_ngspice(resolved_cmd)
     if ngspice_cmd is None:
         raise _ngspice_not_found(resolved_cmd)
 

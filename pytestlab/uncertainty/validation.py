@@ -8,9 +8,10 @@ associated with reporting ``u`` to the requested number of significant digits.
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Callable
-from typing import Mapping
+from typing import Any
 
 from .montecarlo import MonteCarloResult
 from .montecarlo import monte_carlo
@@ -74,7 +75,7 @@ def validate(
 
 
 def validate_model(
-    func: Callable[..., object],
+    func: Callable[..., Any],
     inputs: Mapping[str, Quantity],
     *,
     significant_digits: int = 2,

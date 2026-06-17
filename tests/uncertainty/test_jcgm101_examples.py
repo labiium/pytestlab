@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import math
 
-import numpy as np
 import pytest
 
-from pytestlab.uncertainty import AtomRegistry, Distribution, Quantity
-from pytestlab.uncertainty.montecarlo import adaptive_monte_carlo, monte_carlo
+from pytestlab.uncertainty import AtomRegistry
+from pytestlab.uncertainty import Distribution
+from pytestlab.uncertainty import Quantity
+from pytestlab.uncertainty.montecarlo import adaptive_monte_carlo
+from pytestlab.uncertainty.montecarlo import monte_carlo
 from pytestlab.uncertainty.validation import validate_model
 
 

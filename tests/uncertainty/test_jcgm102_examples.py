@@ -7,12 +7,9 @@ import math
 import numpy as np
 import pytest
 
-from pytestlab.uncertainty import AtomRegistry, Quantity
-from pytestlab.uncertainty.multivariate import (
-    ComplexQuantity,
-    QuantityVector,
-    covariance_between,
-)
+from pytestlab.uncertainty import AtomRegistry
+from pytestlab.uncertainty.multivariate import ComplexQuantity
+from pytestlab.uncertainty.multivariate import QuantityVector
 
 
 def test_from_covariance_reproduces_matrix_exactly():

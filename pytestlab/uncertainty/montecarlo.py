@@ -13,9 +13,9 @@ shortest 95 % coverage interval (§7.7), and the adaptive procedure (§7.9.4).
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Callable
-from typing import Mapping
 
 import numpy as np
 
@@ -85,9 +85,7 @@ def _draw_atom_samples(
 ) -> dict[str, np.ndarray]:
     """Draw ``n`` samples for each atom, honouring declared correlations."""
 
-    has_corr = any(
-        a in uids and b in uids for (a, b) in registry._covariances
-    )
+    has_corr = any(a in uids and b in uids for (a, b) in registry._covariances)
     if not has_corr:
         return {
             uid: _sample_atom(
@@ -109,7 +107,9 @@ def _draw_atom_samples(
     return {uid: draws[:, i] for i, uid in enumerate(uids)}
 
 
-def _input_samples(quantity: Quantity, atom_samples: Mapping[str, np.ndarray], n: int) -> np.ndarray:
+def _input_samples(
+    quantity: Quantity, atom_samples: Mapping[str, np.ndarray], n: int
+) -> np.ndarray:
     values = np.full(n, quantity.nominal)
     reg = quantity.registry
     for uid, g in quantity.grad.items():
@@ -171,9 +171,10 @@ def adaptive_monte_carlo(
     los: list[float] = []
     his: list[float] = []
     total = 0
-    base_seed = seed if seed is not None else np.random.SeedSequence().entropy
+    # Independent, reproducible per-block streams (JCGM 101 adaptive procedure).
+    child_seeds = np.random.SeedSequence(seed).spawn(max_blocks)
     for h in range(1, max_blocks + 1):
-        rng = np.random.default_rng((base_seed, h))
+        rng = np.random.default_rng(child_seeds[h - 1])
         atom_samples = _draw_atom_samples(reg, uids, rng, block)
         sampled_inputs = {n: _input_samples(q, atom_samples, block) for n, q in inputs.items()}
         out = np.asarray(func(**sampled_inputs), dtype=float)
@@ -191,8 +192,8 @@ def adaptive_monte_carlo(
         digits = math.floor(math.log10(abs(u_overall)))
         delta = 0.5 * 10.0 ** (digits - significant_digits + 1)
 
-        def stable(seq: list[float]) -> bool:
-            return 2.0 * float(np.std(seq, ddof=1)) / math.sqrt(len(seq)) <= delta
+        def stable(seq: list[float], tol: float = delta) -> bool:
+            return 2.0 * float(np.std(seq, ddof=1)) / math.sqrt(len(seq)) <= tol
 
         if all(stable(seq) for seq in (means_y, means_u, los, his)):
             break

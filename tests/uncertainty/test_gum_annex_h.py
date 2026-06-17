@@ -6,9 +6,11 @@ import math
 
 import pytest
 
-from pytestlab.uncertainty import AtomRegistry, Quantity
+from pytestlab.uncertainty import AtomRegistry
+from pytestlab.uncertainty import Quantity
 from pytestlab.uncertainty import functions as fn
-from pytestlab.uncertainty.multivariate import QuantityVector, covariance_between
+from pytestlab.uncertainty.multivariate import QuantityVector
+from pytestlab.uncertainty.multivariate import covariance_between
 
 
 def _atom_quantity(reg, nominal, u, label, unit="", dof=None):
@@ -47,7 +49,7 @@ def test_annex_h2_resistance_reactance_correlated():
 
     reg = AtomRegistry()
     V = _atom_quantity(reg, 4.999, 0.0032, "V", "V", dof=4)
-    I = _atom_quantity(reg, 19.661e-3, 0.0095e-3, "I", "A", dof=4)
+    I = _atom_quantity(reg, 19.661e-3, 0.0095e-3, "I", "A", dof=4)  # noqa: E741 (GUM symbol)
     phi = _atom_quantity(reg, 1.04446, 0.00075, "phi", "", dof=4)
 
     (uV,), (uI,), (uP,) = list(V.grad), list(I.grad), list(phi.grad)

@@ -35,13 +35,13 @@ from .functions import power
 from .functions import sin
 from .functions import sqrt
 from .functions import tan
-from .multivariate import ComplexQuantity
-from .multivariate import QuantityVector
-from .multivariate import covariance_between
 from .montecarlo import MonteCarloResult
 from .montecarlo import adaptive_monte_carlo
 from .montecarlo import monte_carlo
 from .montecarlo import shortest_coverage_interval
+from .multivariate import ComplexQuantity
+from .multivariate import QuantityVector
+from .multivariate import covariance_between
 from .quantity import Quantity
 from .units import UnitCompatibilityError
 from .validation import ValidationReport

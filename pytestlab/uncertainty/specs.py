@@ -68,12 +68,14 @@ class _Evaluable:
     derived :class:`UncertaintyBudget`.
     """
 
-    def _build_quantity(self, context: UncertaintyContext, registry: AtomRegistry | None = None) -> Quantity:  # noqa: D401
+    def _build_quantity(
+        self, context: UncertaintyContext, registry: AtomRegistry | None = None
+    ) -> Quantity:  # noqa: D401
         raise NotImplementedError
 
     @staticmethod
     def _coerce_context(
-        context_or_reading: "UncertaintyContext | float",
+        context_or_reading: UncertaintyContext | float,
         unit: str,
         range_value: float | None,
         range_unit: str | None,
@@ -95,7 +97,7 @@ class _Evaluable:
 
     def quantity(
         self,
-        context_or_reading: "UncertaintyContext | float",
+        context_or_reading: UncertaintyContext | float,
         registry: AtomRegistry | None = None,
         *,
         unit: str = "",
@@ -139,7 +141,9 @@ class AccuracySpec(_Evaluable, BaseModel):
     def _std(self, limit: float) -> float:
         return abs(limit) / divisor_for(self.distribution, self.coverage_factor)
 
-    def _build_quantity(self, context: UncertaintyContext, registry: AtomRegistry | None = None) -> Quantity:
+    def _build_quantity(
+        self, context: UncertaintyContext, registry: AtomRegistry | None = None
+    ) -> Quantity:
         reg = registry or default_registry()
         reading = context.reading
         unit = units.unit_name(context.unit)
@@ -211,7 +215,9 @@ class BandAccuracySpec(_Evaluable, BaseModel):
     variable: str = "frequency"
     bands: list[dict[str, Any]]
 
-    def _build_quantity(self, context: UncertaintyContext, registry: AtomRegistry | None = None) -> Quantity:
+    def _build_quantity(
+        self, context: UncertaintyContext, registry: AtomRegistry | None = None
+    ) -> Quantity:
         value = getattr(context, self.variable, None)
         if value is None:
             raise ValueError(f"{self.variable!r} is required for band-table uncertainty.")
@@ -261,7 +267,7 @@ class ExpressionAccuracySpec(_Evaluable, BaseModel):
     def _eval(self, node: ast.AST, names: dict[str, float]) -> float:
         if isinstance(node, ast.Expression):
             return self._eval(node.body, names)
-        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+        if isinstance(node, ast.Constant) and isinstance(node.value, int | float):
             return float(node.value)
         if isinstance(node, ast.Name):
             if node.id not in names:
@@ -286,7 +292,9 @@ class ExpressionAccuracySpec(_Evaluable, BaseModel):
         parsed = ast.parse(self.expression, mode="eval")
         return {node.id for node in ast.walk(parsed) if isinstance(node, ast.Name)}
 
-    def _build_quantity(self, context: UncertaintyContext, registry: AtomRegistry | None = None) -> Quantity:
+    def _build_quantity(
+        self, context: UncertaintyContext, registry: AtomRegistry | None = None
+    ) -> Quantity:
         reg = registry or default_registry()
         referenced = self._referenced_names()
         names = dict(self.parameters)
@@ -324,7 +332,9 @@ class RepeatabilityAccuracySpec(_Evaluable, BaseModel):
     unit: str | None = None
     use_standard_error: bool = True
 
-    def _build_quantity(self, context: UncertaintyContext, registry: AtomRegistry | None = None) -> Quantity:
+    def _build_quantity(
+        self, context: UncertaintyContext, registry: AtomRegistry | None = None
+    ) -> Quantity:
         reg = registry or default_registry()
         values = np.asarray(self.observations, dtype=float)
         sigma = float(np.std(values, ddof=1))
@@ -358,12 +368,14 @@ class MonteCarloAccuracySpec(_Evaluable, BaseModel):
 
     model: Literal["monte_carlo"] = "monte_carlo"
     components: list[
-        "AccuracySpec | BandAccuracySpec | ExpressionAccuracySpec | RepeatabilityAccuracySpec"
+        AccuracySpec | BandAccuracySpec | ExpressionAccuracySpec | RepeatabilityAccuracySpec
     ]
     samples: int = Field(1_000_000, gt=1)
     seed: int | None = None
 
-    def _build_quantity(self, context: UncertaintyContext, registry: AtomRegistry | None = None) -> Quantity:
+    def _build_quantity(
+        self, context: UncertaintyContext, registry: AtomRegistry | None = None
+    ) -> Quantity:
         return CompositeBudgetSpec(components=list(self.components)).quantity(context, registry)
 
 
@@ -384,9 +396,11 @@ class CompositeBudgetSpec(_Evaluable, BaseModel):
     )
 
     model: Literal["composite"] = "composite"
-    components: list["LeafAccuracyModel | CompositeBudgetSpec"]
+    components: list[LeafAccuracyModel | CompositeBudgetSpec]
 
-    def _build_quantity(self, context: UncertaintyContext, registry: AtomRegistry | None = None) -> Quantity:
+    def _build_quantity(
+        self, context: UncertaintyContext, registry: AtomRegistry | None = None
+    ) -> Quantity:
         reg = registry or default_registry()
         merged: dict[str, float] = {}
         unit = units.unit_name(context.unit)
@@ -412,9 +426,7 @@ def evaluate_quantity(
     return model.quantity(context, registry)
 
 
-def standard_uncertainty_from_model(
-    model: AccuracyModel, context: UncertaintyContext
-) -> float:
+def standard_uncertainty_from_model(model: AccuracyModel, context: UncertaintyContext) -> float:
     """Return the combined standard uncertainty for any supported model."""
 
     return model.quantity(context, AtomRegistry()).u
