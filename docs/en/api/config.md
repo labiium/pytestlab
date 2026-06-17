@@ -81,7 +81,7 @@ Each instrument profile YAML must specify a `device_type` that matches one of th
 
 Many instrument models include an `accuracy` field or section. This is typically defined using the `AccuracySpec` model.
 
-::: pytestlab.config.accuracy.AccuracySpec
+::: pytestlab.uncertainty.specs.AccuracySpec
 
 ---
 

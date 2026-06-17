@@ -84,7 +84,7 @@ coverage run -m pytest \
   tests/test_uncertainty_hardening.py \
   tests/test_uncertainty_profile_fixtures.py \
   tests/unit/test_multimeter_uncertainty.py
-coverage report --include='pytestlab/config/accuracy.py' --fail-under=85
+coverage report --include='pytestlab/uncertainty/*.py' --fail-under=85
 coverage report --include='pytestlab/instruments/uncertainty_adapters.py' --fail-under=90
 coverage report --include='pytestlab/experiments/uncertainty_serialization.py' --fail-under=90
 
