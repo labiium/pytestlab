@@ -11,7 +11,8 @@ runner = CliRunner()
 
 
 def test_sim_doctor_fails_when_ngspice_missing(monkeypatch):
-    monkeypatch.setattr("pytestlab.cli.shutil.which", lambda cmd: None)
+    # resolve_ngspice is imported inside cli.py from spice.py, so patch at source.
+    monkeypatch.setattr("pytestlab.sim.circuit.spice.resolve_ngspice", lambda cmd: None)
     result = runner.invoke(app, ["sim", "doctor"])
     assert result.exit_code == 1
 
@@ -19,6 +20,6 @@ def test_sim_doctor_fails_when_ngspice_missing(monkeypatch):
 def test_sim_doctor_passes_when_ngspice_present(monkeypatch):
     # Point the lookup at a harmless real binary so the version probe succeeds.
     harmless = shutil.which("true") or "/bin/true"
-    monkeypatch.setattr("pytestlab.cli.shutil.which", lambda cmd: harmless)
+    monkeypatch.setattr("pytestlab.sim.circuit.spice.resolve_ngspice", lambda cmd: harmless)
     result = runner.invoke(app, ["sim", "doctor"])
     assert result.exit_code == 0

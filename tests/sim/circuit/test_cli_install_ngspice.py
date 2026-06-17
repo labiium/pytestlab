@@ -21,12 +21,15 @@ def _which_factory(present: set[str]):
 
 
 def test_already_installed_is_a_noop(monkeypatch):
-    monkeypatch.setattr("pytestlab.cli.shutil.which", _which_factory({"ngspice"}))
+    # resolve_ngspice is imported inside cli.py from spice.py, so patch at source.
+    monkeypatch.setattr("pytestlab.sim.circuit.spice.resolve_ngspice", lambda cmd: "/usr/bin/ngspice")
     result = runner.invoke(app, ["sim", "install-ngspice"])
     assert result.exit_code == 0
 
 
 def test_no_package_manager_fails_closed(monkeypatch):
+    monkeypatch.setattr("pytestlab.sim.circuit.spice.resolve_ngspice", lambda cmd: None)
+    monkeypatch.setattr("pytestlab.sim.circuit._mirror.mirror_asset", lambda: None)
     monkeypatch.setattr("pytestlab.cli.shutil.which", _which_factory(set()))
     result = runner.invoke(app, ["sim", "install-ngspice"])
     assert result.exit_code == 1
@@ -35,6 +38,8 @@ def test_no_package_manager_fails_closed(monkeypatch):
 def test_root_manager_as_nonroot_is_print_only_even_with_yes(monkeypatch):
     # apt-get needs root; as a non-root user it must NOT be executed, even with
     # --yes, and we must never shell out to sudo.
+    monkeypatch.setattr("pytestlab.sim.circuit.spice.resolve_ngspice", lambda cmd: None)
+    monkeypatch.setattr("pytestlab.sim.circuit._mirror.mirror_asset", lambda: None)
     monkeypatch.setattr("pytestlab.cli.shutil.which", _which_factory({"apt-get"}))
     monkeypatch.setattr("pytestlab.cli.os.geteuid", lambda: 1000, raising=False)
     ran = {"called": False}
@@ -49,6 +54,8 @@ def test_root_manager_as_nonroot_is_print_only_even_with_yes(monkeypatch):
 
 def test_user_space_manager_runs_with_yes(monkeypatch):
     # brew is sudo-free; with --yes it runs and ngspice then appears.
+    monkeypatch.setattr("pytestlab.sim.circuit.spice.resolve_ngspice", lambda cmd: None)
+    monkeypatch.setattr("pytestlab.sim.circuit._mirror.mirror_asset", lambda: None)
     state = {"installed": False}
 
     def _which(name: str):
@@ -68,6 +75,8 @@ def test_user_space_manager_runs_with_yes(monkeypatch):
 
 def test_root_user_may_run_system_manager(monkeypatch):
     # As root, a system manager (apt-get) may be run directly -- still no sudo.
+    monkeypatch.setattr("pytestlab.sim.circuit.spice.resolve_ngspice", lambda cmd: None)
+    monkeypatch.setattr("pytestlab.sim.circuit._mirror.mirror_asset", lambda: None)
     state = {"installed": False}
 
     def _which(name: str):
