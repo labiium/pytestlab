@@ -5,10 +5,10 @@ from ...devices.registry import BackendBuildContext
 
 
 class CircuitSimBackend:
-    """DeviceIO backend routing SCPI to pytestlab_sim.SimbenchScpiBackend."""
+    """DeviceIO backend routing SCPI to pytestlab.sim.circuit.SimbenchScpiBackend."""
 
     def __init__(self, *, instrument_id: str, session, timeout_ms: int = 5_000):
-        from pytestlab_sim.scpi import SimbenchScpiBackend
+        from pytestlab.sim.circuit.scpi import SimbenchScpiBackend
 
         self._inner = SimbenchScpiBackend(
             session=session,

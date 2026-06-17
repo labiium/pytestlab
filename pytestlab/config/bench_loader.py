@@ -33,11 +33,11 @@ def load_sim_bench_yaml(path: str | Path) -> tuple[BenchConfigExtended, Any | No
     if config.sim_circuit is None:
         return config, None
 
-    from pytestlab_sim import KernelSettings
-    from pytestlab_sim import Session
-    from pytestlab_sim import circuit_from_netlist
-    from pytestlab_sim import noise_config_from_preset
-    from pytestlab_sim.noise import NoisePreset
+    from pytestlab.sim.circuit import KernelSettings
+    from pytestlab.sim.circuit import Session
+    from pytestlab.sim.circuit import circuit_from_netlist
+    from pytestlab.sim.circuit import noise_config_from_preset
+    from pytestlab.sim.circuit.noise import NoisePreset
 
     bench_path = Path(path)
     sc = config.sim_circuit
@@ -104,8 +104,8 @@ def _load_twin_package(package_path: Path) -> tuple[Path, dict[str, Any]]:
     The package producer lives in pytestlab_sim; pytestlab deliberately consumes
     that public contract instead of maintaining a third manifest dialect here.
     """
-    from pytestlab_sim.calibration import load_twin_package
-    from pytestlab_sim.parameters import parameter_hash
+    from pytestlab.sim.circuit.calibration import load_twin_package
+    from pytestlab.sim.circuit.parameters import parameter_hash
 
     package_path = package_path.resolve()
     try:
@@ -205,12 +205,12 @@ def _hash_matches(declared: str, actual: str) -> bool:
 def _build_sim_bench_from_bench_config(
     config: BenchConfigExtended, *, base_path: Path | None = None
 ):
-    from pytestlab_sim.bench import AWG
-    from pytestlab_sim.bench import DMM
-    from pytestlab_sim.bench import PSU
-    from pytestlab_sim.bench import BenchConfig as SimBenchConfig
-    from pytestlab_sim.bench import PSUChannel
-    from pytestlab_sim.bench import Scope
+    from pytestlab.sim.circuit.bench import AWG
+    from pytestlab.sim.circuit.bench import DMM
+    from pytestlab.sim.circuit.bench import PSU
+    from pytestlab.sim.circuit.bench import BenchConfig as SimBenchConfig
+    from pytestlab.sim.circuit.bench import PSUChannel
+    from pytestlab.sim.circuit.bench import Scope
 
     instruments: dict[str, Any] = {}
     for alias, entry in {**config.devices, **config.instruments}.items():
@@ -249,9 +249,9 @@ def _device_type_for_profile(profile: str | Path) -> str:
 
 
 def _build_sim_wiring_from_entries(sc: SimCircuitConfig):
-    from pytestlab_sim.wiring import Connection
-    from pytestlab_sim.wiring import WiringConfig
-    from pytestlab_sim.wiring import WiringRules
+    from pytestlab.sim.circuit.wiring import Connection
+    from pytestlab.sim.circuit.wiring import WiringConfig
+    from pytestlab.sim.circuit.wiring import WiringRules
 
     connections = [
         Connection(from_=_normalize_sim_terminal(term), to=str(node))

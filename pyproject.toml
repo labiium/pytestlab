@@ -56,6 +56,11 @@ docs = [
 # Plotting is included in the default install.
 plot = []
 full = []
+# Circuit simulation lane (pytestlab.sim.circuit). Its Python dependencies
+# (numpy/polars/pydantic/pyyaml) are already core requirements, so this extra
+# is a forward-compatible install target; the circuit lane also needs an
+# `ngspice` binary on PATH at runtime.
+circuit = []
 dev = [
     "pytestlab[docs]",
     "ruff",
@@ -74,6 +79,9 @@ dev = [
 [project.scripts]
 pytestlab = "pytestlab.cli:main"
 ptl = "pytestlab.cli:main"
+
+[project.entry-points."pytestlab.backends"]
+circuit_sim = "pytestlab.sim.circuit._entry:build_circuit_sim_backend"
 [tool.commitizen]
 name = "cz_conventional_commits"
 version = "0.1.5"

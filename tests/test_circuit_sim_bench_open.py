@@ -37,7 +37,7 @@ def _nominal(value):
 
 
 def test_bench_open_circuit_sim_uses_runtime_session(tmp_path):
-    pytest.importorskip("pytestlab_sim")
+    pytest.importorskip("pytestlab.sim.circuit")
     netlist_path = tmp_path / "circuit.sp"
     netlist_path.write_text("RLOAD vload 0 100\n.end\n")
     bench_path = tmp_path / "bench_sim.yaml"
@@ -76,7 +76,7 @@ sim_circuit:
 
 
 def test_branch_free_driver_experiment_runs_against_circuit_sim_yaml(tmp_path):
-    pytest.importorskip("pytestlab_sim")
+    pytest.importorskip("pytestlab.sim.circuit")
     netlist_path = tmp_path / "rc_test.sp"
     netlist_path.write_text(
         """
@@ -144,7 +144,7 @@ sim_circuit:
 
 
 def test_circuit_sim_backend_rejects_private_session_in_backend_spec(tmp_path):
-    pytest.importorskip("pytestlab_sim")
+    pytest.importorskip("pytestlab.sim.circuit")
     bench_path = tmp_path / "bench_sim.yaml"
     bench_path.write_text(
         """
@@ -188,7 +188,7 @@ sim_circuit:
 
 
 def test_bench_open_dict_rejects_sim_circuit_without_base_path():
-    pytest.importorskip("pytestlab_sim")
+    pytest.importorskip("pytestlab.sim.circuit")
     with pytest.raises(InstrumentConfigurationError, match="filesystem path"):
         Bench.open(
             {
@@ -205,7 +205,7 @@ def test_bench_open_dict_rejects_sim_circuit_without_base_path():
 
 
 def test_circuit_sim_unknown_profile_fails_closed(tmp_path):
-    pytest.importorskip("pytestlab_sim")
+    pytest.importorskip("pytestlab.sim.circuit")
     bench_path = tmp_path / "bench_sim.yaml"
     bench_path.write_text(
         """
@@ -231,10 +231,10 @@ sim_circuit:
 
 
 def _write_real_twin_package(path):
-    from pytestlab_sim.calibration import TwinPackage
-    from pytestlab_sim.calibration import save_twin_package
-    from pytestlab_sim.parameters import ParameterSet
-    from pytestlab_sim.parameters import ParameterSpec
+    from pytestlab.sim.circuit.calibration import TwinPackage
+    from pytestlab.sim.circuit.calibration import save_twin_package
+    from pytestlab.sim.circuit.parameters import ParameterSet
+    from pytestlab.sim.circuit.parameters import ParameterSpec
 
     params = ParameterSet.from_values(
         {"rload": 100.0, "gain": 2.5},
@@ -253,9 +253,9 @@ def _write_real_twin_package(path):
 def _validation_report_v2(netlist_text, parameters):
     import hashlib
 
-    from pytestlab_sim.calibration import TwinPackage
-    from pytestlab_sim.calibration import validation_report_hash
-    from pytestlab_sim.parameters import parameter_hash
+    from pytestlab.sim.circuit.calibration import TwinPackage
+    from pytestlab.sim.circuit.calibration import validation_report_hash
+    from pytestlab.sim.circuit.parameters import parameter_hash
 
     provisional = TwinPackage(netlist_text=netlist_text, parameters=parameters)
     metric_values = {
@@ -300,9 +300,9 @@ def _validation_report_v2(netlist_text, parameters):
 
 
 def _write_v2_twin_package(path):
-    from pytestlab_sim.calibration import TwinPackage
-    from pytestlab_sim.calibration import save_twin_package
-    from pytestlab_sim.parameters import ParameterSet
+    from pytestlab.sim.circuit.calibration import TwinPackage
+    from pytestlab.sim.circuit.calibration import save_twin_package
+    from pytestlab.sim.circuit.parameters import ParameterSet
 
     netlist_text = "RLOAD vload 0 {rload}\n.end\n"
     parameters = ParameterSet.from_values({"rload": 100.0})
@@ -317,7 +317,7 @@ def _write_v2_twin_package(path):
 
 
 def test_bench_open_circuit_sim_twin_package_loads_model_params(tmp_path):
-    pytest.importorskip("pytestlab_sim")
+    pytest.importorskip("pytestlab.sim.circuit")
     twin_dir = tmp_path / "amp.twin"
     package = _write_real_twin_package(twin_dir)
     bench_path = tmp_path / "bench_sim.yaml"
@@ -391,7 +391,7 @@ def test_twin_package_manifest_loader_extracts_rendered_netlist_and_params(tmp_p
 
 
 def test_twin_package_v2_validation_metadata_exposed_to_session(tmp_path):
-    pytest.importorskip("pytestlab_sim")
+    pytest.importorskip("pytestlab.sim.circuit")
     package = _write_v2_twin_package(tmp_path / "amp.twin")
     bench_path = tmp_path / "bench_sim.yaml"
     bench_path.write_text(
@@ -510,8 +510,8 @@ def test_twin_package_rejects_hash_mismatch(tmp_path):
 def test_bench_open_rejects_wiring_to_unknown_netlist_node(tmp_path):
     """A wiring target that is not a real netlist node must fail at open time
     with a did-you-mean suggestion, never silently float to ~0 V."""
-    pytest.importorskip("pytestlab_sim")
-    from pytestlab_sim.wiring import UnknownNode
+    pytest.importorskip("pytestlab.sim.circuit")
+    from pytestlab.sim.circuit.wiring import UnknownNode
 
     netlist_path = tmp_path / "circuit.sp"
     netlist_path.write_text("RLOAD vload 0 100\n.end\n")
