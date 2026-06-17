@@ -137,6 +137,108 @@ def sim_doctor() -> None:
         raise typer.Exit(code=1)
 
 
+# Package managers that can provide ngspice, in priority order. ``user_space``
+# means the install needs no root privileges. PyTestLab only runs user-space
+# managers for you (with consent); root-requiring managers are printed for you
+# to run yourself. PyTestLab never invokes sudo and never assumes you have it.
+_NGSPICE_MANAGERS: list[tuple[str, list[str], bool]] = [
+    ("conda", ["conda", "install", "-y", "-c", "conda-forge", "ngspice"], True),
+    ("micromamba", ["micromamba", "install", "-y", "-c", "conda-forge", "ngspice"], True),
+    ("pixi", ["pixi", "global", "install", "ngspice"], True),
+    ("brew", ["brew", "install", "ngspice"], True),
+    ("apt-get", ["apt-get", "install", "-y", "ngspice"], False),
+    ("dnf", ["dnf", "install", "-y", "ngspice"], False),
+    ("pacman", ["pacman", "-S", "--noconfirm", "ngspice"], False),
+    ("zypper", ["zypper", "install", "-y", "ngspice"], False),
+    ("choco", ["choco", "install", "-y", "ngspice"], False),
+]
+
+
+def _detect_ngspice_manager() -> tuple[str, list[str], bool] | None:
+    """Return (manager, argv, user_space) for the first available manager."""
+    for name, argv, user_space in _NGSPICE_MANAGERS:
+        if shutil.which(name):
+            return name, argv, user_space
+    return None
+
+
+def _is_root() -> bool:
+    return hasattr(os, "geteuid") and os.geteuid() == 0
+
+
+@sim_app.command("install-ngspice")
+def sim_install_ngspice(
+    yes: bool = typer.Option(
+        False, "--yes", "-y", help="Run the install without confirmation (user-space managers only)."
+    ),
+) -> None:
+    """Help install the ngspice binary using a detected package manager.
+
+    PyTestLab runs sudo-free, user-space managers (conda/micromamba/pixi/brew)
+    for you, with consent. Managers that need root (apt-get/dnf/pacman/zypper/
+    choco) are only printed for you to run yourself: PyTestLab never invokes
+    sudo and never assumes you have it. Falls back to manual/Docker guidance
+    when no manager is found, and is a no-op when ngspice is already present.
+    """
+    import subprocess
+
+    console = rich.get_console()
+    cmd_name = os.getenv("SIMBENCH_NGSPICE_CMD", "ngspice")
+    if shutil.which(cmd_name):
+        console.print(f"[green]✓[/green] ngspice is already installed ({cmd_name}).")
+        raise typer.Exit(0)
+
+    detected = _detect_ngspice_manager()
+    if detected is None:
+        from pytestlab.sim.circuit.spice import _NGSPICE_INSTALL_HELP
+
+        console.print(
+            "[yellow]No supported package manager found on PATH "
+            "(conda/micromamba/pixi/brew/apt-get/dnf/pacman/zypper/choco).[/yellow]"
+        )
+        console.print(_NGSPICE_INSTALL_HELP, markup=False)
+        console.print("Or use the bundled dev container in .devcontainer/.")
+        raise typer.Exit(1)
+
+    manager, argv, user_space = detected
+    console.print(f"Detected package manager: [bold]{manager}[/bold]")
+    console.print("Install command: [cyan]" + " ".join(argv) + "[/cyan]")
+
+    # Only run it ourselves if no privilege escalation is required.
+    if not (user_space or _is_root()):
+        console.print(
+            f"[yellow]{manager} needs root privileges. Run the command above "
+            "yourself (as root, or via your system administrator). PyTestLab "
+            "will not run sudo or assume you can.[/yellow]"
+        )
+        raise typer.Exit(1)
+
+    if not yes:
+        if not sys.stdin.isatty() or not typer.confirm("Run it now?"):
+            console.print(
+                "Not running it. Re-run with --yes, or run the command above yourself."
+            )
+            raise typer.Exit(1)
+
+    try:
+        subprocess.run(argv, check=True)
+    except FileNotFoundError:
+        console.print(f"[red]Could not run {argv[0]!r}.[/red]")
+        raise typer.Exit(1) from None
+    except subprocess.CalledProcessError as exc:
+        console.print(f"[red]Install command failed (exit {exc.returncode}).[/red]")
+        raise typer.Exit(exc.returncode) from None
+
+    if shutil.which(cmd_name):
+        console.print("[green]✓ ngspice installed.[/green]")
+    else:
+        console.print(
+            "[yellow]Install ran but ngspice is still not on PATH; "
+            "open a new shell or check the manager output.[/yellow]"
+        )
+        raise typer.Exit(1)
+
+
 # --- Simulation Profile Helpers ---
 def get_user_override_path(profile_key: str) -> Path:
     """Gets the path to the user's override profile."""

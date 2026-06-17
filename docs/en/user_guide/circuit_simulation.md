@@ -30,6 +30,19 @@ The lane has two separate requirements:
     at it with the `ngspice_cmd` setting (or the `SIMBENCH_NGSPICE_CMD`
     environment variable).
 
+    PyTestLab can also help via a detected package manager:
+
+    ```bash
+    ptl sim install-ngspice        # detect a manager and show the command
+    ptl sim install-ngspice --yes  # run it (user-space managers only)
+    ```
+
+    It prefers sudo-free, user-space managers (`conda`/`micromamba`/`pixi`/
+    `brew`) and will run those for you with consent. Managers that need root
+    (`apt-get`/`dnf`/`pacman`/`zypper`/`choco`) are only **printed** for you to
+    run yourself — PyTestLab never invokes `sudo` and never assumes you have it.
+    If no manager is found it prints the manual options.
+
 If you would rather not install ngspice on your host at all, use the bundled
 dev container (see [Containerised setup](#containerised-setup)).
 
