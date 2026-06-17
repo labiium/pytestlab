@@ -9,20 +9,19 @@ import pytest
 from uncertainties import ufloat
 from uncertainties.core import UFloat
 
-import pytestlab.config.accuracy as accuracy
-from pytestlab.config.accuracy import AccuracySpec
-from pytestlab.config.accuracy import BandAccuracySpec
-from pytestlab.config.accuracy import CompositeBudgetSpec
-from pytestlab.config.accuracy import ExpressionAccuracySpec
-from pytestlab.config.accuracy import MeasurementQuantity
-from pytestlab.config.accuracy import MonteCarloAccuracySpec
-from pytestlab.config.accuracy import RepeatabilityAccuracySpec
-from pytestlab.config.accuracy import UncertaintyBudget
-from pytestlab.config.accuracy import UncertaintyComponent
-from pytestlab.config.accuracy import UncertaintyContext
-from pytestlab.config.accuracy import UncertaintyDistribution
-from pytestlab.config.accuracy import UnitCompatibilityError
-from pytestlab.config.accuracy import standard_uncertainty_from_model
+import pytestlab.uncertainty.budget as budget_mod
+import pytestlab.uncertainty.units as units_mod
+from pytestlab.uncertainty import AtomRegistry
+from pytestlab.uncertainty import Distribution as UncertaintyDistribution
+from pytestlab.uncertainty import Quantity as MeasurementQuantity
+from pytestlab.uncertainty import UnitCompatibilityError
+from pytestlab.uncertainty.specs import AccuracySpec
+from pytestlab.uncertainty.specs import BandAccuracySpec
+from pytestlab.uncertainty.specs import CompositeBudgetSpec
+from pytestlab.uncertainty.specs import ExpressionAccuracySpec
+from pytestlab.uncertainty.specs import RepeatabilityAccuracySpec
+from pytestlab.uncertainty.specs import UncertaintyContext
+from pytestlab.uncertainty.specs import standard_uncertainty_from_model
 from pytestlab.experiments.database import MeasurementDatabase
 from pytestlab.experiments.results import MeasurementResult
 from pytestlab.experiments.uncertainty_serialization import deserialize_uncertain_value
@@ -53,12 +52,15 @@ class RecordingLogger:
         self.infos.append(message)
 
 
+_HELPER_REGISTRY = AtomRegistry()
+
+
 def quantity(offset: float, unit: str = "V", nominal: float = 1.0) -> MeasurementQuantity:
     return AccuracySpec(
         offset=offset,
         distribution=UncertaintyDistribution.STANDARD,
         source="cal-sheet",
-    ).quantity(nominal, unit=unit)
+    ).quantity(nominal, unit=unit, registry=_HELPER_REGISTRY)
 
 
 def test_adapter_nonzero_zero_and_error_paths_are_explicit():
@@ -76,7 +78,7 @@ def test_adapter_nonzero_zero_and_error_paths_are_explicit():
 
     zero = nonzero_uncertainty_quantity(AccuracySpec(), context, logger=logger, label="zero")
     assert zero is None
-    assert "sigma=0" in logger.debugs[-1]
+    assert "u=0" in logger.debugs[-1]
 
     missing_range = nonzero_uncertainty_quantity(
         AccuracySpec(range_percent=1.0),
@@ -169,7 +171,8 @@ def test_serializer_round_trips_all_uncertain_value_shapes(tmp_path):
     payload, metadata = serialize_uncertain_value(measured)
     restored = deserialize_uncertain_value(payload, metadata)
     assert isinstance(restored, MeasurementQuantity)
-    assert restored.to_dict()["budget"]["components"][0]["source"] == "cal-sheet"
+    # Atom provenance survives the round trip.
+    assert any(atom["source"] == "cal-sheet" for atom in restored.to_dict()["atoms"].values())
 
     scalar, scalar_meta = serialize_uncertain_value(ufloat(1.2, 0.03))
     scalar_restored = deserialize_uncertain_value(scalar, scalar_meta)
@@ -189,10 +192,6 @@ def test_serializer_round_trips_all_uncertain_value_shapes(tmp_path):
 
     plain_payload, plain_meta = serialize_uncertain_value(12.0)
     assert deserialize_uncertain_value(plain_payload, plain_meta) == 12.0
-    assert (
-        deserialize_uncertain_value(np.array([1.0]), {"value_kind": "measurement_quantity"})[0]
-        == 1.0
-    )
 
     with MeasurementDatabase(tmp_path / "ufloat_shapes") as db:
         key = db.store_measurement(
@@ -253,9 +252,9 @@ def test_scientific_edge_cases_and_provenance_are_preserved():
         distribution=UncertaintyDistribution.STANDARD,
         source="datasheet-page-7",
     ).evaluate(context)
-    names = {component.name for component in budget.components}
-    assert names == {"reading", "range", "counts"}
-    assert {component.source for component in budget.components} == {"datasheet-page-7"}
+    labels = {entry.label for entry in budget.entries}
+    assert labels == {"gain", "range", "counts"}
+    assert {entry.source for entry in budget.entries} == {"datasheet-page-7"}
 
     with pytest.raises(ValueError, match="range_value is required"):
         AccuracySpec(range_percent=1.0).evaluate(UncertaintyContext(reading=1.0, unit="V"))
@@ -266,18 +265,10 @@ def test_scientific_edge_cases_and_provenance_are_preserved():
         variable="frequency",
         bands=[{"min": 10.0, "max": 20.0, "offset": 0.2, "distribution": "standard"}],
     )
-    assert (
-        edge_band.evaluate(UncertaintyContext(reading=1.0, unit="V", frequency=10.0))
-        .components[0]
-        .value
-        == 0.2
-    )
-    assert (
-        edge_band.evaluate(UncertaintyContext(reading=1.0, unit="V", frequency=20.0))
-        .components[0]
-        .value
-        == 0.2
-    )
+    lo = edge_band.evaluate(UncertaintyContext(reading=1.0, unit="V", frequency=10.0))
+    hi = edge_band.evaluate(UncertaintyContext(reading=1.0, unit="V", frequency=20.0))
+    assert lo.entries[0].contribution == pytest.approx(0.2)
+    assert hi.entries[0].contribution == pytest.approx(0.2)
     with pytest.raises(ValueError, match="frequency"):
         edge_band.evaluate(UncertaintyContext(reading=1.0, unit="V"))
     with pytest.raises(ValueError, match="No uncertainty band"):
@@ -315,35 +306,29 @@ def test_scientific_edge_cases_and_provenance_are_preserved():
         parameters={"gain": 3.0},
         distribution=UncertaintyDistribution.STANDARD,
     ).evaluate(UncertaintyContext(reading=4.0, unit="V"))
-    assert expression_budget.components[0].value == pytest.approx(1.0)
+    assert expression_budget.entries[0].contribution == pytest.approx(1.0)
 
-    triangular_mc = MonteCarloAccuracySpec(
-        components=[
-            AccuracySpec(offset=0.1, distribution=UncertaintyDistribution.TRIANGULAR),
-            AccuracySpec(
-                offset=0.2, distribution=UncertaintyDistribution.NORMAL, coverage_factor=2.0
-            ),
-        ],
-        samples=200,
-        seed=7,
-    ).evaluate(UncertaintyContext(reading=1.0, unit="V"))
-    assert triangular_mc.method == "monte_carlo"
-    assert triangular_mc.samples is not None
-    assert len(triangular_mc.samples) == 200
-    assert len(triangular_mc.components[0].metadata["input_components"]) == 2
-
-    composite = CompositeBudgetSpec(
-        components=[
-            MonteCarloAccuracySpec(components=[AccuracySpec(offset=0.01)], samples=10, seed=1),
-            MonteCarloAccuracySpec(components=[AccuracySpec(offset=0.02)], samples=10, seed=2),
-        ]
-    ).evaluate(UncertaintyContext(reading=1.0, unit="V"))
-    assert composite.samples is not None
-    assert len(composite.samples) == 20
     assert (
         standard_uncertainty_from_model(AccuracySpec(offset=0.5), UncertaintyContext(reading=1.0))
         > 0
     )
+
+
+def test_monte_carlo_spec_behaves_as_composite_analytically():
+    """MonteCarloAccuracySpec.evaluate now merges its components analytically."""
+
+    from pytestlab.uncertainty.specs import MonteCarloAccuracySpec
+
+    budget = MonteCarloAccuracySpec(
+        components=[
+            AccuracySpec(offset=0.1, distribution=UncertaintyDistribution.TRIANGULAR),
+            AccuracySpec(offset=0.2, distribution=UncertaintyDistribution.NORMAL, coverage_factor=2.0),
+        ],
+        samples=200,
+        seed=7,
+    ).evaluate(UncertaintyContext(reading=1.0, unit="V"), AtomRegistry())
+    assert len(budget.entries) == 2
+    assert budget.combined_standard_uncertainty > 0
 
 
 def test_quantity_operations_cover_units_scalars_and_zero_nominal(monkeypatch):
@@ -364,22 +349,31 @@ def test_quantity_operations_cover_units_scalars_and_zero_nominal(monkeypatch):
     reciprocal = 2 / voltage
     assert reciprocal.nominal == pytest.approx(1.0)
     assert reciprocal.u == pytest.approx(0.05)
-    assert reciprocal.budget.components[0].metadata["operand"] == "right"
-    power = voltage * current
-    current_component = next(
-        component for component in power.budget.components if component.name == "right.offset"
+    # Same-registry operands required for arithmetic.
+    shared = AtomRegistry()
+    va = AccuracySpec(offset=0.1, distribution=UncertaintyDistribution.STANDARD).quantity(
+        2.0, unit="V", registry=shared
     )
-    assert current_component.source == "cal-sheet"
-    ratio = voltage / current
+    ca = AccuracySpec(offset=0.01, distribution=UncertaintyDistribution.STANDARD).quantity(
+        0.5, unit="A", registry=shared
+    )
+    ratio = va / ca
     assert ratio.u > 0
 
-    monkeypatch.setattr(accuracy, "_UNIT_REGISTRY", None)
-    fallback_product = voltage * current
+    monkeypatch.setattr(units_mod, "_UNIT_REGISTRY", None)
+    fallback_product = va * ca
     assert fallback_product.unit == "V*A"
-    assert (voltage / current).unit == "V/A"
-    assert (quantity(0.1, "V", 1.0) + quantity(0.2, "V", 2.0)).nominal == 3.0
+    assert (va / ca).unit == "V/A"
+    same = AtomRegistry()
+    a = AccuracySpec(offset=0.1, distribution=UncertaintyDistribution.STANDARD).quantity(
+        1.0, unit="V", registry=same
+    )
+    b = AccuracySpec(offset=0.2, distribution=UncertaintyDistribution.STANDARD).quantity(
+        2.0, unit="V", registry=same
+    )
+    assert (a + b).nominal == 3.0
     with pytest.raises(UnitCompatibilityError):
-        _ = voltage + quantity(1.0, "mV", 1000.0)
+        _ = a + AccuracySpec(offset=0.1).quantity(1000.0, unit="mV", registry=same)
 
 
 def test_scipy_fallback_is_default_only(monkeypatch):
@@ -390,17 +384,12 @@ def test_scipy_fallback_is_default_only(monkeypatch):
             raise ImportError("blocked for fallback test")
         return real_import_module(name, package)
 
-    budget = UncertaintyBudget(
-        components=[
-            UncertaintyComponent(
-                name="offset",
-                value=0.1,
-                distribution=UncertaintyDistribution.STANDARD,
-            )
-        ]
+    # u = 0.1 (standard offset), so expanded at k=2 is 0.2.
+    budget = AccuracySpec(offset=0.1, distribution=UncertaintyDistribution.STANDARD).evaluate(
+        UncertaintyContext(reading=1.0, unit="V"), AtomRegistry()
     )
-    monkeypatch.setattr(accuracy, "_SCIPY_STATS", None)
-    monkeypatch.setattr(accuracy.importlib, "import_module", blocked_import)
+    monkeypatch.setattr(budget_mod, "_SCIPY_STATS", None)
+    monkeypatch.setattr(budget_mod.importlib, "import_module", blocked_import)
 
     assert budget.coverage_factor_for(0.95) == pytest.approx(2.0)
     assert budget.expanded_uncertainty(confidence=0.95) == pytest.approx(0.2)
@@ -411,11 +400,11 @@ def test_scipy_fallback_is_default_only(monkeypatch):
 
 
 def test_repeatability_without_standard_error_and_zero_budget_dof():
-    assert UncertaintyBudget().effective_degrees_of_freedom is None
+    empty = MeasurementQuantity.constant(1.0, "V").budget()
+    assert empty.effective_degrees_of_freedom is None
     repeatability = RepeatabilityAccuracySpec(
         observations=[1.0, 1.2, 0.8],
         use_standard_error=False,
-    ).evaluate(UncertaintyContext(reading=1.0, unit="V"))
-    assert repeatability.components[0].value == pytest.approx(0.2)
-    assert repeatability.components[0].kind.value == "type_a"
-    assert repeatability.as_dict()["method"] == "repeatability"
+    ).evaluate(UncertaintyContext(reading=1.0, unit="V"), AtomRegistry())
+    assert repeatability.entries[0].contribution == pytest.approx(0.2)
+    assert repeatability.entries[0].kind == "type_a"

@@ -12,13 +12,11 @@ from pydantic import Field
 from pydantic import model_validator
 from uncertainties.core import UFloat
 
-from .config.accuracy import AccuracyModel
-from .config.accuracy import MeasurementQuantity
-from .config.accuracy import UncertaintyBudget
-from .config.accuracy import UncertaintyComponent
-from .config.accuracy import UncertaintyContext
-from .config.accuracy import evaluate_uncertainty_model
 from .experiments.results import MeasurementResult
+from .uncertainty import Quantity as MeasurementQuantity
+from .uncertainty.specs import AccuracyModel
+from .uncertainty.specs import UncertaintyContext
+from .uncertainty.specs import evaluate_quantity as evaluate_uncertainty_model
 
 
 class AccessorySource(BaseModel):
@@ -212,36 +210,26 @@ def accessory_correction_quantity(
     correction: AccessoryCorrection,
     *,
     accessory: AccessoryProfile | BoundAccessory,
+    registry=None,
 ) -> MeasurementQuantity:
-    """Convert an accessory correction into the existing MeasurementQuantity type."""
+    """Convert an accessory correction into a :class:`Quantity`.
+
+    The correction's uncertainty atoms get a stable identity per accessory and
+    correction name, so reusing the same physical accessory correlates correctly.
+    """
 
     if correction.uncertainty is None:
-        budget = UncertaintyBudget(
-            components=[],
-            unit=correction.unit,
-            method="accessory_nominal_no_uncertainty",
-        )
-    else:
-        context = UncertaintyContext(
-            reading=correction.nominal,
-            unit=correction.unit,
-            range_value=correction.range_value,
-            range_unit=correction.range_unit,
-            resolution=correction.resolution,
-            metadata={"accessory": accessory.display_name, "correction": correction.name},
-        )
-        budget = evaluate_uncertainty_model(correction.uncertainty, context)
-        for component in budget.components:
-            component.metadata.update(
-                {
-                    "accessory": accessory.display_name,
-                    "accessory_type": accessory.accessory_type,
-                    "correction": correction.name,
-                }
-            )
-            if correction.source and component.source is None:
-                component.source = correction.source
-    return MeasurementQuantity(nominal=correction.nominal, unit=correction.unit, budget=budget)
+        return MeasurementQuantity.constant(correction.nominal, correction.unit, registry)
+    context = UncertaintyContext(
+        reading=correction.nominal,
+        unit=correction.unit,
+        range_value=correction.range_value,
+        range_unit=correction.range_unit,
+        resolution=correction.resolution,
+        source_key=f"accessory:{accessory.display_name}:{correction.name}",
+        metadata={"accessory": accessory.display_name, "correction": correction.name},
+    )
+    return evaluate_uncertainty_model(correction.uncertainty, context, registry)
 
 
 class MeasurementChain:
@@ -277,11 +265,8 @@ class MeasurementChain:
                 sampling_rate=getattr(result, "sampling_rate", None),
             )
 
-        quantity, instrument_budget_missing = self._quantity_from_value(result, unit="")
-        corrected = self._apply_quantity(quantity)
-        if instrument_budget_missing:
-            corrected.budget.method = "accessory_chain_float_input_no_instrument_uncertainty"
-        return corrected
+        quantity, _instrument_budget_missing = self._quantity_from_value(result, unit="")
+        return self._apply_quantity(quantity)
 
     def describe(self, *, name: str | None = None, physical_path: list[str] | None = None) -> str:
         lines: list[str] = []
@@ -338,7 +323,9 @@ class MeasurementChain:
         corrected = quantity
         for accessory in self.accessories:
             for correction in accessory.corrections:
-                operand = accessory_correction_quantity(correction, accessory=accessory)
+                operand = accessory_correction_quantity(
+                    correction, accessory=accessory, registry=corrected.registry
+                )
                 if correction.operation == "multiply":
                     corrected = corrected * operand
                 elif correction.operation == "divide":
@@ -355,34 +342,24 @@ class MeasurementChain:
         if isinstance(value, MeasurementQuantity):
             return value, False
         if isinstance(value, UFloat):
-            component = UncertaintyComponent(
-                name="legacy_ufloat",
-                value=float(value.std_dev),
+            from .uncertainty import default_registry
+
+            reg = default_registry()
+            atom = reg.mint(
+                nominal=float(value.nominal_value),
+                std_uncertainty=float(value.std_dev),
+                label="legacy_ufloat",
                 unit=unit,
                 source="legacy_ufloat",
             )
-            budget = UncertaintyBudget(
-                components=[component],
-                unit=unit,
-                method="legacy_ufloat",
-            )
-            return MeasurementQuantity(
-                nominal=float(value.nominal_value),
-                unit=unit,
-                budget=budget,
-            ), False
+            return MeasurementQuantity.from_atom(atom, reg), False
         if isinstance(value, np.ndarray):
             raise TypeError("MeasurementChain.apply() is scalar-only in v1; arrays are unsupported.")
         try:
             nominal = float(value)
         except Exception as exc:
             raise TypeError(f"MeasurementChain.apply() cannot handle value type {type(value)!r}.") from exc
-        budget = UncertaintyBudget(
-            components=[],
-            unit=unit,
-            method="raw_float_no_instrument_uncertainty",
-        )
-        return MeasurementQuantity(nominal=nominal, unit=unit, budget=budget), True
+        return MeasurementQuantity.constant(nominal, unit), True
 
 
 def _accessory_profiles_dir() -> Path:

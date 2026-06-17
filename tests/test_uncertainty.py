@@ -5,17 +5,17 @@ import yaml
 from pydantic import ValidationError
 from uncertainties import ufloat
 
-from pytestlab.config.accuracy import AccuracySpec
-from pytestlab.config.accuracy import BandAccuracySpec
-from pytestlab.config.accuracy import CompositeBudgetSpec
-from pytestlab.config.accuracy import ExpressionAccuracySpec
-from pytestlab.config.accuracy import MeasurementQuantity
-from pytestlab.config.accuracy import MonteCarloAccuracySpec
-from pytestlab.config.accuracy import RepeatabilityAccuracySpec
-from pytestlab.config.accuracy import UncertaintyContext
-from pytestlab.config.accuracy import UncertaintyDistribution
-from pytestlab.config.accuracy import UnitCompatibilityError
-from pytestlab.config.accuracy import quantity_from_uncertainty_model
+from pytestlab.uncertainty.specs import AccuracySpec
+from pytestlab.uncertainty.specs import BandAccuracySpec
+from pytestlab.uncertainty.specs import CompositeBudgetSpec
+from pytestlab.uncertainty.specs import ExpressionAccuracySpec
+from pytestlab.uncertainty import Quantity as MeasurementQuantity
+from pytestlab.uncertainty.specs import MonteCarloAccuracySpec
+from pytestlab.uncertainty.specs import RepeatabilityAccuracySpec
+from pytestlab.uncertainty.specs import UncertaintyContext
+from pytestlab.uncertainty import Distribution as UncertaintyDistribution
+from pytestlab.uncertainty import UnitCompatibilityError
+from pytestlab.uncertainty.specs import evaluate_quantity as quantity_from_uncertainty_model
 from pytestlab.config.instrument_config import InstrumentConfig
 from pytestlab.config.loader import load_device_profile
 from pytestlab.experiments.database import MeasurementDatabase
@@ -98,13 +98,9 @@ def test_driver_returns_measurement_quantity_with_sim():
         # Create a mock instrument that returns MeasurementQuantity values
         mock_dmm = Mock()
         expected_sigma = ((0.001 * 5.0) ** 2 + 0.005**2) ** 0.5
-        mock_dmm.measure_voltage_dc.return_value = MeasurementQuantity(
-            nominal=5.0,
-            unit="V",
-            budget=mock_config.measurement_accuracy["voltage_dc_10V"].evaluate(
-                UncertaintyContext(reading=5.0, unit="V")
-            ),
-        )
+        mock_dmm.measure_voltage_dc.return_value = mock_config.measurement_accuracy[
+            "voltage_dc_10V"
+        ].quantity(5.0, unit="V")
         mock_dmm.config = mock_config
         mock_from_config.return_value = mock_dmm
 
@@ -186,14 +182,10 @@ def test_measurement_quantity_uses_unit_algebra_for_compound_units():
     assert power.nominal == pytest.approx(6.0)
     assert "volt" in power.unit
     assert "ampere" in power.unit
-    assert {component.name for component in power.budget.components} == {
-        "left.offset",
-        "right.offset",
-    }
-    assert all(
-        component.metadata["input_component"]["name"] == "offset"
-        for component in power.budget.components
-    )
+    # Both offset atoms propagate through the product into the budget.
+    entries = power.budget().entries
+    assert len(entries) == 2
+    assert {entry.label for entry in entries} == {"offset"}
 
     zero_voltage = AccuracySpec(
         offset=0.1,
@@ -298,7 +290,7 @@ def test_generic_uncertainty_helper_evaluates_advanced_model():
     quantity = quantity_from_uncertainty_model(model, context)
     assert isinstance(quantity, MeasurementQuantity)
     assert quantity.u == pytest.approx(0.06)
-    assert quantity.budget.method == "expression"
+    assert any(entry.label == "expression" for entry in quantity.budget().entries)
 
 
 def test_power_supply_driver_uses_range_context_for_uncertainty_models():
@@ -519,7 +511,7 @@ def test_profile_to_driver_to_database_uncertainty_round_trip(tmp_path):
 
     measurement = dmm.measure(DMMFunction.VOLTAGE_DC)
     assert isinstance(measurement.values, MeasurementQuantity)
-    assert measurement.values.budget.method == "expression"
+    assert any(entry.label == "expression" for entry in measurement.values.budget().entries)
 
     with MeasurementDatabase(tmp_path / "profile_driver_db") as db:
         key = db.store_measurement(None, measurement)
@@ -529,22 +521,22 @@ def test_profile_to_driver_to_database_uncertainty_round_trip(tmp_path):
     assert restored.values.nominal == pytest.approx(5.0)
     assert restored.values.u == pytest.approx(0.06)
     assert restored.values.unit == "V"
-    assert restored.values.budget.components[0].name == "expression"
+    assert restored.values.budget().entries[0].label == "expression"
 
 
 def test_monte_carlo_model_is_reproducible():
-    context = UncertaintyContext(reading=10.0, unit="V")
-    model = MonteCarloAccuracySpec(
-        components=[AccuracySpec(offset=0.1)],
-        samples=1000,
-        seed=42,
+    from pytestlab.uncertainty import AtomRegistry
+    from pytestlab.uncertainty.montecarlo import monte_carlo
+
+    # A rectangular offset (half-width 0.1) -> standard uncertainty 0.1/sqrt(3).
+    reg = AtomRegistry()
+    x = AccuracySpec(offset=0.1).quantity(
+        UncertaintyContext(reading=10.0, unit="V"), reg
     )
-    budget = model.evaluate(context)
-    assert budget.method == "monte_carlo"
-    assert budget.samples is not None
-    assert len(budget.samples) == 1000
-    assert budget.combined_standard_uncertainty == pytest.approx(0.1 / (3**0.5), rel=0.15)
-    assert budget.components[0].metadata["input_components"][0]["name"] == "offset"
+    r1 = monte_carlo(lambda x: x, {"x": x}, samples=200_000, seed=42, registry=reg)
+    r2 = monte_carlo(lambda x: x, {"x": x}, samples=200_000, seed=42, registry=reg)
+    assert r1.std == r2.std  # identical seed -> reproducible
+    assert r1.std == pytest.approx(0.1 / (3**0.5), rel=0.05)
 
 
 def test_repeatability_and_composite_budget_models():
@@ -557,8 +549,7 @@ def test_repeatability_and_composite_budget_models():
         ]
     )
     budget = composite.evaluate(context)
-    assert budget.method == "composite"
-    assert {component.name for component in budget.components} == {"offset", "repeatability"}
+    assert {entry.label for entry in budget.entries} == {"offset", "repeatability"}
     assert budget.effective_degrees_of_freedom is not None
 
 

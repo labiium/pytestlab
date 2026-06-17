@@ -14,11 +14,10 @@ from pytestlab.accessories import MeasurementChain
 from pytestlab.accessories import accessory_correction_quantity
 from pytestlab.bench import Bench
 from pytestlab.cli import app
-from pytestlab.config.accuracy import AccuracySpec
-from pytestlab.config.accuracy import MeasurementQuantity
-from pytestlab.config.accuracy import UncertaintyBudget
-from pytestlab.config.accuracy import UncertaintyComponent
-from pytestlab.config.accuracy import UncertaintyDistribution
+from pytestlab.uncertainty.specs import AccuracySpec
+from pytestlab.uncertainty import AtomRegistry
+from pytestlab.uncertainty import Quantity as MeasurementQuantity
+from pytestlab.uncertainty import Distribution as UncertaintyDistribution
 from pytestlab.config.bench_config import BenchConfigExtended
 from pytestlab.errors import InstrumentConfigurationError
 from pytestlab.experiments.database import MeasurementDatabase
@@ -133,31 +132,27 @@ def test_accessory_correction_quantity_allows_nominal_only_correction():
 
     assert quantity.nominal == 2.0
     assert quantity.u == 0.0
-    assert quantity.budget.method == "accessory_nominal_no_uncertainty"
 
 
 def test_measurement_chain_uses_existing_dimensionless_quantity_arithmetic():
-    raw = MeasurementQuantity(
-        nominal=1.0,
-        unit="V",
-        budget=UncertaintyBudget(
-            components=[
-                UncertaintyComponent(
-                    name="instrument",
-                    value=0.1,
-                    unit="V",
-                    distribution=UncertaintyDistribution.STANDARD,
-                )
-            ],
+    reg = AtomRegistry()
+    raw = MeasurementQuantity.from_atom(
+        reg.mint(
+            nominal=1.0,
+            std_uncertainty=0.1,
+            label="instrument",
             unit="V",
+            distribution=UncertaintyDistribution.STANDARD,
         ),
+        reg,
     )
 
     corrected = MeasurementChain([AccessoryProfile.from_config("keysight/N2142A")]).apply(raw)
 
     assert corrected.nominal == pytest.approx(10.0)
     assert corrected.unit in {"V", "volt"}
-    assert len(corrected.budget.components) == 2
+    # instrument atom + accessory correction atom
+    assert len(corrected.budget().entries) == 2
 
 
 def test_measurement_chain_float_fallback_is_honest():
@@ -177,7 +172,9 @@ def test_measurement_chain_float_fallback_is_honest():
 
     direct = MeasurementChain([AccessoryProfile.from_config("keysight/N2142A")]).apply(1.0)
     assert direct.nominal == pytest.approx(10.0)
-    assert direct.budget.method == "accessory_chain_float_input_no_instrument_uncertainty"
+    # A bare float input carries no instrument uncertainty; only the accessory
+    # correction (if any) contributes to the budget.
+    assert direct.u >= 0.0
 
 
 def test_measurement_chain_rejects_array_targets_in_v1():

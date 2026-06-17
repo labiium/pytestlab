@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
 
-from .accuracy import AccuracyModel
+from ..uncertainty.specs import AccuracyModel
 from .device_config import DeviceConfig
 
 

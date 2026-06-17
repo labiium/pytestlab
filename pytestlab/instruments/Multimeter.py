@@ -4,7 +4,7 @@
 from dataclasses import dataclass
 from typing import Literal
 
-from pytestlab.config.accuracy import MeasurementQuantity
+from pytestlab.uncertainty import Quantity
 from pytestlab.config.instrument_config import InstrumentConfig
 from pytestlab.config.multimeter_config import MultimeterConfig
 from pytestlab.instruments.uncertainty_adapters import dmm_measurement_context
@@ -386,7 +386,7 @@ class Multimeter(Instrument[MultimeterConfig]):
                 self.config.model, f"Could not parse measurement reading: '{response_str}'"
             ) from e
 
-        value_to_return: float | MeasurementQuantity = reading
+        value_to_return: float | Quantity = reading
 
         # --- Uncertainty Calculation ---
         function_spec = self._get_function_spec(function)
@@ -502,6 +502,7 @@ class Multimeter(Instrument[MultimeterConfig]):
                             function=function,
                             range_spec=matching_range_spec,
                             measurement_type=measurement_name_val,
+                            instrument_key=f"{self.config.model}:{id(self)}",
                         )
                         if context is not None:
                             quantity = nonzero_uncertainty_quantity(

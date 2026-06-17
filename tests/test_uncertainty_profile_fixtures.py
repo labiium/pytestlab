@@ -7,7 +7,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from pytestlab.config.accuracy import MeasurementQuantity
+from pytestlab.uncertainty import Quantity as MeasurementQuantity
 from pytestlab.config.dc_active_load_config import DCActiveLoadConfig
 from pytestlab.config.loader import load_device_profile
 from pytestlab.config.multimeter_config import DMMFunction
@@ -57,7 +57,8 @@ def test_dmm_fixture_profile_loads_drives_and_persists(tmp_path):
         key = db.store_measurement(None, measurement)
         restored = db.retrieve_measurement(key)
     assert isinstance(restored.values, MeasurementQuantity)
-    assert restored.values.budget.components[0].source is None
+    assert restored.values.u == pytest.approx(measurement.values.u, rel=1e-9)
+    assert restored.values.budget().entries[0].source is None
 
 
 def test_psu_fixture_profile_loads_drives_and_persists(tmp_path):

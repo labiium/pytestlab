@@ -30,7 +30,7 @@ Requires:
 import pytest
 
 from pytestlab import AutoInstrument
-from pytestlab.config.accuracy import MeasurementQuantity
+from pytestlab.uncertainty import Quantity as MeasurementQuantity
 from pytestlab.errors import InstrumentParameterError
 from pytestlab.instruments import DCActiveLoad
 

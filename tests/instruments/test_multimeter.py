@@ -25,7 +25,7 @@ Requires:
 import pytest
 
 from pytestlab import AutoInstrument
-from pytestlab.config.accuracy import MeasurementQuantity
+from pytestlab.uncertainty import Quantity as MeasurementQuantity
 from pytestlab.config.multimeter_config import DMMFunction
 
 # ------------------- CONFIGURE THESE FOR YOUR LAB -------------------

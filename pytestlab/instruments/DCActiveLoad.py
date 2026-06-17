@@ -14,7 +14,7 @@ from uncertainties.core import UFloat
 
 from ..common.health import HealthReport
 from ..common.health import HealthStatus
-from ..config.accuracy import MeasurementQuantity
+from ..uncertainty import Quantity as MeasurementQuantity
 from ..config.dc_active_load_config import DCActiveLoadConfig
 from ..config.dc_active_load_config import ModeSpec
 from ..config.dc_active_load_config import ReadbackAccuracySpec
@@ -283,6 +283,7 @@ class DCActiveLoad(Instrument):
                         function=measurement_type,
                         range_value=range_value,
                         channel=channel,
+                        instrument_key=f"{self.config.model}:{id(self)}",
                     )
                     quantity = nonzero_uncertainty_quantity(
                         accuracy_spec,

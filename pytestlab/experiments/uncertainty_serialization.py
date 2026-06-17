@@ -6,19 +6,16 @@ import numpy as np
 from uncertainties import ufloat
 from uncertainties.core import UFloat
 
-from ..config.accuracy import MeasurementQuantity
+from ..uncertainty import Quantity
 
 
 def serialize_uncertain_value(value: Any) -> tuple[Any, dict[str, Any]]:
     """Convert supported uncertain values into DB-safe data plus metadata."""
 
-    if isinstance(value, MeasurementQuantity):
+    if isinstance(value, Quantity):
         return (
             np.array([value.nominal, value.u], dtype=np.float64),
-            {
-                "value_kind": "measurement_quantity",
-                "measurement_quantity": value.to_dict(),
-            },
+            {"value_kind": "quantity", "quantity": value.to_dict()},
         )
     if isinstance(value, UFloat):
         return (
@@ -39,10 +36,10 @@ def deserialize_uncertain_value(value_data: Any, metadata: dict[str, Any]) -> An
     """Restore uncertain values serialized by :func:`serialize_uncertain_value`."""
 
     value_kind = metadata.get("value_kind")
-    if value_kind == "measurement_quantity":
-        quantity_data = metadata.get("measurement_quantity")
+    if value_kind == "quantity":
+        quantity_data = metadata.get("quantity")
         if isinstance(quantity_data, dict):
-            return MeasurementQuantity.from_dict(quantity_data)
+            return Quantity.from_dict(quantity_data)
         return value_data
     if value_kind == "ufloat":
         values = np.asarray(value_data)

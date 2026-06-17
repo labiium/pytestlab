@@ -12,8 +12,8 @@ from enum import Enum
 from pydantic import BaseModel
 from pydantic import Field
 
-from .accuracy import AccuracyModel
-from .accuracy import AccuracySpec as AccuracySpec
+from ..uncertainty.specs import AccuracyModel
+from ..uncertainty.specs import AccuracySpec as AccuracySpec
 from .instrument_config import InstrumentConfig
 
 # RangeSpec will be defined in this file

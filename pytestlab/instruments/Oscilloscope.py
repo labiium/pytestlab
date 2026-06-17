@@ -20,7 +20,7 @@ from ..common.enums import TriggerSlope
 from ..common.enums import WaveformType
 from ..common.health import HealthReport
 from ..common.health import HealthStatus
-from ..config.accuracy import MeasurementQuantity
+from ..uncertainty import Quantity as MeasurementQuantity
 from ..config.instrument_config import InstrumentConfig  # Import base config
 
 # from ..config import OscilloscopeConfig, ConfigRequires # OscilloscopeConfig is V2
@@ -1006,7 +1006,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             spec = self.config.measurement_accuracy.get(mode_key)
             if spec:
                 context = oscilloscope_measurement_context(
-                    self.config, channel=channel, reading=reading, unit="V", function="measure_vpp"
+                    self.config, channel=channel, reading=reading, unit="V", function="measure_vpp", instrument_key=f"{self.config.model}:{id(self)}"
                 )
                 quantity = nonzero_uncertainty_quantity(
                     spec,
@@ -1066,7 +1066,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             spec = self.config.measurement_accuracy.get(mode_key)
             if spec:
                 context = oscilloscope_measurement_context(
-                    self.config, channel=channel, reading=reading, unit="V", function="measure_vrms"
+                    self.config, channel=channel, reading=reading, unit="V", function="measure_vrms", instrument_key=f"{self.config.model}:{id(self)}"
                 )
                 quantity = nonzero_uncertainty_quantity(
                     spec,

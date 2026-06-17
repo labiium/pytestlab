@@ -4,7 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from pytestlab.config.accuracy import MeasurementQuantity
+from pytestlab.uncertainty import Quantity as MeasurementQuantity
 from pytestlab.config.device_config import DeviceRole
 from pytestlab.config.multimeter_config import AccuracySpec
 from pytestlab.config.multimeter_config import FunctionSpec
@@ -189,7 +189,8 @@ def test_multimeter_accepts_profile_loaded_advanced_uncertainty_model():
 
     assert isinstance(measurement.values, MeasurementQuantity)
     assert measurement.values.u == pytest.approx(0.006)
-    assert measurement.values.budget.method == "expression"
+    budget = measurement.values.budget()
+    assert any(entry.label == "expression" for entry in budget.entries)
 
 
 def test_multimeter_no_uncertainty_when_no_spec():

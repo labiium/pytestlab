@@ -10,8 +10,8 @@ from __future__ import annotations
 from pydantic import BaseModel
 from pydantic import Field
 
-from .accuracy import AccuracyModel
-from .accuracy import AccuracySpec as AccuracySpec
+from ..uncertainty.specs import AccuracyModel
+from ..uncertainty.specs import AccuracySpec as AccuracySpec
 from .instrument_config import InstrumentConfig
 
 # RangeSpec is defined in this file

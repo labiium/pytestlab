@@ -12,7 +12,7 @@ import polars as pl
 from numpy.typing import NDArray
 from uncertainties.core import UFloat
 
-from ..config.accuracy import MeasurementQuantity
+from ..uncertainty import Quantity as MeasurementQuantity
 
 if TYPE_CHECKING:
     from ..plotting import PlotSpec
