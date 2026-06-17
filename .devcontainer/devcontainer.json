@@ -1,0 +1,16 @@
+{
+  "name": "PyTestLab Circuit Simulation",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "postCreateCommand": "pip install -e '.[circuit,dev]' && ptl sim doctor",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "charliermarsh.ruff"
+      ]
+    }
+  }
+}

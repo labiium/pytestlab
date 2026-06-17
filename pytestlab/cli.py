@@ -66,6 +66,7 @@ bench_app = typer.Typer(name="bench", help="Manage bench configurations.")
 sim_profile_app = typer.Typer(name="sim-profile", help="Manage simulation profiles.")
 visa_app = typer.Typer(name="visa", help="Discover VISA resources.")
 lamb_app = typer.Typer(name="lamb", help="Interact with LAMB instrument server.")
+sim_app = typer.Typer(name="sim", help="Circuit simulation lane utilities (pytestlab.sim.circuit).")
 
 # Create a new Typer app for replay commands
 replay_app = typer.Typer(name="replay", help="Record and replay complex measurement sessions.")
@@ -78,6 +79,62 @@ app.add_typer(bench_app)
 app.add_typer(sim_profile_app)
 app.add_typer(visa_app)
 app.add_typer(lamb_app)
+app.add_typer(sim_app)
+
+
+@sim_app.command("doctor")
+def sim_doctor() -> None:
+    """Check that the circuit simulation lane is ready to run.
+
+    Verifies the Python lane imports and that an ``ngspice`` binary is on PATH,
+    printing actionable install guidance (system package / Docker) when it is
+    missing. Exits non-zero if the environment is not ready, so it can gate CI.
+    """
+    import subprocess
+
+    console = rich.get_console()
+    ready = True
+
+    try:
+        import pytestlab.sim.circuit  # noqa: F401
+
+        console.print("[green]✓[/green] pytestlab.sim.circuit importable")
+    except Exception as exc:
+        ready = False
+        console.print(f"[red]✗[/red] cannot import pytestlab.sim.circuit: {exc}")
+
+    from pytestlab.sim.circuit.spice import _NGSPICE_INSTALL_HELP
+
+    cmd = os.getenv("SIMBENCH_NGSPICE_CMD", "ngspice")
+    resolved = shutil.which(cmd)
+    if resolved:
+        version = ""
+        try:
+            out = subprocess.run(
+                [resolved, "-v"], capture_output=True, text=True, timeout=10
+            )
+            for line in (out.stdout or out.stderr or "").splitlines():
+                stripped = line.strip().lstrip("*").strip()
+                if "ngspice" in stripped.lower():
+                    version = stripped
+                    break
+        except Exception:
+            pass
+        console.print(f"[green]✓[/green] ngspice found: {resolved}")
+        if version:
+            console.print(f"    {version}")
+    else:
+        ready = False
+        console.print(f"[red]✗[/red] ngspice binary not found (looked for {cmd!r})")
+        # markup=False: the help text contains "pytestlab[circuit]", which rich
+        # would otherwise parse as a style tag and drop.
+        console.print(_NGSPICE_INSTALL_HELP, markup=False)
+
+    if ready:
+        console.print("\n[bold green]Circuit simulation lane is ready.[/bold green]")
+    else:
+        console.print("\n[bold red]Circuit simulation lane is NOT ready.[/bold red]")
+        raise typer.Exit(code=1)
 
 
 # --- Simulation Profile Helpers ---

@@ -151,6 +151,7 @@ nav:
       - "Connecting to Instruments": user_guide/connecting.md
       - "Measurement Sessions": user_guide/measurement_session.md
       - "Simulation Mode": user_guide/simulation.md
+      - "Circuit Simulation": user_guide/circuit_simulation.md
       - "Record & Replay Mode": user_guide/replay_mode.md
       - "Bench Descriptors": user_guide/bench_descriptors.md
       - "Error Handling": user_guide/errors.md
