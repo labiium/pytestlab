@@ -36,6 +36,26 @@ class NgspiceNotFound(SpiceEngineError):
     pass
 
 
+# ngspice is a system dependency: ``pip install pytestlab[circuit]`` installs the
+# Python lane but NOT the simulator binary. Keep the guidance here so every
+# resolution failure points the user at a real install path.
+_NGSPICE_INSTALL_HELP = (
+    "The pytestlab.sim.circuit lane needs an `ngspice` binary on PATH; the "
+    "`pytestlab[circuit]` extra does not (and cannot) install it. Install it via:\n"
+    "  - Debian/Ubuntu: sudo apt-get install ngspice\n"
+    "  - macOS (Homebrew): brew install ngspice\n"
+    "  - conda: conda install -c conda-forge ngspice\n"
+    "  - Docker: docker run --rm danchitnis/ngspice ngspice -v\n"
+    "Or point the bench at a specific binary with the `ngspice_cmd` setting."
+)
+
+
+def _ngspice_not_found(resolved_cmd: str) -> NgspiceNotFound:
+    return NgspiceNotFound(
+        f"ngspice command not found ({resolved_cmd!r}).\n{_NGSPICE_INSTALL_HELP}"
+    )
+
+
 class NgspiceRunError(SpiceEngineError):
     pass
 
@@ -176,9 +196,7 @@ def simulate_transient(
 
     ngspice_cmd = shutil.which(resolved_cmd)
     if ngspice_cmd is None:
-        raise NgspiceNotFound(
-            f"ngspice command not found ({resolved_cmd!r}). Install ngspice before running simulations."
-        )
+        raise _ngspice_not_found(resolved_cmd)
 
     _ensure_ground(session)
 
@@ -297,9 +315,7 @@ def simulate_op(
 
     ngspice_cmd = shutil.which(resolved_cmd)
     if ngspice_cmd is None:
-        raise NgspiceNotFound(
-            f"ngspice command not found ({resolved_cmd!r}). Install ngspice before running simulations."
-        )
+        raise _ngspice_not_found(resolved_cmd)
 
     _ensure_ground(session)
 
@@ -388,9 +404,7 @@ def simulate_dc_sweep(
 
     ngspice_cmd = shutil.which(resolved_cmd)
     if ngspice_cmd is None:
-        raise NgspiceNotFound(
-            f"ngspice command not found ({resolved_cmd!r}). Install ngspice before running simulations."
-        )
+        raise _ngspice_not_found(resolved_cmd)
 
     _ensure_ground(session)
 
@@ -490,9 +504,7 @@ def simulate_ac(
 
     ngspice_cmd = shutil.which(resolved_cmd)
     if ngspice_cmd is None:
-        raise NgspiceNotFound(
-            f"ngspice command not found ({resolved_cmd!r}). Install ngspice before running simulations."
-        )
+        raise _ngspice_not_found(resolved_cmd)
 
     _ensure_ground(session)
 

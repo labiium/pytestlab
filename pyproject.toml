@@ -58,8 +58,10 @@ plot = []
 full = []
 # Circuit simulation lane (pytestlab.sim.circuit). Its Python dependencies
 # (numpy/polars/pydantic/pyyaml) are already core requirements, so this extra
-# is a forward-compatible install target; the circuit lane also needs an
-# `ngspice` binary on PATH at runtime.
+# is a forward-compatible install target. NOTE: the lane also requires an
+# `ngspice` binary on PATH, which pip cannot install. Provide it via a system
+# package (apt/brew/conda install ngspice) or the `danchitnis/ngspice` Docker
+# image; a missing binary raises NgspiceNotFound with these instructions.
 circuit = []
 dev = [
     "pytestlab[docs]",
