@@ -206,6 +206,39 @@ class ChannelReadingResult(MeasurementResult):
         )
         return arr
 
+    def mean(
+        self, channel: int, *, dof_method: str = "validated_independent"
+    ) -> MeasurementQuantity:
+        """Return the channel mean as a unit- and uncertainty-carrying quantity."""
+
+        return self.quantity(channel).mean(dof_method=dof_method)
+
+    def rms(self, channel: int, *, dof_method: str = "lag1_autocorrelation") -> MeasurementQuantity:
+        """Return channel RMS as a unit- and uncertainty-carrying quantity."""
+
+        return self.quantity(channel).rms(dof_method=dof_method)
+
+    def peak_to_peak(self, channel: int) -> MeasurementQuantity:
+        """Return first-order channel peak-to-peak voltage.
+
+        This helper preserves the underlying ``QuantityArray`` warning model:
+        first-order Vpp is marked non-report-grade unless Monte Carlo propagation
+        is used.
+        """
+
+        return self.quantity(channel).peak_to_peak()
+
+    def peak_to_peak_monte_carlo(
+        self,
+        channel: int,
+        *,
+        samples: int = 100_000,
+        seed: int | None = None,
+    ) -> MeasurementQuantity:
+        """Return Monte Carlo propagated channel peak-to-peak voltage."""
+
+        return self.quantity(channel).peak_to_peak_monte_carlo(samples=samples, seed=seed)
+
     def __getitem__(self, key):
         # Integer channel indexing: results[1] → CH1 + time
         if isinstance(key, int):

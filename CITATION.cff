@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+title: "PyTestLab: Scientific test and measurement automation for Python"
+message: "If you use PyTestLab in scientific work, please cite this software."
+type: software
+authors:
+  - family-names: Olowe
+    given-names: Emmanuel A.
+    orcid: "https://orcid.org/0009-0005-3172-1948"
+  - family-names: Chitnis
+    given-names: Danial
+version: "0.3.0"
+date-released: "2026-06-18"
+repository-code: "https://github.com/labiium/pytestlab"
+url: "https://pytestlab.org"
+license: Apache-2.0
+abstract: >-
+  PyTestLab is a Python toolbox for laboratory test-and-measurement automation,
+  uncertainty-aware waveform analysis, deterministic simulation/replay, and
+  software-validation evidence generation. PyTestLab evidence artifacts are not
+  accreditation certificates and do not confer ISO/IEC 17025 accreditation.
+keywords:
+  - test-and-measurement
+  - metrology
+  - uncertainty
+  - oscilloscope
+  - laboratory-automation

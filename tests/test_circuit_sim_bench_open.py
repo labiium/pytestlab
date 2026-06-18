@@ -75,6 +75,51 @@ sim_circuit:
         bench.close_all()
 
 
+def test_circuit_sim_psu_uses_profile_channels_and_scpi_channel_selectors(tmp_path):
+    pytest.importorskip("pytestlab.sim.circuit")
+    netlist_path = tmp_path / "circuit.sp"
+    netlist_path.write_text("R1 vcc 0 100\nR2 vbias 0 100\n.end\n")
+    bench_path = tmp_path / "bench_sim.yaml"
+    bench_path.write_text(
+        """
+bench_name: "Circuit Sim Multichannel PSU Bench"
+simulate: true
+instruments:
+  psu:
+    profile: "keysight/EDU36311A"
+    simulate: true
+    backend:
+      type: circuit_sim
+sim_circuit:
+  netlist: circuit.sp
+  seed: 42
+  wiring:
+    psu.CH1+: vcc
+    psu.CH1-: "0"
+    psu.CH2+: vbias
+    psu.CH2-: "0"
+"""
+    )
+
+    bench = Bench.open(bench_path)
+    try:
+        assert set(bench._sim_session.psus["psu"].state.channels) == {"CH1", "CH2", "CH3"}
+
+        cast(Any, bench.psu).set_voltage(1, 5.0)
+        cast(Any, bench.psu).set_current(1, 0.1)
+        cast(Any, bench.psu).output(1, True)
+        cast(Any, bench.psu).set_voltage(2, 2.0)
+        cast(Any, bench.psu).set_current(2, 0.1)
+        cast(Any, bench.psu).output(2, True)
+
+        channels = bench._sim_session.psus["psu"].state.channels
+        assert channels["CH1"].voltage_setpoint == pytest.approx(5.0)
+        assert channels["CH2"].voltage_setpoint == pytest.approx(2.0)
+        assert cast(Any, bench.psu).read_voltage(2) == pytest.approx(2.0, abs=0.02)
+    finally:
+        bench.close_all()
+
+
 def test_branch_free_driver_experiment_runs_against_circuit_sim_yaml(tmp_path):
     pytest.importorskip("pytestlab.sim.circuit")
     netlist_path = tmp_path / "rc_test.sp"

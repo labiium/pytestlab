@@ -1,4 +1,6 @@
 # pytestlab/instruments/backends/replay_backend.py
+import base64
+import hashlib
 import logging
 from pathlib import Path
 from typing import Any
@@ -144,7 +146,29 @@ class ReplayBackend(InstrumentIO):
     def query_raw(self, cmd: str, delay: float | None = None) -> bytes:
         """Execute a raw query command and return bytes response."""
         entry = self._get_next_log_entry("query_raw", cmd)
-        # Assuming the response is stored as a string that needs encoding
+        if entry.get("response_encoding") == "base64":
+            encoded = entry.get("response_base64", "")
+            if not isinstance(encoded, str):
+                raise ReplayMismatchError(
+                    message="Replay raw response_base64 must be a string",
+                    instrument=self._model_name,
+                    command=cmd,
+                )
+            response = base64.b64decode(encoded.encode("ascii"), validate=True)
+            expected_sha = entry.get("response_sha256")
+            if isinstance(expected_sha, str):
+                actual_sha = hashlib.sha256(response).hexdigest()
+                if actual_sha != expected_sha:
+                    raise ReplayMismatchError(
+                        message=(
+                            "Replay raw response SHA-256 mismatch: "
+                            f"expected {expected_sha}, got {actual_sha}"
+                        ),
+                        instrument=self._model_name,
+                        command=cmd,
+                    )
+            return response
+        # Legacy fixtures stored raw responses as strings.
         return str(entry.get("response", "")).encode("utf-8")
 
     def close(self) -> None:

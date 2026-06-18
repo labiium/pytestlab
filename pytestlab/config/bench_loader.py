@@ -220,10 +220,12 @@ def _build_sim_bench_from_bench_config(
         if device_type == "waveform_generator":
             instruments[alias] = AWG(vpp_max=10.0)
         elif device_type == "power_supply":
-            instruments[alias] = PSU(channels=_sim_psu_channels_for_profile(
-                entry.resolved_source(base_path=base_path),
-                PSUChannel,
-            ))
+            instruments[alias] = PSU(
+                channels=_sim_psu_channels_for_profile(
+                    entry.resolved_source(base_path=base_path),
+                    PSUChannel,
+                )
+            )
         elif device_type == "oscilloscope":
             instruments[alias] = Scope(channels=4)
         elif device_type == "multimeter":

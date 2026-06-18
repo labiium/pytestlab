@@ -2,6 +2,16 @@ manufacturer: Keysight
 model: HD304MSO
 device_type: oscilloscope
 role: measurement
+measurement_accuracy:
+  waveform_ch1: &hd304mso_waveform_uncertainty
+    model: linear
+    reading_percent: 1.0
+    offset: 0.005
+    offset_unit: V
+    distribution: rectangular
+  waveform_ch2: *hd304mso_waveform_uncertainty
+  waveform_ch3: *hd304mso_waveform_uncertainty
+  waveform_ch4: *hd304mso_waveform_uncertainty
 trigger:
   types:
     - Zone
@@ -147,3 +157,61 @@ franalysis:
   mode:
     - Logarithmic
     - Linear
+
+scpi:
+  commands:
+    identify:
+      template: "*IDN?"
+    clear:
+      template: "*CLS"
+    reset:
+      template: "*RST"
+    opc:
+      template: "*OPC"
+    set_wave_source:
+      template: ":WAVeform:SOURce {source}"
+    set_wave_points_max:
+      template: ":WAVeform:POINts MAX"
+    set_wave_format_byte:
+      template: ":WAVeform:FORMat BYTE"
+    set_wave_points_mode_raw:
+      template: ":WAVeform:VIEW ALL"
+    digitize:
+      template: ":DIGitize {sources}"
+  queries:
+    opc_query:
+      template: "*OPC?"
+      response:
+        type: int
+    esr_query:
+      template: "*ESR?"
+      response:
+        type: int
+    get_error:
+      template: ":SYSTem:ERRor?"
+      response:
+        type: str
+    scpi_version:
+      template: ":SYSTem:VERSion?"
+      response:
+        type: str
+    acquire_points:
+      template: ":ACQuire:POINts:ANALog?"
+      response:
+        type: int
+    acquire_sample_rate:
+      template: ":ACQuire:SRATe:ANALog?"
+      response:
+        type: scpi_float
+    acquire_setup:
+      template: ":ACQuire?"
+      response:
+        type: str
+    wave_data:
+      template: ":WAVeform:DATA?"
+      response:
+        type: binblock
+    wave_preamble:
+      template: ":WAVeform:PREamble?"
+      response:
+        type: csv

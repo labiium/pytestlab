@@ -1,4 +1,6 @@
 # pytestlab/instruments/backends/session_recording_backend.py
+import base64
+import hashlib
 import logging
 import os
 import time
@@ -76,14 +78,16 @@ class SessionRecordingBackend(InstrumentIO):
         except TypeError:
             response = self.original_backend.query_raw(cmd)
 
-        # Note: Storing raw bytes in YAML is tricky. Consider base64 encoding for robustness.
-        # For simplicity here, we'll decode assuming it's representable as a string.
-        try:
-            response_str = response.decode("utf-8", errors="ignore")
-        except Exception:
-            response_str = f"<binary data of length {len(response)}>"
-
-        self._log_event({"type": "query_raw", "command": cmd.strip(), "response": response_str})
+        self._log_event(
+            {
+                "type": "query_raw",
+                "command": cmd.strip(),
+                "response_encoding": "base64",
+                "response_base64": base64.b64encode(response).decode("ascii"),
+                "response_sha256": hashlib.sha256(response).hexdigest(),
+                "response_len": len(response),
+            }
+        )
         return response
 
     def save_session(self, profile_key: str):

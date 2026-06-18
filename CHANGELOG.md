@@ -6,6 +6,19 @@ The format follows Keep a Changelog (https://keepachangelog.com/en/1.0.0/)
 and the project adheres to Semantic Versioning (https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- Evidence bundle generation for JCGM/GUM rows, DCC/D-SI schema hashes, claim-boundary scans, and validation artifact indexes.
+- QuantityArray oscilloscope waveform reductions with covariance-aware mean/RMS/Vpp helpers and D-SI / unsigned DCC-subset exports.
+- Remote LAMB oscilloscope verification harness for MXR404A/HD304MSO, deterministic scope-twin known-truth evidence, and redacted HD304MSO replay fixture parity checks.
+- Citation metadata and explicit validation claim-boundary documentation.
+
+### Changed
+- Replay and session recording backends now preserve raw binary query payloads using base64 plus SHA-256 metadata.
+- HD304MSO profile now includes read-only SCPI aliases required for LAMB validation.
+
+### Notes
+- PyTestLab validation artifacts are software-validation evidence, not accreditation certificates; issuing-lab DCC signing and ISO/IEC 17025 accreditation remain outside PyTestLab.
+
 
 ## [v0.2.3] - 2025-10-05
 ### Added

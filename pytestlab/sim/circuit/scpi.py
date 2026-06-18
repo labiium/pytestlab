@@ -377,7 +377,9 @@ class SimbenchScpiBackend:
             twin.set_state(selected_channel=channel)
             return ""
 
-        channel = _channel_arg(tail) or self._psu_selected_channel or self._psu_primary_channel_name()
+        channel = (
+            _channel_arg(tail) or self._psu_selected_channel or self._psu_primary_channel_name()
+        )
 
         if base == "VOLT" and not is_query:
             twin.set_state(channel=channel, voltage_setpoint=_first_float(tail))

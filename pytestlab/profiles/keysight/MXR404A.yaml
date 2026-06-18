@@ -2,6 +2,16 @@ manufacturer: Keysight
 model: MXR404A
 device_type: oscilloscope
 role: measurement
+measurement_accuracy:
+  waveform_ch1: &mxr404a_waveform_uncertainty
+    model: linear
+    reading_percent: 1.0
+    offset: 0.005
+    offset_unit: V
+    distribution: rectangular
+  waveform_ch2: *mxr404a_waveform_uncertainty
+  waveform_ch3: *mxr404a_waveform_uncertainty
+  waveform_ch4: *mxr404a_waveform_uncertainty
 bandwidth: 4.e+9  # 4 GHz
 sampling_rate: 1.6e+10  # 16 GSa/s
 memory: 2.e+8  # 200 Mpts/ch

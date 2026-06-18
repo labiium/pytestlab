@@ -82,6 +82,51 @@ def quantity_to_unsigned_dcc_xml(
     return xml
 
 
+def waveform_reductions_to_digital_exports(
+    reductions: dict[str, Quantity],
+    *,
+    identifier_prefix: str = "waveform",
+    coverage_factor: float = 2.0,
+    allow_incomplete: bool = True,
+) -> dict[str, Any]:
+    """Export waveform scalar reductions as D-SI payloads plus unsigned DCC XML.
+
+    This helper is intentionally scoped to scalar reductions derived from a
+    waveform ``QuantityArray`` (for example mean/RMS/Vpp).  It keeps D-SI unit
+    resolution fail-loud and records that DCC XML is an unsigned PyTestLab subset,
+    not a complete signed calibration certificate.
+    """
+
+    payload: dict[str, Any] = {
+        "schema": "pytestlab.waveform_reduction_digital_exports.v1",
+        "dcc_schema_version": DCC_SCHEMA_VERSION,
+        "dsi_schema_version": DSI_SCHEMA_VERSION,
+        "unsigned_dcc_subset": True,
+        "non_claim": (
+            "Unsigned PyTestLab DCC subset for software-validation evidence; "
+            "not an accredited calibration certificate and not DCC certification."
+        ),
+        "reductions": {},
+    }
+    for name, quantity in reductions.items():
+        identifier = f"{identifier_prefix}-{name}".replace("_", "-")
+        dsi = quantity_to_dsi(quantity, coverage_factor=coverage_factor)
+        xml = quantity_to_unsigned_dcc_xml(
+            quantity,
+            identifier=identifier,
+            coverage_factor=coverage_factor,
+            allow_incomplete=allow_incomplete,
+        )
+        validate_dcc_profile_xml(xml)
+        payload["reductions"][name] = {
+            "identifier": identifier,
+            "dsi": dsi,
+            "dcc_xml": xml,
+            "measurement_model_method": getattr(quantity.measurement_model, "method", None),
+        }
+    return payload
+
+
 def validate_dcc_profile_xml(xml: str) -> None:
     """Validate the strict PyTestLab DCC-subset profile without live network access.
 

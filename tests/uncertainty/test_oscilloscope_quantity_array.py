@@ -67,3 +67,42 @@ def test_channel_filter_preserves_waveform_uncertainty_metadata() -> None:
 
     assert ch2.channels == [2]
     assert ch2.quantity(2).nominal.tolist() == [3.0, 4.0]
+
+
+def test_channel_reading_result_exposes_quantity_reduction_helpers() -> None:
+    result = ChannelReadingResult(
+        values=pl.DataFrame(
+            {
+                "Time (s)": [0.0, 1e-6, 2e-6, 3e-6],
+                "Channel 1 (V)": [1.0, -1.0, 1.0, -1.0],
+            }
+        ),
+        instrument="FixtureScope",
+        units="V",
+        measurement_type="ChannelVoltageTime",
+        envelope={
+            "waveform_uncertainty": {
+                "1": {
+                    "unit": "V",
+                    "resolution": 0.002,
+                    "accuracy_spec": AccuracySpec(offset=0.01, distribution="standard"),
+                }
+            }
+        },
+    )
+
+    mean = result.mean(1)
+    rms = result.rms(1)
+    vpp = result.peak_to_peak(1)
+    vpp_mc = result.peak_to_peak_monte_carlo(1, samples=2_000, seed=123)
+
+    assert mean.nominal == pytest.approx(0.0)
+    assert mean.unit == "V"
+    assert mean.measurement_model.function == "mean(waveform)"
+    assert rms.nominal == pytest.approx(1.0)
+    assert rms.measurement_model.function == "rms(waveform)"
+    assert vpp.nominal == pytest.approx(2.0)
+    assert vpp.measurement_model.method == "monte_carlo_required"
+    assert "not report-grade" in vpp.measurement_model.linearization_note
+    assert vpp_mc.nominal == pytest.approx(2.0)
+    assert vpp_mc.measurement_model.method == "monte_carlo"

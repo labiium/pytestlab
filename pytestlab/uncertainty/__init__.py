@@ -33,6 +33,7 @@ from .digital_export import quantity_to_dsi
 from .digital_export import quantity_to_unsigned_dcc_xml
 from .digital_export import validate_dcc_profile_xml
 from .digital_export import verify_cached_schema_files
+from .digital_export import waveform_reductions_to_digital_exports
 from .functions import absolute
 from .functions import atan2
 from .functions import cos
@@ -102,6 +103,7 @@ __all__ = [
     "assess_conformity",
     "quantity_to_dsi",
     "quantity_to_unsigned_dcc_xml",
+    "waveform_reductions_to_digital_exports",
     "validate_dcc_profile_xml",
     "verify_cached_schema_files",
     "DCC_SCHEMA_VERSION",

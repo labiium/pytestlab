@@ -31,10 +31,13 @@ PyTestLab is an extensible Python framework that unifies:
 2. A high-level `MeasurementSession` builder for declarative parameter sweeps or timed parallel acquisition loops with background stimulus tasks.
 3. Pluggable instrument backends: VISA [@VPP-4_3; @VPP-4_3_2] and Lamb [@labiium_i2mtc_2025], advanced deterministic simulation, session recording, and strict replay (sequence validation).
 4. Structured experiment and measurement data stored in Polars DataFrames [@polars] for efficient analytics and plotting.
-5. A compliance layer providing cryptographic signing (ECDSA P‑256 [@FIPS-186-5; @SECG-SEC2-v2]), linked timestamp chains (ISO 18014-3 style [@ISOIEC-18014-3-2009; @HaberStornetta1991; @RFC3161]), audit trail logging, and persistent signature envelopes.
-6. Lightweight plotting and FFT / frequency-response helpers for rapid feedback.
+5. A metrology-facing uncertainty layer with scalar and waveform covariance propagation, explicit D-SI payload export, unsigned local DCC-subset export, and validation artifacts that state their non-accreditation boundary.
+6. A compliance layer providing cryptographic signing (ECDSA P‑256 [@FIPS-186-5; @SECG-SEC2-v2]), linked timestamp chains (ISO 18014-3 style [@ISOIEC-18014-3-2009; @HaberStornetta1991; @RFC3161]), audit trail logging, and persistent signature envelopes.
+7. Lightweight plotting and FFT / frequency-response helpers for rapid feedback.
 
 The framework enables reproducible, testable, and audit-ready measurement workflows suitable for both exploratory R&D and regulated environments. Step‑by‑step tutorials from basic to advanced are linked from the README.
+
+PyTestLab validation evidence is intentionally bounded: generated artifacts can support software validation, uncertainty-method review, and regression audits, but they are not accreditation certificates and do not confer ISO/IEC 17025 accreditation or DCC certification.
 
 # Statement of Need
 

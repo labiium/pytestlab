@@ -67,6 +67,9 @@ sim_profile_app = typer.Typer(name="sim-profile", help="Manage simulation profil
 visa_app = typer.Typer(name="visa", help="Discover VISA resources.")
 lamb_app = typer.Typer(name="lamb", help="Interact with LAMB instrument server.")
 sim_app = typer.Typer(name="sim", help="Circuit simulation lane utilities (pytestlab.sim.circuit).")
+evidence_app = typer.Typer(
+    name="evidence", help="Generate and check PyTestLab validation evidence artifacts."
+)
 
 # Create a new Typer app for replay commands
 replay_app = typer.Typer(name="replay", help="Record and replay complex measurement sessions.")
@@ -80,6 +83,125 @@ app.add_typer(sim_profile_app)
 app.add_typer(visa_app)
 app.add_typer(lamb_app)
 app.add_typer(sim_app)
+app.add_typer(evidence_app)
+
+
+@evidence_app.command("generate")
+def evidence_generate(
+    output: Annotated[
+        Path,
+        typer.Option("--output", "-o", help="Directory where evidence artifacts are written."),
+    ] = Path(".omx/evidence/current"),
+    section: Annotated[
+        str,
+        typer.Option("--section", help="Evidence section to generate: all or jcgm."),
+    ] = "all",
+    check: Annotated[
+        bool,
+        typer.Option("--check", help="Check the generated bundle after writing it."),
+    ] = False,
+):
+    """Generate deterministic validation-evidence artifacts."""
+
+    from pytestlab.evidence import check_evidence
+    from pytestlab.evidence import generate_evidence
+
+    bundle = generate_evidence(output, section=section)
+    rich.print(f"[green]Evidence manifest:[/] {bundle.manifest_path}")
+    rich.print(f"[green]Evidence report:[/] {bundle.report_path}")
+    rich.print(f"Payload SHA256: {bundle.manifest['payload_sha256']}")
+    if check:
+        check_evidence(output)
+        rich.print("[green]Evidence check passed[/]")
+
+
+@evidence_app.command("check")
+def evidence_check(
+    path: Annotated[Path, typer.Argument(help="Directory containing an evidence manifest.")],
+):
+    """Check an evidence bundle against the current repository state."""
+
+    from pytestlab.evidence import EvidenceDriftError
+    from pytestlab.evidence import check_evidence
+
+    try:
+        result = check_evidence(path)
+    except EvidenceDriftError as exc:
+        rich.print(f"[bold red]Evidence drift:[/] {rich_escape(str(exc))}")
+        raise typer.Exit(code=1) from None
+    except FileNotFoundError as exc:
+        rich.print(f"[bold red]Evidence bundle missing:[/] {rich_escape(str(exc))}")
+        raise typer.Exit(code=1) from None
+    rich.print(f"[green]Evidence OK:[/] {result['manifest']}")
+    rich.print(f"Payload SHA256: {result['payload_sha256']}")
+
+
+@evidence_app.command("scope-twin")
+def evidence_scope_twin(
+    output: Annotated[
+        Path,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Directory where scope-twin known-truth validation artifacts are written.",
+        ),
+    ] = Path(".omx/evidence/scope-twin"),
+    mc_samples: Annotated[
+        int,
+        typer.Option("--mc-samples", help="Monte Carlo samples for Vpp validation."),
+    ] = 3000,
+    check: Annotated[
+        bool,
+        typer.Option("--check", help="Check the generated bundle after writing it."),
+    ] = False,
+):
+    """Generate deterministic oscilloscope digital-twin known-truth evidence."""
+
+    from pytestlab.validation.scope_twin import check_scope_twin_known_truth_validation
+    from pytestlab.validation.scope_twin import run_scope_twin_known_truth_validation
+
+    report = run_scope_twin_known_truth_validation(output, mc_samples=mc_samples)
+    rich.print(f"[green]Scope-twin report:[/] {report.report_path}")
+    rich.print(f"[green]Scope-twin manifest:[/] {report.manifest_path}")
+    rich.print(f"Payload SHA256: {report.payload_sha256}")
+    if not report.passed:
+        rich.print("[bold red]Scope-twin known-truth validation failed.[/bold red]")
+        raise typer.Exit(code=1)
+    if check:
+        check_report = check_scope_twin_known_truth_validation(output)
+        rich.print(f"[green]Scope-twin evidence check passed[/] ({check_report.payload_sha256})")
+
+
+@evidence_app.command("hardware-parity")
+def evidence_hardware_parity(
+    fixture: Annotated[
+        Path,
+        typer.Argument(help="Hardware replay fixture JSON."),
+    ],
+    output: Annotated[
+        Path,
+        typer.Option("--output", "-o", help="Directory where parity evidence is written."),
+    ] = Path(".omx/evidence/hardware-parity"),
+    coverage_factor: Annotated[
+        float,
+        typer.Option("--coverage-factor", help="Coverage factor for combined uncertainty."),
+    ] = 2.0,
+):
+    """Replay a hardware capture fixture and compare it with expected/simulator metrics."""
+
+    from pytestlab.validation.hardware_parity import write_hardware_parity_report
+
+    report = write_hardware_parity_report(
+        fixture,
+        output,
+        coverage_factor=coverage_factor,
+    )
+    rich.print(f"[green]Hardware parity report:[/] {output / 'hardware_parity_report.json'}")
+    rich.print(f"Payload SHA256: {report.payload_sha256}")
+    if not report.passed:
+        rich.print("[bold red]Hardware replay parity failed.[/bold red]")
+        raise typer.Exit(code=1)
+    rich.print(f"[green]{len(report.rows)} parity checks passed[/]")
 
 
 @sim_app.command("doctor")
@@ -423,6 +545,91 @@ def lamb_list(
     rich.print(f"\nTotal: {len(active)} active, {len(inactive)} inactive")
     rich.print(
         "[dim]Resource identifiers are redacted by the server; use model/serial auto-connect or a known VISA address for operations.[/]"
+    )
+
+
+@lamb_app.command("verify-scopes")
+def lamb_verify_scopes(
+    url: Annotated[
+        str | None,
+        typer.Option(help="LAMB server base URL. Overrides LAMB_SERVER environment variable."),
+    ] = None,
+    timeout_ms: Annotated[
+        int,
+        typer.Option(help="Timeout in milliseconds for each LAMB operation."),
+    ] = 5000,
+    output: Annotated[
+        Path | None,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Directory for JSON evidence with command metadata and response length/hash.",
+        ),
+    ] = None,
+    capture_waveform: Annotated[
+        bool,
+        typer.Option(
+            "--capture-waveform",
+            help="Opt into query_raw(:WAVeform:DATA?) binary waveform transfer.",
+        ),
+    ] = False,
+    non_strict: Annotated[
+        bool,
+        typer.Option(
+            "--non-strict",
+            help="Represent missing/unresponsive expected instruments as skips instead of failures.",
+        ),
+    ] = False,
+):
+    """Verify the MXR404A/HD304MSO remote LAMB oscilloscope acceptance rig."""
+
+    from pytestlab.hardware.lamb_scope import run_lamb_scope_checks
+
+    resolved_url = url or os.getenv("LAMB_SERVER") or os.getenv("PYTESTLAB_LAMB_URL")
+    if not resolved_url:
+        rich.print(
+            "[bold red]Error:[/] LAMB URL is required for live scope verification. "
+            "Pass --url or set LAMB_SERVER/PYTESTLAB_LAMB_URL."
+        )
+        raise typer.Exit(code=2)
+
+    report = run_lamb_scope_checks(
+        url=resolved_url,
+        timeout_ms=timeout_ms,
+        capture_waveform=capture_waveform,
+        strict=not non_strict,
+        output_dir=output,
+    )
+
+    table = Table(title=f"LAMB Oscilloscope Verification — {report.lamb_url}")
+    table.add_column("Model", style="cyan")
+    table.add_column("Check", style="magenta")
+    table.add_column("Status")
+    table.add_column("Command")
+    table.add_column("Detail", overflow="fold")
+    for row in report.rows:
+        if row.status == "pass":
+            status = "[green]pass[/green]"
+        elif row.status == "skip":
+            status = "[yellow]skip[/yellow]"
+        else:
+            status = "[red]fail[/red]"
+        table.add_row(
+            row.model,
+            row.check,
+            status,
+            row.command or "-",
+            row.detail if row.response_len is None else f"{row.detail}; len={row.response_len}",
+        )
+    rich.print(table)
+    if report.artifact_path:
+        rich.print(f"Evidence artifact: {report.artifact_path}")
+    if report.failures:
+        rich.print(f"[bold red]{len(report.failures)} LAMB oscilloscope checks failed.[/bold red]")
+        raise typer.Exit(code=1)
+    rich.print(
+        f"[bold green]{len(report.passes)} checks passed[/bold green]"
+        f" ({len(report.skips)} skipped)."
     )
 
 
