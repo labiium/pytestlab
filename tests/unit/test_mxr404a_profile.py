@@ -18,9 +18,7 @@ def test_mxr404a_profile_exposes_core_scpi_aliases():
     assert scope.scpi_engine.build("probe_set", channel=1, scale=10) == [
         ":CHANnel1:PROBe:ATTenuation 10"
     ]
-    assert scope.scpi_engine.build("probe_get", channel=1) == [
-        ":CHANnel1:PROBe:ATTenuation?"
-    ]
+    assert scope.scpi_engine.build("probe_get", channel=1) == [":CHANnel1:PROBe:ATTenuation?"]
     assert scope.scpi_engine.build(
         "configure_trigger",
         source="CHANnel1",

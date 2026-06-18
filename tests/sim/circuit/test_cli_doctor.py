@@ -1,4 +1,5 @@
 """`ptl sim doctor` preflight: ready when ngspice is present, fails closed when not."""
+
 from __future__ import annotations
 
 import shutil

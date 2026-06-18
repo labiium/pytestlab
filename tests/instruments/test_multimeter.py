@@ -25,8 +25,8 @@ Requires:
 import pytest
 
 from pytestlab import AutoInstrument
-from pytestlab.uncertainty import Quantity as MeasurementQuantity
 from pytestlab.config.multimeter_config import DMMFunction
+from pytestlab.uncertainty import Quantity as MeasurementQuantity
 
 # ------------------- CONFIGURE THESE FOR YOUR LAB -------------------
 MM_CONFIG_KEY = "keysight/EDU34450A"

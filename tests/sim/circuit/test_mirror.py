@@ -1,5 +1,6 @@
 """Mirror install: platform detection, checksum verification, and extraction
 into ~/.pytestlab/ngspice (the path the lane auto-discovers)."""
+
 from __future__ import annotations
 
 import hashlib
@@ -11,7 +12,8 @@ from pathlib import Path
 import pytest
 
 from pytestlab.sim.circuit import _mirror
-from pytestlab.sim.circuit.spice import managed_ngspice_path, resolve_ngspice
+from pytestlab.sim.circuit.spice import managed_ngspice_path
+from pytestlab.sim.circuit.spice import resolve_ngspice
 
 
 def test_mirror_asset_detects_arm(monkeypatch):

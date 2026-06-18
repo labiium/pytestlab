@@ -108,9 +108,7 @@ def test_metrics_cover_voltage_current_gain_phase_and_transition() -> None:
 
 
 def test_deterministic_fitter_reduces_synthetic_loss() -> None:
-    params = ParameterSet.from_declarations(
-        [ParameterDeclaration("gain", 0.0, -10.0, 10.0, "V/V")]
-    )
+    params = ParameterSet.from_declarations([ParameterDeclaration("gain", 0.0, -10.0, 10.0, "V/V")])
 
     def loss(values: dict[str, float]) -> float:
         return (values["gain"] - 3.0) ** 2
@@ -138,7 +136,10 @@ def test_sensitivity_marks_observable_free_parameters() -> None:
 
 def test_report_and_twin_package_round_trip(tmp_path) -> None:
     dataset = CalibrationDataset.from_rows(
-        [CalibrationRow("vout", 1.0, "V", split="train"), CalibrationRow("vout", 1.1, "V", split="validation")]
+        [
+            CalibrationRow("vout", 1.0, "V", split="train"),
+            CalibrationRow("vout", 1.1, "V", split="validation"),
+        ]
     )
     params = ParameterSet.from_declarations(
         [ParameterDeclaration("bf", 100.0, 50.0, 200.0, "ratio")]

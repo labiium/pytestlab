@@ -3,6 +3,7 @@
 Regression coverage for the silent-floating-node bug where a misspelled SPICE
 node name returned ~0 V instead of raising.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

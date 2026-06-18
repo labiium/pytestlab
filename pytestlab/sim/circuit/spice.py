@@ -163,13 +163,10 @@ def _sanitize_identifier(value: str) -> str:
 
 def _resolve_engine(session: Session, *, cmd: str | None = None) -> tuple[str, str]:
     engine = str(
-        os.getenv("SIMBENCH_SPICE_ENGINE")
-        or getattr(session, "spice_engine", "ngspice")
+        os.getenv("SIMBENCH_SPICE_ENGINE") or getattr(session, "spice_engine", "ngspice")
     ).strip()
     resolved_cmd = str(
-        cmd
-        or os.getenv("SIMBENCH_NGSPICE_CMD")
-        or getattr(session, "ngspice_cmd", "ngspice")
+        cmd or os.getenv("SIMBENCH_NGSPICE_CMD") or getattr(session, "ngspice_cmd", "ngspice")
     )
     return engine.lower(), resolved_cmd
 
@@ -235,8 +232,8 @@ def simulate_transient(
     with tempfile.TemporaryDirectory(prefix="simbench_ngspice_") as tmpdir:
         tmp_path = Path(tmpdir)
         out_path = tmp_path / "simbench_wrdata.txt"
-        netlist_lines, sources, element_currents, compile_metadata = (
-            _build_augmented_netlist(session)
+        netlist_lines, sources, element_currents, compile_metadata = _build_augmented_netlist(
+            session
         )
         element_keys, element_names = _element_vectors(element_currents, currents)
         vector_count = len(spice_nodes) + len(sources) + len(element_names)
@@ -276,8 +273,7 @@ def simulate_transient(
         target_time_s = np.arange(record_length, dtype=float) * dt
         if scale.size >= 2:
             resampled_cols = [
-                np.interp(target_time_s, scale, series[:, idx])
-                for idx in range(series.shape[1])
+                np.interp(target_time_s, scale, series[:, idx]) for idx in range(series.shape[1])
             ]
             series = np.column_stack(resampled_cols)
         else:
@@ -343,8 +339,8 @@ def simulate_op(
     with tempfile.TemporaryDirectory(prefix="simbench_ngspice_") as tmpdir:
         tmp_path = Path(tmpdir)
         out_path = tmp_path / "simbench_wrdata.txt"
-        netlist_lines, sources, element_currents, compile_metadata = (
-            _build_augmented_netlist(session)
+        netlist_lines, sources, element_currents, compile_metadata = _build_augmented_netlist(
+            session
         )
         element_keys, element_names = _element_vectors(element_currents, currents)
         vector_count = len(spice_nodes) + len(sources) + len(element_names)
@@ -435,8 +431,8 @@ def simulate_dc_sweep(
     with tempfile.TemporaryDirectory(prefix="simbench_ngspice_") as tmpdir:
         tmp_path = Path(tmpdir)
         out_path = tmp_path / "simbench_wrdata.txt"
-        netlist_lines, sources, element_currents, compile_metadata = (
-            _build_augmented_netlist(session)
+        netlist_lines, sources, element_currents, compile_metadata = _build_augmented_netlist(
+            session
         )
         element_keys, element_names = _element_vectors(element_currents, currents)
         vector_count = len(spice_nodes) + len(sources) + len(element_names)
@@ -539,8 +535,8 @@ def simulate_ac(
     with tempfile.TemporaryDirectory(prefix="simbench_ngspice_") as tmpdir:
         tmp_path = Path(tmpdir)
         out_path = tmp_path / "simbench_wrdata.txt"
-        netlist_lines, sources, element_currents, compile_metadata = (
-            _build_augmented_netlist(session)
+        netlist_lines, sources, element_currents, compile_metadata = _build_augmented_netlist(
+            session
         )
         element_keys, element_names = _element_vectors(element_currents, currents)
         vector_count = len(spice_nodes) + len(sources) + len(element_names)
@@ -671,9 +667,7 @@ def _try_physics_model_op(
         if vout_node not in nodes:
             continue
         vin = _physics_input_value(session, vin_node, params)
-        node_values[vout_node] = np.asarray(
-            [model.dc_operating_point(vin)], dtype=float
-        )
+        node_values[vout_node] = np.asarray([model.dc_operating_point(vin)], dtype=float)
     if not node_values:
         return None
     _inject_ground_node(node_values, session.wiring.ground_node, 1, nodes)
@@ -697,9 +691,7 @@ def _try_physics_model_ac(
         return None
     mode = sweep.sweep.lower()
     if mode == "lin":
-        freq = np.linspace(
-            float(sweep.start_hz), float(sweep.stop_hz), int(sweep.points)
-        )
+        freq = np.linspace(float(sweep.start_hz), float(sweep.stop_hz), int(sweep.points))
     else:
         count = _ac_sweep_points(sweep)
         freq = np.geomspace(float(sweep.start_hz), float(sweep.stop_hz), count)
@@ -708,9 +700,7 @@ def _try_physics_model_ac(
         _, vout_node = _split_physics_key(key)
         if vout_node not in nodes:
             continue
-        node_values[vout_node] = np.asarray(
-            model.frequency_response(freq), dtype=complex
-        )
+        node_values[vout_node] = np.asarray(model.frequency_response(freq), dtype=complex)
     if not node_values:
         return None
     _inject_ground_node(node_values, session.wiring.ground_node, freq.size, nodes)
@@ -820,8 +810,11 @@ _NGSPICE_WARNING_PATTERNS = (
 
 def _warn_on_ngspice_diagnostics(output: str) -> None:
     lowered = output.lower()
-    hits = [line.strip() for line in output.splitlines()
-            if any(p in line.lower() for p in _NGSPICE_WARNING_PATTERNS)]
+    hits = [
+        line.strip()
+        for line in output.splitlines()
+        if any(p in line.lower() for p in _NGSPICE_WARNING_PATTERNS)
+    ]
     if not hits and not any(p in lowered for p in _NGSPICE_WARNING_PATTERNS):
         return
     detail = "; ".join(dict.fromkeys(hits)) or "see ngspice log"
@@ -845,9 +838,7 @@ def _load_wrdata(out_path: Path) -> np.ndarray:
     return np.asarray(data, dtype=float)
 
 
-def _parse_real_wrdata(
-    data: np.ndarray, vector_count: int
-) -> tuple[np.ndarray, np.ndarray]:
+def _parse_real_wrdata(data: np.ndarray, vector_count: int) -> tuple[np.ndarray, np.ndarray]:
     cols = int(data.shape[1])
     if cols == 1 + vector_count:
         scale = np.asarray(data[:, 0], dtype=float)
@@ -875,9 +866,7 @@ def _parse_real_wrdata(
     return scale, series
 
 
-def _parse_complex_wrdata(
-    data: np.ndarray, vector_count: int
-) -> tuple[np.ndarray, np.ndarray]:
+def _parse_complex_wrdata(data: np.ndarray, vector_count: int) -> tuple[np.ndarray, np.ndarray]:
     cols = int(data.shape[1])
     expected = 1 + 2 * vector_count
     if cols < expected:
@@ -958,9 +947,7 @@ def _extract_vectors(
         node_voltages[node] = np.asarray(series[:, idx], dtype=series.dtype)
 
     for offset, desc in enumerate(sources):
-        source_currents[desc.key] = np.asarray(
-            series[:, len(nodes) + offset], dtype=series.dtype
-        )
+        source_currents[desc.key] = np.asarray(series[:, len(nodes) + offset], dtype=series.dtype)
 
     base = len(nodes) + len(sources)
     for offset, key in enumerate(element_keys):
@@ -1006,13 +993,7 @@ def _assemble_netlist(
     params: dict[str, float] | None,
 ) -> list[str]:
     param_lines = _param_override_lines(params)
-    return (
-        ["* SimBench augmented netlist"]
-        + netlist_lines
-        + param_lines
-        + control
-        + [".end"]
-    )
+    return ["* SimBench augmented netlist"] + netlist_lines + param_lines + control + [".end"]
 
 
 def _param_override_lines(params: dict[str, float] | None) -> list[str]:
@@ -1025,9 +1006,7 @@ def _param_override_lines(params: dict[str, float] | None) -> list[str]:
     return lines
 
 
-def _resolve_params(
-    session: Session, params: dict[str, float] | None
-) -> dict[str, float]:
+def _resolve_params(session: Session, params: dict[str, float] | None) -> dict[str, float]:
     resolver = getattr(session, "resolve_model_params", None)
     if callable(resolver):
         return cast(dict[str, float], resolver(params))
@@ -1127,9 +1106,7 @@ def _resolve_probe_terminal(key: str, *, terminals: set[str]) -> str | None:
     return None
 
 
-def _clean_netlist_lines(
-    text: str, *, root: Path, allowed_includes: set[str]
-) -> list[str]:
+def _clean_netlist_lines(text: str, *, root: Path, allowed_includes: set[str]) -> list[str]:
     lines: list[str] = []
     in_control = False
     first_statement = True
@@ -1156,14 +1133,10 @@ def _clean_netlist_lines(
             continue
 
         # Strip analysis directives; SimBench owns the analysis setup.
-        if lower.startswith(
-            (".op", ".tran", ".ac", ".dc", ".tf", ".noise", ".pz", ".step")
-        ):
+        if lower.startswith((".op", ".tran", ".ac", ".dc", ".tf", ".noise", ".pz", ".step")):
             continue
 
-        include_match = re.match(
-            r"^\s*\.(?:inc|include)\s+(.+)$", raw, flags=re.IGNORECASE
-        )
+        include_match = re.match(r"^\s*\.(?:inc|include)\s+(.+)$", raw, flags=re.IGNORECASE)
         if include_match:
             token = include_match.group(1).strip().strip('"').strip("'")
             if token not in allowed_includes:
@@ -1214,7 +1187,9 @@ def _awg_source_spec(awg: Any) -> str:
                 f"PULSE({v1:.12g} {v2:.12g} {delay:.12g} {edge:.12g} "
                 f"{edge:.12g} {pw:.12g} {per:.12g} {burst_count})"
             )
-        return f"PULSE({v1:.12g} {v2:.12g} {delay:.12g} {edge:.12g} {edge:.12g} {pw:.12g} {per:.12g})"
+        return (
+            f"PULSE({v1:.12g} {v2:.12g} {delay:.12g} {edge:.12g} {edge:.12g} {pw:.12g} {per:.12g})"
+        )
 
     if waveform in {"triangle", "tri", "ramp"}:
         v1 = offset - amp

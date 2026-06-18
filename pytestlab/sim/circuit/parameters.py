@@ -30,7 +30,11 @@ class ParameterSpec:
             object.__setattr__(self, "min_value", float(self.min_value))
         if self.max_value is not None:
             object.__setattr__(self, "max_value", float(self.max_value))
-        if self.min_value is not None and self.max_value is not None and self.min_value > self.max_value:
+        if (
+            self.min_value is not None
+            and self.max_value is not None
+            and self.min_value > self.max_value
+        ):
             raise ValueError(f"parameter {self.name!r} has min_value > max_value")
         if self.min_value is not None and nominal < self.min_value:
             raise ValueError(f"parameter {self.name!r} nominal below min_value")

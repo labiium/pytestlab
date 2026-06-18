@@ -56,7 +56,11 @@ def error_handling_instrument():
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
         profile_file = f.name
         yaml.dump(
-            {"device_type": "instrument", "role": DeviceRole.CUSTOM.value, "scpi": {"*IDN?": "dummy_idn"}},
+            {
+                "device_type": "instrument",
+                "role": DeviceRole.CUSTOM.value,
+                "scpi": {"*IDN?": "dummy_idn"},
+            },
             f,
         )
     backend = ProgrammableErrorSimBackend(profile_path=profile_file)

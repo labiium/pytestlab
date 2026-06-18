@@ -7,7 +7,6 @@ from unittest.mock import Mock
 
 import pytest
 
-from pytestlab.uncertainty import Quantity as MeasurementQuantity
 from pytestlab.config.dc_active_load_config import DCActiveLoadConfig
 from pytestlab.config.loader import load_device_profile
 from pytestlab.config.multimeter_config import DMMFunction
@@ -19,6 +18,7 @@ from pytestlab.instruments.DCActiveLoad import DCActiveLoad
 from pytestlab.instruments.Multimeter import Multimeter
 from pytestlab.instruments.Oscilloscope import Oscilloscope
 from pytestlab.instruments.PowerSupply import PowerSupply
+from pytestlab.uncertainty import Quantity as MeasurementQuantity
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "uncertainty"
 

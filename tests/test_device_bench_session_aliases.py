@@ -87,7 +87,7 @@ def test_bench_config_accepts_instruments_as_semantic_section():
                     "profile": "keysight/EDU34450A",
                     "simulate": True,
                 }
-            }
+            },
         }
     )
 
@@ -200,7 +200,9 @@ def test_bench_entry_role_override_takes_precedence(tmp_path):
 def test_bench_entry_omitted_role_inherits_profile_role(tmp_path):
     profile = _write_widget_profile(tmp_path, role="stimulus")
 
-    bench = Bench.open({"bench_name": "Inherited Role Bench", "devices": {"widget": {"profile": profile}}})
+    bench = Bench.open(
+        {"bench_name": "Inherited Role Bench", "devices": {"widget": {"profile": profile}}}
+    )
 
     try:
         assert bench.resources["widget"].config.role.value == "stimulus"
@@ -212,7 +214,9 @@ def test_custom_role_warns_at_bench_initialization(tmp_path):
     profile = _write_widget_profile(tmp_path, role="custom")
 
     with pytest.warns(UserWarning, match="uses custom role"):
-        bench = Bench.open({"bench_name": "Custom Role Bench", "devices": {"widget": {"profile": profile}}})
+        bench = Bench.open(
+            {"bench_name": "Custom Role Bench", "devices": {"widget": {"profile": profile}}}
+        )
 
     bench.close_all()
 
@@ -276,7 +280,9 @@ def test_safety_limits_use_declared_load_role(tmp_path):
 def test_safety_limits_reject_unsupported_role_even_if_methods_match(tmp_path):
     profile = _write_widget_profile(tmp_path, role="fixture")
 
-    with pytest.raises(InstrumentConfigurationError, match="not supported for device role 'fixture'"):
+    with pytest.raises(
+        InstrumentConfigurationError, match="not supported for device role 'fixture'"
+    ):
         Bench.open(
             {
                 "bench_name": "Fixture Safety Bench",

@@ -46,9 +46,7 @@ class FakeKernel:
         self.tran_calls += 1
         time = np.arange(record_length, dtype=float) / sample_rate
         node_voltages = {node: np.sin(2.0 * np.pi * 1_000.0 * time) for node in nodes}
-        return SpiceResult(
-            "tran", time, "s", node_voltages, {}, (), metadata={"fake": True}
-        )
+        return SpiceResult("tran", time, "s", node_voltages, {}, (), metadata={"fake": True})
 
     def ac(self, session, nodes, sweep, *, settings=None, currents=None, params=None):
         self.ac_calls += 1
@@ -62,9 +60,7 @@ class FakeKernel:
             "ac", freq, "Hz", node_voltages, {}, (), metadata={"points": sweep.points}
         )
 
-    def dc_sweep(
-        self, session, nodes, sweep, *, settings=None, currents=None, params=None
-    ):
+    def dc_sweep(self, session, nodes, sweep, *, settings=None, currents=None, params=None):
         scale = np.arange(sweep.start, sweep.stop + sweep.step / 2.0, sweep.step)
         node_voltages = {node: scale for node in nodes}
         return SpiceResult("dc", scale, "V", node_voltages, {}, ())

@@ -55,10 +55,16 @@ class CalibrationDataset:
 
     @classmethod
     def from_rows(
-        cls, rows: Iterable[MeasurementRow | Mapping[str, Any]], *, metadata: Mapping[str, Any] | None = None
+        cls,
+        rows: Iterable[MeasurementRow | Mapping[str, Any]],
+        *,
+        metadata: Mapping[str, Any] | None = None,
     ) -> CalibrationDataset:
         return cls(
-            rows=tuple(row if isinstance(row, MeasurementRow) else MeasurementRow.from_dict(row) for row in rows),
+            rows=tuple(
+                row if isinstance(row, MeasurementRow) else MeasurementRow.from_dict(row)
+                for row in rows
+            ),
             metadata=dict(metadata or {}),
         )
 
@@ -67,7 +73,12 @@ class CalibrationDataset:
         return cls.from_rows(data.get("rows", []), metadata=data.get("metadata", {}))
 
     @classmethod
-    def from_wide_csv(cls, path: str | Path, *, input_prefixes: tuple[str, ...] = ("in_", "input_", "bias_", "sweep_")) -> CalibrationDataset:
+    def from_wide_csv(
+        cls,
+        path: str | Path,
+        *,
+        input_prefixes: tuple[str, ...] = ("in_", "input_", "bias_", "sweep_"),
+    ) -> CalibrationDataset:
         rows: list[MeasurementRow] = []
         with Path(path).open(newline="") as fh:
             for raw in csv.DictReader(fh):
@@ -90,7 +101,9 @@ class CalibrationDataset:
         return cls(rows=tuple(rows), metadata={"source": str(path), "format": "wide_csv"})
 
 
-def split_dataset(dataset: CalibrationDataset, *, validation_fraction: float = 0.2, seed: int = 1337) -> tuple[CalibrationDataset, CalibrationDataset]:
+def split_dataset(
+    dataset: CalibrationDataset, *, validation_fraction: float = 0.2, seed: int = 1337
+) -> tuple[CalibrationDataset, CalibrationDataset]:
     if not 0.0 <= validation_fraction < 1.0:
         raise ValueError("validation_fraction must be in [0, 1)")
     import random
@@ -111,7 +124,9 @@ def load_dataset(path: str | Path) -> CalibrationDataset:
     p = Path(path)
     if p.suffix.lower() == ".csv":
         return CalibrationDataset.from_wide_csv(p)
-    data = json.loads(p.read_text()) if p.suffix.lower() == ".json" else yaml.safe_load(p.read_text())
+    data = (
+        json.loads(p.read_text()) if p.suffix.lower() == ".json" else yaml.safe_load(p.read_text())
+    )
     return CalibrationDataset.from_dict(data)
 
 

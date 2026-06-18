@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Never
 
 from ..spice import AcSweepSpec
 from ..spice import DcSweepSpec
@@ -59,7 +60,7 @@ class EEspiceCliKernel:
     def supports(self, request: SimulationRequest):
         return self.capabilities().supports(request)
 
-    def _raise(self, request: SimulationRequest) -> None:
+    def _raise(self, request: SimulationRequest) -> Never:
         check = self.supports(request)
         reasons = check.reasons or (UnsupportedReason.OUTPUT_VECTOR_UNPROVEN,)
         details = check.details or (

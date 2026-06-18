@@ -30,9 +30,9 @@ Requires:
 import pytest
 
 from pytestlab import AutoInstrument
-from pytestlab.uncertainty import Quantity as MeasurementQuantity
 from pytestlab.errors import InstrumentParameterError
 from pytestlab.instruments import DCActiveLoad
+from pytestlab.uncertainty import Quantity as MeasurementQuantity
 
 # ------------------- CONFIGURE THIS FOR YOUR LAB -------------------
 DC_LOAD_CONFIG_KEY = "keysight/EL33133A"  # <-- Set your profile key or path here

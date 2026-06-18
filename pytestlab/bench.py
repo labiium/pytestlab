@@ -829,7 +829,9 @@ class Bench:
         for entry in self._config.measurement_plan or []:
             if entry.name == name:
                 if entry.execution_target is None:
-                    raise ValueError(f"Measurement plan entry '{name}' is descriptive, not executable.")
+                    raise ValueError(
+                        f"Measurement plan entry '{name}' is descriptive, not executable."
+                    )
                 return DeclaredMeasurement(self, entry)
         raise KeyError(f"No measurement_plan entry named '{name}'.")
 
@@ -952,6 +954,4 @@ class DeclaredRoute:
         if isinstance(device, SwitchMatrixDevice):
             device.apply_route(self._name, route)
             return
-        raise NotImplementedError(
-            f"Route device '{route.device}' is not a SwitchMatrixDevice."
-        )
+        raise NotImplementedError(f"Route device '{route.device}' is not a SwitchMatrixDevice.")

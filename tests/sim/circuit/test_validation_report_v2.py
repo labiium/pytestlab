@@ -123,9 +123,7 @@ def test_resolve_v2_hardware_validated_report() -> None:
         ({"schema_version": 2}, {}, HardwareValidationStatus.HARDWARE_UNVALIDATED),
     ],
 )
-def test_status_resolution_legacy_and_missing_report_matrix(
-    manifest, report, expected
-) -> None:
+def test_status_resolution_legacy_and_missing_report_matrix(manifest, report, expected) -> None:
     resolution = resolve_validation_status(manifest, report)
 
     assert resolution.status is expected
@@ -256,9 +254,7 @@ def test_twin_package_rejects_v2_report_tamper(tmp_path) -> None:
     tampered["hardware_validated"] = False
     (path / "validation_report.json").write_text(json.dumps(tampered))
 
-    with pytest.raises(
-        ValueError, match="hardware_validated must match|validation_report_hash"
-    ):
+    with pytest.raises(ValueError, match="hardware_validated must match|validation_report_hash"):
         load_twin_package(path)
 
 

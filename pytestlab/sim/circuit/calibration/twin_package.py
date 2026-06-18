@@ -127,19 +127,11 @@ def load_twin_package(path: str | Path) -> TwinPackage:
             if PARAMETERS_NAME in names
             else manifest.get("parameters", {})
         )
-        report = (
-            json.loads(zf.read(REPORT_NAME).decode("utf-8"))
-            if REPORT_NAME in names
-            else {}
-        )
+        report = json.loads(zf.read(REPORT_NAME).decode("utf-8")) if REPORT_NAME in names else {}
         netlist_name = str(
             manifest.get("rendered_netlist")
             or manifest.get("rendered_netlist_path")
-            or (
-                RENDERED_NETLIST_NAME
-                if RENDERED_NETLIST_NAME in names
-                else LEGACY_NETLIST_NAME
-            )
+            or (RENDERED_NETLIST_NAME if RENDERED_NETLIST_NAME in names else LEGACY_NETLIST_NAME)
         )
         _validate_zip_member_path(netlist_name)
         netlist = zf.read(netlist_name).decode("utf-8")
@@ -167,17 +159,13 @@ def package_from_mapping(
 
 
 def _write_zip_package(zf: zipfile.ZipFile, package: TwinPackage) -> None:
-    zf.writestr(
-        MANIFEST_NAME, json.dumps(package.to_manifest(), indent=2, sort_keys=True)
-    )
+    zf.writestr(MANIFEST_NAME, json.dumps(package.to_manifest(), indent=2, sort_keys=True))
     zf.writestr(RENDERED_NETLIST_NAME, package.rendered_netlist_text())
     zf.writestr(
         PARAMETERS_NAME,
         json.dumps(package.parameters.to_dict(), indent=2, sort_keys=True),
     )
-    zf.writestr(
-        REPORT_NAME, json.dumps(package.validation_report, indent=2, sort_keys=True)
-    )
+    zf.writestr(REPORT_NAME, json.dumps(package.validation_report, indent=2, sort_keys=True))
 
 
 def _load_directory_package(root: Path) -> TwinPackage:
@@ -199,9 +187,7 @@ def _load_directory_package(root: Path) -> TwinPackage:
     manifest = dict(manifest)
     _resolve_and_store_validation(manifest, report)
     return TwinPackage(
-        netlist_text=_strip_calibration_parameter_block(
-            netlist_path.read_text(), params
-        ),
+        netlist_text=_strip_calibration_parameter_block(netlist_path.read_text(), params),
         parameters=params,
         manifest=manifest,
         validation_report=report,
@@ -239,9 +225,7 @@ def _load_manifest_package(manifest_path: Path) -> TwinPackage:
     )
 
 
-def _resolve_and_store_validation(
-    manifest: dict[str, Any], report: dict[str, Any]
-) -> None:
+def _resolve_and_store_validation(manifest: dict[str, Any], report: dict[str, Any]) -> None:
     resolution = resolve_validation_status(manifest, report)
     manifest["validation_status"] = resolution.status.value
     manifest["hardware_validated"] = resolution.hardware_validated
@@ -258,9 +242,7 @@ def _validate_zip_member_path(name: str) -> None:
         raise ValueError("twin package rendered netlist path escapes package root")
 
 
-def _verify_declared_rendered_hash(
-    manifest: Mapping[str, Any], rendered_text: str
-) -> None:
+def _verify_declared_rendered_hash(manifest: Mapping[str, Any], rendered_text: str) -> None:
     declared = manifest.get("rendered_netlist_hash")
     if declared is None:
         return
@@ -322,8 +304,7 @@ def _render_with_parameter_block(text: str, params: ParameterSet) -> str:
     base_lines = text.rstrip().splitlines()
     block = [PARAM_BLOCK_BEGIN]
     block.extend(
-        f".param {name}={float(value):.12g}"
-        for name, value in sorted(params.values.items())
+        f".param {name}={float(value):.12g}" for name, value in sorted(params.values.items())
     )
     block.append(PARAM_BLOCK_END)
 
@@ -336,14 +317,8 @@ def _render_with_parameter_block(text: str, params: ParameterSet) -> str:
 def _strip_calibration_parameter_block(text: str, params: ParameterSet) -> str:
     lines = text.splitlines()
     try:
-        begin = next(
-            i for i, line in enumerate(lines) if line.strip() == PARAM_BLOCK_BEGIN
-        )
-        end = next(
-            i
-            for i in range(begin + 1, len(lines))
-            if lines[i].strip() == PARAM_BLOCK_END
-        )
+        begin = next(i for i, line in enumerate(lines) if line.strip() == PARAM_BLOCK_BEGIN)
+        end = next(i for i in range(begin + 1, len(lines)) if lines[i].strip() == PARAM_BLOCK_END)
     except StopIteration:
         return _strip_legacy_trailing_parameter_lines(text, params)
     return "\n".join(lines[:begin] + lines[end + 1 :]).rstrip() + "\n"

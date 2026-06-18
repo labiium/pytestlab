@@ -125,7 +125,7 @@ class _Validator:
             except KeyError:
                 valid = ", ".join(self.enum_map.keys())
                 raise ValidationError(
-                    f"Parameter '{name}'={value!r} not in allowed set " f"{{{valid}}}."
+                    f"Parameter '{name}'={value!r} not in allowed set {{{valid}}}."
                 ) from None
 
         raise AssertionError(f"Unknown validator kind '{self.kind}'")
@@ -331,8 +331,7 @@ class SCPIEngine:
             chosen = variant or scpi_section.get("default_variant")
             if chosen is None:
                 raise SCPIEngineError(
-                    "YAML has 'variants' but no variant selected and no "
-                    "'default_variant' provided."
+                    "YAML has 'variants' but no variant selected and no 'default_variant' provided."
                 )
             try:
                 scpi_section = variants[chosen]
@@ -422,7 +421,7 @@ class SCPIEngine:
         parser = _PARSER_REGISTRY.get(spec.response.type)
         if parser is None:
             raise ParseError(
-                f"No parser registered for type '{spec.response.type}' " f"(command '{cmd_name}')."
+                f"No parser registered for type '{spec.response.type}' (command '{cmd_name}')."
             )
         try:
             return parser(raw_response, spec.response)

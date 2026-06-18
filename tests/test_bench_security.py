@@ -22,7 +22,9 @@ def _validation_config(expr: str) -> BenchConfigExtended:
 
 
 def test_custom_validation_allows_context_aliases():
-    config = _validation_config("psu['profile'] == 'keysight/EDU36311A' and experiment['operator'] is not None")
+    config = _validation_config(
+        "psu['profile'] == 'keysight/EDU36311A' and experiment['operator'] is not None"
+    )
 
     run_custom_validations(config, build_validation_context(config))
 
@@ -46,7 +48,11 @@ def test_custom_validation_rejects_unsafe_expressions(expr):
 
 
 def test_automation_shell_command_uses_tokenized_subprocess(monkeypatch):
-    bench = Bench(BenchConfigExtended.model_validate({"bench_name": "B", "devices": {"psu": {"profile": "keysight/EDU36311A"}}}))
+    bench = Bench(
+        BenchConfigExtended.model_validate(
+            {"bench_name": "B", "devices": {"psu": {"profile": "keysight/EDU36311A"}}}
+        )
+    )
     calls = []
 
     def fake_run(args, **kwargs):
@@ -57,11 +63,17 @@ def test_automation_shell_command_uses_tokenized_subprocess(monkeypatch):
 
     bench._run_shell_command("printf 'hello world'")
 
-    assert calls == [(["printf", "hello world"], {"check": True, "capture_output": True, "text": True})]
+    assert calls == [
+        (["printf", "hello world"], {"check": True, "capture_output": True, "text": True})
+    ]
 
 
 def test_automation_echo_does_not_spawn_shell(monkeypatch):
-    bench = Bench(BenchConfigExtended.model_validate({"bench_name": "B", "devices": {"psu": {"profile": "keysight/EDU36311A"}}}))
+    bench = Bench(
+        BenchConfigExtended.model_validate(
+            {"bench_name": "B", "devices": {"psu": {"profile": "keysight/EDU36311A"}}}
+        )
+    )
 
     def fail_run(*_args, **_kwargs):
         raise AssertionError("echo should be handled without subprocess")

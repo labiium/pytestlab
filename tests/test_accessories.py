@@ -168,7 +168,9 @@ def test_measurement_chain_float_fallback_is_honest():
     chain_envelope = corrected.envelope["measurement_chain"]
     assert corrected.values.nominal == pytest.approx(10.0)
     assert chain_envelope["instrument_budget_status"] == "missing_float_fallback"
-    assert "instrument contributed no uncertainty budget" in chain_envelope["instrument_budget_note"]
+    assert (
+        "instrument contributed no uncertainty budget" in chain_envelope["instrument_budget_note"]
+    )
 
     direct = MeasurementChain([AccessoryProfile.from_config("keysight/N2142A")]).apply(1.0)
     assert direct.nominal == pytest.approx(10.0)
@@ -560,9 +562,10 @@ def test_bench_measure_executes_declared_measurement_without_magic_raw_calls():
 
     assert raw.values.nominal == pytest.approx(1.0)
     assert declared.values.nominal == pytest.approx(10.0)
-    assert "DUT -> probe (Keysight N2142A) -> scope CH1" in bench.measurement(
-        "input_ripple_vpp"
-    ).describe()
+    assert (
+        "DUT -> probe (Keysight N2142A) -> scope CH1"
+        in bench.measurement("input_ripple_vpp").describe()
+    )
 
 
 def test_declared_measurement_executes_supported_scalar_targets():
@@ -714,7 +717,9 @@ def test_declared_measurement_validation_rejects_incompatible_accessories():
 
     scope_errors = prepare_declared_measurements(scope_with_dmm_leads).errors
     assert any("not oscilloscope_channel" in error for error in scope_errors)
-    assert "not multimeter_function" in prepare_declared_measurements(dmm_with_scope_probe).errors[0]
+    assert (
+        "not multimeter_function" in prepare_declared_measurements(dmm_with_scope_probe).errors[0]
+    )
 
     voltage_with_dmm_leads = BenchConfigExtended.model_validate(
         {
@@ -816,23 +821,23 @@ def test_executable_accessories_require_target_compatibility_metadata(tmp_path):
     ).errors
     packaged_errors = prepare_declared_measurements(
         BenchConfigExtended.model_validate(
-        {
-            "bench_name": "Compatibility Bench",
-            "instruments": {"scope": {"profile": "keysight/DSOX1204G"}},
-            "accessories": {"adapter": {"profile": "keysight/N2142A"}},
-            "measurement_plan": [
-                {
-                    "name": "vpp",
-                    "instrument": "scope",
-                    "target": {
-                        "kind": "oscilloscope_channel",
-                        "channel": 1,
-                        "measurement": "vpp",
-                    },
-                    "accessories": ["adapter"],
-                }
-            ],
-        }
+            {
+                "bench_name": "Compatibility Bench",
+                "instruments": {"scope": {"profile": "keysight/DSOX1204G"}},
+                "accessories": {"adapter": {"profile": "keysight/N2142A"}},
+                "measurement_plan": [
+                    {
+                        "name": "vpp",
+                        "instrument": "scope",
+                        "target": {
+                            "kind": "oscilloscope_channel",
+                            "channel": 1,
+                            "measurement": "vpp",
+                        },
+                        "accessories": ["adapter"],
+                    }
+                ],
+            }
         )
     ).errors
 
@@ -871,14 +876,20 @@ def test_cli_validates_and_describes_declared_measurements(tmp_path):
 
     config = BenchConfigExtended.model_validate(yaml.safe_load(bench_yaml.read_text()))
     prepared = prepare_declared_measurements(config, base_path=tmp_path)
-    descriptor = build_measurement_descriptor(config.measurement_plan[0], prepared.bound_accessories)
+    descriptor = build_measurement_descriptor(
+        config.measurement_plan[0], prepared.bound_accessories
+    )
     assert descriptor.physical_path == ["DUT", "probe (Keysight N2142A)", "scope CH1"]
     assert descriptor.accessories[0]["alias"] == "probe"
     assert descriptor.accessories[0]["profile_key"] == "keysight/N2142A"
 
     describe = runner.invoke(app, ["bench", "measurement", str(bench_yaml), "input_ripple_vpp"])
     assert describe.exit_code == 0, describe.stdout
-    for expected in (descriptor.name, "probe (Keysight N2142A)", "Budget status: known after execution"):
+    for expected in (
+        descriptor.name,
+        "probe (Keysight N2142A)",
+        "Budget status: known after execution",
+    ):
         assert expected in describe.stdout
 
 

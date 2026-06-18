@@ -11,7 +11,9 @@ class DmmInjector:
         for dmm_id in session.dmms.keys():
             hi_term = f"{dmm_id}.V.HI"
             lo_term = f"{dmm_id}.V.LO"
-            if session.wiring.probe_model_for(hi_term) or session.wiring.probe_model_for(f"{dmm_id}.V"):
+            if session.wiring.probe_model_for(hi_term) or session.wiring.probe_model_for(
+                f"{dmm_id}.V"
+            ):
                 continue
             node_hi = session.mapping.get(hi_term)
             if not node_hi:

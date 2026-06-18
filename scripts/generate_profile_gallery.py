@@ -65,7 +65,7 @@ This page lists available instrument profiles.
 
 - **Device Type:** `{device_type}`
 - **Profile:** [`{profile_file.name}`]({relative_profile_path})
-- **Code Owners:** {', '.join(f'[`@{owner}`](https://github.com/{owner})' for owner in code_owners)}
+- **Code Owners:** {", ".join(f"[`@{owner}`](https://github.com/{owner})" for owner in code_owners)}
 - **Last Updated:** {last_updated}
 """
             markdown_snippets.append(snippet)

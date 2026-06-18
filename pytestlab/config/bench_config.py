@@ -279,8 +279,7 @@ class MeasurementPlanEntry(BaseModel):
             names = ", ".join(sorted(unknown))
             target_kind = self.execution_target.kind
             raise ValueError(
-                f"Unsupported settings for executable measurement target "
-                f"{target_kind}: {names}"
+                f"Unsupported settings for executable measurement target {target_kind}: {names}"
             )
 
 

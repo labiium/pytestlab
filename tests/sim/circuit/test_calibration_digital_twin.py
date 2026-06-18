@@ -43,9 +43,7 @@ def test_dataset_split_is_deterministic() -> None:
     assert [row.experiment_id for row in train_a.rows] == [
         row.experiment_id for row in train_b.rows
     ]
-    assert [row.experiment_id for row in val_a.rows] == [
-        row.experiment_id for row in val_b.rows
-    ]
+    assert [row.experiment_id for row in val_a.rows] == [row.experiment_id for row in val_b.rows]
     assert len(train_a) + len(val_a) == 10
     assert len(val_a) >= 1
 
@@ -67,12 +65,8 @@ def test_runtime_parameter_set_validation_hash_and_rendering() -> None:
     assert params.resolve({"bf": 150.0})["bf"] == 150.0
     with pytest.raises(ValueError, match="above max_value"):
         params.resolve({"bf": 301.0})
-    assert parameter_hash(params) == parameter_hash(
-        RuntimeParameterSet.from_dict(params.to_dict())
-    )
-    rendered = _assemble_netlist(
-        ["R1 out 0 {rc}"], [".control", "quit", ".endc"], params.resolve()
-    )
+    assert parameter_hash(params) == parameter_hash(RuntimeParameterSet.from_dict(params.to_dict()))
+    rendered = _assemble_netlist(["R1 out 0 {rc}"], [".control", "quit", ".endc"], params.resolve())
     assert ".param bf=120" in rendered
     assert ".param rc=10000" in rendered
 
@@ -111,9 +105,7 @@ def test_builtin_fitter_and_sensitivity() -> None:
 
     assert result.final_loss < result.initial_loss
     assert result.fitted_values["gain"] == pytest.approx(2.5, abs=0.2)
-    sensitivity = finite_difference_sensitivity(
-        params.with_values(result.fitted_values), loss
-    )
+    sensitivity = finite_difference_sensitivity(params.with_values(result.fitted_values), loss)
     assert "gain" in sensitivity.derivatives
 
 

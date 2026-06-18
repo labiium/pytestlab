@@ -1,4 +1,3 @@
-from . import scpi_schema
 from ..uncertainty import Distribution as UncertaintyDistribution
 from ..uncertainty import Quantity as MeasurementQuantity
 from ..uncertainty import UncertaintyBudget
@@ -12,6 +11,7 @@ from ..uncertainty.specs import MonteCarloAccuracySpec
 from ..uncertainty.specs import RepeatabilityAccuracySpec
 from ..uncertainty.specs import UncertaintyContext
 from ..uncertainty.specs import evaluate_quantity as evaluate_uncertainty_model
+from . import scpi_schema
 from .base import BaseConfig
 from .config import Config
 from .dc_active_load_config import DCActiveLoadConfig

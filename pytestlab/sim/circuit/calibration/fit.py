@@ -58,7 +58,9 @@ def fit_parameters(
                 if evaluations >= max_evaluations:
                     break
                 candidate = dict(current)
-                candidate[decl.name] = decl.clamp(candidate[decl.name] + direction * step_sizes[decl.name])
+                candidate[decl.name] = decl.clamp(
+                    candidate[decl.name] + direction * step_sizes[decl.name]
+                )
                 loss = _finite_loss(loss_fn(candidate))
                 evaluations += 1
                 history.append(_history(candidate, loss))
@@ -99,7 +101,7 @@ def scipy_fit_parameters(
     max_evaluations: int = 100,
 ) -> FitResult:
     try:
-        from scipy.optimize import least_squares  # type: ignore[import-not-found]
+        from scipy.optimize import least_squares
     except ImportError as exc:  # pragma: no cover - depends on optional scipy absence
         raise RuntimeError("scipy is required for scipy_fit_parameters") from exc
 

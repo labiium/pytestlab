@@ -39,9 +39,7 @@ class PsuInjector:
                         f"{vcv} {cv_node} {lo} DC {float(state.voltage_setpoint):.12g}"
                     )
                     result.netlist_lines.append(f"{diode} {internal} {cv_node} {diode_model}")
-                    result.netlist_lines.append(
-                        f".model {diode_model} D(Is=1e-9 N=0.01 Rs=1e-6)"
-                    )
+                    result.netlist_lines.append(f".model {diode_model} D(Is=1e-9 N=0.01 Rs=1e-6)")
                     # Positive terminal on the load side makes ngspice i(Vsense)
                     # negative for delivered current, matching voltage-source readback sign.
                     result.netlist_lines.append(f"{sense} {hi} {internal} 0")

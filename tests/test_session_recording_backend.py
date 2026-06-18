@@ -201,9 +201,9 @@ class TestSessionRecordingBackend:
 
         # Should be monotonically increasing
         for i in range(1, len(timestamps)):
-            assert (
-                timestamps[i] > timestamps[i - 1]
-            ), f"Timestamp {i} ({timestamps[i]}) should be > timestamp {i - 1} ({timestamps[i - 1]})"
+            assert timestamps[i] > timestamps[i - 1], (
+                f"Timestamp {i} ({timestamps[i]}) should be > timestamp {i - 1} ({timestamps[i - 1]})"
+            )
 
     def test_backend_error_propagation(self, temp_output_file):
         """Test that backend errors are properly propagated."""

@@ -16,7 +16,9 @@ from pytestlab.uncertainty.multivariate import covariance_between
 
 def _q(reg, nominal, u, label, unit="", dof=None):
     return Quantity.from_atom(
-        reg.mint(nominal=nominal, std_uncertainty=u, label=label, unit=unit, degrees_of_freedom=dof),
+        reg.mint(
+            nominal=nominal, std_uncertainty=u, label=label, unit=unit, degrees_of_freedom=dof
+        ),
         reg,
     )
 

@@ -30,7 +30,7 @@ class NoopBackend:
         return None
 
     def query(self, cmd: str, delay: float | None = None) -> str:
-        return "0,\"No error\""
+        return '0,"No error"'
 
     def query_raw(self, cmd: str, delay: float | None = None) -> bytes:
         return b""

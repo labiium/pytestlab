@@ -263,7 +263,9 @@ def ensure_builtin_registrations() -> None:
 
 def _build_visa_backend(context: BackendBuildContext) -> DeviceIO:
     if context.address is None:
-        raise InstrumentConfigurationError(context.config_source, "Missing address for VISA backend.")
+        raise InstrumentConfigurationError(
+            context.config_source, "Missing address for VISA backend."
+        )
     from ..instruments.backends.visa_backend import VisaBackend
 
     return VisaBackend(address=context.address, timeout_ms=context.timeout_ms)
@@ -276,7 +278,9 @@ def _build_lamb_backend(context: BackendBuildContext) -> DeviceIO:
         context.config, "lamb_url", os.getenv("LAMB_SERVER", "http://lamb-server:8000")
     )
     if context.address:
-        return LambBackend(address=context.address, url=lamb_server_url, timeout_ms=context.timeout_ms)
+        return LambBackend(
+            address=context.address, url=lamb_server_url, timeout_ms=context.timeout_ms
+        )
     return LambBackend(
         address=None,
         url=lamb_server_url,
@@ -288,7 +292,9 @@ def _build_lamb_backend(context: BackendBuildContext) -> DeviceIO:
 
 def _build_sim_backend(context: BackendBuildContext) -> DeviceIO:
     if context.profile_path is None:
-        raise InstrumentConfigurationError(context.config_source, "Missing simulation profile path.")
+        raise InstrumentConfigurationError(
+            context.config_source, "Missing simulation profile path."
+        )
     from ..instruments.backends.sim_backend import SimBackend
 
     return SimBackend(
@@ -300,7 +306,9 @@ def _build_sim_backend(context: BackendBuildContext) -> DeviceIO:
 
 def validate_config_model(candidate: Any, source: str) -> type[DeviceConfig]:
     if not isinstance(candidate, type) or not issubclass(candidate, DeviceConfig):
-        raise InstrumentConfigurationError(source, f"{source} must resolve to a DeviceConfig class.")
+        raise InstrumentConfigurationError(
+            source, f"{source} must resolve to a DeviceConfig class."
+        )
     return candidate
 
 

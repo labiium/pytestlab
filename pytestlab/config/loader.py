@@ -115,9 +115,7 @@ def resolve_profile_key_to_path(key: str) -> Path:
     profile_path = (profiles_dir / key).with_suffix(".yaml")
 
     if not profile_path.is_file():
-        raise FileNotFoundError(
-            f"Profile with key '{key}' not found. " f"Looked for '{profile_path}'."
-        )
+        raise FileNotFoundError(f"Profile with key '{key}' not found. Looked for '{profile_path}'.")
     return profile_path
 
 
@@ -197,8 +195,6 @@ def load_device_profile(key_or_path_or_dict: str | Path | dict[str, Any]) -> Dev
         raise ValueError(f"Profile for device_type '{device_type}' is invalid: {e}") from e
 
     if not isinstance(validated_model, DeviceConfig):
-        raise TypeError(
-            f"Validated model for {device_type} is not an instance of DeviceConfig."
-        )
+        raise TypeError(f"Validated model for {device_type} is not an instance of DeviceConfig.")
 
     return validated_model

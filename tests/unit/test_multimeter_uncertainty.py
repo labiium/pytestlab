@@ -4,7 +4,6 @@ from unittest.mock import Mock
 
 import pytest
 
-from pytestlab.uncertainty import Quantity as MeasurementQuantity
 from pytestlab.config.device_config import DeviceRole
 from pytestlab.config.multimeter_config import AccuracySpec
 from pytestlab.config.multimeter_config import FunctionSpec
@@ -13,6 +12,7 @@ from pytestlab.config.multimeter_config import MultimeterConfig
 from pytestlab.config.multimeter_config import RangeSpec
 from pytestlab.instruments.Multimeter import DMMFunction
 from pytestlab.instruments.Multimeter import Multimeter
+from pytestlab.uncertainty import Quantity as MeasurementQuantity
 
 
 def test_multimeter_uncertainty_calculation():

@@ -91,9 +91,17 @@ class AutoDevice:
     ) -> dict[str, Any]:
         import pytestlab as ptl
 
-        norm_id = normalized_identifier if normalized_identifier is not None else os.path.normpath(identifier)
+        norm_id = (
+            normalized_identifier
+            if normalized_identifier is not None
+            else os.path.normpath(identifier)
+        )
         pkg_file = getattr(ptl, "__file__", None)
-        pkg_dir = Path(pkg_file).resolve().parent if pkg_file is not None else Path(__file__).resolve().parent
+        pkg_dir = (
+            Path(pkg_file).resolve().parent
+            if pkg_file is not None
+            else Path(__file__).resolve().parent
+        )
         preset_path = pkg_dir / "profiles" / f"{norm_id}.yaml"
         path_to_try: str | None = None
         if preset_path.exists():
@@ -123,17 +131,18 @@ class AutoDevice:
         if not isinstance(preset_key, str):
             raise TypeError("preset_key must be a string.")
         candidate = Path(preset_key)
-        if (
-            candidate.is_absolute()
-            or candidate.suffix in {".yaml", ".yml", ".json"}
-        ):
+        if candidate.is_absolute() or candidate.suffix in {".yaml", ".yml", ".json"}:
             raise ValueError(
                 "from_preset() accepts packaged preset keys only; use from_file() for local files."
             )
         import pytestlab as ptl
 
         pkg_file = getattr(ptl, "__file__", None)
-        pkg_dir = Path(pkg_file).resolve().parent if pkg_file is not None else Path(__file__).resolve().parent
+        pkg_dir = (
+            Path(pkg_file).resolve().parent
+            if pkg_file is not None
+            else Path(__file__).resolve().parent
+        )
         profiles_dir = (pkg_dir / "profiles").resolve()
         path = (profiles_dir / os.path.normpath(preset_key)).with_suffix(".yaml").resolve()
         try:
@@ -450,7 +459,9 @@ class AutoDevice:
         if isinstance(config_source, DeviceConfig):
             if role_override is not None:
                 config_source.role = (
-                    role_override if isinstance(role_override, DeviceRole) else DeviceRole(role_override)
+                    role_override
+                    if isinstance(role_override, DeviceRole)
+                    else DeviceRole(role_override)
                 )
             return config_source, config_source.model_dump(mode="json"), None
         if isinstance(config_source, dict) and "profile" in config_source:
@@ -482,7 +493,9 @@ class AutoDevice:
                 config_data["role"] = cls._role_value(role_override)
             config_model = load_device_profile(config_data)
             return config_model, config_data, config_source
-        raise TypeError("config_source must be a file path, profile key, dict, or DeviceConfig object.")
+        raise TypeError(
+            "config_source must be a file path, profile key, dict, or DeviceConfig object."
+        )
 
     @staticmethod
     def _role_value(role: str | DeviceRole) -> str:
@@ -533,7 +546,11 @@ class AutoDevice:
         sim_session: Any | None,
     ) -> DeviceIO:
         final_simulation_mode = cls._resolve_simulation_mode(simulate)
-        actual_address = address_override if address_override is not None else getattr(config_model, "address", None)
+        actual_address = (
+            address_override
+            if address_override is not None
+            else getattr(config_model, "address", None)
+        )
         actual_timeout = cls._resolve_timeout(config_model, timeout_override_ms)
         backend_spec = cls._resolve_backend_spec(
             config_model,
@@ -573,7 +590,9 @@ class AutoDevice:
             sim_session=sim_session,
         )
         if backend_spec and backend_spec.get("import_path") and chosen_backend_type != "sim":
-            factory = validate_backend(load_import_path(str(backend_spec["import_path"])), str(backend_spec["import_path"]))
+            factory = validate_backend(
+                load_import_path(str(backend_spec["import_path"])), str(backend_spec["import_path"])
+            )
             return cls._call_backend_factory(factory, context)
         factory = get_backend_factory(chosen_backend_type)
         if factory is None:
@@ -659,9 +678,7 @@ class AutoDevice:
         return model_spec if isinstance(model_spec, dict) else None
 
     @classmethod
-    def _resolve_sim_profile_path(
-        cls, profile_key: str | None, config_data: dict[str, Any]
-    ) -> str:
+    def _resolve_sim_profile_path(cls, profile_key: str | None, config_data: dict[str, Any]) -> str:
         if profile_key is not None:
             key = profile_key
             user_profile = Path("~/.pytestlab/profiles").expanduser() / f"{key}.yaml"
@@ -684,7 +701,11 @@ class AutoDevice:
         import pytestlab as ptl
 
         pkg_file = getattr(ptl, "__file__", None)
-        pkg_dir = Path(pkg_file).resolve().parent if pkg_file is not None else Path(__file__).resolve().parent
+        pkg_dir = (
+            Path(pkg_file).resolve().parent
+            if pkg_file is not None
+            else Path(__file__).resolve().parent
+        )
         path = pkg_dir / "profiles" / f"{os.path.normpath(identifier)}.yaml"
         if path.exists():
             return path

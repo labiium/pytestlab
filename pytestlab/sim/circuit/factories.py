@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Sequence
 from pathlib import Path
+from typing import cast
 
 import yaml
 
@@ -12,6 +13,7 @@ from .bench import AWG
 from .bench import DMM
 from .bench import PSU
 from .bench import BenchConfig
+from .bench import Instrument
 from .bench import PSUChannel
 from .bench import Scope
 from .circuit_package import CircuitPackage
@@ -43,7 +45,9 @@ def manifest_from_netlist(
 
     allowed_includes = list(allowed_includes or [])
     metadata_obj = (
-        metadata if isinstance(metadata, ManifestMetadata) else ManifestMetadata(**metadata)
+        metadata
+        if isinstance(metadata, ManifestMetadata)
+        else ManifestMetadata.model_validate(metadata)
     )
     constraints_obj = constraints or ManifestConstraints()
 
@@ -93,7 +97,7 @@ def default_bench(
 ) -> BenchConfig:
     """Create a :class:`BenchConfig` with typical instrument defaults."""
 
-    instruments: dict[str, object] = {}
+    instruments: dict[str, Instrument] = {}
 
     if psu_channels:
         channels = [
@@ -137,7 +141,8 @@ def basic_measurement_wiring(
         connections.append(Connection(from_="awg1.LO", to=return_node))
 
     if "psu1" in bench.instruments:
-        first_channel = bench.instruments["psu1"].channels[0].name
+        psu = cast(PSU, bench.instruments["psu1"])
+        first_channel = psu.channels[0].name
         connections.append(Connection(from_=f"psu1.{first_channel}.HI", to=source_node))
         connections.append(Connection(from_=f"psu1.{first_channel}.LO", to=return_node))
 

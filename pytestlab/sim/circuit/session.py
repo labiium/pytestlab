@@ -19,7 +19,6 @@ from .circuit_package import CircuitPackage
 from .determinism import make_rng
 from .instruments.twins import AWGTwin
 from .instruments.twins import DMMTwin
-from .instruments.twins import PSUState
 from .instruments.twins import PSUTwin
 from .instruments.twins import ScopeTwin
 from .kernel import KernelAdapter
@@ -74,9 +73,7 @@ class Session:
         self.spice_engine = spice_engine
         self.ngspice_cmd = ngspice_cmd
         self.eespice_cmd = eespice_cmd
-        self.kernel = kernel or self._default_kernel(
-            spice_engine, ngspice_cmd, eespice_cmd
-        )
+        self.kernel = kernel or self._default_kernel(spice_engine, ngspice_cmd, eespice_cmd)
         self.kernel_settings = kernel_settings or KernelSettings(
             timeout_s=10.0,
             cpu_time_s=5,
@@ -84,23 +81,17 @@ class Session:
         )
         self.variations = variations
         self.noise = noise or NoiseConfig()
-        noise_seed = (
-            self.seed if self.noise.seed is None else self.seed ^ int(self.noise.seed)
-        )
+        noise_seed = self.seed if self.noise.seed is None else self.seed ^ int(self.noise.seed)
         self.noise_rng = make_rng(noise_seed)
         self.physics_models = physics_models or {}
-        self.parameter_set = normalize_parameter_set(
-            model_params, specs=parameter_specs
-        )
+        self.parameter_set = normalize_parameter_set(model_params, specs=parameter_specs)
         self.model_params = dict(self.parameter_set.values)
         self.store = store
         self.telemetry = telemetry
         self.twin_package: dict[str, Any] | None = None
         self.metadata = SessionMetadata(session_id=self._hash_identity(), seed=seed)
         self.node_set = self._extract_node_set()
-        self.compiler = WiringCompiler(
-            bench=self.bench, wiring=self.wiring, nodes=self.node_set
-        )
+        self.compiler = WiringCompiler(bench=self.bench, wiring=self.wiring, nodes=self.node_set)
         self.mapping = self.compiler.compile()
         self.probe_elements = self.compiler.inject_probe_loading()
         self.psus: dict[str, PSUTwin] = {}
@@ -163,9 +154,7 @@ class Session:
         digest.update(self.wiring.ground_node.encode())
         return digest.hexdigest()[:16]
 
-    def resolve_model_params(
-        self, call_params: dict[str, float] | None = None
-    ) -> dict[str, float]:
+    def resolve_model_params(self, call_params: dict[str, float] | None = None) -> dict[str, float]:
         """Return session calibrated parameters merged with per-call overrides."""
         return self.parameter_set.resolve(call_params)
 
@@ -211,9 +200,7 @@ class Session:
 
     def psu_output(self, psu_id: str, voltage: float, current_limit: float):
         psu = self.psus[psu_id]
-        channel = cast(PSUState, psu.state).selected_channel
-        psu.set_state(
-            channel=channel, voltage_setpoint=voltage, current_limit=current_limit
-        )
+        channel = psu.state.selected_channel
+        psu.set_state(channel=channel, voltage_setpoint=voltage, current_limit=current_limit)
         psu.set_state(channel=channel, enabled=True)
         return psu.measure(channel=channel)

@@ -17,8 +17,7 @@ class SwitchMatrixDevice(Device[SwitchMatrixConfig]):
 
     def describe_route(self, name: str, route: RouteEntry) -> str:
         connections = "; ".join(
-            f"{connection.from_endpoint}->{connection.to}"
-            for connection in route.connects
+            f"{connection.from_endpoint}->{connection.to}" for connection in route.connects
         )
         return f"{name}: {connections}"
 

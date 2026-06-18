@@ -30,7 +30,9 @@ def fit_parameters(
     backend: str = "coordinate_search",
 ) -> FitResult:
     if backend == "scipy":
-        return _fit_with_scipy(specs, initial, loss_fn, max_iterations=max_iterations, tolerance=tolerance)
+        return _fit_with_scipy(
+            specs, initial, loss_fn, max_iterations=max_iterations, tolerance=tolerance
+        )
     if backend != "coordinate_search":
         raise ValueError(f"unsupported fitter backend: {backend}")
     params = {name: float((initial or {}).get(name, spec.nominal)) for name, spec in specs.items()}
@@ -60,17 +62,31 @@ def fit_parameters(
             if all(value <= tolerance for value in step.values()):
                 converged = True
                 break
-    sensitivity = check_parameter_sensitivity(specs, params, loss_fn, min_observable_delta=tolerance)
-    return FitResult(params=params, loss=best, iterations=iterations, converged=converged, sensitivity=sensitivity)
+    sensitivity = check_parameter_sensitivity(
+        specs, params, loss_fn, min_observable_delta=tolerance
+    )
+    return FitResult(
+        params=params,
+        loss=best,
+        iterations=iterations,
+        converged=converged,
+        sensitivity=sensitivity,
+    )
 
 
 def _fit_with_scipy(specs, initial, loss_fn, *, max_iterations: int, tolerance: float) -> FitResult:
     try:
-        from scipy.optimize import minimize  # type: ignore
+        from scipy.optimize import minimize
     except ImportError as exc:  # pragma: no cover - optional dependency
-        raise ImportError("scipy fitter backend requires scipy; use coordinate_search otherwise") from exc
+        raise ImportError(
+            "scipy fitter backend requires scipy; use coordinate_search otherwise"
+        ) from exc
     names = [name for name, spec in specs.items() if spec.free]
-    fixed = {name: float((initial or {}).get(name, spec.nominal)) for name, spec in specs.items() if not spec.free}
+    fixed = {
+        name: float((initial or {}).get(name, spec.nominal))
+        for name, spec in specs.items()
+        if not spec.free
+    }
     x0 = [float((initial or {}).get(name, specs[name].nominal)) for name in names]
     bounds = [(specs[name].min_value, specs[name].max_value) for name in names]
 
@@ -79,8 +95,23 @@ def _fit_with_scipy(specs, initial, loss_fn, *, max_iterations: int, tolerance: 
         params.update({name: float(value) for name, value in zip(names, x, strict=True)})
         return float(loss_fn(params))
 
-    result = minimize(objective, x0, method="Nelder-Mead", bounds=bounds, options={"maxiter": max_iterations, "xatol": tolerance, "fatol": tolerance})
+    result = minimize(
+        objective,
+        x0,
+        method="Nelder-Mead",
+        bounds=bounds,
+        options={"maxiter": max_iterations, "xatol": tolerance, "fatol": tolerance},
+    )
     params = dict(fixed)
     params.update({name: float(value) for name, value in zip(names, result.x, strict=True)})
-    sensitivity = check_parameter_sensitivity(specs, params, loss_fn, min_observable_delta=tolerance)
-    return FitResult(params=params, loss=float(result.fun), iterations=int(result.nit), converged=bool(result.success), backend="scipy", sensitivity=sensitivity)
+    sensitivity = check_parameter_sensitivity(
+        specs, params, loss_fn, min_observable_delta=tolerance
+    )
+    return FitResult(
+        params=params,
+        loss=float(result.fun),
+        iterations=int(result.nit),
+        converged=bool(result.success),
+        backend="scipy",
+        sensitivity=sensitivity,
+    )

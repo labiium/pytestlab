@@ -48,7 +48,9 @@ class UnknownNode(ValueError):
 
     @staticmethod
     def _closest(node: str, available: list[str]) -> str | None:
-        matches = get_close_matches(str(node).lower(), [a.lower() for a in available], n=1, cutoff=0.5)
+        matches = get_close_matches(
+            str(node).lower(), [a.lower() for a in available], n=1, cutoff=0.5
+        )
         if not matches:
             return None
         # Map the lowercased match back to the original spelling.
@@ -259,6 +261,7 @@ class Connection(BaseModel):
     to: str
 
     if TYPE_CHECKING:
+
         def __init__(self, *, from_: TerminalRef | str, to: NodeRef | str) -> None: ...
 
     @field_validator("from_", "to", mode="before")
@@ -380,9 +383,7 @@ class WiringCompiler:
         # the node set is unavailable, in which case node validation is skipped
         # to preserve behaviour for callers that do not supply a netlist.
         self.nodes = nodes
-        self._nodes_lower = (
-            {self._canonical_node(n) for n in nodes} if nodes is not None else None
-        )
+        self._nodes_lower = {self._canonical_node(n) for n in nodes} if nodes is not None else None
 
     @staticmethod
     def _canonical_node(name: str) -> str:
@@ -425,9 +426,7 @@ class WiringCompiler:
         if not self.wiring.rules.forbid_multiple_ground_nodes:
             return
         lo_targets = {
-            conn.to
-            for conn in self.wiring.connections
-            if _is_ground_reference_terminal(conn.from_)
+            conn.to for conn in self.wiring.connections if _is_ground_reference_terminal(conn.from_)
         }
         if len(lo_targets) > 1:
             raise ValueError("multiple grounds detected while forbidden")

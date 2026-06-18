@@ -9,6 +9,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from typing import cast
 
 try:  # optional OpenTelemetry integration
     from opentelemetry import trace
@@ -20,7 +21,7 @@ try:  # optional OpenTelemetry integration
     _OTEL_AVAILABLE = True
 except Exception:  # pragma: no cover - optional dependency
     _OTEL_AVAILABLE = False
-    trace = None  # type: ignore[assignment]
+    trace = None
 
 from .store import ArtifactStore
 
@@ -68,8 +69,9 @@ class Telemetry:
         if _OTEL_AVAILABLE:
             provider = TracerProvider(resource=Resource.create({"service.name": "simbench"}))
             provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
-            trace.set_tracer_provider(provider)
-            self._tracer = trace.get_tracer("simbench")
+            otel_trace = cast(Any, trace)
+            otel_trace.set_tracer_provider(provider)
+            self._tracer = otel_trace.get_tracer("simbench")
 
     def emit(self, event: str, payload: dict[str, Any]) -> None:
         record = {
@@ -90,7 +92,7 @@ class Telemetry:
                 duration = time.perf_counter() - start
                 self.metrics.observe(name, duration)
             return
-        with self._tracer.start_as_current_span(name) as span:  # type: ignore[union-attr]
+        with cast(Any, self._tracer).start_as_current_span(name) as span:
             if attributes:
                 for key, value in attributes.items():
                     span.set_attribute(key, value)

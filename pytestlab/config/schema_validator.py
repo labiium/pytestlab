@@ -80,8 +80,7 @@ class SchemaValidator:
         if model_class is None:
             available_types = ", ".join(self.list_supported_devices())
             raise ValueError(
-                f"Unsupported device type: {device_type}. "
-                f"Available types: {available_types}"
+                f"Unsupported device type: {device_type}. Available types: {available_types}"
             )
 
         # Generate schema
@@ -155,7 +154,9 @@ class SchemaValidator:
         model_class = None
         config_model_path = yaml_content.get("config_model")
         if isinstance(config_model_path, str):
-            model_class = validate_config_model(load_import_path(config_model_path), config_model_path)
+            model_class = validate_config_model(
+                load_import_path(config_model_path), config_model_path
+            )
         if model_class is None:
             model_class = self._resolve_model_class(device_type)
         if model_class is None and yaml_content.get("driver"):

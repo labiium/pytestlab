@@ -93,7 +93,9 @@ class AccessoryProfile(BaseModel):
         try:
             path.relative_to(profiles_dir)
         except ValueError as exc:
-            raise ValueError("AccessoryProfile.from_config() preset keys cannot escape presets.") from exc
+            raise ValueError(
+                "AccessoryProfile.from_config() preset keys cannot escape presets."
+            ) from exc
         if not path.is_file():
             raise FileNotFoundError(f"Accessory preset '{key}' not found at '{path}'.")
         return cls._load_yaml(path)
@@ -179,7 +181,9 @@ class BoundAccessory(BaseModel):
         return self.profile.sources
 
     def envelope_metadata(self) -> dict[str, Any]:
-        source_kind = "profile" if self.profile_key is not None else "file" if self.profile_file else None
+        source_kind = (
+            "profile" if self.profile_key is not None else "file" if self.profile_file else None
+        )
         return {
             "alias": self.alias,
             "display_name": self.display_name,
@@ -297,10 +301,7 @@ class MeasurementChain:
                 else "instrument uncertainty budget preserved"
             ),
             "steps": [step.model_dump(mode="json") for step in self.steps()],
-            "accessories": [
-                accessory.envelope_metadata()
-                for accessory in self.accessories
-            ],
+            "accessories": [accessory.envelope_metadata() for accessory in self.accessories],
         }
 
     def steps(self) -> list[ChainStep]:
@@ -354,11 +355,15 @@ class MeasurementChain:
             )
             return MeasurementQuantity.from_atom(atom, reg), False
         if isinstance(value, np.ndarray):
-            raise TypeError("MeasurementChain.apply() is scalar-only in v1; arrays are unsupported.")
+            raise TypeError(
+                "MeasurementChain.apply() is scalar-only in v1; arrays are unsupported."
+            )
         try:
             nominal = float(value)
         except Exception as exc:
-            raise TypeError(f"MeasurementChain.apply() cannot handle value type {type(value)!r}.") from exc
+            raise TypeError(
+                f"MeasurementChain.apply() cannot handle value type {type(value)!r}."
+            ) from exc
         return MeasurementQuantity.constant(nominal, unit), True
 
 

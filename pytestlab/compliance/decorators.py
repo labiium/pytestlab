@@ -156,7 +156,9 @@ def signed(
                 timestamp=_utc_now(),
             )
 
-            _LOG.debug(f"Signed result from {_callable_name(func)} with key {signer.fingerprint[:16]}...")
+            _LOG.debug(
+                f"Signed result from {_callable_name(func)} with key {signer.fingerprint[:16]}..."
+            )
 
             # Return compliant result
             return CompliantResult(data=result_data, signature=signature)

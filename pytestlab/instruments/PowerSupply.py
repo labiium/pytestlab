@@ -8,9 +8,9 @@ from uncertainties.core import UFloat
 
 from ..common.enums import SCPIOnOff  # Added SCPIOnOff
 from ..config import PowerSupplyConfig  # V2 model
-from ..uncertainty import Quantity as MeasurementQuantity
 from ..errors import InstrumentConfigurationError
 from ..errors import InstrumentParameterError
+from ..uncertainty import Quantity as MeasurementQuantity
 from .instrument import Instrument
 from .scpi_engine import SCPIEngine
 from .uncertainty_adapters import nonzero_uncertainty_quantity
@@ -383,7 +383,12 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
 
             if spec:
                 context = psu_measurement_context(
-                    self.config, channel=channel, reading=reading, unit="V", function="read_voltage", instrument_key=f"{self.config.model}:{id(self)}"
+                    self.config,
+                    channel=channel,
+                    reading=reading,
+                    unit="V",
+                    function="read_voltage",
+                    instrument_key=f"{self.config.model}:{id(self)}",
                 )
                 quantity = nonzero_uncertainty_quantity(
                     spec,
@@ -437,7 +442,12 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
 
             if spec:
                 context = psu_measurement_context(
-                    self.config, channel=channel, reading=reading, unit="A", function="read_current", instrument_key=f"{self.config.model}:{id(self)}"
+                    self.config,
+                    channel=channel,
+                    reading=reading,
+                    unit="A",
+                    function="read_current",
+                    instrument_key=f"{self.config.model}:{id(self)}",
                 )
                 quantity = nonzero_uncertainty_quantity(
                     spec,

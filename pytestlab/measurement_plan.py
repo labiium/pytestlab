@@ -140,9 +140,7 @@ def prepare_declared_measurements(
         if plan_entry.route is not None:
             route = config.routes.get(plan_entry.route)
             if route is None:
-                errors.append(
-                    f"{plan_entry.name}: route '{plan_entry.route}' is not defined."
-                )
+                errors.append(f"{plan_entry.name}: route '{plan_entry.route}' is not defined.")
             elif route.device is not None and route.device not in entries:
                 errors.append(
                     f"{plan_entry.name}: route '{plan_entry.route}' uses unknown "
@@ -229,9 +227,7 @@ def validate_declared_routes(
                 )
         for accessory_alias in route.accessories:
             if accessory_alias not in accessory_aliases:
-                errors.append(
-                    f"{route_name}: route accessory '{accessory_alias}' is not defined."
-                )
+                errors.append(f"{route_name}: route accessory '{accessory_alias}' is not defined.")
         for connection in route.connects:
             for endpoint in (connection.from_endpoint, connection.to):
                 alias = endpoint.split(".", 1)[0]
@@ -280,7 +276,9 @@ def _validate_route_endpoint(
         return errors
     if switch_config is not None and endpoint not in getattr(switch_config, "terminals", []):
         allowed = ", ".join(getattr(switch_config, "terminals", []))
-        errors.append(f"route endpoint '{endpoint}' is not declared on switch terminals: {allowed}.")
+        errors.append(
+            f"route endpoint '{endpoint}' is not declared on switch terminals: {allowed}."
+        )
     if device_config is None:
         return errors
     device_type = getattr(device_config, "device_type", None)
@@ -607,9 +605,7 @@ def _driver_call(entry: MeasurementPlanEntry) -> str | None:
         return None
     if isinstance(target, OscilloscopeChannelTarget):
         method = (
-            "measure_voltage_peak_to_peak"
-            if target.measurement == "vpp"
-            else "measure_rms_voltage"
+            "measure_voltage_peak_to_peak" if target.measurement == "vpp" else "measure_rms_voltage"
         )
         return f"{alias}.{method}(channel={target.channel})"
     if isinstance(target, MultimeterFunctionTarget):
@@ -660,7 +656,9 @@ def _validate_accessory_target_compatibility(
             "to be used in an executable measurement_plan entry."
         )
         return
-    if not isinstance(target_kinds, list) or not all(isinstance(kind, str) for kind in target_kinds):
+    if not isinstance(target_kinds, list) or not all(
+        isinstance(kind, str) for kind in target_kinds
+    ):
         errors.append(
             f"{measurement_name}: accessory '{accessory_alias}' has invalid "
             "compatibility.target_kinds metadata."

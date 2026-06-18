@@ -111,9 +111,7 @@ def sim_doctor() -> None:
     if resolved:
         version = ""
         try:
-            out = subprocess.run(
-                [resolved, "-v"], capture_output=True, text=True, timeout=10
-            )
+            out = subprocess.run([resolved, "-v"], capture_output=True, text=True, timeout=10)
             for line in (out.stdout or out.stderr or "").splitlines():
                 stripped = line.strip().lstrip("*").strip()
                 if "ngspice" in stripped.lower():
@@ -170,7 +168,10 @@ def _is_root() -> bool:
 @sim_app.command("install-ngspice")
 def sim_install_ngspice(
     yes: bool = typer.Option(
-        False, "--yes", "-y", help="Run the install without confirmation (user-space managers only)."
+        False,
+        "--yes",
+        "-y",
+        help="Run the install without confirmation (user-space managers only).",
     ),
 ) -> None:
     """Help install the ngspice binary using a detected package manager.
@@ -242,9 +243,7 @@ def sim_install_ngspice(
 
     if not yes:
         if not sys.stdin.isatty() or not typer.confirm("Run it now?"):
-            console.print(
-                "Not running it. Re-run with --yes, or run the command above yourself."
-            )
+            console.print("Not running it. Re-run with --yes, or run the command above yourself.")
             raise typer.Exit(1)
 
     try:
@@ -370,9 +369,7 @@ def visa_list(
 def lamb_list(
     url: Annotated[
         str,
-        typer.Option(
-            help="LAMB server base URL. Overrides LAMB_SERVER environment variable."
-        ),
+        typer.Option(help="LAMB server base URL. Overrides LAMB_SERVER environment variable."),
     ] = os.getenv("LAMB_SERVER", "http://lamb-server:8000"),
     timeout_ms: Annotated[
         int,

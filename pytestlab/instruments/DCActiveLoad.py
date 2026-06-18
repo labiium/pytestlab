@@ -14,7 +14,6 @@ from uncertainties.core import UFloat
 
 from ..common.health import HealthReport
 from ..common.health import HealthStatus
-from ..uncertainty import Quantity as MeasurementQuantity
 from ..config.dc_active_load_config import DCActiveLoadConfig
 from ..config.dc_active_load_config import ModeSpec
 from ..config.dc_active_load_config import ReadbackAccuracySpec
@@ -22,6 +21,7 @@ from ..config.instrument_config import InstrumentConfig
 from ..errors import InstrumentCommunicationError
 from ..errors import InstrumentParameterError
 from ..experiments import MeasurementResult
+from ..uncertainty import Quantity as MeasurementQuantity
 from .instrument import Instrument
 from .instrument import InstrumentIO
 from .uncertainty_adapters import dc_load_measurement_context

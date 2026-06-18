@@ -4,6 +4,7 @@ import random
 import re
 from dataclasses import asdict
 from typing import Any
+from typing import cast
 
 import numpy as np
 
@@ -366,9 +367,7 @@ class SimbenchScpiBackend:
 
         raise ValueError(f"Unsupported AWG command: {cmd}")
 
-    def _handle_scope(
-        self, raw_cmd: str, cmd: str, expect_response: bool
-    ) -> str | bytes:
+    def _handle_scope(self, raw_cmd: str, cmd: str, expect_response: bool) -> str | bytes:
         twin: ScopeTwin = self.twin  # type: ignore[assignment]
 
         cmd = cmd.strip()
@@ -409,9 +408,7 @@ class SimbenchScpiBackend:
             if requested in {"MAX", "AUTO"}:
                 if requested == "MAX":
                     cfg = self.session.bench.instruments.get(self.instrument_id)
-                    max_rate = float(
-                        getattr(cfg, "sample_rate_sps_max", twin.state.sample_rate)
-                    )
+                    max_rate = float(getattr(cfg, "sample_rate_sps_max", twin.state.sample_rate))
                     twin.set_state(sample_rate=max_rate)
                     self._emit_warnings(twin)
                 return ""
@@ -512,8 +509,7 @@ class SimbenchScpiBackend:
         enabled_freqs = [
             float(awg.state.frequency_hz)
             for awg in self.session.awgs.values()
-            if getattr(awg.state, "enabled", False)
-            and float(awg.state.frequency_hz) > 0
+            if getattr(awg.state, "enabled", False) and float(awg.state.frequency_hz) > 0
         ]
         if enabled_freqs and sample_rate > 0:
             cycles = 5.0
@@ -561,9 +557,7 @@ class SimbenchScpiBackend:
         if trigger_source:
             trig_hi, trig_lo = nodes_by_source.get(trigger_source, (None, None))
             if trig_hi:
-                trig_wave = self._resolve_scope_waveform(
-                    spice, trig_hi, trig_lo, record_length
-                )
+                trig_wave = self._resolve_scope_waveform(spice, trig_hi, trig_lo, record_length)
                 trig_att = self._probe_attenuation_for_source(trigger_source)
                 trigger_index = twin.compute_trigger_index(
                     trig_wave,
@@ -640,9 +634,7 @@ class SimbenchScpiBackend:
                 v_lo = spice.node_voltages.get(lo)
                 if v_lo is not None:
                     v_hi = v_hi - v_lo
-            return self._with_measurement_noise(
-                twin.measure(v_hi, sample_rate=sample_rate)
-            )
+            return self._with_measurement_noise(twin.measure(v_hi, sample_rate=sample_rate))
 
         nodes = [hi]
         if lo:
@@ -738,9 +730,7 @@ class SimbenchScpiBackend:
             SimulationRequest(
                 analysis=AnalysisKind.OP,
                 nodes=tuple(nodes),
-                source_currents=(f"{psu_id}.{channel_name}",)
-                if kind == "current"
-                else (),
+                source_currents=(f"{psu_id}.{channel_name}",) if kind == "current" else (),
                 settings=self.session.kernel_settings,
                 required=RequiredFeatures(
                     source_currents=kind == "current",
@@ -795,7 +785,7 @@ class SimbenchScpiBackend:
         self._bind_twin()
         if hasattr(self.twin, "state"):
             state_type = type(self.twin.state)
-            self.twin.state = state_type()  # type: ignore[assignment]
+            cast(Any, self.twin).state = state_type()
         self._scope_selected_source = "CHANnel1"
         self._scope_captures.clear()
         self._scope_preambles.clear()
@@ -806,7 +796,7 @@ class SimbenchScpiBackend:
         state = getattr(self.session, "_simbench_runtime", None)
         if not isinstance(state, dict):
             state = {}
-            self.session._simbench_runtime = state
+            cast(Any, self.session)._simbench_runtime = state
         return state
 
     def _dmm_voltage_nodes(self) -> tuple[str | None, str | None]:
@@ -820,9 +810,7 @@ class SimbenchScpiBackend:
         return hi, lo
 
     def _scope_nodes_for_source(self, source: str) -> tuple[str | None, str | None]:
-        match = re.search(
-            r"(?:CHAN(?:NEL)?|CH)(\d+)", source.strip(), flags=re.IGNORECASE
-        )
+        match = re.search(r"(?:CHAN(?:NEL)?|CH)(\d+)", source.strip(), flags=re.IGNORECASE)
         if not match:
             return None, None
         ch = match.group(1)
@@ -834,17 +822,13 @@ class SimbenchScpiBackend:
     def _scope_channel_index(value: str | None) -> int | None:
         if not value:
             return None
-        match = re.search(
-            r"(?:CHAN(?:NEL)?|CH)(\d+)", value.strip(), flags=re.IGNORECASE
-        )
+        match = re.search(r"(?:CHAN(?:NEL)?|CH)(\d+)", value.strip(), flags=re.IGNORECASE)
         if not match:
             return None
         return int(match.group(1))
 
     def _probe_attenuation_for_source(self, source: str) -> float:
-        match = re.search(
-            r"(?:CHAN(?:NEL)?|CH)(\d+)", source.strip(), flags=re.IGNORECASE
-        )
+        match = re.search(r"(?:CHAN(?:NEL)?|CH)(\d+)", source.strip(), flags=re.IGNORECASE)
         if not match:
             return 1.0
         ch = match.group(1)
@@ -889,15 +873,12 @@ class SimbenchScpiBackend:
         enabled_freqs = [
             float(awg.state.frequency_hz)
             for awg in self.session.awgs.values()
-            if getattr(awg.state, "enabled", False)
-            and float(awg.state.frequency_hz) > 0
+            if getattr(awg.state, "enabled", False) and float(awg.state.frequency_hz) > 0
         ]
         duration = aperture
         if enabled_freqs:
             duration = max(duration, 5.0 / min(enabled_freqs))
-        sample_rate = max(
-            50_000.0, max(enabled_freqs) * 10.0 if enabled_freqs else 50_000.0
-        )
+        sample_rate = max(50_000.0, max(enabled_freqs) * 10.0 if enabled_freqs else 50_000.0)
         record_length = max(2, int(round(duration * sample_rate)))
         return sample_rate, record_length
 

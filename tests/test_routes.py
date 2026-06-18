@@ -112,7 +112,9 @@ def test_route_validation_rejects_non_switching_route_devices():
 
     scope_errors = validate_declared_routes(scope_config)
 
-    assert any("route device 'scope' must be declared under devices" in error for error in scope_errors)
+    assert any(
+        "route device 'scope' must be declared under devices" in error for error in scope_errors
+    )
 
 
 def test_route_validation_rejects_bad_channel_suffix_and_target_mismatch():
@@ -132,8 +134,7 @@ def test_route_validation_rejects_bad_channel_suffix_and_target_mismatch():
     mismatch_errors = prepare_declared_measurements(mismatch_config).errors
 
     assert any(
-        "does not include one of the measurement target endpoint" in error
-        and "scope.CH1" in error
+        "does not include one of the measurement target endpoint" in error and "scope.CH1" in error
         for error in mismatch_errors
     )
 
@@ -179,7 +180,9 @@ def test_dc_load_routes_are_rejected_until_endpoint_semantics_exist():
 
     errors = prepare_declared_measurements(config).errors
 
-    assert any("routes are not supported for target kind 'dc_load_readback'" in error for error in errors)
+    assert any(
+        "routes are not supported for target kind 'dc_load_readback'" in error for error in errors
+    )
 
 
 def test_measurement_plan_route_accessories_must_match_applied_chain():
@@ -189,7 +192,10 @@ def test_measurement_plan_route_accessories_must_match_applied_chain():
 
     errors = prepare_declared_measurements(config).errors
 
-    assert any("physical route provenance and applied uncertainty corrections cannot drift" in error for error in errors)
+    assert any(
+        "physical route provenance and applied uncertainty corrections cannot drift" in error
+        for error in errors
+    )
 
     reverse_drift = _route_bench_data()
     reverse_drift["routes"]["scope_ch1_to_dut_input"]["accessories"] = []
@@ -197,7 +203,10 @@ def test_measurement_plan_route_accessories_must_match_applied_chain():
 
     reverse_errors = prepare_declared_measurements(reverse_drift_config).errors
 
-    assert any("physical route provenance and applied uncertainty corrections cannot drift" in error for error in reverse_errors)
+    assert any(
+        "physical route provenance and applied uncertainty corrections cannot drift" in error
+        for error in reverse_errors
+    )
 
 
 def test_bench_route_and_measurement_wrappers_are_dry_run(tmp_path):
@@ -386,7 +395,9 @@ def test_route_validation_reports_endpoint_profile_load_failure(tmp_path):
 
     errors = validate_declared_routes(config, base_path=tmp_path)
 
-    assert any("failed to load route endpoint resource 'scope' profile" in error for error in errors)
+    assert any(
+        "failed to load route endpoint resource 'scope' profile" in error for error in errors
+    )
 
 
 def test_route_validation_checks_switch_matrix_paths(tmp_path):

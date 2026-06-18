@@ -119,8 +119,7 @@ class SimSession:
         if isinstance(netlist, Netlist):
             if netlist.source is None:
                 raise ValueError(
-                    "Netlist has no source file to simulate; build it with "
-                    "Netlist.from_file(path)."
+                    "Netlist has no source file to simulate; build it with Netlist.from_file(path)."
                 )
             netlist_path: Path = netlist.source
         else:
@@ -159,18 +158,14 @@ class SimSession:
         )
 
     def dmm(self, port_name: str) -> SimDMM:
-        self._require_port_kind(
-            port_name, (PortKind.MEASUREMENT, PortKind.CURRENT_MEASUREMENT)
-        )
+        self._require_port_kind(port_name, (PortKind.MEASUREMENT, PortKind.CURRENT_MEASUREMENT))
         return SimDMM(
             self._require_session(),
             self._instrument_for_port[port_name],
             mode=self._ports[port_name].kind,
         )
 
-    def probe(
-        self, hi_node: str | NodeRef, lo_node: str | NodeRef = "0"
-    ) -> SimProbe:
+    def probe(self, hi_node: str | NodeRef, lo_node: str | NodeRef = "0") -> SimProbe:
         session = self._require_session()
         session.validate_nodes(_node_str(hi_node), _node_str(lo_node))
         return SimProbe(session, Port.probe(hi_node, lo_node))
@@ -234,9 +229,7 @@ class SimSession:
         step: float,
         nodes: list[str],
     ) -> SpiceResult:
-        spec = DcSweepSpec(
-            source=source, start=float(start), stop=float(stop), step=float(step)
-        )
+        spec = DcSweepSpec(source=source, start=float(start), stop=float(stop), step=float(step))
         session = self._require_session()
         return session.kernel.dc_sweep(
             session,
@@ -300,9 +293,7 @@ class SimSession:
             elif port.kind == PortKind.SUPPLY:
                 inst = f"psu{psu_n}"
                 psu_n += 1
-                instruments[inst] = PSU(
-                    channels=[PSUChannel(name="CH1", v_max=60.0, i_max=5.0)]
-                )
+                instruments[inst] = PSU(channels=[PSUChannel(name="CH1", v_max=60.0, i_max=5.0)])
                 connections.extend(
                     [
                         Connection(from_=f"{inst}.CH1.HI", to=port.hi_node),
@@ -343,9 +334,7 @@ class SimSession:
                 raise ValueError(f"unsupported port kind: {port.kind}")
             self._instrument_for_port[name] = inst
 
-        bench = BenchConfig(
-            bench_id=f"sim-{self.netlist_path.stem}", instruments=instruments
-        )
+        bench = BenchConfig(bench_id=f"sim-{self.netlist_path.stem}", instruments=instruments)
         wiring = WiringConfig(
             connections=connections,
             rules=WiringRules(allow_output_sharing=True),
@@ -375,9 +364,7 @@ class SimSession:
         assert self._session is not None
         return self._session
 
-    def _require_port_kind(
-        self, port_name: str, kind: PortKind | tuple[PortKind, ...]
-    ) -> None:
+    def _require_port_kind(self, port_name: str, kind: PortKind | tuple[PortKind, ...]) -> None:
         port = self._ports.get(port_name)
         if port is None:
             raise KeyError(f"unknown port: {port_name}")
@@ -591,26 +578,18 @@ class PSUChannelProxy:
         return self
 
     def on(self) -> PSUChannelProxy:
-        self.session.psus[self.instrument_id].set_state(
-            channel=self.channel_name, enabled=True
-        )
+        self.session.psus[self.instrument_id].set_state(channel=self.channel_name, enabled=True)
         return self
 
     def off(self) -> PSUChannelProxy:
-        self.session.psus[self.instrument_id].set_state(
-            channel=self.channel_name, enabled=False
-        )
+        self.session.psus[self.instrument_id].set_state(channel=self.channel_name, enabled=False)
         return self
 
     def read_voltage(self) -> float:
-        return SimPSU(self.session, self.instrument_id).read_voltage(
-            int(self.channel_name[2:])
-        )
+        return SimPSU(self.session, self.instrument_id).read_voltage(int(self.channel_name[2:]))
 
     def read_current(self) -> float:
-        return SimPSU(self.session, self.instrument_id).read_current(
-            int(self.channel_name[2:])
-        )
+        return SimPSU(self.session, self.instrument_id).read_current(int(self.channel_name[2:]))
 
 
 class SimScope:
@@ -619,9 +598,7 @@ class SimScope:
         self.instrument_id = instrument_id
         self.port = port
 
-    def trigger(
-        self, level: float, slope: str = "POS", source: str | None = None
-    ) -> SimScope:
+    def trigger(self, level: float, slope: str = "POS", source: str | None = None) -> SimScope:
         scope = self.session.scopes[self.instrument_id]
         state = {"trigger_level": level, "trigger_slope": slope}
         if source is not None:
@@ -652,9 +629,7 @@ class SimScope:
     def capture(self, duration: float, sample_rate: float) -> WaveformResult:
         scope = self.session.scopes[self.instrument_id]
         record_length = _record_length(duration, sample_rate)
-        scope.set_state(
-            enabled=True, sample_rate=sample_rate, record_length=record_length
-        )
+        scope.set_state(enabled=True, sample_rate=sample_rate, record_length=record_length)
         result = self.session.kernel.transient(
             self.session,
             _node_list(self.session, self.port.hi_node, self.port.lo_node),
@@ -690,9 +665,7 @@ class SimScope:
             metadata=dict(waveform.metadata),
         )
 
-    def measure_voltage_peak_to_peak(
-        self, duration: float, sample_rate: float
-    ) -> float:
+    def measure_voltage_peak_to_peak(self, duration: float, sample_rate: float) -> float:
         return self.capture(duration, sample_rate).peak_to_peak()
 
     def measure_rms_voltage(self, duration: float, sample_rate: float) -> float:
@@ -724,9 +697,7 @@ class SimScope:
             settings=self.session.kernel_settings,
             params=_model_params(self.session),
         )
-        return bode_from_ac_result(
-            result, input_node=source_hi, output_node=self.port.hi_node
-        )
+        return bode_from_ac_result(result, input_node=source_hi, output_node=self.port.hi_node)
 
     def step_response(
         self,
@@ -762,9 +733,7 @@ class SimScope:
         if duration is None:
             duration = 10.0 / float(freq_hz)
         if sample_rate is None:
-            sample_rate = max(
-                float(freq_hz) * 100.0, float(freq_hz) * (n_harmonics + 2) * 2.5
-            )
+            sample_rate = max(float(freq_hz) * 100.0, float(freq_hz) * (n_harmonics + 2) * 2.5)
         source.sine(
             freq_hz=freq_hz,
             amplitude_vpp=self.session.awgs[source.instrument_id].state.amplitude_vpp,
@@ -799,9 +768,7 @@ class SimScope:
         )
         vin = result.node_voltages[source_hi]
         vout = result.node_voltages[self.port.hi_node]
-        h = np.divide(
-            vout, vin, out=np.zeros_like(vout, dtype=complex), where=np.abs(vin) > 0
-        )
+        h = np.divide(vout, vin, out=np.zeros_like(vout, dtype=complex), where=np.abs(vin) > 0)
         return impedance_deembed(result.scale, h, r_sense_ohm)
 
 
@@ -922,23 +889,17 @@ class SimDMM:
 
     def read(self) -> float:
         if self.mode == PortKind.CURRENT_MEASUREMENT:
-            function = _normalize_dmm_function(
-                self.session.dmms[self.instrument_id].state.function
-            )
+            function = _normalize_dmm_function(self.session.dmms[self.instrument_id].state.function)
             reject_unsupported_dmm_function(function)
             return self.read_dc_current()
         if self.mode == PortKind.MEASUREMENT:
-            function = _normalize_dmm_function(
-                self.session.dmms[self.instrument_id].state.function
-            )
+            function = _normalize_dmm_function(self.session.dmms[self.instrument_id].state.function)
             reject_unsupported_dmm_function(function)
             self._raise_if_function_incompatible(function)
             if function == "ACV":
                 return self.read_ac_voltage()
             return self.read_dc_voltage()
-        function = _normalize_dmm_function(
-            self.session.dmms[self.instrument_id].state.function
-        )
+        function = _normalize_dmm_function(self.session.dmms[self.instrument_id].state.function)
         reject_unsupported_dmm_function(function)
         if function == "ACV":
             return self.read_ac_voltage()
@@ -1051,10 +1012,7 @@ def _mapped_terminal_pair(
     session: Session, instrument_id: str, hi_suffix: str, lo_suffix: str
 ) -> tuple[str, str]:
     hi = session.mapping.get(f"{instrument_id}.{hi_suffix}")
-    lo = (
-        session.mapping.get(f"{instrument_id}.{lo_suffix}")
-        or session.wiring.ground_node
-    )
+    lo = session.mapping.get(f"{instrument_id}.{lo_suffix}") or session.wiring.ground_node
     if hi is None:
         raise ValueError(f"{instrument_id}.{hi_suffix} is not wired")
     return hi, lo

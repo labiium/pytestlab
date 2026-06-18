@@ -164,9 +164,7 @@ def test_eespice_kernel_is_opt_in_and_reason_coded(tmp_path) -> None:
         circuit=_circuit(tmp_path),
         bench=BenchConfig(
             bench_id="psu",
-            instruments={
-                "psu1": PSU(channels=[PSUChannel(name="CH1", v_max=30.0, i_max=1.0)])
-            },
+            instruments={"psu1": PSU(channels=[PSUChannel(name="CH1", v_max=30.0, i_max=1.0)])},
         ),
         wiring=WiringConfig(
             connections=[

@@ -20,7 +20,6 @@ from ..common.enums import TriggerSlope
 from ..common.enums import WaveformType
 from ..common.health import HealthReport
 from ..common.health import HealthStatus
-from ..uncertainty import Quantity as MeasurementQuantity
 from ..config.instrument_config import InstrumentConfig  # Import base config
 
 # from ..config import OscilloscopeConfig, ConfigRequires # OscilloscopeConfig is V2
@@ -29,6 +28,7 @@ from ..errors import InstrumentConfigurationError
 from ..errors import InstrumentDataError
 from ..errors import InstrumentParameterError
 from ..experiments import MeasurementResult
+from ..uncertainty import Quantity as MeasurementQuantity
 from .instrument import Instrument
 from .scpi_binary import BinaryBlockParseError
 from .scpi_binary import definite_length_block_to_array
@@ -1006,7 +1006,12 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             spec = self.config.measurement_accuracy.get(mode_key)
             if spec:
                 context = oscilloscope_measurement_context(
-                    self.config, channel=channel, reading=reading, unit="V", function="measure_vpp", instrument_key=f"{self.config.model}:{id(self)}"
+                    self.config,
+                    channel=channel,
+                    reading=reading,
+                    unit="V",
+                    function="measure_vpp",
+                    instrument_key=f"{self.config.model}:{id(self)}",
                 )
                 quantity = nonzero_uncertainty_quantity(
                     spec,
@@ -1066,7 +1071,12 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             spec = self.config.measurement_accuracy.get(mode_key)
             if spec:
                 context = oscilloscope_measurement_context(
-                    self.config, channel=channel, reading=reading, unit="V", function="measure_vrms", instrument_key=f"{self.config.model}:{id(self)}"
+                    self.config,
+                    channel=channel,
+                    reading=reading,
+                    unit="V",
+                    function="measure_vrms",
+                    instrument_key=f"{self.config.model}:{id(self)}",
                 )
                 quantity = nonzero_uncertainty_quantity(
                     spec,
@@ -1826,9 +1836,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             )
 
         # 1. Acquire raw time-domain waveform data
-        waveform_data: ChannelReadingResult = self.read_channels(
-            channel, timeout_ms=timeout_ms
-        )
+        waveform_data: ChannelReadingResult = self.read_channels(channel, timeout_ms=timeout_ms)
 
         if not isinstance(waveform_data.values, pl.DataFrame) or waveform_data.values.is_empty():
             self._logger.warning(

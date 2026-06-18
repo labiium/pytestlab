@@ -42,10 +42,13 @@ class DistSpec(BaseModel):
 
     def sample(self, rng: random.Random) -> float:
         if self.type == "uniform":
+            assert self.low is not None and self.high is not None
             return rng.uniform(float(self.low), float(self.high))
         if self.type == "normal":
+            assert self.mean is not None and self.sigma is not None
             return rng.normalvariate(float(self.mean), float(self.sigma))
         if self.type == "lognormal":
+            assert self.mean is not None and self.sigma is not None
             return rng.lognormvariate(float(self.mean), float(self.sigma))
         raise ValueError(f"unknown distribution {self.type}")
 

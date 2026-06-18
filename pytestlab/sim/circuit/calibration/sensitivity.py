@@ -70,6 +70,11 @@ def check_parameter_sensitivity(
         minus_value = float(observable_fn(minus))
         denom = plus[name] - minus[name]
         derivative = 0.0 if denom == 0 else (plus_value - minus_value) / denom
-        if abs(plus_value - baseline) >= min_observable_delta or abs(minus_value - baseline) >= min_observable_delta:
-            results.append(SensitivityResult(baseline=baseline, derivatives={name: derivative}, parameter=name))
+        if (
+            abs(plus_value - baseline) >= min_observable_delta
+            or abs(minus_value - baseline) >= min_observable_delta
+        ):
+            results.append(
+                SensitivityResult(baseline=baseline, derivatives={name: derivative}, parameter=name)
+            )
     return results

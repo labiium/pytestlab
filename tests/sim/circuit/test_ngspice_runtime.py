@@ -4,6 +4,7 @@ A missing binary must fail with actionable install guidance (system package
 managers + the Docker image), since `pip install pytestlab[circuit]` cannot
 provide ngspice itself.
 """
+
 from __future__ import annotations
 
 from pytestlab.sim.circuit.spice import NgspiceNotFound

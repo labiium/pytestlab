@@ -74,7 +74,9 @@ class ParameterSet:
     def manifest_payload(self, values: dict[str, float] | None = None) -> dict[str, object]:
         resolved = self.bounded_values(values)
         return {
-            "parameters": [asdict(decl) | {"value": resolved[decl.name]} for decl in self.declarations],
+            "parameters": [
+                asdict(decl) | {"value": resolved[decl.name]} for decl in self.declarations
+            ],
             "parameter_hash": self.parameter_hash(resolved),
         }
 

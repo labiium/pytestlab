@@ -71,19 +71,13 @@ class ValidationReport:
         }
 
     def write_json(self, path: str | Path) -> None:
-        Path(path).write_text(
-            json.dumps(self.to_json_dict(), indent=2, sort_keys=True) + "\n"
-        )
+        Path(path).write_text(json.dumps(self.to_json_dict(), indent=2, sort_keys=True) + "\n")
 
     def write_markdown(self, path: str | Path) -> None:
         Path(path).write_text(self.to_markdown())
 
     def to_markdown(self) -> str:
-        status = (
-            self.status.value.upper()
-            if self.status
-            else ("PASS" if self.passed else "FAIL")
-        )
+        status = self.status.value.upper() if self.status else ("PASS" if self.passed else "FAIL")
         lines = ["# Calibration Validation Report", "", f"Status: **{status}**", ""]
         if self.dataset_hash:
             lines += [f"Dataset hash: `{self.dataset_hash}`", ""]
@@ -96,20 +90,12 @@ class ValidationReport:
         for split, metrics in sorted(self.metrics.items()):
             lines.append(f"### {split}")
             for metric in metrics:
-                threshold = (
-                    ""
-                    if metric.threshold is None
-                    else f" (threshold {metric.threshold:g})"
-                )
+                threshold = "" if metric.threshold is None else f" (threshold {metric.threshold:g})"
                 passed = (
-                    ""
-                    if metric.passed is None
-                    else f" [{'PASS' if metric.passed else 'FAIL'}]"
+                    "" if metric.passed is None else f" [{'PASS' if metric.passed else 'FAIL'}]"
                 )
                 unit = f" {metric.unit}" if metric.unit else ""
-                lines.append(
-                    f"- {metric.name}: {metric.value:g}{unit}{threshold}{passed}"
-                )
+                lines.append(f"- {metric.name}: {metric.value:g}{unit}{threshold}{passed}")
         for name, group in (
             ("train", self.train_metrics),
             ("validation", self.validation_metrics),
@@ -131,9 +117,7 @@ def build_validation_report(*args, **kwargs) -> ValidationReport:
     if args and isinstance(args[0], CalibrationDataset):
         dataset = args[0]
         metrics = kwargs["metrics"]
-        metric_statuses = [
-            metric.passed for split in metrics.values() for metric in split
-        ]
+        metric_statuses = [metric.passed for split in metrics.values() for metric in split]
         passed = all(status is not False for status in metric_statuses)
         return ValidationReport(
             dataset_hash=dataset.content_hash(),
@@ -239,9 +223,7 @@ def normalize_validation_report_v2(report: dict[str, Any]) -> dict[str, Any]:
     }
     missing = sorted(required.difference(report))
     if missing:
-        raise ValueError(
-            f"validation_report.json v2 missing required fields: {', '.join(missing)}"
-        )
+        raise ValueError(f"validation_report.json v2 missing required fields: {', '.join(missing)}")
     if int(report["schema_version"]) != 2:
         raise ValueError("validation_report.json must use schema_version=2")
 
@@ -251,9 +233,7 @@ def normalize_validation_report_v2(report: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("hardware_validated must match validation_status")
     source = str(report["source"])
     if source not in {"synthetic", "hardware", "mixed"}:
-        raise ValueError(
-            "validation_report source must be synthetic, hardware, or mixed"
-        )
+        raise ValueError("validation_report source must be synthetic, hardware, or mixed")
     if status == HardwareValidationStatus.HARDWARE_VALIDATED and source == "synthetic":
         raise ValueError("synthetic reports cannot be hardware_validated")
 
@@ -270,12 +250,8 @@ def normalize_validation_report_v2(report: dict[str, Any]) -> dict[str, Any]:
             HardwareValidationStatus.HARDWARE_VALIDATED,
             HardwareValidationStatus.HARDWARE_FAILED,
         }:
-            raise ValueError(
-                "hardware validation requires split.strategy=sweep_id_holdout"
-            )
-    train_sweeps = (
-        list(split.get("train_sweep_ids", [])) if isinstance(split, dict) else []
-    )
+            raise ValueError("hardware validation requires split.strategy=sweep_id_holdout")
+    train_sweeps = list(split.get("train_sweep_ids", [])) if isinstance(split, dict) else []
     validation_sweeps = (
         list(split.get("validation_sweep_ids", [])) if isinstance(split, dict) else []
     )
@@ -288,9 +264,7 @@ def normalize_validation_report_v2(report: dict[str, Any]) -> dict[str, Any]:
                 "hardware validation reports require train and held-out validation_sweep_ids"
             )
         if set(train_sweeps).intersection(validation_sweeps):
-            raise ValueError(
-                "train_sweep_ids and validation_sweep_ids must be disjoint"
-            )
+            raise ValueError("train_sweep_ids and validation_sweep_ids must be disjoint")
 
     thresholds = _validate_thresholds(report.get("thresholds"))
     metrics = _validate_metrics(report.get("metrics"))
@@ -298,33 +272,23 @@ def normalize_validation_report_v2(report: dict[str, Any]) -> dict[str, Any]:
         HardwareValidationStatus.HARDWARE_VALIDATED,
         HardwareValidationStatus.HARDWARE_FAILED,
     }:
-        missing_thresholds = sorted(
-            _REQUIRED_TWO_TRANSISTOR_METRICS.difference(thresholds)
-        )
+        missing_thresholds = sorted(_REQUIRED_TWO_TRANSISTOR_METRICS.difference(thresholds))
         if missing_thresholds:
             raise ValueError(
-                "hardware validation reports missing thresholds: "
-                + ", ".join(missing_thresholds)
+                "hardware validation reports missing thresholds: " + ", ".join(missing_thresholds)
             )
         missing_metrics = sorted(_REQUIRED_TWO_TRANSISTOR_METRICS.difference(metrics))
         if missing_metrics:
             raise ValueError(
-                "hardware validation reports missing metrics: "
-                + ", ".join(missing_metrics)
+                "hardware validation reports missing metrics: " + ", ".join(missing_metrics)
             )
-        passed_values = [
-            bool(metrics[name]["passed"]) for name in _REQUIRED_TWO_TRANSISTOR_METRICS
-        ]
-        if status == HardwareValidationStatus.HARDWARE_VALIDATED and not all(
-            passed_values
-        ):
+        passed_values = [bool(metrics[name]["passed"]) for name in _REQUIRED_TWO_TRANSISTOR_METRICS]
+        if status == HardwareValidationStatus.HARDWARE_VALIDATED and not all(passed_values):
             raise ValueError("hardware_validated reports require all metrics to pass")
         for name in _REQUIRED_TWO_TRANSISTOR_METRICS:
             _verify_metric_pass_matches_threshold(name, metrics[name], thresholds[name])
         if status == HardwareValidationStatus.HARDWARE_FAILED and all(passed_values):
-            raise ValueError(
-                "hardware_failed reports require at least one failed metric"
-            )
+            raise ValueError("hardware_failed reports require at least one failed metric")
 
     return canonicalize_validation_report_v2(report)
 
@@ -334,15 +298,11 @@ def _require_hash_mapping(value: Any, required_keys: set[str], name: str) -> Non
         raise ValueError(f"validation_report {name} must be an object")
     missing = sorted(required_keys.difference(value))
     if missing:
-        raise ValueError(
-            f"validation_report {name} missing required keys: {', '.join(missing)}"
-        )
+        raise ValueError(f"validation_report {name} missing required keys: {', '.join(missing)}")
     for key in required_keys:
         item = value.get(key)
         if not isinstance(item, str) or not item:
-            raise ValueError(
-                f"validation_report {name}.{key} must be a non-empty string"
-            )
+            raise ValueError(f"validation_report {name}.{key} must be a non-empty string")
 
 
 def _validate_thresholds(value: Any) -> dict[str, dict[str, Any]]:
@@ -352,15 +312,11 @@ def _validate_thresholds(value: Any) -> dict[str, dict[str, Any]]:
         if not isinstance(item, dict):
             raise ValueError(f"validation_report thresholds.{name} must be an object")
         if item.get("comparator") not in {"<=", ">="}:
-            raise ValueError(
-                f"validation_report thresholds.{name}.comparator must be <= or >="
-            )
+            raise ValueError(f"validation_report thresholds.{name}.comparator must be <= or >=")
         try:
             float(item["limit"])
         except (KeyError, TypeError, ValueError) as exc:
-            raise ValueError(
-                f"validation_report thresholds.{name}.limit must be numeric"
-            ) from exc
+            raise ValueError(f"validation_report thresholds.{name}.limit must be numeric") from exc
     return value
 
 
@@ -373,9 +329,7 @@ def _validate_metrics(value: Any) -> dict[str, dict[str, Any]]:
         try:
             float(item["value"])
         except (KeyError, TypeError, ValueError) as exc:
-            raise ValueError(
-                f"validation_report metrics.{name}.value must be numeric"
-            ) from exc
+            raise ValueError(f"validation_report metrics.{name}.value must be numeric") from exc
         if not isinstance(item.get("passed"), bool):
             raise ValueError(f"validation_report metrics.{name}.passed must be boolean")
         if "units" in item and not isinstance(item["units"], str):
@@ -391,9 +345,7 @@ def _verify_metric_pass_matches_threshold(
     comparator = str(threshold["comparator"])
     expected = value <= limit if comparator == "<=" else value >= limit
     if bool(metric["passed"]) != expected:
-        raise ValueError(
-            f"validation_report metrics.{name}.passed disagrees with threshold"
-        )
+        raise ValueError(f"validation_report metrics.{name}.passed disagrees with threshold")
 
 
 def _hash_matches(declared: Any, actual: Any) -> bool:
@@ -444,9 +396,7 @@ def resolve_validation_status(
                 else HardwareValidationStatus.HARDWARE_UNVALIDATED
             )
         else:
-            raw_status = str(
-                report.get("validation_status") or report.get("status") or ""
-            )
+            raw_status = str(report.get("validation_status") or report.get("status") or "")
             status = (
                 HardwareValidationStatus.SYNTHETIC_ONLY
                 if raw_status == HardwareValidationStatus.SYNTHETIC_ONLY.value
@@ -483,11 +433,7 @@ def resolve_validation_status(
     report_status = HardwareValidationStatus(str(normalized["validation_status"]))
     report_hardware = bool(normalized["hardware_validated"])
     if manifest_status is not None and str(manifest_status) != report_status.value:
-        raise ValueError(
-            "manifest validation_status disagrees with validation_report.json"
-        )
+        raise ValueError("manifest validation_status disagrees with validation_report.json")
     if manifest_hardware is not None and bool(manifest_hardware) != report_hardware:
-        raise ValueError(
-            "manifest hardware_validated disagrees with validation_report.json"
-        )
+        raise ValueError("manifest hardware_validated disagrees with validation_report.json")
     return ValidationResolution(report_status, report_hardware, schema_version)

@@ -35,9 +35,7 @@ class CapturingKernel:
     ):
         self.calls.append(params)
         t = np.arange(record_length) / sample_rate
-        return SpiceResult(
-            "tran", t, "s", {node: np.ones(record_length) for node in nodes}, {}, ()
-        )
+        return SpiceResult("tran", t, "s", {node: np.ones(record_length) for node in nodes}, {}, ())
 
     def ac(self, session, nodes, sweep, *, settings=None, currents=None, params=None):
         self.calls.append(params)
@@ -51,9 +49,7 @@ class CapturingKernel:
             (),
         )
 
-    def dc_sweep(
-        self, session, nodes, sweep, *, settings=None, currents=None, params=None
-    ):
+    def dc_sweep(self, session, nodes, sweep, *, settings=None, currents=None, params=None):
         self.calls.append(params)
         scale = np.asarray([sweep.start, sweep.stop])
         return SpiceResult("dc", scale, "V", {node: scale for node in nodes}, {}, ())

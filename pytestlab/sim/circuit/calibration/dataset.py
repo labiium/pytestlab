@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
 from typing import Any
+from typing import TypedDict
 
 _LONG_REQUIRED = {"observable", "measured_value", "measured_unit"}
 _WIDE_OBSERVABLES = {
@@ -22,6 +23,20 @@ _WIDE_OBSERVABLES = {
     "phase_deg": ("phase", "deg"),
     "transition_state": ("transition_state", "state"),
 }
+
+
+class _WideRowBase(TypedDict):
+    experiment_id: str
+    sweep_id: str | None
+    split: str
+    analysis: str
+    temperature_c: float | None
+    vcc_v: float | None
+    vbias_v: float | None
+    vin_v: float | None
+    freq_hz: float | None
+    time_s: float | None
+    uncertainty: float | None
 
 
 @dataclass(frozen=True)
@@ -47,7 +62,7 @@ class CalibrationRow:
             raise ValueError("observable is required")
         if not self.measured_unit:
             raise ValueError("measured_unit is required")
-        if self.measured_value is None:  # type: ignore[comparison-overlap]
+        if self.measured_value is None:
             raise ValueError("measured_value is required")
         if self.split not in {"train", "validation", "test"}:
             raise ValueError("split must be train, validation, or test")
@@ -80,9 +95,7 @@ class CalibrationDataset:
         return cls(tuple(rows), metadata or {})
 
     @classmethod
-    def load_csv(
-        cls, path: str | Path, *, wide: bool | None = None
-    ) -> CalibrationDataset:
+    def load_csv(cls, path: str | Path, *, wide: bool | None = None) -> CalibrationDataset:
         path = Path(path)
         with path.open(newline="") as f:
             reader = csv.DictReader(f)
@@ -107,9 +120,7 @@ class CalibrationDataset:
                     payload = json.loads(line)
                     rows.append(_row_from_mapping(payload))
                 except Exception as exc:  # pragma: no cover - defensive context
-                    raise ValueError(
-                        f"invalid calibration JSONL row {lineno}: {exc}"
-                    ) from exc
+                    raise ValueError(f"invalid calibration JSONL row {lineno}: {exc}") from exc
         return cls.from_rows(rows, metadata={"source": str(path), "format": "jsonl"})
 
     def save_csv(self, path: str | Path) -> None:
@@ -149,9 +160,7 @@ class CalibrationDataset:
         rows = []
         for row in self.rows:
             payload = asdict(row)
-            payload["split"] = (
-                "validation" if str(getattr(row, key)) in validation else "train"
-            )
+            payload["split"] = "validation" if str(getattr(row, key)) in validation else "train"
             rows.append(CalibrationRow(**payload))
         return CalibrationDataset(tuple(rows), dict(self.metadata))
 
@@ -210,9 +219,7 @@ def _parse_long_rows(rows: list[dict[str, str]]) -> list[CalibrationRow]:
     for index, raw in enumerate(rows, start=1):
         missing = [name for name in sorted(_LONG_REQUIRED) if not raw.get(name)]
         if missing:
-            raise ValueError(
-                f"row {index} missing required fields: {', '.join(missing)}"
-            )
+            raise ValueError(f"row {index} missing required fields: {', '.join(missing)}")
         parsed.append(_row_from_mapping(raw))
     return parsed
 
@@ -220,16 +227,12 @@ def _parse_long_rows(rows: list[dict[str, str]]) -> list[CalibrationRow]:
 def _parse_wide_rows(rows: list[dict[str, str]]) -> list[CalibrationRow]:
     parsed: list[CalibrationRow] = []
     for index, raw in enumerate(rows, start=1):
-        base = {
-            "experiment_id": raw.get("experiment")
-            or raw.get("experiment_id")
-            or f"row-{index}",
+        base: _WideRowBase = {
+            "experiment_id": raw.get("experiment") or raw.get("experiment_id") or f"row-{index}",
             "sweep_id": raw.get("sweep_id") or raw.get("sweep") or None,
             "split": raw.get("split") or "train",
             "analysis": raw.get("analysis") or "op",
-            "temperature_c": _optional_float(
-                raw.get("temp_c") or raw.get("temperature_c")
-            ),
+            "temperature_c": _optional_float(raw.get("temp_c") or raw.get("temperature_c")),
             "vcc_v": _optional_float(raw.get("vcc_v")),
             "vbias_v": _optional_float(raw.get("vbias_v")),
             "vin_v": _optional_float(raw.get("vin_v")),
@@ -241,14 +244,10 @@ def _parse_wide_rows(rows: list[dict[str, str]]) -> list[CalibrationRow]:
             value = raw.get(column)
             if value in (None, ""):
                 continue
-            measured: float | str = (
-                value if column == "transition_state" else float(value)
-            )
+            measured: float | str = value if column == "transition_state" else float(value)
             parsed.append(CalibrationRow(observable, measured, unit, **base))
     if not parsed:
-        raise ValueError(
-            "wide calibration CSV did not contain recognized observable columns"
-        )
+        raise ValueError("wide calibration CSV did not contain recognized observable columns")
     return parsed
 
 
@@ -269,9 +268,7 @@ def _row_from_mapping(raw: dict[str, Any]) -> CalibrationRow:
         measured_value=measured,
         measured_unit=str(raw.get("measured_unit") or ""),
         experiment_id=str(raw.get("experiment_id") or "default"),
-        sweep_id=str(raw.get("sweep_id"))
-        if raw.get("sweep_id") not in (None, "")
-        else None,
+        sweep_id=str(raw.get("sweep_id")) if raw.get("sweep_id") not in (None, "") else None,
         split=str(raw.get("split") or "train"),
         analysis=str(raw.get("analysis") or "op"),
         temperature_c=_optional_float(raw.get("temperature_c")),

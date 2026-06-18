@@ -61,12 +61,16 @@ def test_complex_magnitude_and_phase_propagation():
 
 def test_complex_product_covariance_symmetric_psd():
     reg = AtomRegistry()
-    g1 = ComplexQuantity(*QuantityVector.from_covariance(
-        [0.5, 0.1], np.array([[1e-4, 0.0], [0.0, 1e-4]]), registry=reg, key_prefix="g1"
-    ).components)
-    g2 = ComplexQuantity(*QuantityVector.from_covariance(
-        [0.2, 0.3], np.array([[2e-4, 0.0], [0.0, 1e-4]]), registry=reg, key_prefix="g2"
-    ).components)
+    g1 = ComplexQuantity(
+        *QuantityVector.from_covariance(
+            [0.5, 0.1], np.array([[1e-4, 0.0], [0.0, 1e-4]]), registry=reg, key_prefix="g1"
+        ).components
+    )
+    g2 = ComplexQuantity(
+        *QuantityVector.from_covariance(
+            [0.2, 0.3], np.array([[2e-4, 0.0], [0.0, 1e-4]]), registry=reg, key_prefix="g2"
+        ).components
+    )
     prod = g1 * g2
     cov = prod.covariance_matrix()
     assert cov == pytest.approx(cov.T)

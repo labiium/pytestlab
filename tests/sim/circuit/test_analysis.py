@@ -49,9 +49,7 @@ def test_bode_from_ac_result() -> None:
 def test_compute_spectrum_and_thd() -> None:
     sample_rate = 20_000.0
     time = np.arange(0.0, 1.0, 1.0 / sample_rate)
-    voltage = np.sin(2.0 * np.pi * 1_000.0 * time) + 0.1 * np.sin(
-        2.0 * np.pi * 2_000.0 * time
-    )
+    voltage = np.sin(2.0 * np.pi * 1_000.0 * time) + 0.1 * np.sin(2.0 * np.pi * 2_000.0 * time)
 
     spectrum = compute_spectrum(time, voltage, window="rect")
     metrics = thd_n_from_spectrum(spectrum, n_harmonics=3)

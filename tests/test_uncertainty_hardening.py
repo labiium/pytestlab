@@ -321,7 +321,9 @@ def test_monte_carlo_spec_behaves_as_composite_analytically():
     budget = MonteCarloAccuracySpec(
         components=[
             AccuracySpec(offset=0.1, distribution=UncertaintyDistribution.TRIANGULAR),
-            AccuracySpec(offset=0.2, distribution=UncertaintyDistribution.NORMAL, coverage_factor=2.0),
+            AccuracySpec(
+                offset=0.2, distribution=UncertaintyDistribution.NORMAL, coverage_factor=2.0
+            ),
         ],
         samples=200,
         seed=7,
@@ -332,7 +334,6 @@ def test_monte_carlo_spec_behaves_as_composite_analytically():
 
 def test_quantity_operations_cover_units_scalars_and_zero_nominal(monkeypatch):
     voltage = quantity(0.1, "V", 2.0)
-    current = quantity(0.01, "A", 0.5)
 
     assert voltage.relative_u == pytest.approx(0.05)
     assert quantity(0.1, "V", 0.0).relative_u == float("inf")

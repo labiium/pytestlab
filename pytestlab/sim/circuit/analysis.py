@@ -24,14 +24,10 @@ def phasor_extract(time_s: np.ndarray, voltage: np.ndarray, freq_hz: float) -> c
     return complex(2.0 * np.mean(volts * basis))
 
 
-def bode_from_ac_result(
-    result: SpiceResult, input_node: str, output_node: str
-) -> BodeResult:
+def bode_from_ac_result(result: SpiceResult, input_node: str, output_node: str) -> BodeResult:
     vin = np.asarray(result.node_voltages[input_node])
     vout = np.asarray(result.node_voltages[output_node])
-    h = np.divide(
-        vout, vin, out=np.zeros_like(vout, dtype=complex), where=np.abs(vin) > 0
-    )
+    h = np.divide(vout, vin, out=np.zeros_like(vout, dtype=complex), where=np.abs(vin) > 0)
     magnitude = np.abs(h)
     mag_db = np.full(magnitude.shape, -np.inf, dtype=float)
     np.log10(magnitude, out=mag_db, where=magnitude > 0)
@@ -183,18 +179,14 @@ def thd_n_from_spectrum(
             continue
         harmonic_indices.append(int(np.argmin(np.abs(freq - target))))
 
-    harmonic_power = (
-        float(np.sum(mag[harmonic_indices] ** 2)) if harmonic_indices else 0.0
-    )
+    harmonic_power = float(np.sum(mag[harmonic_indices] ** 2)) if harmonic_indices else 0.0
     excluded = {0, fund_idx, *harmonic_indices}
     residual_indices = [idx for idx in range(mag.size) if idx not in excluded]
     noise_dist_power = harmonic_power + float(np.sum(mag[residual_indices] ** 2))
     thd = math.sqrt(harmonic_power) / fund if harmonic_power > 0 else 0.0
     thd_n = math.sqrt(noise_dist_power) / fund if noise_dist_power > 0 else 0.0
     sinad = (
-        20.0 * math.log10(fund / math.sqrt(noise_dist_power))
-        if noise_dist_power > 0
-        else math.inf
+        20.0 * math.log10(fund / math.sqrt(noise_dist_power)) if noise_dist_power > 0 else math.inf
     )
 
     spur = 0.0

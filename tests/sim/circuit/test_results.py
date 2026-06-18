@@ -34,9 +34,7 @@ def test_frequency_spectrum_thd() -> None:
 
 def test_bode_result_bandwidth_and_interpolation() -> None:
     freq = np.asarray([10.0, 100.0, 1_000.0])
-    bode = BodeResult(
-        freq, np.asarray([0.0, -1.0, -3.5]), np.asarray([0.0, -30.0, -90.0])
-    )
+    bode = BodeResult(freq, np.asarray([0.0, -1.0, -3.5]), np.asarray([0.0, -30.0, -90.0]))
 
     assert bode.bandwidth_3db() == 1_000.0
     assert np.isclose(bode.gain_at(55.0), -0.5)

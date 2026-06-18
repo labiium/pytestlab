@@ -4,6 +4,7 @@ User-space managers (conda/brew/...) may be run with consent; root-requiring
 managers (apt-get/dnf/...) are only printed for the user to run themselves.
 PyTestLab never invokes sudo or assumes it exists.
 """
+
 from __future__ import annotations
 
 from typer.testing import CliRunner
@@ -22,7 +23,9 @@ def _which_factory(present: set[str]):
 
 def test_already_installed_is_a_noop(monkeypatch):
     # resolve_ngspice is imported inside cli.py from spice.py, so patch at source.
-    monkeypatch.setattr("pytestlab.sim.circuit.spice.resolve_ngspice", lambda cmd: "/usr/bin/ngspice")
+    monkeypatch.setattr(
+        "pytestlab.sim.circuit.spice.resolve_ngspice", lambda cmd: "/usr/bin/ngspice"
+    )
     result = runner.invoke(app, ["sim", "install-ngspice"])
     assert result.exit_code == 0
 
@@ -43,9 +46,7 @@ def test_root_manager_as_nonroot_is_print_only_even_with_yes(monkeypatch):
     monkeypatch.setattr("pytestlab.cli.shutil.which", _which_factory({"apt-get"}))
     monkeypatch.setattr("pytestlab.cli.os.geteuid", lambda: 1000, raising=False)
     ran = {"called": False}
-    monkeypatch.setattr(
-        "subprocess.run", lambda *a, **k: ran.__setitem__("called", True)
-    )
+    monkeypatch.setattr("subprocess.run", lambda *a, **k: ran.__setitem__("called", True))
 
     result = runner.invoke(app, ["sim", "install-ngspice", "--yes"])
     assert result.exit_code == 1
@@ -64,9 +65,7 @@ def test_user_space_manager_runs_with_yes(monkeypatch):
         return "/opt/brew/bin/brew" if name == "brew" else None
 
     monkeypatch.setattr("pytestlab.cli.shutil.which", _which)
-    monkeypatch.setattr(
-        "subprocess.run", lambda *a, **k: state.__setitem__("installed", True)
-    )
+    monkeypatch.setattr("subprocess.run", lambda *a, **k: state.__setitem__("installed", True))
 
     result = runner.invoke(app, ["sim", "install-ngspice", "--yes"])
     assert result.exit_code == 0

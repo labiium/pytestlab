@@ -27,9 +27,7 @@ def _rows() -> list[CalibrationRow]:
 def test_hardware_split_groups_entire_sweeps() -> None:
     dataset = CalibrationDataset.from_rows(_rows(), metadata={"source": "hardware"})
 
-    train, validation = split_hardware_dataset(
-        dataset, validation_fraction=0.25, seed=11
-    )
+    train, validation = split_hardware_dataset(dataset, validation_fraction=0.25, seed=11)
 
     train_sweeps = {row.sweep_id for row in train.rows}
     validation_sweeps = {row.sweep_id for row in validation.rows}

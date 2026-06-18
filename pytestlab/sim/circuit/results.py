@@ -57,11 +57,7 @@ class WaveformResult:
         object.__setattr__(self, "sample_rate", float(self.sample_rate))
 
     def peak_to_peak(self) -> float:
-        return (
-            float(np.max(self.voltage) - np.min(self.voltage))
-            if self.voltage.size
-            else 0.0
-        )
+        return float(np.max(self.voltage) - np.min(self.voltage)) if self.voltage.size else 0.0
 
     def rms(self) -> float:
         return float(np.sqrt(np.mean(self.voltage**2))) if self.voltage.size else 0.0
@@ -97,9 +93,7 @@ class WaveformResult:
 
     def to_dataframe(self):
         pl = _polars()
-        return pl.DataFrame(
-            {"Time (s)": self.time_s, f"Voltage ({self.units})": self.voltage}
-        )
+        return pl.DataFrame({"Time (s)": self.time_s, f"Voltage ({self.units})": self.voltage})
 
     def plot(self, **kwargs) -> None:
         plt = _matplotlib_pyplot()
@@ -209,9 +203,7 @@ class FrequencySpectrum:
     def harmonic_magnitudes(self, n: int) -> np.ndarray:
         if n <= 0:
             return np.asarray([], dtype=float)
-        fundamental = self.fundamental_hz or _dominant_frequency(
-            self.freq_hz, self.magnitude
-        )
+        fundamental = self.fundamental_hz or _dominant_frequency(self.freq_hz, self.magnitude)
         harmonics = []
         for harmonic in range(1, n + 1):
             target = fundamental * harmonic
@@ -293,9 +285,7 @@ class SweepResult:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        object.__setattr__(
-            self, "param_values", np.asarray(self.param_values, dtype=float)
-        )
+        object.__setattr__(self, "param_values", np.asarray(self.param_values, dtype=float))
 
     def __getitem__(self, column: str) -> np.ndarray:
         return np.asarray(self.data[column])

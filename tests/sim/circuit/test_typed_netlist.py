@@ -3,6 +3,7 @@
 A Netlist hands out validated NodeRefs, so node typos fail at the line you
 write them rather than at simulation time.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

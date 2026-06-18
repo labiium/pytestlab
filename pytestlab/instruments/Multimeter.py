@@ -4,11 +4,11 @@
 from dataclasses import dataclass
 from typing import Literal
 
-from pytestlab.uncertainty import Quantity
 from pytestlab.config.instrument_config import InstrumentConfig
 from pytestlab.config.multimeter_config import MultimeterConfig
 from pytestlab.instruments.uncertainty_adapters import dmm_measurement_context
 from pytestlab.instruments.uncertainty_adapters import nonzero_uncertainty_quantity
+from pytestlab.uncertainty import Quantity
 
 from .._log import get_logger
 from ..config.multimeter_config import DMMFunction

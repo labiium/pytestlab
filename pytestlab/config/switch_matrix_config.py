@@ -80,6 +80,5 @@ class SwitchMatrixConfig(DeviceConfig):
         disallowed = sorted(terminals - allowed_terminals)
         if disallowed:
             raise ValueError(
-                f"Route '{name}' uses terminal(s) outside allowed_routes: "
-                f"{', '.join(disallowed)}."
+                f"Route '{name}' uses terminal(s) outside allowed_routes: {', '.join(disallowed)}."
             )

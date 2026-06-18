@@ -530,9 +530,7 @@ def test_monte_carlo_model_is_reproducible():
 
     # A rectangular offset (half-width 0.1) -> standard uncertainty 0.1/sqrt(3).
     reg = AtomRegistry()
-    x = AccuracySpec(offset=0.1).quantity(
-        UncertaintyContext(reading=10.0, unit="V"), reg
-    )
+    x = AccuracySpec(offset=0.1).quantity(UncertaintyContext(reading=10.0, unit="V"), reg)
     r1 = monte_carlo(lambda x: x, {"x": x}, samples=200_000, seed=42, registry=reg)
     r2 = monte_carlo(lambda x: x, {"x": x}, samples=200_000, seed=42, registry=reg)
     assert r1.std == r2.std  # identical seed -> reproducible

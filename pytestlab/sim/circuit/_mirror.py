@@ -4,6 +4,7 @@ Used for platforms that have no upstream/conda-forge ngspice and no usable
 package manager (Linux arm64/armv7). The bundle is relocatable and installs
 into ~/.pytestlab/ngspice/ with no system package manager or root.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -54,9 +55,7 @@ def install_from_mirror(
             expected = resp.read().decode().split()[0].strip()
         actual = hashlib.sha256(tarball.read_bytes()).hexdigest()
         if expected != actual:
-            raise RuntimeError(
-                f"checksum mismatch for {asset}: expected {expected}, got {actual}"
-            )
+            raise RuntimeError(f"checksum mismatch for {asset}: expected {expected}, got {actual}")
         log("Checksum verified.")
 
         target = dest_root / "ngspice"

@@ -61,7 +61,7 @@ class PSUTwin(InstrumentTwin):
         self.limits = limits
         channels = {ch.name: PSUChannelState() for ch in (config.channels or [])}
         selected = next(iter(channels.keys()), "CH1")
-        self.state = PSUState(channels=channels, selected_channel=selected)
+        self.state: PSUState = PSUState(channels=channels, selected_channel=selected)
 
     def describe(self) -> dict[str, Any]:
         return {
@@ -176,7 +176,7 @@ class AWGTwin(InstrumentTwin):
         super().__init__(seed)
         self.cfg = config
         self.limits = limits
-        self.state = AWGState()
+        self.state: AWGState = AWGState()
 
     def describe(self) -> dict[str, Any]:
         return {
@@ -301,7 +301,7 @@ class DMMTwin(InstrumentTwin):
         super().__init__(seed)
         self.cfg = config
         self.limits = limits
-        self.state = DMMState(resolution_digits=float(config.digits))
+        self.state: DMMState = DMMState(resolution_digits=float(config.digits))
 
     def describe(self) -> dict[str, Any]:
         return {"kind": "DMM", "functions": ["DCV", "ACV", "DCI"]}
@@ -404,7 +404,7 @@ class ScopeTwin(InstrumentTwin):
         max_points = limits.soft.get("max_scope_record_points", 2_000_000)
         self.max_record_length = int(max_points) if max_points else 2_000_000
         default_rate = min(float(config.sample_rate_sps_max), 1.0e6)
-        self.state = ScopeState(
+        self.state: ScopeState = ScopeState(
             bandwidth_hz=float(config.bandwidth_hz),
             enob=float(config.enob),
             sample_rate=default_rate,

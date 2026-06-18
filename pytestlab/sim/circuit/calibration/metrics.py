@@ -29,18 +29,12 @@ def mae(measured: Sequence[float], simulated: Sequence[float]) -> float:
 
 def percent_error(measured: float, simulated: float) -> MetricResult:
     denom = abs(float(measured))
-    value = (
-        math.inf
-        if denom == 0
-        else abs(float(simulated) - float(measured)) / denom * 100.0
-    )
+    value = math.inf if denom == 0 else abs(float(simulated) - float(measured)) / denom * 100.0
     return MetricResult("percent_error", value, "%")
 
 
 def gain_db_error(measured_db: float, simulated_db: float) -> MetricResult:
-    return MetricResult(
-        "gain_db_error", abs(float(simulated_db) - float(measured_db)), "dB"
-    )
+    return MetricResult("gain_db_error", abs(float(simulated_db) - float(measured_db)), "dB")
 
 
 def phase_deg_error(measured_deg: float, simulated_deg: float) -> MetricResult:
@@ -48,9 +42,7 @@ def phase_deg_error(measured_deg: float, simulated_deg: float) -> MetricResult:
     return MetricResult("phase_deg_error", abs(delta), "deg")
 
 
-def transition_accuracy(
-    measured: Iterable[str], simulated: Iterable[str]
-) -> MetricResult:
+def transition_accuracy(measured: Iterable[str], simulated: Iterable[str]) -> MetricResult:
     measured_values = list(measured)
     simulated_values = list(simulated)
     if len(measured_values) != len(simulated_values):
@@ -132,9 +124,7 @@ def transition_graph(states) -> list:
                 )
                 start_x, current = x, state
             previous_x = x
-        regions.append(
-            {"start": float(start_x), "stop": float(previous_x), "state": current}
-        )
+        regions.append({"start": float(start_x), "stop": float(previous_x), "state": current})
         return regions
     graph: list[tuple[str, str]] = []
     previous: str | None = None
@@ -185,9 +175,7 @@ def transition_boundary_error(
 ) -> list[MetricResult]:
     measured_boundaries = transition_boundaries(measured)
     simulated_boundaries = transition_boundaries(simulated)
-    missing = sorted(
-        set(measured_boundaries).symmetric_difference(simulated_boundaries)
-    )
+    missing = sorted(set(measured_boundaries).symmetric_difference(simulated_boundaries))
     if missing:
         raise ValueError(f"missing transition boundary: {', '.join(missing)}")
     if not measured_boundaries:
