@@ -26,6 +26,119 @@ from .simulators import require_capability
 from .simulators.requests import AnalysisKind
 from .simulators.requests import SimulationRequest
 
+_SCPI_MNEMONIC_ALIASES = {
+    # IEEE 488.2/common status mnemonics.
+    "SYSTEM": "SYST",
+    "SYST": "SYST",
+    "ERROR": "ERR",
+    "ERR": "ERR",
+    # DMM/PSU common measurement and configuration mnemonics.
+    "CONFIGURE": "CONF",
+    "CONF": "CONF",
+    "MEASURE": "MEAS",
+    "MEAS": "MEAS",
+    "SENSE": "SENS",
+    "SENS": "SENS",
+    "RANGE": "RANGE",
+    "RANG": "RANGE",
+    "RESOLUTION": "RESOLUTION",
+    "RES": "RESOLUTION",
+    "FUNCTION": "FUNC",
+    "FUNC": "FUNC",
+    "FREQUENCY": "FREQ",
+    "FREQ": "FREQ",
+    "VOLTAGE": "VOLT",
+    "VOLT": "VOLT",
+    "CURRENT": "CURR",
+    "CURR": "CURR",
+    "OUTPUT": "OUTP",
+    "OUTP": "OUTP",
+    "STATUS": "STAT",
+    "STATE": "STAT",
+    "STAT": "STAT",
+    "LEVEL": "LEV",
+    "LEV": "LEV",
+    "INSTRUMENT": "INST",
+    "INST": "INST",
+    "SELECT": "SEL",
+    "SEL": "SEL",
+    "NSELECT": "NSEL",
+    "NSEL": "NSEL",
+    # Oscilloscope mnemonics.  Canonical forms match this simulator's handlers.
+    "TIMEBASE": "TIMEBASE",
+    "TIM": "TIMEBASE",
+    "SCALE": "SCALE",
+    "SCAL": "SCALE",
+    "POSITION": "POSITION",
+    "POS": "POSITION",
+    "ACQUIRE": "ACQUIRE",
+    "ACQ": "ACQUIRE",
+    "SRATE": "SRATE",
+    "SRAT": "SRATE",
+    "ANALOG": "ANALOG",
+    "ANAL": "ANALOG",
+    "TRIGGER": "TRIGGER",
+    "TRIG": "TRIGGER",
+    "EDGE": "EDGE",
+    "SOURCE": "SOURCE",
+    "SOUR": "SOURCE",
+    "SLOPE": "SLOPE",
+    "SLOP": "SLOPE",
+    "CHANNEL": "CHAN",
+    "CHAN": "CHAN",
+    "COUPLING": "COUPLING",
+    "COUP": "COUPLING",
+    "OFFSET": "OFFS",
+    "OFFS": "OFFS",
+    "WAVEFORM": "WAVEFORM",
+    "WAV": "WAVEFORM",
+    "POINTS": "POINTS",
+    "POIN": "POINTS",
+    "MODE": "MODE",
+    "MOD": "MODE",
+    "FORMAT": "FORMAT",
+    "FORM": "FORMAT",
+    "DATA": "DATA",
+    "DAT": "DATA",
+    "PREAMBLE": "PREAMBLE",
+    "PRE": "PREAMBLE",
+    "DIGITIZE": "DIGITIZE",
+    "DIG": "DIGITIZE",
+}
+
+
+def _normalize_scpi_command_path(cmd: str) -> str:
+    """Canonicalize SCPI command mnemonics while preserving arguments.
+
+    SCPI permits either the required uppercase short form or the full mnemonic
+    spelling (for example ``:MEASure:VOLTage:DC?`` and ``:MEAS:VOLT:DC?``).
+    Drivers in the wild mix both forms, so the simulator normalizes only the
+    colon-separated command path before dispatch and leaves argument text
+    untouched.
+    """
+
+    head, sep, tail = cmd.partition(" ")
+    head = head.upper()
+    has_query = head.endswith("?")
+    if has_query:
+        head = head[:-1]
+
+    normalized_parts = [_normalize_scpi_mnemonic(part) for part in head.split(":")]
+    normalized_head = ":".join(normalized_parts)
+    if has_query:
+        normalized_head = f"{normalized_head}?"
+    return f"{normalized_head}{sep}{tail}"
+
+
+def _normalize_scpi_mnemonic(part: str) -> str:
+    if not part:
+        return part
+    match = re.fullmatch(r"([A-Z]+)(\d*)", part)
+    if match is None:
+        return part
+    mnemonic, suffix = match.groups()
+    return f"{_SCPI_MNEMONIC_ALIASES.get(mnemonic, mnemonic)}{suffix}"
+
 
 class SimbenchScpiBackend:
     """Minimal SCPI handler that routes commands to SimBench instrument twins.
@@ -116,8 +229,7 @@ class SimbenchScpiBackend:
 
     # Command handlers -----------------------------------------------------
     def _handle_command(self, cmd: str, expect_response: bool) -> str | bytes | None:
-        upper = cmd.upper()
-        normalized = upper.lstrip(":")
+        normalized = _normalize_scpi_command_path(cmd.lstrip(":"))
         if normalized == "*IDN?":
             return f"SimBench,{self.kind},{self.instrument_id},1.0"
         if normalized == "*CLS":
@@ -263,11 +375,11 @@ class SimbenchScpiBackend:
 
         channel = self._psu_selected_channel or self._psu_primary_channel_name()
 
-        if base in {"VOLT", "VOLTAGE"} and not is_query:
+        if base == "VOLT" and not is_query:
             twin.set_state(channel=channel, voltage_setpoint=_first_float(tail))
             self._emit_warnings(twin)
             return ""
-        if base in {"CURR", "CURR:LEV", "CURRENT"} and not is_query:
+        if base in {"CURR", "CURR:LEV"} and not is_query:
             twin.set_state(channel=channel, current_limit=_first_float(tail))
             self._emit_warnings(twin)
             return ""
@@ -318,39 +430,35 @@ class SimbenchScpiBackend:
             }
             return mapping.get(normalized, normalized.lower())
 
-        if base.endswith(":FUNC") or base.endswith(":FUNCTION") or base == "FUNC":
+        if base.endswith(":FUNC") or base == "FUNC":
             if is_query:
                 return twin.state.waveform
             twin.set_state(waveform=_waveform_name(tail))
             self._emit_warnings(twin)
             return ""
 
-        if base.endswith(":FREQ") or base.endswith(":FREQUENCY") or base == "FREQ":
+        if base.endswith(":FREQ") or base == "FREQ":
             if is_query:
                 return f"{twin.state.frequency_hz:.12g}"
             twin.set_state(frequency_hz=_first_float(tail))
             self._emit_warnings(twin)
             return ""
 
-        if base.endswith(":VOLT:UNIT") or base.endswith(":VOLTAGE:UNIT"):
+        if base.endswith(":VOLT:UNIT"):
             if is_query:
                 return str(getattr(twin.state, "voltage_unit", "VPP"))
             twin.set_state(voltage_unit=tail.split(",", 1)[0].strip().upper())
             self._emit_warnings(twin)
             return ""
 
-        if (
-            base.endswith(":VOLT:OFFS")
-            or base.endswith(":VOLT:OFFSET")
-            or base.endswith(":VOLTAGE:OFFSET")
-        ):
+        if base.endswith(":VOLT:OFFS"):
             if is_query:
                 return f"{twin.state.offset_v:.12g}"
             twin.set_state(offset_v=_first_float(tail))
             self._emit_warnings(twin)
             return ""
 
-        if base.endswith(":VOLT") or base.endswith(":VOLTAGE") or base == "VOLT":
+        if base.endswith(":VOLT") or base == "VOLT":
             if is_query:
                 return f"{twin.state.amplitude_vpp:.12g}"
             twin.set_state(amplitude_vpp=_first_float(tail))
@@ -401,7 +509,7 @@ class SimbenchScpiBackend:
             self._scope_timebase_position_s = _first_float(tail)
             return ""
 
-        if base == "ACQUIRE:SRATE":
+        if base in {"ACQUIRE:SRATE", "ACQUIRE:SRATE:ANALOG"}:
             if is_query:
                 return f"{twin.state.sample_rate:.12g}"
             requested = tail.split(",", 1)[0].strip().upper()
@@ -416,8 +524,9 @@ class SimbenchScpiBackend:
             self._emit_warnings(twin)
             return ""
 
-        if base.startswith("TRIGGER:EDGE:LEVEL") and not is_query:
-            twin.set_state(trigger_level=_first_float(tail))
+        if (base.startswith("TRIGGER:EDGE:LEV") or base.startswith("TRIGGER:LEV")) and not is_query:
+            level_arg = tail.rsplit(",", 1)[-1]
+            twin.set_state(trigger_level=_first_float(level_arg))
             self._emit_warnings(twin)
             return ""
 
@@ -454,7 +563,7 @@ class SimbenchScpiBackend:
             self._scope_selected_source = tail.strip()
             return ""
 
-        if base == "WAVEFORM:POINTS":
+        if base in {"WAVEFORM:POINTS", "ACQUIRE:POINTS", "ACQUIRE:POINTS:ANALOG"}:
             if is_query:
                 return str(twin.state.record_length)
             requested = tail.split(",", 1)[0].strip().upper()

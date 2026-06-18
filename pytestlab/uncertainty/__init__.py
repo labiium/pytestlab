@@ -62,7 +62,6 @@ from .multivariate import QuantityVector
 from .multivariate import covariance_between
 from .quantity import CorrelationComponentWarning
 from .quantity import Quantity
-from .quantity import UncertaintyLossWarning
 from .quantity_array import ComplexQuantityArray
 from .quantity_array import QuantityArray
 from .quick import correlated_values
@@ -76,10 +75,7 @@ from .quick import nominal_values
 from .quick import std_dev
 from .quick import std_devs
 from .quick import to_ufloat_correlated
-from .quick import ufloat
-from .quick import ufloat_fromstr
 from .quick import uq
-from .quick import uquantity
 from .units import UnitCompatibilityError
 from .units import require_dsi_unit
 from .units import to_dsi_unit
@@ -89,7 +85,6 @@ from .validation import validate_model
 
 __all__ = [
     "Quantity",
-    "UncertaintyLossWarning",
     "CorrelationComponentWarning",
     "QuantityArray",
     "ComplexQuantityArray",
@@ -148,9 +143,6 @@ __all__ = [
     "ComplexQuantity",
     "covariance_between",
     "uq",
-    "uquantity",
-    "ufloat",
-    "ufloat_fromstr",
     "nominal_value",
     "std_dev",
     "nominal_values",

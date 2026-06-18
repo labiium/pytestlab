@@ -48,7 +48,7 @@ print(quantity.budget)       # component-level provenance
 ```
 
 `MeasurementQuantity` supports basic arithmetic propagation and can be exported
-to the `uncertainties` package with `quantity.to_ufloat()` for compatibility.
+to the `uncertainties` package with `quantity.to_ufloat()` for explicit interop.
 Arithmetic preserves per-component provenance in the propagated budget metadata,
 so downstream results remain auditable instead of becoming anonymous standard
 deviations.
@@ -105,12 +105,12 @@ power supplies and active loads provide channel and configured/readback range
 when available. If a model requires context the driver cannot know, keep that
 term in a profile field or metadata path that the driver can provide.
 
-Model evaluation is strict: referenced expression variables and range/count
-terms must have explicit context values, with zero remaining a valid value.
-Driver methods keep backward-compatible runtime behavior by default: configured
-uncertainty models that fail to evaluate are logged and the nominal float is
-returned. Set `uncertainty_strict: true` in a profile to make drivers propagate
-those errors during profile qualification or scientific validation.
+Model evaluation is strict by default: referenced expression variables and
+range/count terms must have explicit context values, with zero remaining a valid
+value. Driver methods propagate configured uncertainty-model failures instead of
+returning nominal-only results. Set `uncertainty_strict: false` only for an
+explicit exploratory session that should keep reading nominal floats while a
+profile is being repaired.
 
 ## Worked Examples
 
@@ -457,9 +457,9 @@ except ValueError as exc:
     print(f"profile needs more context: {exc}")
 ```
 
-Leave `uncertainty_strict` at its default `false` for backward-compatible
-runtime scripts that should log a profile issue and keep returning nominal
-floats until the profile is fixed.
+Set `uncertainty_strict: false` only when intentionally running an exploratory
+profile-repair session that should log a profile issue and keep returning
+nominal floats until the profile is fixed.
 
 ### Choosing a Model
 
@@ -514,8 +514,8 @@ and unit assumptions are recorded in the profile review artifact.
 - Unit compatibility and scaled-unit algebra are enforced with Pint when
   installed. For example, `1 V / 1000 mV` is treated as dimensionless `1`.
 - Missing context required by a model raises an error instead of silently
-  dropping uncertainty. Driver-level compatibility fallback is available only
-  when `uncertainty_strict` is left at its default `false`.
+  dropping uncertainty. Driver-level nominal-only fallback is available only
+  when `uncertainty_strict: false` is explicitly configured.
 
 ## Covariance-Aware Waveform Arrays
 
@@ -572,9 +572,9 @@ laboratory's responsibility.
 
 ### Oscilloscope waveform integration
 
-`scope.read_channels()` remains backward compatible: it returns the same
-`ChannelReadingResult` / Polars DataFrame by default.  For uncertainty-aware
-workflows, call `result.quantity(channel)` lazily:
+`scope.read_channels()` keeps the data-frame acquisition surface while exposing
+uncertainty-aware quantities lazily. Call `result.quantity(channel)` for the
+calibrated waveform quantity:
 
 ```python
 trace = scope.read_channels(1)
@@ -617,22 +617,20 @@ limit = uq.limit(1.0, 0.02, "V") # rectangular half-width -> standard uncertaint
 result = umath.exp(gain / 10) * voltage
 ```
 
-The compatibility aliases `uquantity = uq`, `ufloat(...)`, and
-`ufloat_fromstr(...)` are available for users migrating from the external
-`uncertainties` package.  The top-level helpers `nominal_value`, `std_dev`,
+The scalar constructor is deliberately PyTestLab-native: use `uq(...)` and
+`uq.fromstr(...)` rather than compatibility aliases.  Explicit migration helpers
+`from_ufloat`, `from_ufloats`, and `to_ufloat_correlated` remain available for
+importing or exporting legacy objects, but normal PyTestLab code should stay on
+`Quantity`/`QuantityArray`.  The top-level helpers `nominal_value`, `std_dev`,
 `nominal_values`, `std_devs`, `covariance_matrix`, `correlation_matrix`,
-`correlated_values`, `correlated_values_norm`, `from_ufloat`, `from_ufloats`, and
-`to_ufloat_correlated` cover the common migration paths.  A dedicated
-`pytestlab.uncertainty.compat` namespace also exposes `uncertainties`-style
-names for drop-in imports during migration.
+`correlated_values`, and `correlated_values_norm` operate on PyTestLab quantities.
 
 ### Lossy conversions and NumPy scalar ufuncs
 
-`float(quantity)` remains supported for compatibility, but it emits
-`UncertaintyLossWarning` because it discards uncertainty, unit, correlation, and
-provenance information.  The same warning is emitted by `np.asarray([q],
-dtype=float)`.  Prefer `nominal_value(q)` or `nominal_values(...)` when nominal
-extraction is intentional.
+`float(quantity)` is intentionally rejected because it would discard uncertainty,
+unit, correlation, and provenance information.  `np.asarray([q], dtype=float)` is
+rejected for the same reason.  Use `nominal_value(q)` or `nominal_values(...)`
+when nominal extraction is intentional.
 
 Direct scalar ufunc calls such as `np.exp(q)`, `np.add(q, 1)`, and
 `np.multiply(q, 2)` propagate uncertainty.  Object-array ufuncs such as

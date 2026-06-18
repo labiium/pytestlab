@@ -13,21 +13,14 @@ from pytestlab.experiments.uncertainty_serialization import deserialize_uncertai
 from pytestlab.experiments.uncertainty_serialization import serialize_uncertain_value
 from pytestlab.uncertainty import CorrelationComponentWarning
 from pytestlab.uncertainty import Quantity
-from pytestlab.uncertainty import UncertaintyLossWarning
 from pytestlab.uncertainty import correlated_values
 from pytestlab.uncertainty import correlated_values_norm
 from pytestlab.uncertainty import correlation_matrix
 from pytestlab.uncertainty import covariance_matrix
 from pytestlab.uncertainty import from_ufloats
 from pytestlab.uncertainty import to_ufloat_correlated
-from pytestlab.uncertainty import ufloat
-from pytestlab.uncertainty import ufloat_fromstr
 from pytestlab.uncertainty import umath
 from pytestlab.uncertainty import uq
-from pytestlab.uncertainty import uquantity
-from pytestlab.uncertainty.compat import std_dev as compat_std_dev
-from pytestlab.uncertainty.compat import ufloat as compat_ufloat
-from pytestlab.uncertainty.compat import umath as compat_umath
 from pytestlab.uncertainty.multivariate import QuantityVector
 
 
@@ -42,9 +35,6 @@ def _provenance(value: Quantity) -> ptu.ResultProvenance:
 def test_public_scalar_exports_are_available():
     names = [
         "uq",
-        "uquantity",
-        "ufloat",
-        "ufloat_fromstr",
         "nominal_value",
         "std_dev",
         "nominal_values",
@@ -56,26 +46,24 @@ def test_public_scalar_exports_are_available():
         "from_ufloat",
         "from_ufloats",
         "to_ufloat_correlated",
-        "UncertaintyLossWarning",
         "umath",
     ]
     for name in names:
         assert hasattr(ptu, name), name
-    assert compat_std_dev(compat_ufloat(1.0, 0.2)) == pytest.approx(0.2)
-    assert compat_umath.exp(uq(0.0, 0.1)).u == pytest.approx(0.1)
 
 
-def test_quick_factory_and_ufloat_compatibility_constructors():
+def test_quick_factory_and_string_constructor():
     direct = uq(1.23, 0.04, "V", label="reading")
     assert isinstance(direct, Quantity)
     assert direct.n == pytest.approx(1.23)
     assert direct.s == pytest.approx(0.04)
     assert direct.unit == "V"
 
-    assert uquantity(2.0, 0.3).s == pytest.approx(0.3)
-    assert ufloat(2.0, 0.1, tag="x").s == pytest.approx(0.1)
-    assert ufloat_fromstr("2.0+/-0.1").n == pytest.approx(2.0)
-    assert ufloat("2.0+/-0.1").s == pytest.approx(0.1)
+    parsed = uq.fromstr("2.0+/-0.1", label="x")
+    assert parsed.n == pytest.approx(2.0)
+    assert parsed.s == pytest.approx(0.1)
+    assert uq.fromstr("2.0±0.1").s == pytest.approx(0.1)
+    assert uq.fromstr("2.00(10)").s == pytest.approx(0.10)
 
     assert uq.limit(10.0, 0.3).s == pytest.approx(0.3 / math.sqrt(3.0))
     assert uq.percent(10.0, 1.0).s == pytest.approx(0.1)
@@ -83,13 +71,12 @@ def test_quick_factory_and_ufloat_compatibility_constructors():
     assert uq.relative(10.0, 0.02).s == pytest.approx(0.2)
 
 
-def test_lossy_float_conversion_warns_including_numpy_dtype_conversion():
+def test_lossy_float_conversion_is_rejected():
     q = uq(2.0, 0.1, "V")
-    with pytest.warns(UncertaintyLossWarning, match="discards"):
-        assert float(q) == pytest.approx(2.0)
-    with pytest.warns(UncertaintyLossWarning):
-        arr = np.asarray([q], dtype=float)
-    assert arr.tolist() == [pytest.approx(2.0)]
+    with pytest.raises(TypeError, match="nominal extraction"):
+        float(q)
+    with pytest.raises(TypeError, match="nominal extraction"):
+        np.asarray([q], dtype=float)
 
 
 def test_uncertainty_formatting_and_html_repr():
@@ -272,7 +259,7 @@ def test_invalid_standard_uncertainties_are_rejected():
     with pytest.raises(ValueError, match="non-negative"):
         uq(1.0, -0.1)
     with pytest.raises(ValueError, match="finite"):
-        ufloat(1.0, float("inf"))
+        uq(1.0, float("inf"))
     with pytest.raises(ValueError, match="non-negative"):
         correlated_values_norm([(1.0, -0.1)], [[1.0]])
     with pytest.raises(ValueError, match="finite"):

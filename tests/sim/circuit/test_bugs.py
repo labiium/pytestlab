@@ -124,3 +124,99 @@ def test_scope_digitize_while_stopped(netlist_path) -> None:
 
     assert "-221" in backend.query("SYST:ERR?")
     assert backend._scope_captures.get("CHANnel1") is None
+
+
+def test_simbench_scpi_accepts_full_and_short_dmm_mnemonics(netlist_path) -> None:
+    from pytestlab.sim.circuit.bench import DMM
+
+    bench = BenchConfig(bench_id="dmm-scpi", instruments={"dmm1": DMM()})
+    wiring = WiringConfig(
+        connections=[
+            Connection(from_="dmm1.V.HI", to="vload"),
+            Connection(from_="dmm1.V.LO", to="0"),
+        ]
+    )
+    circuit = circuit_from_netlist(
+        netlist_path,
+        metadata={
+            "title": "dmm-scpi",
+            "author": "pytestlab_sim",
+            "license": "UNLICENSED",
+            "intended_analyses": ["op"],
+        },
+    )
+    session = Session(circuit=circuit, bench=bench, wiring=wiring)
+    backend = SimbenchScpiBackend(session=session, instrument_id="dmm1")
+
+    backend.write(":SENSe:VOLTage:DC:RANGe:AUTO ON")
+    backend.write(":SENS:VOLT:DC:RANG:AUTO OFF")
+    backend.write(":SENSe:VOLTage:DC:RESolution 6")
+    backend.write(":SENS:VOLT:DC:RES 5")
+    assert backend.query(":CONFigure:VOLTage:DC?").startswith("DCV")
+    assert backend.query(":CONF:VOLT:DC?").startswith("DCV")
+    assert float(backend.query(":MEASure:VOLTage:DC?")) == float(backend.query(":MEAS:VOLT:DC?"))
+
+
+def test_simbench_scpi_accepts_full_and_short_psu_awg_scope_mnemonics(netlist_path) -> None:
+    bench = BenchConfig(
+        bench_id="mixed-scpi",
+        instruments={
+            "psu1": PSU(channels=[PSUChannel(name="CH1", v_max=30.0, i_max=1.0)]),
+            "awg1": AWG(vpp_max=10.0),
+            "scope1": Scope(channels=1),
+        },
+    )
+    wiring = WiringConfig(
+        connections=[
+            Connection(from_="psu1.CH1.HI", to="vdd"),
+            Connection(from_="psu1.CH1.LO", to="0"),
+            Connection(from_="awg1.HI", to="vin"),
+            Connection(from_="awg1.LO", to="0"),
+            Connection(from_="scope1.CH1.HI", to="vout"),
+            Connection(from_="scope1.CH1.LO", to="0"),
+        ],
+        rules=WiringRules(allow_output_sharing=True),
+    )
+    circuit = circuit_from_netlist(
+        netlist_path,
+        metadata={
+            "title": "mixed-scpi",
+            "author": "pytestlab_sim",
+            "license": "UNLICENSED",
+            "intended_analyses": ["op", "tran"],
+        },
+    )
+    session = Session(circuit=circuit, bench=bench, wiring=wiring)
+
+    psu = SimbenchScpiBackend(session=session, instrument_id="psu1")
+    psu.write(":INSTrument:NSELect 1")
+    psu.write(":VOLTage 2.5")
+    psu.write(":CURRent:LEVel 0.1")
+    psu.write(":OUTPut:STATe ON")
+    assert psu.query(":OUTP:STAT?") == "1"
+    assert psu.query(":OUTPut:STATe?") == "1"
+
+    awg = SimbenchScpiBackend(session=session, instrument_id="awg1")
+    awg.write(":SOURce1:FUNCtion SINusoid")
+    awg.write(":SOURce1:FREQuency 1000")
+    awg.write(":SOURce1:VOLTage:OFFSet 0.25")
+    awg.write(":OUTPut1:STATe ON")
+    assert awg.query(":SOUR1:FUNC?") == "sine"
+    assert awg.query(":SOURce1:FREQuency?") == "1000"
+    assert awg.query(":SOUR1:VOLT:OFFS?") == "0.25"
+    assert awg.query(":OUTPut1:STATe?") == "1"
+
+    scope = SimbenchScpiBackend(session=session, instrument_id="scope1")
+    scope.write(":TIMebase:SCALe 0.001")
+    scope.write(":TIM:POS 0.0001")
+    scope.write(":ACQuire:SRATe:ANALog MAX")
+    scope.write(":TRIGger:EDGE:SOURce CHANnel1")
+    scope.write(":TRIGger:EDGE:LEVel CHANnel1,0.5")
+    scope.write(":CHANnel1:SCALe 2")
+    scope.write(":CHAN1:OFFSet 0.1")
+    scope.write(":CHANnel1:COUPling DC")
+    scope.write(":WAVeform:SOURce CHANnel1")
+    assert scope._scope_selected_source == "CHANnel1"
+    assert scope.query(":TIMebase:SCALe?") == "0.001"
+    assert scope.query(":TIM:POSition?") == "0.0001"
+    assert scope.query(":WAVeform:POINts?").isdigit()

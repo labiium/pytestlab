@@ -11,6 +11,8 @@ from uncertainties.core import UFloat
 
 import pytestlab.uncertainty.budget as budget_mod
 import pytestlab.uncertainty.units as units_mod
+from pytestlab.config.device_config import DeviceRole
+from pytestlab.config.instrument_config import InstrumentConfig
 from pytestlab.experiments.database import MeasurementDatabase
 from pytestlab.experiments.results import MeasurementResult
 from pytestlab.experiments.uncertainty_serialization import deserialize_uncertain_value
@@ -26,7 +28,6 @@ from pytestlab.instruments.uncertainty_adapters import psu_measurement_context
 from pytestlab.uncertainty import AtomRegistry
 from pytestlab.uncertainty import Distribution as UncertaintyDistribution
 from pytestlab.uncertainty import Quantity as MeasurementQuantity
-from pytestlab.uncertainty import UncertaintyLossWarning
 from pytestlab.uncertainty import UnitCompatibilityError
 from pytestlab.uncertainty.specs import AccuracySpec
 from pytestlab.uncertainty.specs import BandAccuracySpec
@@ -53,6 +54,15 @@ class RecordingLogger:
 
 
 _HELPER_REGISTRY = AtomRegistry()
+
+
+def test_uncertainty_strict_defaults_to_fail_loud():
+    assert (
+        InstrumentConfig(
+            manufacturer="Test", model="X", device_type="instrument", role=DeviceRole.MEASUREMENT
+        ).uncertainty_strict
+        is True
+    )
 
 
 def quantity(offset: float, unit: str = "V", nominal: float = 1.0) -> MeasurementQuantity:
@@ -339,8 +349,8 @@ def test_quantity_operations_cover_units_scalars_and_zero_nominal(monkeypatch):
     assert voltage.relative_u == pytest.approx(0.05)
     assert quantity(0.1, "V", 0.0).relative_u == float("inf")
     assert voltage.to_ufloat().std_dev == pytest.approx(0.1)
-    with pytest.warns(UncertaintyLossWarning):
-        assert float(voltage) == 2.0
+    with pytest.raises(TypeError, match="nominal extraction"):
+        float(voltage)
     assert str(voltage).endswith(" V")
 
     assert (voltage - quantity(0.2, "V", 1.0)).nominal == pytest.approx(1.0)

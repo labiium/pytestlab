@@ -112,10 +112,11 @@ class InstrumentConfig(DeviceConfig):
         ),
     )
     uncertainty_strict: bool = Field(
-        False,
+        True,
         description=(
-            "Raise uncertainty model evaluation errors from drivers instead of logging and "
-            "returning the nominal float for backward compatibility."
+            "Raise uncertainty model evaluation errors from drivers. Set false only for "
+            "explicit exploratory sessions that prefer nominal-only reads over fail-loud "
+            "profile validation."
         ),
     )
     # further complex yaml

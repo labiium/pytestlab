@@ -33,10 +33,6 @@ if TYPE_CHECKING:  # pragma: no cover
 Number = int | float
 
 
-class UncertaintyLossWarning(UserWarning):
-    """A conversion discarded uncertainty and returned only the nominal value."""
-
-
 class CorrelationComponentWarning(UserWarning):
     """Diagonal-only uncertainty components are incomplete for correlated quantities."""
 
@@ -320,13 +316,11 @@ class Quantity:
 
     # -- conversions --------------------------------------------------------
     def __float__(self) -> float:
-        warnings.warn(
-            "Converting Quantity to float returns only the nominal value and discards "
-            "standard uncertainty, correlations, units, and provenance.",
-            UncertaintyLossWarning,
-            stacklevel=2,
+        raise TypeError(
+            "Quantity cannot be converted to float implicitly because that would discard "
+            "uncertainty, correlations, units, and provenance. Use nominal_value(q) or q.nominal "
+            "when nominal extraction is intentional."
         )
-        return float(self.nominal)
 
     def __format__(self, spec: str) -> str:
         if "u" in spec:

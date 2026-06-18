@@ -1,7 +1,8 @@
-"""Ergonomic scalar uncertainty constructors and compatibility helpers."""
+"""Ergonomic scalar uncertainty constructors and explicit migration helpers."""
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from typing import Any
 
@@ -51,6 +52,33 @@ def _label_list(labels: Sequence[str] | None, n: int, *, prefix: str = "x") -> l
     if len(out) != n:
         raise ValueError("labels length must match values length.")
     return out
+
+
+def _parse_uncertain_string(representation: str) -> tuple[float, float]:
+    text = representation.strip()
+    plus_minus = re.fullmatch(
+        r"(?P<nominal>[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*"
+        r"(?:\+/-|±)\s*"
+        r"(?P<std>[+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)",
+        text,
+    )
+    if plus_minus is not None:
+        return float(plus_minus.group("nominal")), _standard_uncertainty(
+            float(plus_minus.group("std")), name="parsed standard uncertainty"
+        )
+    shorthand = re.fullmatch(
+        r"(?P<nominal>[+-]?(?:\d+(?:\.\d*)?|\.\d+))\((?P<digits>\d+)\)",
+        text,
+    )
+    if shorthand is not None:
+        nominal_text = shorthand.group("nominal")
+        decimals = len(nominal_text.partition(".")[2])
+        std = int(shorthand.group("digits")) * (10.0**-decimals)
+        return float(nominal_text), _standard_uncertainty(std, name="parsed standard uncertainty")
+    raise ValueError(
+        "uncertain string must use '<nominal>+/-<std>', '<nominal>±<std>', "
+        "or shorthand '<nominal>(<digits>)'."
+    )
 
 
 class _UQFactory:
@@ -104,8 +132,6 @@ class _UQFactory:
             raise ValueError("half_width must produce a finite standard uncertainty.")
         return self(nominal, std, unit, distribution=dist, **kwargs)
 
-    from_limit = limit
-
     def relative(
         self,
         nominal: float,
@@ -126,8 +152,6 @@ class _UQFactory:
             raise ValueError("relative_uncertainty must produce a finite standard uncertainty.")
         return self(nominal, std, unit, distribution=dist, **kwargs)
 
-    from_relative = relative
-
     def percent(
         self,
         nominal: float,
@@ -137,8 +161,6 @@ class _UQFactory:
     ) -> Quantity:
         return self.relative(nominal, float(percent) / 100.0, unit, **kwargs)
 
-    from_percent = percent
-
     def ppm(
         self,
         nominal: float,
@@ -147,8 +169,6 @@ class _UQFactory:
         **kwargs: Any,
     ) -> Quantity:
         return self.relative(nominal, float(ppm) * 1e-6, unit, **kwargs)
-
-    from_ppm = ppm
 
     def fromstr(
         self,
@@ -160,68 +180,30 @@ class _UQFactory:
         registry: AtomRegistry | None = None,
         **kwargs: Any,
     ) -> Quantity:
-        return ufloat_fromstr(
-            representation,
-            tag=tag or label,
-            unit=unit,
+        nominal, std = _parse_uncertain_string(representation)
+        return self(
+            nominal,
+            std,
+            unit,
+            label=tag or label,
+            tag=tag,
             registry=registry,
             **kwargs,
         )
 
 
 uq = _UQFactory()
-uquantity = uq
-
-
-def ufloat(
-    nominal_value: float | str, std_dev: float | None = None, tag: str | None = None
-) -> Quantity:
-    """Compatibility constructor matching the common ``uncertainties.ufloat`` signature."""
-
-    if isinstance(nominal_value, str):
-        if std_dev is not None:
-            raise TypeError("std_dev must be omitted when parsing a string ufloat.")
-        return ufloat_fromstr(nominal_value, tag=tag)
-    if std_dev is None:
-        raise TypeError("ufloat() missing required std_dev argument.")
-    return uq(float(nominal_value), float(std_dev), label=tag, tag=tag)
-
-
-def ufloat_fromstr(
-    representation: str,
-    tag: str | None = None,
-    *,
-    unit: str = "",
-    registry: AtomRegistry | None = None,
-    **kwargs: Any,
-) -> Quantity:
-    from uncertainties import ufloat_fromstr as _uncertainties_ufloat_fromstr
-
-    parsed = _uncertainties_ufloat_fromstr(representation, tag=tag)
-    return uq(
-        float(parsed.nominal_value),
-        float(parsed.std_dev),
-        unit,
-        label=tag,
-        tag=tag,
-        registry=registry,
-        **kwargs,
-    )
 
 
 def nominal_value(value: Any) -> Any:
     if isinstance(value, Quantity):
         return value.nominal
-    if hasattr(value, "nominal_value"):
-        return value.nominal_value
     return value
 
 
 def std_dev(value: Any) -> Any:
     if isinstance(value, Quantity):
         return value.u
-    if hasattr(value, "std_dev"):
-        return value.std_dev
     if isinstance(value, int | float | np.number):
         return 0.0
     return np.zeros_like(np.asarray(value, dtype=float))
@@ -262,9 +244,10 @@ def covariance_matrix(values: Sequence[Any]) -> np.ndarray:
     qseq = _as_quantity_sequence(values)
     if qseq is not None:
         return QuantityVector(qseq).covariance_matrix()
-    from uncertainties import covariance_matrix as _uncertainties_covariance_matrix
-
-    return np.asarray(_uncertainties_covariance_matrix(values), dtype=float)
+    raise TypeError(
+        "covariance_matrix() expects PyTestLab Quantity objects. "
+        "Use from_ufloats(...) to import external uncertainties objects first."
+    )
 
 
 def correlation_matrix(values: Sequence[Any]) -> np.ndarray:
