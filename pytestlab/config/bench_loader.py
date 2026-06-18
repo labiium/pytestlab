@@ -220,7 +220,10 @@ def _build_sim_bench_from_bench_config(
         if device_type == "waveform_generator":
             instruments[alias] = AWG(vpp_max=10.0)
         elif device_type == "power_supply":
-            instruments[alias] = PSU(channels=[PSUChannel(name="CH1", v_max=60.0, i_max=5.0)])
+            instruments[alias] = PSU(channels=_sim_psu_channels_for_profile(
+                entry.resolved_source(base_path=base_path),
+                PSUChannel,
+            ))
         elif device_type == "oscilloscope":
             instruments[alias] = Scope(channels=4)
         elif device_type == "multimeter":
@@ -232,6 +235,30 @@ def _build_sim_bench_from_bench_config(
                 f"with device_type '{device_type}'.",
             )
     return SimBenchConfig(bench_id=config.bench_name, instruments=instruments)
+
+
+def _sim_psu_channels_for_profile(profile: str | Path, channel_cls):
+    try:
+        config_data = AutoDevice._load_config_data_from_string(str(profile))
+    except Exception as exc:
+        raise InstrumentConfigurationError(
+            profile,
+            f"Could not load profile channels for circuit_sim PSU: {exc}",
+        ) from exc
+
+    channels = []
+    for idx, channel in enumerate(config_data.get("channels") or [], start=1):
+        channel_id = int(channel.get("channel_id", idx))
+        voltage_range = channel.get("voltage_range") or {}
+        current_range = channel.get("current_limit_range") or {}
+        channels.append(
+            channel_cls(
+                name=f"CH{channel_id}",
+                v_max=float(voltage_range.get("max", voltage_range.get("max_val", 60.0))),
+                i_max=float(current_range.get("max", current_range.get("max_val", 5.0))),
+            )
+        )
+    return channels or [channel_cls(name="CH1", v_max=60.0, i_max=5.0)]
 
 
 def _device_type_for_profile(profile: str | Path) -> str:

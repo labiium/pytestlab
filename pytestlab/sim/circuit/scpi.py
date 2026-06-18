@@ -365,6 +365,10 @@ class SimbenchScpiBackend:
             value = arg.split(",", 1)[0].strip()
             return float(value)
 
+        def _channel_arg(arg: str) -> str | None:
+            match = re.search(r"@\s*(\d+)", arg)
+            return f"CH{int(match.group(1))}" if match else None
+
         if base in {"INST:NSEL", "INST:SEL"} and not is_query:
             channel = tail.split(",", 1)[0].strip()
             if channel.isdigit():
@@ -373,7 +377,7 @@ class SimbenchScpiBackend:
             twin.set_state(selected_channel=channel)
             return ""
 
-        channel = self._psu_selected_channel or self._psu_primary_channel_name()
+        channel = _channel_arg(tail) or self._psu_selected_channel or self._psu_primary_channel_name()
 
         if base == "VOLT" and not is_query:
             twin.set_state(channel=channel, voltage_setpoint=_first_float(tail))
