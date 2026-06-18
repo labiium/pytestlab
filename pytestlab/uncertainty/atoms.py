@@ -17,6 +17,10 @@ import uuid
 from dataclasses import dataclass
 from dataclasses import field
 from enum import Enum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .metrology import TraceabilityRef
 
 
 class Distribution(str, Enum):
@@ -75,6 +79,7 @@ class InfluenceQuantity:
     degrees_of_freedom: float | None = None
     kind: Kind = Kind.TYPE_B
     source: str | None = None
+    traceability: TraceabilityRef | None = None
 
     @property
     def variance(self) -> float:
@@ -100,6 +105,7 @@ class AtomRegistry:
         degrees_of_freedom: float | None = None,
         kind: Kind = Kind.TYPE_B,
         source: str | None = None,
+        traceability: TraceabilityRef | None = None,
         key: str | None = None,
     ) -> InfluenceQuantity:
         """Create (or reuse, when ``key`` is given) an influence quantity.
@@ -123,6 +129,7 @@ class AtomRegistry:
             degrees_of_freedom=degrees_of_freedom,
             kind=kind,
             source=source,
+            traceability=traceability,
         )
         self.atoms[uid] = atom
         return atom
@@ -165,12 +172,18 @@ class AtomRegistry:
     def set_covariance(self, uid_a: str, uid_b: str, value: float) -> None:
         if uid_a == uid_b:
             raise ValueError("Use the atom's std_uncertainty to set its variance.")
-        self._covariances[self._pair(uid_a, uid_b)] = value
+        cov = float(value)
+        if not math.isfinite(cov):
+            raise ValueError("covariance must be finite.")
+        self._covariances[self._pair(uid_a, uid_b)] = cov
 
     def set_correlation(self, uid_a: str, uid_b: str, r: float) -> None:
-        if not -1.0 <= r <= 1.0:
+        corr = float(r)
+        if not math.isfinite(corr):
+            raise ValueError("correlation coefficient must be finite.")
+        if not -1.0 <= corr <= 1.0:
             raise ValueError("correlation coefficient must be in [-1, 1].")
-        cov = r * self.atoms[uid_a].std_uncertainty * self.atoms[uid_b].std_uncertainty
+        cov = corr * self.atoms[uid_a].std_uncertainty * self.atoms[uid_b].std_uncertainty
         self.set_covariance(uid_a, uid_b, cov)
 
     def correlation(self, uid_a: str, uid_b: str) -> float:

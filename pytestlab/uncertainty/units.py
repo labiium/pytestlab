@@ -150,3 +150,75 @@ def is_dimensionless(unit: str | None) -> bool:
         return bool((1 * _UNIT_REGISTRY(unit)).dimensionless)
     except Exception:
         return False
+
+
+_DSI_BASE_UNITS = {
+    "": "one",
+    "dimensionless": "one",
+    "V": "V",
+    "volt": "V",
+    "A": "A",
+    "ampere": "A",
+    "s": "s",
+    "second": "s",
+    "Hz": "Hz",
+    "hertz": "Hz",
+    "ohm": "Ohm",
+    "Ω": "Ohm",
+    "W": "W",
+    "watt": "W",
+    "F": "F",
+    "farad": "F",
+}
+
+
+def is_unit_resolvable(unit: str | None) -> bool:
+    """Return whether a unit string can be resolved by the configured unit resolver."""
+
+    if not unit:
+        return True
+    if unit in _DSI_BASE_UNITS:
+        return True
+    if _UNIT_REGISTRY is None:
+        return False
+    try:
+        _UNIT_REGISTRY(unit)
+        return True
+    except Exception:
+        return False
+
+
+def to_dsi_unit(unit: str | None) -> tuple[str, bool]:
+    """Return a D-SI-compatible unit identifier and whether resolution succeeded.
+
+    PyTestLab validates against D-SI profile logic at export time; this helper is
+    intentionally conservative and never guesses for unparseable units.
+    """
+
+    normalized = unit_name(unit)
+    if normalized in _DSI_BASE_UNITS:
+        return _DSI_BASE_UNITS[normalized], True
+    if not normalized:
+        return "one", True
+    if _UNIT_REGISTRY is None:
+        return normalized, False
+    try:
+        parsed = _UNIT_REGISTRY(normalized)
+    except Exception:
+        return normalized, False
+    base = parsed.to_base_units()
+    formatted = _format_unit(base.units)
+    if formatted in _DSI_BASE_UNITS:
+        return _DSI_BASE_UNITS[formatted], True
+    # Keep Pint's normalized spelling for compound units; DCC/D-SI export can
+    # reject if a stricter profile map is required.
+    return formatted.replace(" ", "_"), True
+
+
+def require_dsi_unit(unit: str | None) -> str:
+    """Return D-SI unit or raise instead of guessing."""
+
+    resolved, ok = to_dsi_unit(unit)
+    if not ok:
+        raise UnitCompatibilityError(f"Unit {unit!r} cannot be resolved to D-SI.")
+    return resolved

@@ -945,6 +945,203 @@ def _device_idn_impl(profile_key_or_path: str, address: str | None, simulate: bo
             device.close()
 
 
+def _resolve_profile_path(profile_key_or_path: str) -> Path:
+    from pytestlab.config.loader import resolve_profile_key_to_path
+
+    potential_path = Path(profile_key_or_path)
+    if potential_path.suffix in {".yaml", ".yml"} and potential_path.is_file():
+        return potential_path
+    return resolve_profile_key_to_path(profile_key_or_path)
+
+
+def _active_scpi_blocks(scpi_section: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    variants = scpi_section.get("variants")
+    if isinstance(variants, dict):
+        variant = scpi_section.get("default_variant")
+        if not variant:
+            raise ValueError("SCPI section defines variants but no default_variant.")
+        selected = variants.get(variant)
+        if not isinstance(selected, dict):
+            raise ValueError(f"SCPI default_variant {variant!r} is not defined.")
+        scpi_section = selected
+    commands = scpi_section.get("commands") or {}
+    queries = scpi_section.get("queries") or {}
+    if not isinstance(commands, dict) or not isinstance(queries, dict):
+        raise ValueError("SCPI commands and queries must be mappings.")
+    return commands, queries
+
+
+def _template_placeholders(raw_spec: Any) -> set[str]:
+    import string
+
+    if isinstance(raw_spec, str):
+        templates = [raw_spec]
+    elif isinstance(raw_spec, dict):
+        sequence = raw_spec.get("sequence")
+        template = raw_spec.get("template") or raw_spec.get("command") or raw_spec.get("query")
+        if isinstance(sequence, list):
+            templates = [item for item in sequence if isinstance(item, str)]
+        elif isinstance(template, str):
+            templates = [template]
+        else:
+            templates = []
+    else:
+        templates = []
+
+    placeholders: set[str] = set()
+    formatter = string.Formatter()
+    for template in templates:
+        for _, field_name, *_ in formatter.parse(template):
+            if not field_name:
+                continue
+            placeholders.add(field_name.split(".", 1)[0].split("[", 1)[0])
+    return placeholders
+
+
+def _sample_value_for_param(name: str, raw_spec: Any) -> Any:
+    spec: dict[str, Any] = raw_spec if isinstance(raw_spec, dict) else {}
+
+    raw_defaults = spec.get("defaults")
+    defaults: dict[str, Any] = raw_defaults if isinstance(raw_defaults, dict) else {}
+    if name in defaults:
+        return defaults[name]
+
+    raw_enums = spec.get("enums")
+    enums: dict[str, Any] = raw_enums if isinstance(raw_enums, dict) else {}
+    enum_values = enums.get(name)
+    if isinstance(enum_values, dict) and enum_values:
+        return next(iter(enum_values.keys()))
+
+    raw_validators = spec.get("validators")
+    validators: dict[str, Any] = raw_validators if isinstance(raw_validators, dict) else {}
+    validator = validators.get(name)
+    if isinstance(validator, dict) and "min" in validator and "max" in validator:
+        min_val = validator["min"]
+        max_val = validator["max"]
+        if name in {"channel", "ch", "count", "index"}:
+            return int(min_val)
+        if isinstance(min_val, int) and isinstance(max_val, int):
+            return min_val
+        return float(min_val)
+
+    fallback_samples: dict[str, Any] = {
+        "amplitude": 1.0,
+        "bandwidth": 20_000_000,
+        "channel": 1,
+        "ch": 1,
+        "count": 1,
+        "coupling": "DC",
+        "current": 0.1,
+        "duty": 50,
+        "frequency": 1_000,
+        "func": "SIN",
+        "function": "VOLT:DC",
+        "index": 1,
+        "mode": "EDGE",
+        "offset": 0,
+        "period": 0.001,
+        "range": "AUTO",
+        "rate": 1_000_000,
+        "resolution": 0.001,
+        "scale": 1,
+        "source": "IMM",
+        "sources": "CHAN1",
+        "span": 1_000,
+        "state": "ON",
+        "symmetry": 50,
+        "time": 0.001,
+        "units": "VPP",
+        "value": 1,
+        "voltage": 1.0,
+        "width": 0.0001,
+        "window": "HANN",
+    }
+    return fallback_samples.get(name, 1)
+
+
+def _sample_params_for_spec(raw_spec: Any) -> dict[str, Any]:
+    return {
+        name: _sample_value_for_param(name, raw_spec)
+        for name in sorted(_template_placeholders(raw_spec))
+    }
+
+
+def _profile_scpi_command_rows(
+    profile_key_or_path: str,
+    *,
+    device: Any | None = None,
+    include_writes: bool = False,
+    strict_response: bool,
+) -> tuple[Path, list[dict[str, str]], int, int, int]:
+    from pytestlab.instruments.scpi_engine import SCPIEngine
+
+    profile_path = _resolve_profile_path(profile_key_or_path)
+    with profile_path.open(encoding="utf-8") as fh:
+        profile_data = yaml.safe_load(fh) or {}
+    if not isinstance(profile_data, dict):
+        raise ValueError("Profile file must contain a YAML mapping.")
+
+    scpi_section = profile_data.get("scpi")
+    if not isinstance(scpi_section, dict):
+        raise ValueError("Profile does not define an scpi section.")
+
+    commands, queries = _active_scpi_blocks(scpi_section)
+    engine = SCPIEngine(scpi_section)
+    rows: list[dict[str, str]] = []
+    failures = 0
+    warnings = 0
+    skipped = 0
+
+    for kind, entries in (("command", commands), ("query", queries)):
+        for alias, raw_spec in entries.items():
+            params = _sample_params_for_spec(raw_spec)
+            try:
+                rendered = engine.build(alias, **params)
+                response = ""
+                if device is not None:
+                    if kind == "command" and not include_writes:
+                        skipped += 1
+                        rows.append(
+                            {
+                                "alias": str(alias),
+                                "kind": kind,
+                                "status": "skip",
+                                "sample": ", ".join(f"{k}={v!r}" for k, v in params.items()) or "-",
+                                "detail": "write command skipped; use --include-writes --yes",
+                            }
+                        )
+                        continue
+                    for message in rendered:
+                        if kind == "query" or message.strip().endswith("?"):
+                            response = device.query(message)
+                        else:
+                            device.write(message)
+                    if kind == "query":
+                        if response == "":
+                            warnings += 1
+                            if strict_response:
+                                raise RuntimeError("instrument returned an empty response")
+                        elif isinstance(raw_spec, dict) and raw_spec.get("response") is not None:
+                            engine.parse(alias, response)
+                status = "ok"
+                detail = response if response else ", ".join(rendered)
+            except Exception as exc:
+                failures += 1
+                status = "fail"
+                detail = str(exc)
+            rows.append(
+                {
+                    "alias": str(alias),
+                    "kind": kind,
+                    "status": status,
+                    "sample": ", ".join(f"{k}={v!r}" for k, v in params.items()) or "-",
+                    "detail": detail,
+                }
+            )
+
+    return profile_path, rows, failures, warnings, skipped
+
+
 @device_app.command("idn")
 def device_idn(
     profile_key_or_path: Annotated[str, typer.Argument(help="Profile key or path.")],
@@ -967,6 +1164,201 @@ def instrument_idn(
 ):
     """Connects to an instrument and prints its *IDN? response."""
     _device_idn_impl(profile_key_or_path, address, simulate)
+
+
+def _print_instrument_check_table(
+    *,
+    title: str,
+    profile_path: Path,
+    rows: list[dict[str, str]],
+    failures: int,
+    warnings: int,
+    skipped: int,
+) -> None:
+    table = Table(title=f"{title}: {profile_path.name}")
+    table.add_column("Alias", style="cyan")
+    table.add_column("Kind", style="magenta")
+    table.add_column("Status", style="green")
+    table.add_column("Sample Params")
+    table.add_column("Result")
+    for row in rows:
+        if row["status"] == "ok":
+            status_style = "[green]ok[/green]"
+        elif row["status"] == "skip":
+            status_style = "[yellow]skip[/yellow]"
+        else:
+            status_style = "[red]fail[/red]"
+        table.add_row(row["alias"], row["kind"], status_style, row["sample"], row["detail"])
+    rich.print(table)
+
+    total = len(rows)
+    if failures:
+        rich.print(f"[bold red]{failures}/{total} instrument command checks failed.[/bold red]")
+        raise typer.Exit(code=1)
+    notes = []
+    if warnings:
+        notes.append(f"{warnings} empty query responses")
+    if skipped:
+        notes.append(f"{skipped} write commands skipped")
+    note_text = f" ({', '.join(notes)})" if notes else ""
+    rich.print(f"[bold green]All {total} instrument command checks passed[/bold green]{note_text}.")
+
+
+@instrument_app.command("check-commands")
+def instrument_check_commands(
+    profile_key_or_path: Annotated[str, typer.Argument(help="Profile key or YAML path.")],
+):
+    """Build every SCPI command/query alias without touching any instrument."""
+    try:
+        profile_path, rows, failures, warnings, skipped = _profile_scpi_command_rows(
+            profile_key_or_path,
+            strict_response=False,
+        )
+    except FileNotFoundError:
+        rich.print(f"[bold red]Error: Profile '{rich_escape(profile_key_or_path)}' not found.[/]")
+        raise typer.Exit(code=1) from None
+    except Exception as exc:
+        rich.print(f"[bold red]Instrument command check failed: {rich_escape(str(exc))}[/]")
+        raise typer.Exit(code=1) from None
+
+    _print_instrument_check_table(
+        title="Instrument Command Build Check",
+        profile_path=profile_path,
+        rows=rows,
+        failures=failures,
+        warnings=warnings,
+        skipped=skipped,
+    )
+
+
+@instrument_app.command("full-test")
+def instrument_full_test(
+    profile_key_or_path: Annotated[str, typer.Argument(help="Profile key or YAML path.")],
+    address: Annotated[
+        str | None,
+        typer.Option(
+            "--address",
+            "-a",
+            help="Real instrument address. For LAMB, this is the server-side VISA resource string.",
+        ),
+    ] = None,
+    backend: Annotated[
+        str,
+        typer.Option(
+            "--backend",
+            help="Real backend to use: visa or lamb.",
+        ),
+    ] = "lamb",
+    lamb_url: Annotated[
+        str | None,
+        typer.Option(
+            "--lamb-url",
+            help="LAMB server base URL. Defaults to LAMB_SERVER or http://lamb-server:8000.",
+        ),
+    ] = None,
+    serial_number: Annotated[
+        str | None,
+        typer.Option(
+            "--serial-number",
+            "--serial",
+            help="Instrument serial number for LAMB auto-connect when no address is provided.",
+        ),
+    ] = None,
+    include_writes: Annotated[
+        bool,
+        typer.Option(
+            "--include-writes",
+            help="Execute profile command aliases that write/change instrument state.",
+        ),
+    ] = False,
+    yes: Annotated[
+        bool,
+        typer.Option(
+            "--yes",
+            "-y",
+            help="Confirm real write commands may change instrument state.",
+        ),
+    ] = False,
+    timeout_ms: Annotated[
+        int,
+        typer.Option("--timeout-ms", help="Communication timeout for the real instrument."),
+    ] = 5000,
+    strict_response: Annotated[
+        bool,
+        typer.Option("--strict-response", help="Fail when a real query returns an empty response."),
+    ] = True,
+):
+    """Run SCPI command/query checks against a real instrument."""
+    if include_writes and not yes:
+        rich.print(
+            "[bold red]Refusing to execute write commands without --yes.[/bold red]\n"
+            "Writes can change output state, voltage/current settings, trigger setup, panel locks, "
+            "and other instrument state."
+        )
+        raise typer.Exit(code=1)
+
+    from pytestlab.devices import AutoDevice
+
+    backend_lc = backend.lower()
+    if backend_lc not in {"visa", "lamb"}:
+        rich.print("[bold red]Error: --backend must be 'visa' or 'lamb'.[/bold red]")
+        raise typer.Exit(code=1)
+    if backend_lc == "visa" and not address:
+        rich.print("[bold red]Error: --address is required for --backend visa.[/bold red]")
+        raise typer.Exit(code=1)
+
+    device = None
+    try:
+        backend_override = None
+        backend_type_hint = backend_lc
+        if backend_lc == "lamb":
+            from pytestlab.instruments.backends.lamb import LambBackend
+
+            profile_path = _resolve_profile_path(profile_key_or_path)
+            with profile_path.open(encoding="utf-8") as fh:
+                profile_data = yaml.safe_load(fh) or {}
+            model_name = str(profile_data.get("model") or profile_path.stem)
+            backend_override = LambBackend(
+                address=address,
+                url=lamb_url,
+                timeout_ms=timeout_ms,
+                model_name=model_name,
+                serial_number=serial_number,
+            )
+            backend_type_hint = None
+        device = AutoDevice.from_config(
+            profile_key_or_path,
+            simulate=False,
+            address_override=address,
+            timeout_override_ms=timeout_ms,
+            backend_type_hint=backend_type_hint,
+            backend_override=backend_override,
+        )
+        device.connect_backend()
+        profile_path, rows, failures, warnings, skipped = _profile_scpi_command_rows(
+            profile_key_or_path,
+            device=device,
+            include_writes=include_writes,
+            strict_response=strict_response,
+        )
+    except FileNotFoundError:
+        rich.print(f"[bold red]Error: Profile '{rich_escape(profile_key_or_path)}' not found.[/]")
+        raise typer.Exit(code=1) from None
+    except Exception as exc:
+        rich.print(f"[bold red]Real instrument full test failed: {rich_escape(str(exc))}[/]")
+        raise typer.Exit(code=1) from None
+    finally:
+        if device is not None:
+            device.close()
+
+    _print_instrument_check_table(
+        title="Real Instrument Full Test",
+        profile_path=profile_path,
+        rows=rows,
+        failures=failures,
+        warnings=warnings,
+        skipped=skipped,
+    )
 
 
 @instrument_app.command("test")

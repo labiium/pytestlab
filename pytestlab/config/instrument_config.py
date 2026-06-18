@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
 
+from ..uncertainty.metrology import CalibrationCertificate
 from ..uncertainty.specs import AccuracyModel
 from .device_config import DeviceConfig
 
@@ -101,6 +102,14 @@ class InstrumentConfig(DeviceConfig):
     )  # Example common field
     measurement_accuracy: dict[str, AccuracyModel] | None = Field(
         default_factory=dict, description="Measurement accuracy specifications"
+    )
+    calibration_certificates: list[CalibrationCertificate] = Field(
+        default_factory=list,
+        description=(
+            "Structured calibration certificates used to resolve metrological "
+            "traceability for uncertainty atoms. Missing or non-matching entries "
+            "leave results explicitly non-report-grade."
+        ),
     )
     uncertainty_strict: bool = Field(
         False,

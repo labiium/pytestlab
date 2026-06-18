@@ -24,6 +24,11 @@ site
 
 node_modules
 schemas
+!schemas/
+!schemas/metrology/
+!schemas/metrology/**
+!schemas/uncertainty/
+!schemas/uncertainty/**
 .mypy_cache
 .ropeproject
 .ruff_cache

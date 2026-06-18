@@ -22,6 +22,29 @@ from .atoms import default_registry
 from .quantity import Quantity
 
 
+def _validate_covariance_matrix(
+    covariance: np.ndarray | Sequence[Sequence[float]], n: int
+) -> np.ndarray:
+    """Return a finite symmetric PSD covariance matrix or raise ``ValueError``."""
+
+    cov = np.asarray(covariance, dtype=float)
+    if cov.shape != (n, n):
+        raise ValueError("covariance must be square and match means length.")
+    if not np.all(np.isfinite(cov)):
+        raise ValueError("covariance must contain only finite values.")
+    scale = max(1.0, float(np.max(np.abs(cov))) if cov.size else 1.0)
+    tol = 1e-12 * scale
+    if not np.allclose(cov, cov.T, rtol=1e-12, atol=tol):
+        raise ValueError("covariance matrix must be symmetric.")
+    if np.any(np.diag(cov) < -tol):
+        raise ValueError("covariance matrix contains negative variances.")
+    cov = (cov + cov.T) / 2.0
+    eigenvalues = np.linalg.eigvalsh(cov)
+    if eigenvalues.size and float(np.min(eigenvalues)) < -tol:
+        raise ValueError("covariance matrix must be positive semi-definite.")
+    return cov
+
+
 def covariance_between(a: Quantity, b: Quantity) -> float:
     """Cross-covariance of two quantities sharing an atom registry."""
 
@@ -94,16 +117,14 @@ class QuantityVector:
 
         reg = registry or default_registry()
         means_arr = np.asarray(means, dtype=float)
-        cov = np.asarray(covariance, dtype=float)
         n = means_arr.size
-        if cov.shape != (n, n):
-            raise ValueError("covariance must be square and match means length.")
+        cov = _validate_covariance_matrix(covariance, n)
         # Cholesky (with a jitter fallback for PSD-but-singular matrices).
         try:
             L = np.linalg.cholesky(cov)
         except np.linalg.LinAlgError:
             w, V = np.linalg.eigh(cov)
-            w = np.clip(w, 0.0, None)
+            w = np.where(w < 0.0, 0.0, w)
             L = V @ np.diag(np.sqrt(w))
         unit_list = [units] * n if isinstance(units, str) else list(units)
         labels = list(labels) if labels else [f"y{i}" for i in range(n)]

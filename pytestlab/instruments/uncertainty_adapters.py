@@ -5,6 +5,7 @@ from typing import Literal
 from typing import Protocol
 
 from ..uncertainty import Quantity
+from ..uncertainty import resolve_traceability_ref
 from ..uncertainty.specs import AccuracyModel
 from ..uncertainty.specs import UncertaintyContext
 from ..uncertainty.specs import evaluate_quantity
@@ -147,6 +148,13 @@ def oscilloscope_measurement_context(
     range_value = getattr(channel_range, "max", None)
     if range_value is None:
         range_value = getattr(channel_range, "max_val", None)
+    traceability = resolve_traceability_ref(
+        getattr(config, "calibration_certificates", None),
+        function=function,
+        channel=channel,
+        range_value=range_value,
+        unit=unit,
+    )
     return UncertaintyContext(
         reading=reading,
         unit=unit,
@@ -159,6 +167,7 @@ def oscilloscope_measurement_context(
         source_key=_source_key(
             f"{instrument_key}:ch{channel}" if instrument_key else None, function, range_value
         ),
+        traceability=traceability,
     )
 
 

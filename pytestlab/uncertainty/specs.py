@@ -27,6 +27,7 @@ from .atoms import Distribution
 from .atoms import Kind
 from .atoms import default_registry
 from .atoms import divisor_for
+from .metrology import TraceabilityRef
 from .quantity import Quantity
 
 
@@ -52,6 +53,7 @@ class UncertaintyContext(BaseModel):
     # Stable identity prefix for atom keys; when set, terms correlate across reads.
     source_key: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+    traceability: TraceabilityRef | None = None
 
 
 def _key(context: UncertaintyContext, term: str) -> str | None:
@@ -137,6 +139,7 @@ class AccuracySpec(_Evaluable, BaseModel):
     coverage_factor: float = Field(1.0, gt=0)
     degrees_of_freedom: float | None = Field(None, gt=0)
     source: str | None = None
+    traceability: TraceabilityRef | None = None
 
     def _std(self, limit: float) -> float:
         return abs(limit) / divisor_for(self.distribution, self.coverage_factor)
@@ -160,7 +163,8 @@ class AccuracySpec(_Evaluable, BaseModel):
                 distribution=self.distribution,
                 degrees_of_freedom=self.degrees_of_freedom,
                 kind=Kind.TYPE_B,
-                source=self.source,
+                source=self.source or (self.traceability.source if self.traceability else None),
+                traceability=self.traceability or context.traceability,
                 key=_key(context, term),
             )
             grad[atom.uid] = grad.get(atom.uid, 0.0) + sensitivity
@@ -316,6 +320,7 @@ class ExpressionAccuracySpec(_Evaluable, BaseModel):
                 unit=unit,
                 distribution=self.distribution,
                 kind=Kind.TYPE_B,
+                traceability=context.traceability,
                 key=_key(context, "expression"),
             )
             grad[atom.uid] = 1.0
@@ -351,6 +356,8 @@ class RepeatabilityAccuracySpec(_Evaluable, BaseModel):
                 distribution=Distribution.STANDARD,
                 degrees_of_freedom=float(values.size - 1),
                 kind=Kind.TYPE_A,
+                source="type_a_measurement",
+                traceability=context.traceability or TraceabilityRef(source="type_a_measurement"),
                 key=_key(context, "repeatability"),
             )
             grad[atom.uid] = 1.0

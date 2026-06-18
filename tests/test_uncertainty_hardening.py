@@ -26,6 +26,7 @@ from pytestlab.instruments.uncertainty_adapters import psu_measurement_context
 from pytestlab.uncertainty import AtomRegistry
 from pytestlab.uncertainty import Distribution as UncertaintyDistribution
 from pytestlab.uncertainty import Quantity as MeasurementQuantity
+from pytestlab.uncertainty import UncertaintyLossWarning
 from pytestlab.uncertainty import UnitCompatibilityError
 from pytestlab.uncertainty.specs import AccuracySpec
 from pytestlab.uncertainty.specs import BandAccuracySpec
@@ -338,7 +339,8 @@ def test_quantity_operations_cover_units_scalars_and_zero_nominal(monkeypatch):
     assert voltage.relative_u == pytest.approx(0.05)
     assert quantity(0.1, "V", 0.0).relative_u == float("inf")
     assert voltage.to_ufloat().std_dev == pytest.approx(0.1)
-    assert float(voltage) == 2.0
+    with pytest.warns(UncertaintyLossWarning):
+        assert float(voltage) == 2.0
     assert str(voltage).endswith(" V")
 
     assert (voltage - quantity(0.2, "V", 1.0)).nominal == pytest.approx(1.0)

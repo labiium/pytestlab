@@ -28,7 +28,13 @@ from ..errors import InstrumentConfigurationError
 from ..errors import InstrumentDataError
 from ..errors import InstrumentParameterError
 from ..experiments import MeasurementResult
+from ..uncertainty import AtomRegistry
 from ..uncertainty import Quantity as MeasurementQuantity
+from ..uncertainty import QuantityArray
+from ..uncertainty import ResultProvenance
+from ..uncertainty.metrology import MeasurementModel
+from ..uncertainty.specs import UncertaintyContext
+from ..uncertainty.specs import evaluate_quantity
 from .instrument import Instrument
 from .scpi_binary import BinaryBlockParseError
 from .scpi_binary import definite_length_block_to_array
@@ -113,6 +119,12 @@ class ChannelReadingResult(MeasurementResult):
                 col: df[col],
             }
         )
+        envelope = dict(getattr(self, "envelope", {}) or {})
+        waveform_meta = envelope.get("waveform_uncertainty")
+        if isinstance(waveform_meta, dict):
+            envelope["waveform_uncertainty"] = {
+                str(channel): waveform_meta.get(str(channel), waveform_meta.get(channel))
+            }
         return ChannelReadingResult(
             values=sub_df,
             instrument=self.instrument,
@@ -120,7 +132,79 @@ class ChannelReadingResult(MeasurementResult):
             measurement_type=self.measurement_type,
             timestamp=self.timestamp,
             sampling_rate=getattr(self, "sampling_rate", None),
+            envelope=envelope,
         )
+
+    def quantity(self, channel: int) -> QuantityArray:
+        """Return a covariance-aware waveform `QuantityArray` for one channel.
+
+        This is intentionally lazy so normal `read_channels()` callers keep the
+        same DataFrame behavior and cost.  If no waveform uncertainty metadata is
+        available, the returned array carries nominal samples with zero variance
+        and incomplete provenance.
+        """
+
+        df = self._ensure_dataframe()
+        col = self._column_for_channel(channel)
+        if col not in df.columns:
+            raise KeyError(f"Channel column not present: {col}")
+        values = df[col].to_numpy().astype(float)
+        meta_by_channel = (getattr(self, "envelope", {}) or {}).get("waveform_uncertainty", {})
+        meta = meta_by_channel.get(str(channel)) or meta_by_channel.get(channel) or {}
+        spec = meta.get("accuracy_spec")
+        registry = AtomRegistry()
+        sensitivities: dict[str, np.ndarray] = {}
+        diagonal = np.zeros_like(values, dtype=float)
+        unit = str(meta.get("unit", self.units or "V"))
+        source_key = meta.get("source_key")
+        traceability = meta.get("traceability")
+        if spec is not None:
+            shared_model = spec.__class__.__name__ in {"AccuracySpec", "BandAccuracySpec"}
+            for idx, reading in enumerate(values):
+                context = UncertaintyContext(
+                    reading=float(reading),
+                    unit=unit,
+                    function="read_channels",
+                    range_value=meta.get("range_value"),
+                    range_unit=unit,
+                    resolution=meta.get("resolution"),
+                    bandwidth=meta.get("bandwidth"),
+                    channel=channel,
+                    sample_count=len(values),
+                    source_key=source_key if shared_model else None,
+                    traceability=traceability,
+                    metadata={"preamble": meta.get("preamble", {})},
+                )
+                q = evaluate_quantity(spec, context, registry if shared_model else AtomRegistry())
+                if shared_model:
+                    for uid, grad in q.grad.items():
+                        sensitivities.setdefault(uid, np.zeros_like(values, dtype=float))[idx] = (
+                            grad
+                        )
+                else:
+                    diagonal[idx] += q.u**2
+        elif meta.get("resolution"):
+            diagonal += (float(meta["resolution"]) / math.sqrt(12.0)) ** 2
+        arr = QuantityArray(
+            values,
+            unit=unit,
+            diagonal_variance=diagonal,
+            atom_sensitivities=sensitivities,
+            registry=registry,
+            measurement_model=MeasurementModel(
+                output_name=f"channel_{channel}_waveform",
+                output_unit=unit,
+                function="read_channels",
+                method="gum_first_order",
+                assumptions=["lazy oscilloscope waveform uncertainty construction"],
+                dof_method="waveform_effective_sample_size_required_for_reductions",
+            ),
+            provenance=ResultProvenance.current(
+                input_data=values.tobytes(), provenance_complete=False
+            ),
+            dof_method="waveform_effective_sample_size_required_for_reductions",
+        )
+        return arr
 
     def __getitem__(self, key):
         # Integer channel indexing: results[1] → CH1 + time
@@ -1190,6 +1274,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
 
         time_array: np.ndarray | None = None
         columns: dict[str, np.ndarray] = {}
+        waveform_uncertainty: dict[str, dict[str, Any]] = {}
 
         for _idx, ch in enumerate(processed_channels, start=1):
             # Select channel as waveform source and fetch its preamble
@@ -1202,6 +1287,42 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             # Convert Y-axis using **this channel's** preamble
             volts = (raw - pre.yref) * pre.yinc + pre.yorg
             columns[f"Channel {ch} (V)"] = volts
+            channel_range = self.config.channels[ch - 1].channel_range
+            range_value = getattr(channel_range, "max", None)
+            if range_value is None:
+                range_value = getattr(channel_range, "max_val", None)
+            context = oscilloscope_measurement_context(
+                self.config,
+                channel=ch,
+                reading=float(np.mean(volts)) if len(volts) else 0.0,
+                unit="V",
+                function="read_channels",
+                instrument_key=f"{self.config.model}:{id(self)}",
+            )
+            spec = None
+            if self.config.measurement_accuracy:
+                spec = self.config.measurement_accuracy.get(f"waveform_ch{ch}")
+                if spec is None:
+                    spec = self.config.measurement_accuracy.get(f"vpp_ch{ch}")
+            waveform_uncertainty[str(ch)] = {
+                "unit": "V",
+                "range_value": range_value,
+                "resolution": getattr(channel_range, "resolution", None),
+                "bandwidth": self.config.bandwidth,
+                "sample_count": len(volts),
+                "sampling_rate": sampling_rate,
+                "source_key": context.source_key,
+                "traceability": context.traceability,
+                "accuracy_spec": spec,
+                "preamble": {
+                    "xinc": pre.xinc,
+                    "xorg": pre.xorg,
+                    "xref": pre.xref,
+                    "yinc": pre.yinc,
+                    "yorg": pre.yorg,
+                    "yref": pre.yref,
+                },
+            }
 
             # Only need to compute the common time axis once
             if time_array is None:
@@ -1217,6 +1338,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             measurement_type="ChannelVoltageTime",
             sampling_rate=sampling_rate,
             values=pl.DataFrame({"Time (s)": time_array, **columns}),
+            envelope={"waveform_uncertainty": waveform_uncertainty},
         )
 
     def plot_channels(

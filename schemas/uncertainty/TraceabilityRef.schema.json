@@ -1,0 +1,116 @@
+{
+  "additionalProperties": false,
+  "description": "Reference to evidence supporting one influence quantity.",
+  "properties": {
+    "accreditation_body": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Accreditation Body"
+    },
+    "accreditation_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Accreditation Id"
+    },
+    "calibration_date": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Calibration Date"
+    },
+    "certificate_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Certificate Id"
+    },
+    "cmc": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cmc"
+    },
+    "issuing_lab": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Issuing Lab"
+    },
+    "reference_standard": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reference Standard"
+    },
+    "source": {
+      "default": "manufacturer_spec",
+      "enum": [
+        "accredited_cal",
+        "nmi",
+        "manufacturer_spec",
+        "type_a_measurement",
+        "assumed"
+      ],
+      "title": "Source",
+      "type": "string"
+    },
+    "valid_until": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Valid Until"
+    }
+  },
+  "title": "TraceabilityRef",
+  "type": "object"
+}

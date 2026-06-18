@@ -1,0 +1,9 @@
+{
+  "schema": "d-si",
+  "version": "2.2.1",
+  "source_url": "https://gitlab1.ptb.de/d-ptb/d-si/xsd-d-si/-/raw/2.2.1/SI_Format.xsd",
+  "retrieved_utc": "2026-06-18T00:00:00Z",
+  "sha256": "bca7c44ab03030d48d0b6d643147c76533453210f1e3d514344554302fa6282c",
+  "bytes": 72787,
+  "validation_note": "Cached for offline PyTestLab profile/version checks; full XML validation may require imported schemas and issuing-lab tooling."
+}

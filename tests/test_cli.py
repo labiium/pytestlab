@@ -155,3 +155,296 @@ def test_visa_list_idn_command(monkeypatch):
     assert "TCPIP0::192.168.0.42::inst0::INSTR" in result.stdout
     assert "KEYSIGHT" in result.stdout
     assert "MY12345678,1.0" in result.stdout
+
+
+def test_instrument_check_commands_build_only():
+    """Test profile SCPI command coverage without touching hardware."""
+    result = runner.invoke(app, ["instrument", "check-commands", "keysight/EDU36311A"])
+
+    assert result.exit_code == 0
+    assert "Instrument Command Build Check" in result.stdout
+    assert "All 10 instrument command checks passed" in result.stdout
+    assert "set_voltage" in result.stdout
+    assert "measure_voltage" in result.stdout
+
+
+def test_instrument_full_test_can_use_visa_backend(monkeypatch):
+    """The real full test can route through direct VISA when explicitly requested."""
+    calls = {}
+
+    class FakeDevice:
+        def connect_backend(self):
+            calls["connected"] = True
+
+        def query(self, command, delay=None):
+            calls.setdefault("queries", []).append(command)
+            if command == "*IDN?":
+                return "Keysight,EDU36311A,MY123,1.0"
+            if command == "SYST:ERR?":
+                return '+0,"No error"'
+            if "VOLT" in command or "CURR" in command:
+                return "0.0"
+            if "OUTP" in command:
+                return "OFF"
+            return "1"
+
+        def write(self, command):
+            calls.setdefault("writes", []).append(command)
+
+        def close(self):
+            calls["closed"] = True
+
+    class FakeAutoDevice:
+        @classmethod
+        def from_config(cls, profile, **kwargs):
+            calls["profile"] = profile
+            calls["kwargs"] = kwargs
+            return FakeDevice()
+
+    monkeypatch.setattr("pytestlab.devices.AutoDevice", FakeAutoDevice)
+
+    result = runner.invoke(
+        app,
+        [
+            "instrument",
+            "full-test",
+            "keysight/EDU36311A",
+            "--backend",
+            "visa",
+            "--address",
+            "USB0::0x0957::0x1234::MY123::INSTR",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Real Instrument Full Test" in result.stdout
+    assert "5 write commands skipped" in result.stdout
+    assert calls["profile"] == "keysight/EDU36311A"
+    assert calls["kwargs"]["simulate"] is False
+    assert calls["kwargs"]["backend_type_hint"] == "visa"
+    assert calls["kwargs"]["address_override"] == "USB0::0x0957::0x1234::MY123::INSTR"
+    assert calls["connected"] is True
+    assert calls["closed"] is True
+    assert calls.get("writes") is None
+    assert "*IDN?" in calls["queries"]
+
+
+def test_instrument_full_test_requires_yes_for_writes():
+    """Real write aliases require explicit confirmation."""
+    result = runner.invoke(
+        app,
+        [
+            "instrument",
+            "full-test",
+            "keysight/EDU36311A",
+            "--backend",
+            "visa",
+            "--address",
+            "USB0::0x0957::0x1234::MY123::INSTR",
+            "--include-writes",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Refusing to execute write commands without --yes" in result.stdout
+
+
+def test_instrument_full_test_requires_address_for_visa():
+    """Direct VISA mode needs an explicit resource address."""
+    result = runner.invoke(
+        app, ["instrument", "full-test", "keysight/EDU36311A", "--backend", "visa"]
+    )
+
+    assert result.exit_code == 1
+    assert "--address is required for --backend visa" in result.stdout
+
+
+def test_instrument_full_test_can_use_lamb_backend(monkeypatch):
+    """The real full test can route through an explicit LAMB backend."""
+    calls = {}
+
+    class FakeLambBackend:
+        def __init__(
+            self,
+            address=None,
+            url=None,
+            timeout_ms=None,
+            model_name=None,
+            serial_number=None,
+        ):
+            calls["lamb_backend"] = {
+                "address": address,
+                "url": url,
+                "timeout_ms": timeout_ms,
+                "model_name": model_name,
+                "serial_number": serial_number,
+            }
+
+    class FakeDevice:
+        def connect_backend(self):
+            calls["connected"] = True
+
+        def query(self, command, delay=None):
+            calls.setdefault("queries", []).append(command)
+            if command == "*IDN?":
+                return "Keysight,EDU36311A,MY123,1.0"
+            if command == "SYST:ERR?":
+                return '+0,"No error"'
+            if "VOLT" in command or "CURR" in command:
+                return "0.0"
+            if "OUTP" in command:
+                return "OFF"
+            return "1"
+
+        def write(self, command):
+            calls.setdefault("writes", []).append(command)
+
+        def close(self):
+            calls["closed"] = True
+
+    class FakeAutoDevice:
+        @classmethod
+        def from_config(cls, profile, **kwargs):
+            calls["profile"] = profile
+            calls["kwargs"] = kwargs
+            return FakeDevice()
+
+    monkeypatch.setattr("pytestlab.instruments.backends.lamb.LambBackend", FakeLambBackend)
+    monkeypatch.setattr("pytestlab.devices.AutoDevice", FakeAutoDevice)
+
+    result = runner.invoke(
+        app,
+        [
+            "instrument",
+            "full-test",
+            "keysight/EDU36311A",
+            "--backend",
+            "lamb",
+            "--lamb-url",
+            "http://localhost:8000",
+            "--address",
+            "USB0::0x0957::0x1234::MY123::INSTR",
+            "--serial-number",
+            "MY123",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert calls["lamb_backend"] == {
+        "address": "USB0::0x0957::0x1234::MY123::INSTR",
+        "url": "http://localhost:8000",
+        "timeout_ms": 5000,
+        "model_name": "EDU36311A",
+        "serial_number": "MY123",
+    }
+    assert calls["kwargs"]["simulate"] is False
+    assert calls["kwargs"]["backend_override"] is not None
+    assert calls["kwargs"]["backend_type_hint"] is None
+    assert calls.get("writes") is None
+    assert calls["connected"] is True
+    assert calls["closed"] is True
+
+
+def test_instrument_full_test_lamb_auto_connect_without_address(monkeypatch):
+    """Default LAMB mode can auto-connect by profile model and optional serial number."""
+    calls = {}
+
+    class FakeLambBackend:
+        def __init__(
+            self,
+            address=None,
+            url=None,
+            timeout_ms=None,
+            model_name=None,
+            serial_number=None,
+        ):
+            calls["lamb_backend"] = {
+                "address": address,
+                "url": url,
+                "timeout_ms": timeout_ms,
+                "model_name": model_name,
+                "serial_number": serial_number,
+            }
+
+    class FakeDevice:
+        def connect_backend(self):
+            calls["connected"] = True
+
+        def query(self, command, delay=None):
+            if command == "*IDN?":
+                return "Keysight,EDU36311A,MY123,1.0"
+            if command == "SYST:ERR?":
+                return '+0,"No error"'
+            if "VOLT" in command or "CURR" in command:
+                return "0.0"
+            if "OUTP" in command:
+                return "OFF"
+            return "1"
+
+        def write(self, command):
+            calls.setdefault("writes", []).append(command)
+
+        def close(self):
+            calls["closed"] = True
+
+    class FakeAutoDevice:
+        @classmethod
+        def from_config(cls, profile, **kwargs):
+            calls["kwargs"] = kwargs
+            return FakeDevice()
+
+    monkeypatch.setattr("pytestlab.instruments.backends.lamb.LambBackend", FakeLambBackend)
+    monkeypatch.setattr("pytestlab.devices.AutoDevice", FakeAutoDevice)
+
+    result = runner.invoke(
+        app,
+        [
+            "instrument",
+            "full-test",
+            "keysight/EDU36311A",
+            "--serial",
+            "MY123",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert calls["lamb_backend"] == {
+        "address": None,
+        "url": None,
+        "timeout_ms": 5000,
+        "model_name": "EDU36311A",
+        "serial_number": "MY123",
+    }
+    assert calls["kwargs"]["address_override"] is None
+    assert calls["kwargs"]["backend_override"] is not None
+    assert calls["kwargs"]["backend_type_hint"] is None
+    assert calls.get("writes") is None
+    assert calls["connected"] is True
+    assert calls["closed"] is True
+
+
+def test_instrument_check_commands_reports_build_failures(tmp_path):
+    """A malformed profile command should fail the build-only command check."""
+    profile_path = tmp_path / "bad_profile.yaml"
+    profile_path.write_text(
+        """
+manufacturer: Test
+model: BadProfile
+device_type: power_supply
+channels: []
+total_power: 1
+line_regulation: 0
+load_regulation: 0
+scpi:
+  commands:
+    bad_command:
+      defaults: {}
+""",
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(app, ["instrument", "check-commands", str(profile_path)])
+
+    assert result.exit_code == 1
+    assert "Command 'bad_command' missing" in result.stdout
+    assert "template/sequence" in result.stdout

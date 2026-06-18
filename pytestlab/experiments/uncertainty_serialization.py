@@ -7,6 +7,7 @@ from uncertainties import ufloat
 from uncertainties.core import UFloat
 
 from ..uncertainty import Quantity
+from ..uncertainty import QuantityArray
 
 
 def serialize_uncertain_value(value: Any) -> tuple[Any, dict[str, Any]]:
@@ -16,6 +17,11 @@ def serialize_uncertain_value(value: Any) -> tuple[Any, dict[str, Any]]:
         return (
             np.array([value.nominal, value.u], dtype=np.float64),
             {"value_kind": "quantity", "quantity": value.to_dict()},
+        )
+    if isinstance(value, QuantityArray):
+        return (
+            np.asarray(value.nominal, dtype=np.float64),
+            {"value_kind": "quantity_array", "quantity_array": value.to_dict()},
         )
     if isinstance(value, UFloat):
         return (
@@ -40,6 +46,11 @@ def deserialize_uncertain_value(value_data: Any, metadata: dict[str, Any]) -> An
         quantity_data = metadata.get("quantity")
         if isinstance(quantity_data, dict):
             return Quantity.from_dict(quantity_data)
+        return value_data
+    if value_kind == "quantity_array":
+        qa_data = metadata.get("quantity_array")
+        if isinstance(qa_data, dict):
+            return QuantityArray.from_dict(qa_data)
         return value_data
     if value_kind == "ufloat":
         values = np.asarray(value_data)

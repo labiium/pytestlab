@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import importlib
 import math
+import warnings
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from typing import Any
@@ -34,6 +35,15 @@ def _scipy_stats() -> Any | None:
     return _SCIPY_STATS
 
 
+def _jsonable_traceability(traceability: object | None) -> object | None:
+    if traceability is None:
+        return None
+    model_dump = getattr(traceability, "model_dump", None)
+    if callable(model_dump):
+        return model_dump(mode="json")
+    return traceability
+
+
 @dataclass
 class BudgetEntry:
     """One row of the GUM §7 uncertainty budget."""
@@ -48,6 +58,7 @@ class BudgetEntry:
     distribution: str
     degrees_of_freedom: float | None
     source: str | None
+    traceability: object | None = None
 
     @property
     def variance_contribution(self) -> float:
@@ -82,6 +93,7 @@ class UncertaintyBudget:
                     distribution=atom.distribution.value,
                     degrees_of_freedom=atom.degrees_of_freedom,
                     source=atom.source,
+                    traceability=atom.traceability,
                 )
             )
         entries.sort(key=lambda e: e.contribution, reverse=True)
@@ -135,7 +147,23 @@ class UncertaintyBudget:
         u_exp = self.expanded_uncertainty(confidence=confidence)
         return (self.nominal - u_exp, self.nominal + u_exp)
 
-    def percentage_contributions(self) -> dict[str, float]:
+    def percentage_contributions(self, *, correlation: str = "diagonal") -> dict[str, float]:
+        if correlation not in {"diagonal", "include_cross"}:
+            raise ValueError("correlation must be 'diagonal' or 'include_cross'.")
+        if self.has_correlations and correlation == "diagonal":
+            from .quantity import CorrelationComponentWarning
+
+            warnings.warn(
+                "Budget percentage contributions are diagonal-only and do not include "
+                "covariance cross terms for this correlated result.",
+                CorrelationComponentWarning,
+                stacklevel=2,
+            )
+        if correlation == "include_cross" and self.has_correlations:
+            raise NotImplementedError(
+                "Use Quantity.error_components(basis='variance', "
+                "correlation='include_cross') for covariance cross-term percentages."
+            )
         total = sum(e.variance_contribution for e in self.entries)
         if total == 0:
             return {e.uid: 0.0 for e in self.entries}
@@ -143,6 +171,35 @@ class UncertaintyBudget:
 
     def report(self, *, confidence: float = 0.95) -> UncertaintyReport:
         return UncertaintyReport(self, confidence=confidence)
+
+    def to_dicts(self) -> list[dict[str, Any]]:
+        """Return uncertainty-budget rows as plain dictionaries."""
+
+        pct = self.percentage_contributions()
+        return [
+            {
+                "uid": entry.uid,
+                "label": entry.label,
+                "sensitivity": entry.sensitivity,
+                "input_uncertainty": entry.input_uncertainty,
+                "std_contribution": entry.contribution,
+                "variance_contribution": entry.variance_contribution,
+                "percentage": pct[entry.uid],
+                "unit": entry.unit,
+                "kind": entry.kind,
+                "distribution": entry.distribution,
+                "degrees_of_freedom": entry.degrees_of_freedom,
+                "source": entry.source,
+                "traceability": _jsonable_traceability(entry.traceability),
+            }
+            for entry in self.entries
+        ]
+
+    def to_polars(self) -> Any:
+        """Return the uncertainty budget as a Polars ``DataFrame``."""
+
+        pl = importlib.import_module("polars")
+        return pl.DataFrame(self.to_dicts())
 
 
 def round_to_significant(value: float, sig: int) -> float:

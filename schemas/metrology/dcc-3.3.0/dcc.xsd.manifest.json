@@ -1,0 +1,9 @@
+{
+  "schema": "dcc",
+  "version": "3.3.0",
+  "source_url": "https://ptb.de/dcc/v3.3.0/dcc.xsd",
+  "retrieved_utc": "2026-06-18T00:00:00Z",
+  "sha256": "ed849362dbf5133366dfbe8d7b70f3b42dcab1e3f530967eb3150c74bf8145f2",
+  "bytes": 49758,
+  "validation_note": "Cached for offline PyTestLab profile/version checks; full XML validation may require imported schemas and issuing-lab tooling."
+}

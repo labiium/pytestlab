@@ -13,6 +13,7 @@ from numpy.typing import NDArray
 from uncertainties.core import UFloat
 
 from ..uncertainty import Quantity as MeasurementQuantity
+from ..uncertainty import QuantityArray as MeasurementQuantityArray
 
 if TYPE_CHECKING:
     from ..plotting import PlotSpec
@@ -48,7 +49,13 @@ class MeasurementResult:  # noqa: D101
     @overload
     def __init__(
         self,
-        values: np.ndarray | pl.DataFrame | np.float64 | list[Any] | UFloat | MeasurementQuantity,
+        values: np.ndarray
+        | pl.DataFrame
+        | np.float64
+        | list[Any]
+        | UFloat
+        | MeasurementQuantity
+        | MeasurementQuantityArray,
         instrument: str,
         units: str,
         measurement_type: str,
@@ -65,6 +72,7 @@ class MeasurementResult:  # noqa: D101
         | list[Any]
         | UFloat
         | MeasurementQuantity
+        | MeasurementQuantityArray
         | float,
         instrument: str,
         units: str,
@@ -78,9 +86,21 @@ class MeasurementResult:  # noqa: D101
             # Normalize plain Python float to numpy float64 for internal consistency
             values = np.float64(values)
         self.values: (
-            np.ndarray | pl.DataFrame | np.float64 | list[Any] | UFloat | MeasurementQuantity
+            np.ndarray
+            | pl.DataFrame
+            | np.float64
+            | list[Any]
+            | UFloat
+            | MeasurementQuantity
+            | MeasurementQuantityArray
         ) = cast(
-            np.ndarray | pl.DataFrame | np.float64 | list[Any] | UFloat | MeasurementQuantity,
+            np.ndarray
+            | pl.DataFrame
+            | np.float64
+            | list[Any]
+            | UFloat
+            | MeasurementQuantity
+            | MeasurementQuantityArray,
             values,
         )
         self.units: str = units
@@ -107,7 +127,7 @@ class MeasurementResult:  # noqa: D101
         For backward compatibility with tests, returns a newline-separated list for arrays.
         For other types, uses a more descriptive representation.
         """
-        if isinstance(self.values, MeasurementQuantity):
+        if isinstance(self.values, MeasurementQuantity | MeasurementQuantityArray):
             return f"{self.values}"
         if isinstance(self.values, UFloat):
             return f"{self.values} {self.units}"
@@ -164,6 +184,12 @@ class MeasurementResult:  # noqa: D101
                 "unit": self.values.unit,
                 "uncertainty": self.values.to_dict(),
             }
+        elif isinstance(self.values, MeasurementQuantityArray):
+            return {
+                "values": self.values.nominal,
+                "unit": self.values.unit,
+                "uncertainty": self.values.to_dict(),
+            }
         elif isinstance(self.values, np.float64 | UFloat):
             # Convert scalar value to a dict with a 'value' key
             return {"value": self.values}
@@ -183,7 +209,13 @@ class MeasurementResult:  # noqa: D101
                 return self.values[key]
             if isinstance(self.values, pl.DataFrame):
                 return self.values[key]
-            if isinstance(self.values, (np.float64 | UFloat | MeasurementQuantity)) and key == 0:
+            if (
+                isinstance(
+                    self.values,
+                    (np.float64 | UFloat | MeasurementQuantity | MeasurementQuantityArray),
+                )
+                and key == 0
+            ):
                 return self.values
             raise IndexError(
                 f"Index {key} out of range or type {type(self.values)} not directly indexable."
@@ -206,8 +238,10 @@ class MeasurementResult:  # noqa: D101
         default_ext = ".npy"
         if isinstance(self.values, pl.DataFrame):
             default_ext = ".parquet"
+        elif isinstance(self.values, MeasurementQuantityArray):
+            default_ext = ".npz"
 
-        if not path.endswith((".npy", ".parquet")):
+        if not path.endswith((".npy", ".parquet", ".npz")):
             path += default_ext
             print(f"Warning: File extension not specified. Saving as {path}")
 
@@ -225,6 +259,12 @@ class MeasurementResult:  # noqa: D101
                     f"Warning: Saving MeasurementQuantity to non-npy file '{path}'. Consider using .npy."
                 )
             np.save(path, np.array([self.values.nominal, self.values.u]))
+        elif isinstance(self.values, MeasurementQuantityArray):
+            if not path.endswith(".npz"):
+                print(
+                    f"Warning: Saving MeasurementQuantityArray to non-npz file '{path}'. Consider using .npz."
+                )
+            self.values.save_npz_sidecar(path)
         elif isinstance(self.values, UFloat):
             if not path.endswith(".npy"):
                 print(f"Warning: Saving UFloat to non-npy file '{path}'. Consider using .npy.")
@@ -237,7 +277,7 @@ class MeasurementResult:  # noqa: D101
             np.save(path, np.array(self.values))
         else:
             raise TypeError(
-                f"Unsupported data type for saving: {type(self.values)}. Can save np.ndarray, pl.DataFrame, list, np.float64, UFloat, or MeasurementQuantity."
+                f"Unsupported data type for saving: {type(self.values)}. Can save np.ndarray, pl.DataFrame, list, np.float64, UFloat, MeasurementQuantity, or MeasurementQuantityArray."
             )
         print(f"Measurement saved to {path}")
 
@@ -246,6 +286,8 @@ class MeasurementResult:  # noqa: D101
         self,
     ) -> float | np.ndarray | pl.DataFrame:  # return type explicitly includes built-in float
         if isinstance(self.values, MeasurementQuantity):
+            return self.values.nominal
+        if isinstance(self.values, MeasurementQuantityArray):
             return self.values.nominal
         if isinstance(self.values, UFloat):
             return self.values.nominal_value
@@ -269,6 +311,8 @@ class MeasurementResult:  # noqa: D101
         self,
     ) -> float | np.ndarray | pl.DataFrame | None:  # return type explicitly includes built-in float
         if isinstance(self.values, MeasurementQuantity):
+            return self.values.u
+        if isinstance(self.values, MeasurementQuantityArray):
             return self.values.u
         if isinstance(self.values, UFloat):
             return self.values.std_dev
@@ -321,13 +365,20 @@ class MeasurementResult:  # noqa: D101
         | list[Any]
         | UFloat
         | MeasurementQuantity
+        | MeasurementQuantityArray
         | float,
     ) -> None:
         """Sets the MeasurementValues in the collection."""
         if isinstance(values, float) and not isinstance(values, np.floating):
             values = np.float64(values)
         self.values = cast(
-            np.ndarray | pl.DataFrame | np.float64 | list[Any] | UFloat | MeasurementQuantity,
+            np.ndarray
+            | pl.DataFrame
+            | np.float64
+            | list[Any]
+            | UFloat
+            | MeasurementQuantity
+            | MeasurementQuantityArray,
             values,
         )
 
@@ -347,7 +398,15 @@ class MeasurementResult:  # noqa: D101
 
     def get_all(
         self,
-    ) -> np.ndarray | pl.DataFrame | np.float64 | list[Any] | UFloat | MeasurementQuantity:
+    ) -> (
+        np.ndarray
+        | pl.DataFrame
+        | np.float64
+        | list[Any]
+        | UFloat
+        | MeasurementQuantity
+        | MeasurementQuantityArray
+    ):
         """Returns all the MeasurementValues in the collection."""
         return self.values
 

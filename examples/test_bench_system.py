@@ -103,12 +103,8 @@ def test_device_access():
             # Test device access
             for name, device in bench.devices.items():
                 print(f"   Device '{name}': {type(device).__name__}")
-                print(
-                    f"     Profile: {device.profile if hasattr(device, 'profile') else 'N/A'}"
-                )
-                print(
-                    f"     Address: {device.address if hasattr(device, 'address') else 'N/A'}"
-                )
+                print(f"     Profile: {device.profile if hasattr(device, 'profile') else 'N/A'}")
+                print(f"     Address: {device.address if hasattr(device, 'address') else 'N/A'}")
 
         print("✅ Context manager cleanup completed")
 

@@ -516,3 +516,153 @@ and unit assumptions are recorded in the profile review artifact.
 - Missing context required by a model raises an error instead of silently
   dropping uncertainty. Driver-level compatibility fallback is available only
   when `uncertainty_strict` is left at its default `false`.
+
+## Covariance-Aware Waveform Arrays
+
+`QuantityArray` represents waveform-scale uncertainty without materializing a
+large dense covariance matrix. It stores a nominal sample vector, an independent
+per-sample diagonal variance term, and shared atom sensitivities for systematic
+terms such as vertical gain or offset:
+
+```python
+from pytestlab.uncertainty import QuantityArray
+
+waveform = QuantityArray.from_samples(
+    [1.0, 1.1, 0.9, 1.2],
+    unit="V",
+    independent_std=0.05,
+)
+
+mean = waveform.mean(dof_method="validated_independent")
+rms = waveform.rms(dof_method="lag1_autocorrelation")
+vpp = waveform.peak_to_peak()
+```
+
+Reductions emit scalar `Quantity` objects with an attached `measurement_model`.
+For non-differentiable reductions such as peak-to-peak, the first-order result is
+marked `monte_carlo_required` and is not report-grade unless a Monte Carlo
+validation path is supplied.
+
+Waveform degrees of freedom are based on a validated independence assumption or
+an effective sample-size calculation. Raw sample count is not used when waveform
+autocorrelation is unknown.
+
+`QuantityArray.save_npz_sidecar(path)` writes the normative large-trace sidecar:
+compressed NPZ plus a JSON manifest containing SHA-256, sample count, and dtype.
+Database round-trips preserve `QuantityArray` values and mark legacy/incomplete
+records with `provenance_complete=false` instead of failing old data reads.
+
+## Compliance Boundaries
+
+PyTestLab is not ISO/IEC 17025 accredited and cannot confer accreditation. The
+uncertainty APIs are designed to support validated laboratory workflows by
+carrying measurement models, traceability references, provenance, coverage
+factors, and effective degrees of freedom.
+
+Traceability metadata is necessary but not sufficient: an unverified certificate
+identifier or free-text source does not establish SI traceability. SI-traceability
+claims must be suppressed unless all significant inputs resolve to acceptable
+`accredited_cal` or `nmi` evidence.
+
+D-SI unit export uses Pint-backed dimensional resolution plus an explicit D-SI
+mapping. Non-resolvable units are flagged and must not be guessed. The first DCC
+/ D-SI export increment is scoped to cached DCC 3.3.0 and D-SI 2.2.1 schemas.
+PyTestLab emits unsigned XML; cryptographic signing and PKI are the issuing
+laboratory's responsibility.
+
+### Oscilloscope waveform integration
+
+`scope.read_channels()` remains backward compatible: it returns the same
+`ChannelReadingResult` / Polars DataFrame by default.  For uncertainty-aware
+workflows, call `result.quantity(channel)` lazily:
+
+```python
+trace = scope.read_channels(1)
+waveform_q = trace.quantity(1)
+mean = waveform_q.mean(dof_method="lag1_autocorrelation")
+vpp = waveform_q.peak_to_peak_monte_carlo(samples=100_000, seed=1234)
+```
+
+Peak-to-peak is nonlinear because the selected maximum and minimum samples can
+change under perturbation.  The first-order `peak_to_peak()` method is therefore
+marked `monte_carlo_required`; use `peak_to_peak_monte_carlo()` for a
+report-grade-capable propagation path.
+
+### Report-grade gates
+
+Use `report_grade_blockers(result)` or `is_report_grade(result)` before any
+machine-readable report export.  A result is blocked from report-grade status
+unless it has complete provenance, a measurement model, a resolvable unit, and
+traceability references for significant uncertainty inputs. Manufacturer
+specification terms remain useful Type-B inputs, but they do not support an SI
+traceability claim without accredited/NMI evidence.
+
+DCC/D-SI exports are pinned to cached DCC 3.3.0 and D-SI 2.2.1 schema files in
+this repository.  PyTestLab validates its strict unsigned DCC-subset profile and
+records schema hashes; complete issuing-lab validation and XML signing remain
+outside the library.
+
+## Scalar uncertainty ergonomics and migration from `uncertainties`
+
+PyTestLab now provides a scalar-first API for the common workflows that used to
+require importing `uncertainties` directly.  Use the callable `uq` factory for a
+value with a standard uncertainty:
+
+```python
+from pytestlab.uncertainty import uq, umath
+
+voltage = uq(2.000, 0.015, "V", label="scope Vpp")
+gain = uq.percent(10.0, 0.5)      # 0.5 % standard relative uncertainty
+limit = uq.limit(1.0, 0.02, "V") # rectangular half-width -> standard uncertainty
+result = umath.exp(gain / 10) * voltage
+```
+
+The compatibility aliases `uquantity = uq`, `ufloat(...)`, and
+`ufloat_fromstr(...)` are available for users migrating from the external
+`uncertainties` package.  The top-level helpers `nominal_value`, `std_dev`,
+`nominal_values`, `std_devs`, `covariance_matrix`, `correlation_matrix`,
+`correlated_values`, `correlated_values_norm`, `from_ufloat`, `from_ufloats`, and
+`to_ufloat_correlated` cover the common migration paths.  A dedicated
+`pytestlab.uncertainty.compat` namespace also exposes `uncertainties`-style
+names for drop-in imports during migration.
+
+### Lossy conversions and NumPy scalar ufuncs
+
+`float(quantity)` remains supported for compatibility, but it emits
+`UncertaintyLossWarning` because it discards uncertainty, unit, correlation, and
+provenance information.  The same warning is emitted by `np.asarray([q],
+dtype=float)`.  Prefer `nominal_value(q)` or `nominal_values(...)` when nominal
+extraction is intentional.
+
+Direct scalar ufunc calls such as `np.exp(q)`, `np.add(q, 1)`, and
+`np.multiply(q, 2)` propagate uncertainty.  Object-array ufuncs such as
+`np.exp(np.array([q], dtype=object))` are intentionally not a first-class scalar
+API; use explicit scalar loops today and `QuantityArray` for waveform/array
+results.
+
+### Covariance and correlation
+
+Use `correlated_values(...)` to create scalar quantities from a covariance
+matrix.  Covariance imports fail loud for non-square, non-symmetric, non-finite,
+negative-variance, or meaningfully non-PSD matrices.  Singular PSD matrices are
+accepted and preserved.
+
+```python
+from pytestlab.uncertainty import correlated_values, covariance_matrix
+
+x, y = correlated_values([1.0, 2.0], [[1.0, 0.25], [0.25, 4.0]], labels=["x", "y"])
+assert covariance_matrix([x, y])[0, 1] == 0.25
+```
+
+For correlated results, `q.error_components()` reports diagonal terms and emits
+`CorrelationComponentWarning` because diagonal terms alone do not sum to the
+combined variance.  For a complete covariance-aware variance budget, use:
+
+```python
+rows = q.error_components(basis="variance", correlation="include_cross")
+```
+
+Cross rows preserve positive and negative covariance terms; the sum of all
+`variance_contribution` values equals `q.variance` within numerical tolerance.
+`UncertaintyBudget.percentage_contributions()` remains diagonal by default and
+warns for correlated budgets so reports do not over-claim explanatory power.

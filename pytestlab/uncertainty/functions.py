@@ -28,7 +28,7 @@ def _require_dimensionless(q: Quantity, name: str) -> None:
 def _unary(x: Quantity | Number, value: float, deriv: float, unit: str = "") -> Quantity:
     q = _as_quantity(x)
     grad = {uid: deriv * g for uid, g in q.grad.items() if deriv * g != 0.0}
-    return Quantity(value, unit, grad, q.registry)
+    return q._new(value, unit, grad)
 
 
 def sqrt(x: Quantity | Number) -> Quantity:
@@ -84,7 +84,7 @@ def atan2(y: Quantity | Number, x: Quantity | Number) -> Quantity:
     value = math.atan2(qy.nominal, qx.nominal)
     # d atan2 = (x dy - y dx) / (x^2 + y^2)
     grad = qy._combine_grads(qx, qx.nominal / denom, -qy.nominal / denom)
-    return Quantity(value, "", grad, qy.registry)
+    return qy._new(value, "", grad, qx)
 
 
 def power(x: Quantity | Number, p: Number) -> Quantity:

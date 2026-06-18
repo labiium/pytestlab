@@ -102,6 +102,10 @@ exclude = [
 ]
 [tool.hatch.build.targets.wheel]
 packages = ["pytestlab"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"schemas/metrology" = "schemas/metrology"
+"schemas/uncertainty" = "schemas/uncertainty"
 [tool.ty.environment]
 python-version = "3.11"
 

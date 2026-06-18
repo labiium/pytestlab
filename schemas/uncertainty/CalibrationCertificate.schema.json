@@ -1,0 +1,117 @@
+{
+  "additionalProperties": false,
+  "description": "Structured calibration-certificate metadata usable by resolvers.",
+  "properties": {
+    "accreditation_body": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Accreditation Body"
+    },
+    "accreditation_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Accreditation Id"
+    },
+    "calibration_date": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Calibration Date"
+    },
+    "certificate_id": {
+      "title": "Certificate Id",
+      "type": "string"
+    },
+    "conditions": {
+      "additionalProperties": true,
+      "title": "Conditions",
+      "type": "object"
+    },
+    "entries": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Entries",
+      "type": "array"
+    },
+    "instrument_model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Instrument Model"
+    },
+    "instrument_serial": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Instrument Serial"
+    },
+    "issuing_lab": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Issuing Lab"
+    },
+    "schema_version": {
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "valid_until": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Valid Until"
+    }
+  },
+  "required": [
+    "certificate_id"
+  ],
+  "title": "CalibrationCertificate",
+  "type": "object"
+}

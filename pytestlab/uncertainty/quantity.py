@@ -15,7 +15,12 @@ declared off-diagonal covariance ⇒ the full correlated result.
 from __future__ import annotations
 
 import math
+import numbers
+import re
+import warnings
+from html import escape
 from typing import TYPE_CHECKING
+from typing import Any
 
 from . import units
 from .atoms import AtomRegistry
@@ -28,10 +33,28 @@ if TYPE_CHECKING:  # pragma: no cover
 Number = int | float
 
 
+class UncertaintyLossWarning(UserWarning):
+    """A conversion discarded uncertainty and returned only the nominal value."""
+
+
+class CorrelationComponentWarning(UserWarning):
+    """Diagonal-only uncertainty components are incomplete for correlated quantities."""
+
+
 class Quantity:
     """A measurand with a nominal value, unit, and gradient over atoms."""
 
-    __slots__ = ("nominal", "unit", "grad", "registry")
+    __array_priority__ = 1000
+
+    __slots__ = (
+        "nominal",
+        "unit",
+        "grad",
+        "registry",
+        "measurement_model",
+        "provenance",
+        "dof_method",
+    )
 
     def __init__(
         self,
@@ -44,6 +67,9 @@ class Quantity:
         self.unit = unit or ""
         self.grad: dict[str, float] = dict(grad or {})
         self.registry = registry or default_registry()
+        self.measurement_model = None
+        self.provenance = None
+        self.dof_method = None
 
     # -- constructors -------------------------------------------------------
     @classmethod
@@ -148,12 +174,57 @@ class Quantity:
                     "they would not share a correlation space."
                 )
             return other
-        if isinstance(other, int | float):
-            return Quantity.constant(other, "", self.registry)
+        if isinstance(other, numbers.Real):
+            return Quantity.constant(float(other), "", self.registry)
         return NotImplemented
 
-    def _new(self, nominal: float, unit: str, grad: dict[str, float]) -> Quantity:
-        return Quantity(nominal, unit, grad, self.registry)
+    def _new(
+        self,
+        nominal: float,
+        unit: str,
+        grad: dict[str, float],
+        *operands: Quantity,
+    ) -> Quantity:
+        q = Quantity(nominal, unit, grad, self.registry)
+        # Arithmetic creates a derived result.  Preserve provenance/dof lineage so
+        # technical records are not silently lost, but require callers to attach a
+        # new MeasurementModel before claiming report-grade status.
+        q.provenance = self._derived_provenance(*operands)
+        q.dof_method = self._derived_dof_method(*operands)
+        return q
+
+    def _derived_dof_method(self, *operands: Quantity) -> object:
+        methods = [self.dof_method, *(operand.dof_method for operand in operands)]
+        non_null = [method for method in methods if method is not None]
+        if not non_null:
+            return None
+        first = non_null[0]
+        return first if all(method == first for method in non_null) else None
+
+    def _derived_provenance(self, *operands: Quantity) -> object:
+        provenances = [
+            provenance
+            for provenance in [self.provenance, *(operand.provenance for operand in operands)]
+            if provenance is not None
+        ]
+        if not provenances:
+            return None
+        from .metrology import ResultProvenance
+
+        merged = ResultProvenance.current(provenance_complete=False)
+        merged.amendments.append(
+            {
+                "operation": "derived_arithmetic",
+                "provenance_complete": False,
+                "derived_from": [
+                    provenance.model_dump(mode="json")
+                    if hasattr(provenance, "model_dump")
+                    else repr(provenance)
+                    for provenance in provenances
+                ],
+            }
+        )
+        return merged
 
     # -- arithmetic ---------------------------------------------------------
     def __add__(self, other: object) -> Quantity:
@@ -165,7 +236,7 @@ class Quantity:
         else:
             nominal = self.nominal + o.nominal
             unit = self.unit or o.unit
-        return self._new(nominal, unit, self._combine_grads(o, 1.0, 1.0))
+        return self._new(nominal, unit, self._combine_grads(o, 1.0, 1.0), o)
 
     __radd__ = __add__
 
@@ -178,7 +249,7 @@ class Quantity:
         else:
             nominal = self.nominal - o.nominal
             unit = self.unit or o.unit
-        return self._new(nominal, unit, self._combine_grads(o, 1.0, -1.0))
+        return self._new(nominal, unit, self._combine_grads(o, 1.0, -1.0), o)
 
     def __rsub__(self, other: object) -> Quantity:
         o = self._lift(other)
@@ -194,7 +265,7 @@ class Quantity:
             self.nominal, self.unit, o.nominal, o.unit, "mul"
         )
         grad = self._combine_grads(o, o.nominal * scale, self.nominal * scale)
-        return self._new(nominal, unit, grad)
+        return self._new(nominal, unit, grad, o)
 
     __rmul__ = __mul__
 
@@ -207,7 +278,7 @@ class Quantity:
         )
         # d(a/b) = (1/b) da - (a/b^2) db, scaled for unit reconciliation
         grad = self._combine_grads(o, scale / o.nominal, -scale * self.nominal / (o.nominal**2))
-        return self._new(nominal, unit, grad)
+        return self._new(nominal, unit, grad, o)
 
     def __rtruediv__(self, other: object) -> Quantity:
         o = self._lift(other)
@@ -233,7 +304,7 @@ class Quantity:
             da = p / self.nominal if self.nominal else 0.0
             db = math.log(self.nominal) if self.nominal > 0 else 0.0
             grad = self._combine_grads(power, nominal * da, nominal * db)
-            return self._new(nominal, "", grad)
+            return self._new(nominal, "", grad, power)
         p = float(power.nominal) if isinstance(power, Quantity) else float(power)  # type: ignore[arg-type]
         nominal = self.nominal**p
         unit = self._pow_unit(p)
@@ -249,10 +320,48 @@ class Quantity:
 
     # -- conversions --------------------------------------------------------
     def __float__(self) -> float:
+        warnings.warn(
+            "Converting Quantity to float returns only the nominal value and discards "
+            "standard uncertainty, correlations, units, and provenance.",
+            UncertaintyLossWarning,
+            stacklevel=2,
+        )
         return float(self.nominal)
 
     def __format__(self, spec: str) -> str:
+        if "u" in spec:
+            return self._format_with_uncertainty(spec)
         return format(self.nominal, spec)
+
+    def _format_with_uncertainty(self, spec: str) -> str:
+        match = re.fullmatch(r"(?:\.(\d+))?u([SPL]?)", spec)
+        if match is None:
+            raise ValueError(f"Invalid uncertainty format specifier: {spec!r}")
+        sig = int(match.group(1) or "1")
+        mode = match.group(2)
+        y, u, decimals = self._rounded_nominal_uncertainty(sig)
+        value = f"{y:.{decimals}f}"
+        uncert = f"{u:.{decimals}f}"
+        if mode == "S":
+            digits = int(round(u * (10**decimals)))
+            return f"{value}({digits})"
+        if mode == "P":
+            return f"{value}\N{PLUS-MINUS SIGN}{uncert}"
+        if mode == "L":
+            return f"{value} \\pm {uncert}"
+        return f"{value}+/-{uncert}"
+
+    def _rounded_nominal_uncertainty(self, sig: int) -> tuple[float, float, int]:
+        from .budget import round_to_significant
+
+        u = round_to_significant(self.u, sig)
+        if u and math.isfinite(u):
+            decimals = max(0, sig - 1 - math.floor(math.log10(abs(u))))
+            y = round(self.nominal, decimals)
+        else:
+            decimals = max(0, sig)
+            y = self.nominal
+        return y, u, decimals
 
     def __repr__(self) -> str:
         return f"Quantity({self.nominal!r}, {self.unit!r}, u={self.u:.6g})"
@@ -260,6 +369,180 @@ class Quantity:
     def __str__(self) -> str:
         unit = f" {self.unit}" if self.unit else ""
         return f"{self.nominal} +/- {self.u}{unit}"
+
+    def _repr_html_(self) -> str:
+        unit = f" {self.unit}" if self.unit else ""
+        return (
+            "<span class='pytestlab-quantity'>"
+            f"<span class='nominal'>{escape(f'{self.nominal:g}')}</span> "
+            f"&plusmn; <span class='uncertainty'>{escape(f'{self.u:g}')}</span>"
+            f"<span class='unit'>{escape(unit)}</span>"
+            "</span>"
+        )
+
+    def __array_ufunc__(self, ufunc: Any, method: str, *inputs: Any, **kwargs: Any) -> Any:
+        if method != "__call__" or kwargs.get("out") is not None:
+            return NotImplemented
+        import numpy as np
+
+        from . import functions as fn
+
+        if ufunc is np.add:
+            left, right = inputs
+            if isinstance(left, Quantity):
+                return left.__add__(right)
+            if isinstance(right, Quantity):
+                return right.__radd__(left)
+        if ufunc is np.subtract:
+            left, right = inputs
+            if isinstance(left, Quantity):
+                return left.__sub__(right)
+            if isinstance(right, Quantity):
+                return right.__rsub__(left)
+        if ufunc is np.multiply:
+            left, right = inputs
+            if isinstance(left, Quantity):
+                return left.__mul__(right)
+            if isinstance(right, Quantity):
+                return right.__rmul__(left)
+        if ufunc in (np.divide, np.true_divide):
+            left, right = inputs
+            if isinstance(left, Quantity):
+                return left.__truediv__(right)
+            if isinstance(right, Quantity):
+                return right.__rtruediv__(left)
+        if ufunc is np.power:
+            base, power = inputs
+            if isinstance(base, Quantity):
+                return base**power
+            if isinstance(power, Quantity):
+                if power.unit:
+                    raise units.UnitCompatibilityError(
+                        "Exponent quantity must be dimensionless for scalar base ** Quantity."
+                    )
+                base_float = float(base)
+                if base_float <= 0.0:
+                    raise ValueError("Scalar base must be positive for uncertain exponent.")
+                nominal = base_float**power.nominal
+                grad = power._scaled_grad(nominal * math.log(base_float))
+                return power._new(nominal, "", grad)
+            return NotImplemented
+        if ufunc is np.negative:
+            return -inputs[0]
+        if ufunc is np.positive:
+            return +inputs[0]
+        if ufunc is np.absolute:
+            return fn.absolute(inputs[0])
+        if ufunc is np.sqrt:
+            return fn.sqrt(inputs[0])
+        if ufunc is np.exp:
+            return fn.exp(inputs[0])
+        if ufunc is np.log:
+            return fn.log(inputs[0])
+        if ufunc is np.log10:
+            return fn.log10(inputs[0])
+        if ufunc is np.sin:
+            return fn.sin(inputs[0])
+        if ufunc is np.cos:
+            return fn.cos(inputs[0])
+        if ufunc is np.tan:
+            return fn.tan(inputs[0])
+        if ufunc is np.arctan2:
+            return fn.atan2(inputs[0], inputs[1])
+        return NotImplemented
+
+    def error_components(
+        self,
+        *,
+        basis: str = "std",
+        correlation: str = "diagonal",
+    ) -> list[dict[str, Any]]:
+        """Return auditable uncertainty component rows.
+
+        Diagonal rows report individual atom contributions.  When correlations
+        exist, ``correlation="include_cross"`` with ``basis="variance"`` adds
+        signed covariance cross terms so the row variances sum to ``variance``.
+        """
+
+        if basis not in {"std", "variance"}:
+            raise ValueError("basis must be 'std' or 'variance'.")
+        if correlation not in {"diagonal", "include_cross"}:
+            raise ValueError("correlation must be 'diagonal' or 'include_cross'.")
+        if basis == "std" and correlation == "include_cross":
+            raise ValueError("cross terms are variance contributions; use basis='variance'.")
+
+        reg = self.registry
+        rows: list[dict[str, Any]] = []
+        for uid, sensitivity in self.grad.items():
+            atom = reg.atoms[uid]
+            std_contribution = abs(sensitivity) * atom.std_uncertainty
+            rows.append(
+                {
+                    "type": "diagonal",
+                    "uid": uid,
+                    "label": atom.label,
+                    "sensitivity": sensitivity,
+                    "input_uncertainty": atom.std_uncertainty,
+                    "std_contribution": std_contribution,
+                    "variance_contribution": (sensitivity**2) * atom.variance,
+                    "unit": atom.unit,
+                    "kind": atom.kind.value,
+                    "distribution": atom.distribution.value,
+                    "source": atom.source,
+                }
+            )
+        has_relevant_correlations = any(
+            self.grad.get(a, 0.0) != 0.0 and self.grad.get(b, 0.0) != 0.0
+            for (a, b) in reg._covariances
+        )
+        if has_relevant_correlations and correlation == "diagonal":
+            warnings.warn(
+                "Diagonal error components do not include covariance cross terms; "
+                "use basis='variance', correlation='include_cross' for a complete variance budget.",
+                CorrelationComponentWarning,
+                stacklevel=2,
+            )
+        if correlation == "include_cross":
+            for (uid_a, uid_b), covariance in reg._covariances.items():
+                sensitivity_a = self.grad.get(uid_a, 0.0)
+                sensitivity_b = self.grad.get(uid_b, 0.0)
+                if sensitivity_a == 0.0 or sensitivity_b == 0.0:
+                    continue
+                atom_a = reg.atoms[uid_a]
+                atom_b = reg.atoms[uid_b]
+                rows.append(
+                    {
+                        "type": "cross",
+                        "uid_a": uid_a,
+                        "uid_b": uid_b,
+                        "label": f"{atom_a.label} × {atom_b.label}",
+                        "sensitivity_a": sensitivity_a,
+                        "sensitivity_b": sensitivity_b,
+                        "covariance": covariance,
+                        "variance_contribution": 2.0 * sensitivity_a * sensitivity_b * covariance,
+                    }
+                )
+        key = "variance_contribution" if basis == "variance" else "std_contribution"
+        rows.sort(key=lambda row: abs(float(row.get(key, 0.0))), reverse=True)
+        return rows
+
+    def dominant(self, n: int = 3) -> list[Any]:
+        return self.budget().entries[:n]
+
+    def to_dsi(self, *, coverage_factor: float = 2.0) -> dict:
+        from .units import to_dsi_unit
+
+        dsi_unit, unit_resolved = to_dsi_unit(self.unit)
+        return {
+            "value": self.nominal,
+            "unit": dsi_unit,
+            "unit_resolved": unit_resolved,
+            "standard_uncertainty": self.u,
+            "expanded_uncertainty": self.u * coverage_factor,
+            "coverageFactor": coverage_factor,
+            "coverageProbability": None,
+            "distribution": "derived",
+        }
 
     def to_ufloat(self):  # pragma: no cover - optional interop
         from uncertainties import ufloat
@@ -286,6 +569,7 @@ class Quantity:
                 "degrees_of_freedom": a.degrees_of_freedom,
                 "kind": a.kind.value,
                 "source": a.source,
+                "traceability": a.traceability.model_dump(mode="json") if a.traceability else None,
             }
         covariances = [
             [a, b, cov]
@@ -299,6 +583,11 @@ class Quantity:
             "grad": dict(self.grad),
             "atoms": atoms,
             "covariances": covariances,
+            "measurement_model": self.measurement_model.model_dump(mode="json")
+            if self.measurement_model
+            else None,
+            "provenance": self.provenance.model_dump(mode="json") if self.provenance else None,
+            "dof_method": self.dof_method,
         }
 
     @classmethod
@@ -306,6 +595,9 @@ class Quantity:
         from .atoms import Distribution
         from .atoms import InfluenceQuantity
         from .atoms import Kind
+        from .metrology import model_from_any
+        from .metrology import provenance_from_any
+        from .metrology import traceability_ref_from_any
 
         reg = registry or AtomRegistry()
         for uid, a in data.get("atoms", {}).items():
@@ -320,9 +612,14 @@ class Quantity:
                     degrees_of_freedom=a.get("degrees_of_freedom"),
                     kind=Kind(a.get("kind", "type_b")),
                     source=a.get("source"),
+                    traceability=traceability_ref_from_any(a.get("traceability")),
                 )
             )
         for a, b, cov in data.get("covariances", []):
             reg.set_covariance(a, b, cov)
         grad = {uid: float(g) for uid, g in data.get("grad", {}).items()}
-        return cls(data["nominal"], data.get("unit", ""), grad, reg)
+        q = cls(data["nominal"], data.get("unit", ""), grad, reg)
+        q.measurement_model = model_from_any(data.get("measurement_model"))
+        q.provenance = provenance_from_any(data.get("provenance"))
+        q.dof_method = data.get("dof_method")
+        return q
