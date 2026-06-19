@@ -28,19 +28,18 @@ from ..errors import InstrumentConfigurationError
 from ..errors import InstrumentDataError
 from ..errors import InstrumentParameterError
 from ..experiments import MeasurementResult
-from ..uncertainty import AtomRegistry
 from ..uncertainty import Quantity as MeasurementQuantity
 from ..uncertainty import QuantityArray
-from ..uncertainty import ResultProvenance
-from ..uncertainty.metrology import MeasurementModel
-from ..uncertainty.specs import UncertaintyContext
-from ..uncertainty.specs import evaluate_quantity
+from ..uncertainty.waveform import WaveformUncertaintyModel
 from .instrument import Instrument
 from .scpi_binary import BinaryBlockParseError
 from .scpi_binary import definite_length_block_to_array
 from .scpi_binary import strip_definite_length_block
 from .uncertainty_adapters import nonzero_uncertainty_quantity
 from .uncertainty_adapters import oscilloscope_measurement_context
+from .waveform_result import AcquisitionTrace
+from .waveform_result import ScopeStateSnapshot
+from .waveform_result import WaveformResult
 
 if TYPE_CHECKING:  # for type checkers only; avoids runtime import cycles
     from ..plotting.simple import PlotSpec
@@ -135,13 +134,13 @@ class ChannelReadingResult(MeasurementResult):
             envelope=envelope,
         )
 
-    def quantity(self, channel: int) -> QuantityArray:
-        """Return a covariance-aware waveform `QuantityArray` for one channel.
+    def waveform(self, channel: int) -> WaveformResult:
+        """Return a first-class covariance-aware waveform result for one channel.
 
         This is intentionally lazy so normal `read_channels()` callers keep the
-        same DataFrame behavior and cost.  If no waveform uncertainty metadata is
-        available, the returned array carries nominal samples with zero variance
-        and incomplete provenance.
+        same DataFrame behavior and cost.  If no waveform uncertainty metadata
+        is available, the returned result carries nominal samples with explicit
+        incomplete provenance.
         """
 
         df = self._ensure_dataframe()
@@ -149,62 +148,40 @@ class ChannelReadingResult(MeasurementResult):
         if col not in df.columns:
             raise KeyError(f"Channel column not present: {col}")
         values = df[col].to_numpy().astype(float)
+        time = df["Time (s)"].to_numpy().astype(float) if "Time (s)" in df.columns else None
         meta_by_channel = (getattr(self, "envelope", {}) or {}).get("waveform_uncertainty", {})
         meta = meta_by_channel.get(str(channel)) or meta_by_channel.get(channel) or {}
-        spec = meta.get("accuracy_spec")
-        registry = AtomRegistry()
-        sensitivities: dict[str, np.ndarray] = {}
-        diagonal = np.zeros_like(values, dtype=float)
         unit = str(meta.get("unit", self.units or "V"))
-        source_key = meta.get("source_key")
-        traceability = meta.get("traceability")
-        if spec is not None:
-            shared_model = spec.__class__.__name__ in {"AccuracySpec", "BandAccuracySpec"}
-            for idx, reading in enumerate(values):
-                context = UncertaintyContext(
-                    reading=float(reading),
-                    unit=unit,
-                    function="read_channels",
-                    range_value=meta.get("range_value"),
-                    range_unit=unit,
-                    resolution=meta.get("resolution"),
-                    bandwidth=meta.get("bandwidth"),
-                    channel=channel,
-                    sample_count=len(values),
-                    source_key=source_key if shared_model else None,
-                    traceability=traceability,
-                    metadata={"preamble": meta.get("preamble", {})},
-                )
-                q = evaluate_quantity(spec, context, registry if shared_model else AtomRegistry())
-                if shared_model:
-                    for uid, grad in q.grad.items():
-                        sensitivities.setdefault(uid, np.zeros_like(values, dtype=float))[idx] = (
-                            grad
-                        )
-                else:
-                    diagonal[idx] += q.u**2
-        elif meta.get("resolution"):
-            diagonal += (float(meta["resolution"]) / math.sqrt(12.0)) ** 2
-        arr = QuantityArray(
-            values,
+        model = WaveformUncertaintyModel.from_metadata(
+            meta,
+            samples=values,
             unit=unit,
-            diagonal_variance=diagonal,
-            atom_sensitivities=sensitivities,
-            registry=registry,
-            measurement_model=MeasurementModel(
-                output_name=f"channel_{channel}_waveform",
-                output_unit=unit,
-                function="read_channels",
-                method="gum_first_order",
-                assumptions=["lazy oscilloscope waveform uncertainty construction"],
-                dof_method="waveform_effective_sample_size_required_for_reductions",
-            ),
-            provenance=ResultProvenance.current(
-                input_data=values.tobytes(), provenance_complete=False
-            ),
-            dof_method="waveform_effective_sample_size_required_for_reductions",
+            channel=channel,
         )
-        return arr
+        return WaveformResult(
+            values,
+            time=time,
+            unit=unit,
+            channel=channel,
+            instrument=self.instrument,
+            model=model,
+            metadata=meta,
+        )
+
+    def quantity(self, channel: int) -> QuantityArray:
+        """Return a covariance-aware waveform `QuantityArray` for one channel."""
+
+        return self.waveform(channel).quantity_array()
+
+    def channel(self, channel: int) -> WaveformResult:
+        """Return one channel as a waveform result with automatic uncertainty propagation."""
+
+        return self.waveform(channel)
+
+    def ch(self, channel: int) -> WaveformResult:
+        """Short alias for :meth:`channel` for interactive notebook use."""
+
+        return self.waveform(channel)
 
     def mean(
         self, channel: int, *, dof_method: str = "validated_independent"
@@ -1372,6 +1349,124 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             sampling_rate=sampling_rate,
             values=pl.DataFrame({"Time (s)": time_array, **columns}),
             envelope={"waveform_uncertainty": waveform_uncertainty},
+        )
+
+    @validate_call
+    def acquire_waveform(
+        self,
+        channel: int,
+        *,
+        mode: str = "controlled",
+        format: str = "byte",
+        points: int | None = None,
+        uncertainty: bool = True,
+        restore_state: bool = False,
+        timeout_ms: int | None = None,
+    ) -> WaveformResult:
+        """Acquire one channel as a first-class :class:`WaveformResult`.
+
+        ``mode="read_only"`` preserves the non-invasive verification posture at
+        the API boundary. ``mode="controlled"`` uses the existing waveform setup
+        aliases in the instrument profile (source, max points, BYTE format, raw
+        view) via :meth:`read_channels` and records that intent in the acquisition
+        trace.  Full arbitrary state restoration is deliberately not guessed; the
+        trace records whether restoration was requested and whether PyTestLab had
+        enough state to restore.
+        """
+
+        normalized_mode = mode.lower().replace("-", "_")
+        if normalized_mode not in {"read_only", "controlled"}:
+            raise InstrumentParameterError(
+                parameter="mode",
+                value=mode,
+                valid_range=("read_only", "controlled"),
+                message="mode must be 'read_only' or 'controlled'.",
+            )
+        if format not in {"auto", "byte"}:
+            raise InstrumentParameterError(
+                parameter="format",
+                value=format,
+                valid_range=("auto", "byte"),
+                message="Oscilloscope.acquire_waveform currently supports format='auto' or 'byte'.",
+            )
+        if points is not None:
+            self._logger.info(
+                "Requested points=%s; current profile uses set_wave_points_max for waveform transfer.",
+                points,
+            )
+
+        state_before = None
+        if normalized_mode == "controlled":
+            try:
+                scale, position = self.get_time_axis()
+                state_before = ScopeStateSnapshot(
+                    mode="partial",
+                    values={"timebase_scale": float(scale), "timebase_position": float(position)},
+                )
+            except Exception as exc:  # pragma: no cover - hardware/profile dependent
+                self._logger.debug(
+                    "Could not snapshot oscilloscope state before acquisition: %s", exc
+                )
+
+        result = self.read_channels(channel, timeout_ms=timeout_ms)
+        wave = result.waveform(channel)
+        notes = [
+            "read_channels acquisition path used",
+            f"requested_format={format}",
+            "raw waveform transfer payload is not retained by WaveformResult",
+        ]
+        restored: bool | None = None
+        if restore_state:
+            if state_before is not None:
+                try:
+                    self.set_time_axis(
+                        scale=float(state_before.values["timebase_scale"]),
+                        position=float(state_before.values["timebase_position"]),
+                    )
+                    restored = True
+                except Exception as exc:  # pragma: no cover - hardware/profile dependent
+                    restored = False
+                    notes.append(f"state restore failed: {exc}")
+            else:
+                restored = False
+                notes.append(
+                    "state restore requested but no restorable state snapshot was available"
+                )
+        trace = AcquisitionTrace(
+            mode=normalized_mode,
+            commands=(
+                "set_wave_source",
+                "set_wave_points_max",
+                "set_wave_format_byte",
+                "set_wave_points_mode_raw",
+                "wave_data",
+            )
+            if normalized_mode == "controlled"
+            else ("wave_data",),
+            state_before=state_before,
+            restored=restored,
+            notes=tuple(notes if uncertainty else [*notes, "uncertainty model not requested"]),
+        )
+        if uncertainty:
+            model = wave.model
+            metadata = wave.metadata
+        else:
+            model = WaveformUncertaintyModel(
+                unit=wave.unit,
+                channel=wave.channel,
+                provenance_complete=False,
+                assumptions=("uncertainty model disabled by caller",),
+            )
+            metadata = {}
+        return WaveformResult(
+            wave.values,
+            time=wave.time,
+            unit=wave.unit,
+            channel=wave.channel,
+            instrument=wave.instrument,
+            model=model,
+            acquisition=trace,
+            metadata=metadata,
         )
 
     def plot_channels(

@@ -539,9 +539,9 @@ class Quantity:
         }
 
     def to_ufloat(self):  # pragma: no cover - optional interop
-        from uncertainties import ufloat
+        from .compat import make_ufloat
 
-        return ufloat(self.nominal, self.u)
+        return make_ufloat(self.nominal, self.u)
 
     # -- serialization ------------------------------------------------------
     def to_dict(self) -> dict:

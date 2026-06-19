@@ -504,21 +504,35 @@ def _safe_parse(engine: SCPIEngine, alias: str, response: str) -> Any:
 def _waveform_reduction_payload(
     *, model: str, preamble: str, raw_response: bytes
 ) -> dict[str, Any]:
-    from pytestlab.uncertainty import QuantityArray
+    from pytestlab.instruments.waveform_decode import WaveformDecodeError
+    from pytestlab.instruments.waveform_decode import decode_waveform
     from pytestlab.uncertainty import waveform_reductions_to_digital_exports
 
-    values, encoding = _decode_waveform_response(raw_response, preamble)
+    try:
+        decoded = decode_waveform(raw_response, preamble)
+    except WaveformDecodeError as exc:
+        raise RuntimeError(str(exc)) from exc
+    values = decoded.values
+    encoding = decoded.encoding
     diffs = np.diff(np.unique(np.round(values, decimals=12)))
     step = (
         float(np.min(diffs[diffs > 0]))
         if np.any(diffs > 0)
         else max(float(np.ptp(values)), 1.0) * 1e-6
     )
-    waveform = QuantityArray.from_samples(
-        values,
+    from pytestlab.uncertainty.waveform import WaveformUncertaintyModel
+
+    waveform_model = WaveformUncertaintyModel.from_metadata(
+        {
+            "unit": "V",
+            "resolution": step,
+            "preamble": decoded.preamble.to_dict(),
+            "source_key": f"lamb:{model}:waveform",
+        },
+        samples=values,
         unit="V",
-        independent_std=step / np.sqrt(12.0),
     )
+    waveform = waveform_model.quantity_array(values)
     reductions = {
         "mean": waveform.mean(dof_method="validated_independent"),
         "rms": waveform.rms(dof_method="lag1_autocorrelation"),
@@ -548,6 +562,9 @@ def _waveform_reduction_payload(
         "waveform_encoding": encoding,
         "point_count": int(values.size),
         "waveform_sha256": _sha256_bytes(raw_response),
+        "preamble_sha256": decoded.preamble_sha256,
+        "decoder_metadata": decoded.metadata(),
+        "uncertainty_model": waveform_model.to_dict(),
         "uncertainty_floor": "one observed LSB/sqrt(12) or scale-relative floor",
         "metrics": {
             name: {
@@ -565,30 +582,6 @@ def _waveform_reduction_payload(
             "reductions": export_rows,
         },
     }
-
-
-def _decode_waveform_response(raw_response: bytes, preamble: str) -> tuple[np.ndarray, str]:
-    from pytestlab.validation.hardware_parity import HardwareParityError
-    from pytestlab.validation.hardware_parity import decode_keysight_byte_waveform
-
-    if raw_response.startswith(b"#"):
-        return decode_keysight_byte_waveform(raw_response, preamble), "binblock_uint8"
-
-    try:
-        text = raw_response.decode("ascii").strip()
-    except UnicodeDecodeError as exc:
-        raise HardwareParityError("waveform response is neither binblock nor ASCII CSV") from exc
-    values = np.fromstring(text, sep=",", dtype=float)
-    if values.size == 0:
-        raise HardwareParityError("ASCII waveform response contained no numeric samples")
-    fields = [part.strip() for part in preamble.split(",")]
-    if len(fields) >= 3:
-        expected_points = int(float(fields[2]))
-        if values.size != expected_points:
-            raise HardwareParityError(
-                f"ASCII waveform point count mismatch: raw={values.size}, preamble={expected_points}"
-            )
-    return values, "ascii_volts"
 
 
 def _skipped_io_rows(model: str, reason: str) -> list[LambScopeRow]:

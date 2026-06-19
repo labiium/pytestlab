@@ -3,11 +3,11 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
-from uncertainties import ufloat
-from uncertainties.core import UFloat
 
 from ..uncertainty import Quantity
 from ..uncertainty import QuantityArray
+from ..uncertainty.compat import UFloat
+from ..uncertainty.compat import make_ufloat
 
 
 def serialize_uncertain_value(value: Any) -> tuple[Any, dict[str, Any]]:
@@ -54,17 +54,17 @@ def deserialize_uncertain_value(value_data: Any, metadata: dict[str, Any]) -> An
         return value_data
     if value_kind == "ufloat":
         values = np.asarray(value_data)
-        return ufloat(float(values[0]), float(values[1]))
+        return make_ufloat(float(values[0]), float(values[1]))
     if value_kind == "ufloat_ndarray":
         values = np.asarray(value_data)
         shape = tuple(metadata.get("shape", values.shape[:-1]))
         restored = np.empty(shape, dtype=object)
         for idx in np.ndindex(restored.shape):
-            restored[idx] = ufloat(float(values[idx + (0,)]), float(values[idx + (1,)]))
+            restored[idx] = make_ufloat(float(values[idx + (0,)]), float(values[idx + (1,)]))
         return restored
     if value_kind == "ufloat_list":
         values = np.asarray(value_data)
-        return [ufloat(float(nominal), float(sigma)) for nominal, sigma in values]
+        return [make_ufloat(float(nominal), float(sigma)) for nominal, sigma in values]
     return value_data
 
 

@@ -15,7 +15,8 @@ from typing import Any
 
 import numpy as np
 
-from pytestlab.instruments.scpi_binary import definite_length_block_to_array
+from pytestlab.instruments.waveform_decode import WaveformDecodeError
+from pytestlab.instruments.waveform_decode import decode_waveform
 from pytestlab.uncertainty.quantity_array import QuantityArray
 
 
@@ -64,19 +65,10 @@ class HardwareParityError(RuntimeError):
 def decode_keysight_byte_waveform(raw_block: bytes, preamble: str) -> np.ndarray:
     """Decode BYTE-format Keysight waveform data using a 10-field preamble."""
 
-    raw = definite_length_block_to_array(raw_block, dtype=np.uint8).astype(float)
-    fields = [part.strip() for part in preamble.split(",")]
-    if len(fields) < 10:
-        raise HardwareParityError("waveform preamble must contain at least 10 CSV fields")
-    points = int(float(fields[2]))
-    yinc = float(fields[7])
-    yorg = float(fields[8])
-    yref = float(fields[9])
-    if raw.size != points:
-        raise HardwareParityError(
-            f"waveform point count mismatch: raw={raw.size}, preamble={points}"
-        )
-    return (raw - yref) * yinc + yorg
+    try:
+        return decode_waveform(raw_block, preamble, encoding="binblock_uint8").values
+    except WaveformDecodeError as exc:
+        raise HardwareParityError(str(exc)) from exc
 
 
 def summarize_waveform(values: np.ndarray, *, unit: str = "V") -> dict[str, WaveformMetric]:

@@ -42,9 +42,10 @@ def test_channel_reading_result_builds_lazy_quantity_array_from_waveform_metadat
 
     assert isinstance(arr, QuantityArray)
     assert arr.nominal.tolist() == [1.0, 2.0, 3.0]
-    assert arr.u[0] == pytest.approx((0.01**2 + 0.02**2) ** 0.5)
-    assert arr.u[2] == pytest.approx((0.03**2 + 0.02**2) ** 0.5)
-    assert arr.measurement_model.function == "read_channels"
+    quantization = (0.001 / (12.0**0.5)) ** 2
+    assert arr.u[0] == pytest.approx((0.01**2 + 0.02**2 + quantization) ** 0.5)
+    assert arr.u[2] == pytest.approx((0.03**2 + 0.02**2 + quantization) ** 0.5)
+    assert arr.measurement_model.function == "oscilloscope_waveform(samples, uncertainty_model)"
     assert arr.provenance.provenance_complete is False
 
 

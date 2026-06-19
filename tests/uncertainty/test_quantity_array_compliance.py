@@ -198,6 +198,8 @@ def test_unsigned_dcc_export_records_schema_and_unsigned_scope() -> None:
 
     assert 'schemaVersion="3.3.0"' in xml
     assert 'unsigned="true"' in xml
+    assert "pytestlabMeasurementEvidence" in xml
+    assert "digitalCalibrationCertificate" not in xml
     assert "coverageFactor" in xml
     assert "reportGradeBlockers" in xml
 

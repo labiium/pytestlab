@@ -10,10 +10,10 @@ from typing import overload
 import numpy as np
 import polars as pl
 from numpy.typing import NDArray
-from uncertainties.core import UFloat
 
 from ..uncertainty import Quantity as MeasurementQuantity
 from ..uncertainty import QuantityArray as MeasurementQuantityArray
+from ..uncertainty.compat import UFloat
 
 if TYPE_CHECKING:
     from ..plotting import PlotSpec

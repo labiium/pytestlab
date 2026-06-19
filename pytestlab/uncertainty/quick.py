@@ -13,6 +13,8 @@ from .atoms import Distribution
 from .atoms import Kind
 from .atoms import default_registry
 from .atoms import divisor_for
+from .compat import uncertainties_correlated_values
+from .compat import uncertainties_covariance_matrix
 from .metrology import traceability_ref_from_any
 from .multivariate import QuantityVector
 from .multivariate import _validate_covariance_matrix
@@ -338,20 +340,16 @@ def from_ufloats(
     labels: Sequence[str] | None = None,
     registry: AtomRegistry | None = None,
 ) -> list[Quantity]:
-    from uncertainties import covariance_matrix as _uncertainties_covariance_matrix
-
     seq = list(values)
     noms = [float(v.nominal_value) for v in seq]
-    cov = np.asarray(_uncertainties_covariance_matrix(seq), dtype=float)
+    cov = np.asarray(uncertainties_covariance_matrix(seq), dtype=float)
     return correlated_values(noms, cov, labels=labels, units=units, registry=registry)
 
 
 def to_ufloat_correlated(
     values: Sequence[Quantity], tags: Sequence[str] | None = None
 ) -> list[Any]:
-    from uncertainties import correlated_values as _uncertainties_correlated_values
-
     seq = list(values)
     noms = [q.nominal for q in seq]
     cov = covariance_matrix(seq)
-    return list(_uncertainties_correlated_values(noms, cov, tags=tags))
+    return uncertainties_correlated_values(noms, cov, tags=tags)

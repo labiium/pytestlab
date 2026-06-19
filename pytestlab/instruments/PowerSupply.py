@@ -4,13 +4,13 @@ from typing import Any
 from typing import Self
 
 from pydantic import validate_call  # Added validate_call
-from uncertainties.core import UFloat
 
 from ..common.enums import SCPIOnOff  # Added SCPIOnOff
 from ..config import PowerSupplyConfig  # V2 model
 from ..errors import InstrumentConfigurationError
 from ..errors import InstrumentParameterError
 from ..uncertainty import Quantity as MeasurementQuantity
+from ..uncertainty.compat import UFloat
 from .instrument import Instrument
 from .scpi_engine import SCPIEngine
 from .uncertainty_adapters import nonzero_uncertainty_quantity

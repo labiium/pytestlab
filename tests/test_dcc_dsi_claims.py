@@ -5,11 +5,12 @@ from pathlib import Path
 from pytestlab.evidence import build_digital_export_evidence
 from pytestlab.evidence import scan_claim_boundaries
 from pytestlab.uncertainty import QuantityArray
+from pytestlab.uncertainty import quantity_to_dcc_candidate_xml
 from pytestlab.uncertainty import validate_dcc_profile_xml
 from pytestlab.uncertainty import waveform_reductions_to_digital_exports
 
 
-def test_waveform_scalar_reductions_export_dsi_and_unsigned_dcc_subset() -> None:
+def test_waveform_scalar_reductions_export_dsi_and_unsigned_evidence_xml() -> None:
     waveform = QuantityArray.from_samples([0.0, 1.0, -1.0, 0.5], unit="V", independent_std=0.02)
     exports = waveform_reductions_to_digital_exports(
         {
@@ -23,11 +24,14 @@ def test_waveform_scalar_reductions_export_dsi_and_unsigned_dcc_subset() -> None
 
     assert exports["unsigned_dcc_subset"] is True
     assert "not an accredited calibration certificate" in exports["non_claim"]
+    assert "not a signed DCC" in exports["non_claim"]
     assert set(exports["reductions"]) == {"mean", "rms", "peak_to_peak"}
     for item in exports["reductions"].values():
         assert item["dsi"]["unit"] == "V"
         assert item["dsi"]["dsi_schema_version"] == "2.2.1"
         assert 'unsigned="true"' in item["dcc_xml"]
+        assert "pytestlabMeasurementEvidence" in item["dcc_xml"]
+        assert "digitalCalibrationCertificate" not in item["dcc_xml"]
         validate_dcc_profile_xml(item["dcc_xml"])
 
 
@@ -48,3 +52,11 @@ def test_claims_document_and_scan_block_overclaiming_language() -> None:
     scan = scan_claim_boundaries()
     assert scan["status"] == "pass"
     assert scan["findings"] == []
+
+
+def test_dcc_candidate_export_fails_loud_until_full_xsd_validation_exists() -> None:
+    waveform = QuantityArray.from_samples([0.0, 1.0], unit="V", independent_std=0.1)
+    with __import__("pytest").raises(NotImplementedError, match="Full PTB DCC XSD validation"):
+        quantity_to_dcc_candidate_xml(
+            waveform.mean(), identifier="candidate", allow_incomplete=True
+        )

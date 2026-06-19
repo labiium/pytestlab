@@ -10,7 +10,6 @@ from typing import Any
 from typing import Literal
 
 import numpy as np
-from uncertainties.core import UFloat
 
 from ..common.health import HealthReport
 from ..common.health import HealthStatus
@@ -22,6 +21,7 @@ from ..errors import InstrumentCommunicationError
 from ..errors import InstrumentParameterError
 from ..experiments import MeasurementResult
 from ..uncertainty import Quantity as MeasurementQuantity
+from ..uncertainty.compat import UFloat
 from .instrument import Instrument
 from .instrument import InstrumentIO
 from .uncertainty_adapters import dc_load_measurement_context

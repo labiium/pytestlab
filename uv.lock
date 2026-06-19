@@ -1973,7 +1973,6 @@ dependencies = [
     { name = "scipy" },
     { name = "tqdm" },
     { name = "typer" },
-    { name = "uncertainties" },
 ]
 
 [package.optional-dependencies]
@@ -2019,6 +2018,9 @@ docs = [
     { name = "plotly" },
     { name = "pymdown-extensions" },
     { name = "watchdog" },
+]
+uncertainties-compat = [
+    { name = "uncertainties" },
 ]
 
 [package.dev-dependencies]
@@ -2083,11 +2085,11 @@ requires-dist = [
     { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0.12.20250809" },
     { name = "types-requests", marker = "extra == 'dev'", specifier = ">=2.32.4.20250809" },
     { name = "types-tqdm", marker = "extra == 'dev'", specifier = ">=4.67.0.20250809" },
-    { name = "uncertainties" },
+    { name = "uncertainties", marker = "extra == 'uncertainties-compat'" },
     { name = "watchdog", marker = "extra == 'dev'", specifier = ">=6.0.0" },
     { name = "watchdog", marker = "extra == 'docs'", specifier = ">=6.0.0" },
 ]
-provides-extras = ["circuit", "dev", "docs", "full", "plot"]
+provides-extras = ["circuit", "dev", "docs", "full", "plot", "uncertainties-compat"]
 
 [package.metadata.requires-dev]
 dev = [{ name = "ruff", specifier = ">=0.12.9" }]

@@ -10,10 +10,10 @@ from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
 from pydantic import model_validator
-from uncertainties.core import UFloat
 
 from .experiments.results import MeasurementResult
 from .uncertainty import Quantity as MeasurementQuantity
+from .uncertainty.compat import UFloat
 from .uncertainty.specs import AccuracyModel
 from .uncertainty.specs import UncertaintyContext
 from .uncertainty.specs import evaluate_quantity as evaluate_uncertainty_model

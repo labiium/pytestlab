@@ -23,6 +23,11 @@ behaviors when the referenced evidence bundle was generated from a clean tree:
 6. Digital-twin and replay fixtures are validation evidence for software
    behavior and regression detection.
 
+7. Oscilloscope waveform uncertainty follows the typed contract in
+   `docs/validation/waveform_scientific_contract.md`: shared systematic atoms,
+   diagonal independent terms, explicit acquisition mode, and fail-loud export
+   boundaries.
+
 ## Non-claims
 
 PyTestLab is not an accredited calibration laboratory. PyTestLab evidence does not confer ISO/IEC 17025 accreditation, DCC certification, GUM certification, or legal metrological acceptance of a user's laboratory. Unsigned DCC XML emitted by

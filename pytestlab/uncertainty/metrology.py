@@ -371,6 +371,13 @@ def report_grade_blockers(value: Any) -> list[str]:
         blockers.append("provenance_complete is false or missing")
     if getattr(value, "measurement_model", None) is None:
         blockers.append("measurement_model is missing")
+    dof_method = getattr(value, "dof_method", None) or getattr(
+        getattr(value, "measurement_model", None), "dof_method", None
+    )
+    if isinstance(dof_method, str) and (
+        "required" in dof_method or "unresolved" in dof_method or "placeholder" in dof_method
+    ):
+        blockers.append(f"degrees-of-freedom method is unresolved: {dof_method}")
     try:
         from .units import is_unit_resolvable
 

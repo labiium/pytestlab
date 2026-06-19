@@ -238,9 +238,14 @@ def scan_claim_boundaries() -> dict[str, Any]:
         "automatically ISO/IEC 17025 compliant",
         "DCC certified by PyTestLab",
         "GUM certified by PyTestLab",
+        "PyTestLab emits accredited DCC certificates",
+        "<digitalCalibrationCertificate",
     ]
     paths = [
         Path("README.md"),
+        Path("paper/joss/paper.md"),
+        Path("pytestlab/cli.py"),
+        Path("pytestlab/uncertainty/digital_export.py"),
         Path("docs/en/user_guide/uncertainty.md"),
         Path("docs/validation/CLAIMS.md"),
         Path("docs/validation/uncertainty_engine_validation_20260618.md"),

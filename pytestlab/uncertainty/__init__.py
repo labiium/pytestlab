@@ -29,7 +29,9 @@ from .corrections import Correction
 from .corrections import apply_correction
 from .digital_export import DCC_SCHEMA_VERSION
 from .digital_export import DSI_SCHEMA_VERSION
+from .digital_export import quantity_to_dcc_candidate_xml
 from .digital_export import quantity_to_dsi
+from .digital_export import quantity_to_pytestlab_evidence_xml
 from .digital_export import quantity_to_unsigned_dcc_xml
 from .digital_export import validate_dcc_profile_xml
 from .digital_export import verify_cached_schema_files
@@ -83,6 +85,9 @@ from .units import to_dsi_unit
 from .validation import ValidationReport
 from .validation import validate
 from .validation import validate_model
+from .waveform import WaveformAxis
+from .waveform import WaveformUncertaintyModel
+from .waveform import build_waveform_quantity_array
 
 __all__ = [
     "Quantity",
@@ -102,6 +107,8 @@ __all__ = [
     "UnitCompatibilityError",
     "assess_conformity",
     "quantity_to_dsi",
+    "quantity_to_pytestlab_evidence_xml",
+    "quantity_to_dcc_candidate_xml",
     "quantity_to_unsigned_dcc_xml",
     "waveform_reductions_to_digital_exports",
     "validate_dcc_profile_xml",
@@ -139,6 +146,9 @@ __all__ = [
     "validate",
     "validate_model",
     "ValidationReport",
+    "WaveformAxis",
+    "WaveformUncertaintyModel",
+    "build_waveform_quantity_array",
     "Correction",
     "apply_correction",
     "QuantityVector",

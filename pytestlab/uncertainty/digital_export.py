@@ -31,17 +31,18 @@ def quantity_to_dsi(
     return payload
 
 
-def quantity_to_unsigned_dcc_xml(
+def quantity_to_pytestlab_evidence_xml(
     value: Quantity,
     *,
     identifier: str,
     coverage_factor: float = 2.0,
     allow_incomplete: bool = False,
 ) -> str:
-    """Create a minimal unsigned DCC-subset XML document for scalar/reduction results.
+    """Create PyTestLab's unsigned XML evidence record for scalar/reduction results.
 
-    This function intentionally does not sign XML. Signing and PKI are the
-    responsibility of the issuing laboratory.
+    This is a local software-validation evidence format.  It intentionally does
+    not claim to be a signed DCC, an accredited calibration certificate, or a
+    full PTB DCC schema-valid document.
     """
 
     blockers = report_grade_blockers(value)
@@ -49,13 +50,14 @@ def quantity_to_unsigned_dcc_xml(
         raise ValueError("Refusing DCC export for non-report-grade result: " + "; ".join(blockers))
     dsi = quantity_to_dsi(value, coverage_factor=coverage_factor)
     root = ET.Element(
-        "digitalCalibrationCertificate",
+        "pytestlabMeasurementEvidence",
         {
             "schemaVersion": DCC_SCHEMA_VERSION,
             "unsigned": "true",
             "dccSchema": DCC_SCHEMA_URL,
             "dsiSchema": DSI_SCHEMA_URL,
-            "profile": "pytestlab-dcc-subset-1.0",
+            "profile": "pytestlab-evidence-xml-1.0",
+            "notDccCertificate": "true",
         },
     )
     administrative = ET.SubElement(root, "administrativeData")
@@ -82,6 +84,55 @@ def quantity_to_unsigned_dcc_xml(
     return xml
 
 
+def quantity_to_dcc_candidate_xml(
+    value: Quantity,
+    *,
+    identifier: str,
+    coverage_factor: float = 2.0,
+    allow_incomplete: bool = False,
+    require_full_xsd: bool = True,
+) -> str:
+    """Return DCC candidate XML only when full DCC validation is available.
+
+    PyTestLab does not currently ship a complete DCC authoring/signing stack.
+    The fail-loud default prevents accidentally presenting local evidence XML as
+    a PTB DCC certificate.
+    """
+
+    if require_full_xsd:
+        raise NotImplementedError(
+            "Full PTB DCC XSD validation/signing is not implemented. "
+            "Use quantity_to_pytestlab_evidence_xml() for unsigned software-validation evidence."
+        )
+    return quantity_to_pytestlab_evidence_xml(
+        value,
+        identifier=identifier,
+        coverage_factor=coverage_factor,
+        allow_incomplete=allow_incomplete,
+    )
+
+
+def quantity_to_unsigned_dcc_xml(
+    value: Quantity,
+    *,
+    identifier: str,
+    coverage_factor: float = 2.0,
+    allow_incomplete: bool = False,
+) -> str:
+    """Compatibility alias for PyTestLab's unsigned evidence XML.
+
+    New code should use :func:`quantity_to_pytestlab_evidence_xml`.  The emitted
+    root is intentionally *not* ``digitalCalibrationCertificate``.
+    """
+
+    return quantity_to_pytestlab_evidence_xml(
+        value,
+        identifier=identifier,
+        coverage_factor=coverage_factor,
+        allow_incomplete=allow_incomplete,
+    )
+
+
 def waveform_reductions_to_digital_exports(
     reductions: dict[str, Quantity],
     *,
@@ -103,15 +154,15 @@ def waveform_reductions_to_digital_exports(
         "dsi_schema_version": DSI_SCHEMA_VERSION,
         "unsigned_dcc_subset": True,
         "non_claim": (
-            "Unsigned PyTestLab DCC subset for software-validation evidence; "
-            "not an accredited calibration certificate and not DCC certification."
+            "Unsigned PyTestLab software-validation evidence; not an accredited "
+            "calibration certificate, not a signed DCC, and not DCC certification."
         ),
         "reductions": {},
     }
     for name, quantity in reductions.items():
         identifier = f"{identifier_prefix}-{name}".replace("_", "-")
         dsi = quantity_to_dsi(quantity, coverage_factor=coverage_factor)
-        xml = quantity_to_unsigned_dcc_xml(
+        xml = quantity_to_pytestlab_evidence_xml(
             quantity,
             identifier=identifier,
             coverage_factor=coverage_factor,
@@ -136,14 +187,16 @@ def validate_dcc_profile_xml(xml: str) -> None:
     """
 
     root = ET.fromstring(xml)
-    if root.tag != "digitalCalibrationCertificate":
-        raise ValueError("DCC profile root must be digitalCalibrationCertificate.")
+    if root.tag != "pytestlabMeasurementEvidence":
+        raise ValueError("PyTestLab evidence XML root must be pytestlabMeasurementEvidence.")
     if root.attrib.get("schemaVersion") != DCC_SCHEMA_VERSION:
         raise ValueError(f"DCC schemaVersion must be {DCC_SCHEMA_VERSION}.")
     if root.attrib.get("dsiSchema") != DSI_SCHEMA_URL:
         raise ValueError("DCC profile must record the pinned D-SI schema URL.")
     if root.attrib.get("unsigned") != "true":
         raise ValueError("PyTestLab DCC profile exports are unsigned and must say so.")
+    if root.attrib.get("notDccCertificate") != "true":
+        raise ValueError("PyTestLab evidence XML must state notDccCertificate=true.")
     if root.find("administrativeData") is None:
         raise ValueError("DCC profile requires administrativeData.")
     result = root.find("measurementResult")

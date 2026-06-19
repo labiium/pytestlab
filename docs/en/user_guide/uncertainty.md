@@ -598,9 +598,9 @@ specification terms remain useful Type-B inputs, but they do not support an SI
 traceability claim without accredited/NMI evidence.
 
 DCC/D-SI exports are pinned to cached DCC 3.3.0 and D-SI 2.2.1 schema files in
-this repository.  PyTestLab validates its strict unsigned DCC-subset profile and
-records schema hashes; complete issuing-lab validation and XML signing remain
-outside the library.
+this repository.  PyTestLab validates its local unsigned evidence XML profile and
+records pinned DCC/D-SI schema hashes as external interoperability targets;
+complete issuing-lab DCC validation and XML signing remain outside the library.
 
 ## Scalar uncertainty ergonomics and migration from `uncertainties`
 
@@ -620,7 +620,8 @@ result = umath.exp(gain / 10) * voltage
 The scalar constructor is deliberately PyTestLab-native: use `uq(...)` and
 `uq.fromstr(...)` rather than compatibility aliases.  Explicit migration helpers
 `from_ufloat`, `from_ufloats`, and `to_ufloat_correlated` remain available for
-importing or exporting legacy objects, but normal PyTestLab code should stay on
+importing or exporting legacy objects when `pytestlab[uncertainties-compat]` is
+installed, but normal PyTestLab code should stay on
 `Quantity`/`QuantityArray`.  The top-level helpers `nominal_value`, `std_dev`,
 `nominal_values`, `std_devs`, `covariance_matrix`, `correlation_matrix`,
 `correlated_values`, and `correlated_values_norm` operate on PyTestLab quantities.
