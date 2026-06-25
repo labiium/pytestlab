@@ -18,6 +18,7 @@ import math
 import numbers
 import re
 import warnings
+from dataclasses import dataclass
 from html import escape
 from typing import TYPE_CHECKING
 from typing import Any
@@ -35,6 +36,25 @@ Number = int | float
 
 class CorrelationComponentWarning(UserWarning):
     """Diagonal-only uncertainty components are incomplete for correlated quantities."""
+
+
+class NominalOnlyDecisionWarning(UserWarning):
+    """A decision helper used a non-report-grade nominal-only quantity."""
+
+
+@dataclass(frozen=True)
+class QuantityComparison:
+    """Uncertainty-aware comparison result for two quantities or a quantity and limit."""
+
+    left_nominal: float
+    right_nominal: float
+    delta: float
+    combined_standard_uncertainty: float
+    coverage_factor: float
+    en_ratio: float
+    consistent: bool
+    direction: str
+    unit: str
 
 
 class Quantity:
@@ -148,6 +168,129 @@ class Quantity:
 
         return UncertaintyBudget.from_quantity(self)
 
+    @property
+    def is_report_grade(self) -> bool:
+        """Whether this result currently passes PyTestLab's report-grade gates."""
+
+        from .metrology import is_report_grade
+
+        return is_report_grade(self)
+
+    def report_grade_blockers(self) -> list[str]:
+        """Return human-readable reasons this value must not be treated as report-grade."""
+
+        from .metrology import report_grade_blockers
+
+        return report_grade_blockers(self)
+
+    # -- uncertainty-aware decisions -----------------------------------------
+    def compare(self, other: object, *, k: float = 2.0) -> QuantityComparison:
+        """Compare against another value using expanded uncertainty ``k * u_c``.
+
+        This is the auditable replacement for ambiguous scalar ``==``/``>`` checks.
+        Scalars are treated as exact thresholds in this quantity's unit.
+        """
+
+        if k <= 0.0 or not math.isfinite(k):
+            raise ValueError("coverage factor k must be positive and finite.")
+        right_nominal, right_u, unit, delta, combined_u = self._comparison_terms(other)
+        self._warn_if_nominal_only_decision(other)
+        expanded = k * combined_u
+        en_ratio = (
+            math.inf
+            if expanded == 0.0 and delta != 0.0
+            else (0.0 if expanded == 0.0 else abs(delta) / expanded)
+        )
+        direction = "consistent"
+        if delta > expanded:
+            direction = "above"
+        elif delta < -expanded:
+            direction = "below"
+        return QuantityComparison(
+            left_nominal=self.nominal,
+            right_nominal=right_nominal,
+            delta=delta,
+            combined_standard_uncertainty=combined_u,
+            coverage_factor=k,
+            en_ratio=en_ratio,
+            consistent=abs(delta) <= expanded,
+            direction=direction,
+            unit=unit,
+        )
+
+    def consistent_with(self, other: object, *, k: float = 2.0) -> bool:
+        """Return whether ``self`` agrees with ``other`` within ``k`` standard uncertainties."""
+
+        return self.compare(other, k=k).consistent
+
+    def en_ratio(self, other: object, *, k: float = 2.0) -> float:
+        """Return ``abs(delta) / (k * combined_standard_uncertainty)``."""
+
+        return self.compare(other, k=k).en_ratio
+
+    def exceeds(self, threshold: object, *, k: float = 2.0) -> bool:
+        """True only when the lower expanded-uncertainty bound exceeds ``threshold``."""
+
+        comparison = self.compare(threshold, k=k)
+        return comparison.delta > k * comparison.combined_standard_uncertainty
+
+    def below(self, threshold: object, *, k: float = 2.0) -> bool:
+        """True only when the upper expanded-uncertainty bound is below ``threshold``."""
+
+        comparison = self.compare(threshold, k=k)
+        return comparison.delta < -k * comparison.combined_standard_uncertainty
+
+    def within(self, lower: object, upper: object, *, k: float = 2.0) -> bool:
+        """True when the expanded interval is strictly inside ``[lower, upper]``."""
+
+        return self.exceeds(lower, k=k) and self.below(upper, k=k)
+
+    def _comparison_terms(self, other: object) -> tuple[float, float, str, float, float]:
+        if isinstance(other, Quantity):
+            right_nominal = units.convert_units(other.nominal, other.unit, self.unit)
+            right_u = abs(units.convert_units(other.u, other.unit, self.unit))
+            if other.registry is self.registry:
+                delta_q = self - other
+                return right_nominal, right_u, delta_q.unit, delta_q.nominal, delta_q.u
+            return (
+                right_nominal,
+                right_u,
+                self.unit,
+                self.nominal - right_nominal,
+                math.hypot(self.u, right_u),
+            )
+        if isinstance(other, numbers.Real):
+            right_nominal = float(other)
+            return right_nominal, 0.0, self.unit, self.nominal - right_nominal, self.u
+        raise TypeError(
+            "Quantity comparison expects another Quantity or a real scalar threshold. "
+            "Use q.n for routine nominal-only control flow or q.compare(...) for an "
+            "uncertainty-aware decision."
+        )
+
+    def _warn_if_nominal_only_decision(self, other: object) -> None:
+        blockers: list[str] = []
+        if self._is_nominal_only_non_report_grade():
+            blockers.append("left operand")
+        if isinstance(other, Quantity) and other._is_nominal_only_non_report_grade():
+            blockers.append("right operand")
+        if blockers:
+            warnings.warn(
+                "Decision made using a nominal-only non-report-grade Quantity "
+                f"({', '.join(blockers)}) with no uncertainty metadata. The verdict is "
+                "not guard-banded; inspect q.report_grade_blockers().",
+                NominalOnlyDecisionWarning,
+                stacklevel=3,
+            )
+
+    def _is_nominal_only_non_report_grade(self) -> bool:
+        if self.u != 0.0:
+            return False
+        try:
+            return bool(self.report_grade_blockers())
+        except Exception:  # pragma: no cover - reportability checks are defensive
+            return False
+
     # -- low level gradient algebra ----------------------------------------
     def _combine_grads(self, other: Quantity, ca: float, cb: float) -> dict[str, float]:
         """Return ``ca * self.grad + cb * other.grad``."""
@@ -205,9 +348,35 @@ class Quantity:
         ]
         if not provenances:
             return None
+        from .metrology import DataOrigin
+        from .metrology import EvidencePurpose
         from .metrology import ResultProvenance
 
-        merged = ResultProvenance.current(provenance_complete=False)
+        origins = [
+            provenance.data_origin
+            for provenance in provenances
+            if isinstance(provenance, ResultProvenance)
+        ]
+        purposes = [
+            provenance.evidence_purpose
+            for provenance in provenances
+            if isinstance(provenance, ResultProvenance)
+        ]
+        data_origin = (
+            origins[0]
+            if origins and all(origin == origins[0] for origin in origins)
+            else DataOrigin.UNKNOWN
+        )
+        evidence_purpose = (
+            purposes[0]
+            if purposes and all(purpose == purposes[0] for purpose in purposes)
+            else EvidencePurpose.SOFTWARE_VALIDATION
+        )
+        merged = ResultProvenance.current(
+            data_origin=data_origin,
+            evidence_purpose=evidence_purpose,
+            provenance_complete=False,
+        )
         merged.amendments.append(
             {
                 "operation": "derived_arithmetic",
@@ -229,10 +398,13 @@ class Quantity:
             return NotImplemented
         if self.unit and o.unit and self.unit != o.unit:
             nominal, unit = units.add_sub_nominal(self.nominal, self.unit, o.nominal, o.unit, "add")
+            right_scale = units.convert_units(1.0, o.unit, self.unit)
+            grad = self._combine_grads(o, 1.0, right_scale)
         else:
             nominal = self.nominal + o.nominal
             unit = self.unit or o.unit
-        return self._new(nominal, unit, self._combine_grads(o, 1.0, 1.0), o)
+            grad = self._combine_grads(o, 1.0, 1.0)
+        return self._new(nominal, unit, grad, o)
 
     __radd__ = __add__
 
@@ -242,10 +414,13 @@ class Quantity:
             return NotImplemented
         if self.unit and o.unit and self.unit != o.unit:
             nominal, unit = units.add_sub_nominal(self.nominal, self.unit, o.nominal, o.unit, "sub")
+            right_scale = units.convert_units(1.0, o.unit, self.unit)
+            grad = self._combine_grads(o, 1.0, -right_scale)
         else:
             nominal = self.nominal - o.nominal
             unit = self.unit or o.unit
-        return self._new(nominal, unit, self._combine_grads(o, 1.0, -1.0), o)
+            grad = self._combine_grads(o, 1.0, -1.0)
+        return self._new(nominal, unit, grad, o)
 
     def __rsub__(self, other: object) -> Quantity:
         o = self._lift(other)
@@ -314,12 +489,44 @@ class Quantity:
             return ""
         return f"{self.unit}**{p:g}"
 
+    # -- comparisons ---------------------------------------------------------
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, numbers.Real):
+            raise TypeError(
+                "Quantity equality with a scalar is ambiguous. Use q.n == value only for "
+                "exact nominal tests, or q.consistent_with(value, k=2) for agreement "
+                "within uncertainty."
+            )
+        if not isinstance(other, Quantity):
+            return NotImplemented
+        return (
+            self.nominal == other.nominal
+            and self.unit == other.unit
+            and self.grad == other.grad
+            and self.registry is other.registry
+        )
+
+    __hash__ = None
+
+    def __lt__(self, other: object) -> bool:
+        raise TypeError(_ambiguous_ordering_message("<", "q.n < limit", "q.below(limit, k=2)"))
+
+    def __le__(self, other: object) -> bool:
+        raise TypeError(_ambiguous_ordering_message("<=", "q.n <= limit", "q.below(limit, k=2)"))
+
+    def __gt__(self, other: object) -> bool:
+        raise TypeError(_ambiguous_ordering_message(">", "q.n > limit", "q.exceeds(limit, k=2)"))
+
+    def __ge__(self, other: object) -> bool:
+        raise TypeError(_ambiguous_ordering_message(">=", "q.n >= limit", "q.exceeds(limit, k=2)"))
+
     # -- conversions --------------------------------------------------------
     def __float__(self) -> float:
         raise TypeError(
             "Quantity cannot be converted to float implicitly because that would discard "
-            "uncertainty, correlations, units, and provenance. Use nominal_value(q) or q.nominal "
-            "when nominal extraction is intentional."
+            "uncertainty, correlations, units, and provenance. Use q.n, q.nominal, or "
+            "nominal_value(q) when nominal extraction is intentional; use nominal_values(...) "
+            "or QuantityArray.nominal for arrays/waveforms."
         )
 
     def __format__(self, spec: str) -> str:
@@ -358,19 +565,29 @@ class Quantity:
         return y, u, decimals
 
     def __repr__(self) -> str:
-        return f"Quantity({self.nominal!r}, {self.unit!r}, u={self.u:.6g})"
+        status = ", status='nominal-only'" if self._is_nominal_only_non_report_grade() else ""
+        return f"Quantity({self.nominal!r}, {self.unit!r}, u={self.u:.6g}{status})"
 
     def __str__(self) -> str:
         unit = f" {self.unit}" if self.unit else ""
-        return f"{self.nominal} +/- {self.u}{unit}"
+        status = (
+            " [nominal-only, not report-grade]" if self._is_nominal_only_non_report_grade() else ""
+        )
+        return f"{self.nominal} +/- {self.u}{unit}{status}"
 
     def _repr_html_(self) -> str:
         unit = f" {self.unit}" if self.unit else ""
+        status = (
+            " <span class='status'>[nominal-only, not report-grade]</span>"
+            if self._is_nominal_only_non_report_grade()
+            else ""
+        )
         return (
             "<span class='pytestlab-quantity'>"
             f"<span class='nominal'>{escape(f'{self.nominal:g}')}</span> "
             f"&plusmn; <span class='uncertainty'>{escape(f'{self.u:g}')}</span>"
             f"<span class='unit'>{escape(unit)}</span>"
+            f"{status}"
             "</span>"
         )
 
@@ -617,3 +834,12 @@ class Quantity:
         q.provenance = provenance_from_any(data.get("provenance"))
         q.dof_method = data.get("dof_method")
         return q
+
+
+def _ambiguous_ordering_message(operator: str, nominal_example: str, decision_example: str) -> str:
+    return (
+        f"Quantity ordering with '{operator}' is ambiguous because it would ignore "
+        f"uncertainty, units, correlations, and provenance. For routine nominal control "
+        f"flow use {nominal_example}; for an uncertainty-aware measurement decision use "
+        f"{decision_example}."
+    )

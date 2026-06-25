@@ -76,6 +76,20 @@ def test_multimeter_uncertainty_calculation():
     assert measurement.measurement_type == "Volt Dc"  # Based on 'VOLT:DC' enum value
 
 
+def test_uncertainty_source_key_is_instance_unique_without_hardware_identity():
+    config = MultimeterConfig(
+        manufacturer="Test",
+        model="TestDMM",
+        device_type="multimeter",
+        role=DeviceRole.MEASUREMENT,
+    )
+    first = Multimeter(config=config, backend=Mock(write=Mock(), query=Mock()))
+    second = Multimeter(config=config, backend=Mock(write=Mock(), query=Mock()))
+
+    assert first._uncertainty_source_key() == first._uncertainty_source_key()
+    assert first._uncertainty_source_key() != second._uncertainty_source_key()
+
+
 def test_multimeter_range_field_detection():
     """Test that the multimeter correctly detects range fields for different function types."""
 
@@ -193,8 +207,8 @@ def test_multimeter_accepts_profile_loaded_advanced_uncertainty_model():
     assert any(entry.label == "expression" for entry in budget.entries)
 
 
-def test_multimeter_no_uncertainty_when_no_spec():
-    """Test that the multimeter returns a float when no accuracy specification is available."""
+def test_multimeter_nominal_non_report_grade_quantity_when_no_spec():
+    """Missing accuracy metadata returns an explicit non-report-grade Quantity."""
 
     mock_backend = Mock()
     mock_backend.write = Mock()
@@ -239,8 +253,14 @@ def test_multimeter_no_uncertainty_when_no_spec():
     # Test measurement without accuracy spec
     measurement = multimeter.measure(DMMFunction.VOLTAGE_DC)
 
-    # Should return a regular float, not UFloat
-    assert isinstance(measurement.values, float)
+    assert isinstance(measurement.values, MeasurementQuantity)
+    assert measurement.values.nominal == pytest.approx(0.5)
+    assert measurement.values.u == pytest.approx(0.0)
+    assert not measurement.values.is_report_grade
+    assert any(
+        "no applicable accuracy specification" in blocker
+        for blocker in measurement.values.report_grade_blockers()
+    )
     assert measurement.units == "V"
 
 
@@ -281,7 +301,7 @@ def test_multimeter_strict_uncertainty_raises_model_errors():
         multimeter.measure(DMMFunction.VOLTAGE_DC)
 
 
-def test_multimeter_strict_uncertainty_raises_missing_range_context():
+def test_multimeter_strict_uncertainty_allows_missing_range_context_as_non_report_grade():
     mock_backend = Mock()
     mock_backend.write = Mock()
     mock_backend.query = Mock(
@@ -309,5 +329,11 @@ def test_multimeter_strict_uncertainty_raises_missing_range_context():
     object.__setattr__(multimeter, "get_config", Mock(return_value=Mock(range_value=1.0)))
     multimeter.scpi_engine = Mock(build=Mock(return_value=["READ?"]))
 
-    with pytest.raises(ValueError, match="Could not find a matching range specification"):
-        multimeter.measure(DMMFunction.VOLTAGE_DC)
+    measurement = multimeter.measure(DMMFunction.VOLTAGE_DC)
+
+    assert isinstance(measurement.values, MeasurementQuantity)
+    assert not measurement.values.is_report_grade
+    assert any(
+        "could not find a matching range specification" in blocker
+        for blocker in measurement.values.report_grade_blockers()
+    )

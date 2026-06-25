@@ -11,8 +11,10 @@ just a numeric array.  The production contract is:
    accepted only at the I/O boundary and is converted immediately.
 3. **Correlation is explicit.** Vertical gain, offset, and range terms are shared
    atoms across all samples. Quantization and independent noise are diagonal
-   variance terms. Horizontal timebase/trigger terms are recorded and must be
-   used by timing reductions before such reductions can be report-grade.
+   variance terms. Horizontal timebase/trigger terms are recorded and are used
+   by timing reductions (`wave.timing.period()`, `frequency()`, `rise_time()`,
+   `fall_time()`, and `duty_cycle()`) before such reductions can be treated as
+   report-grade candidates.
 4. **Dense covariance is inspection-only.** Real waveform reductions propagate
    factored covariance directly; full covariance matrices are guarded for small
    diagnostic arrays only.
@@ -22,6 +24,10 @@ just a numeric array.  The production contract is:
 6. **Exports are evidence, not accreditation.** PyTestLab default XML is local
    software-validation evidence. DCC-named candidate output must fail loud until
    full pinned schema validation/signing exists outside this library.
+7. **Twin wording is constrained.** The built-in scope known-truth path is a
+   validation oracle for software algorithms. A characterized instrument twin
+   requires a physical identity hash, declared domain, and passing residual
+   report before PyTestLab labels it `characterized_twin`.
 
 This contract aligns the implementation with JCGM 100/101/102 and GUM-6 methods
 while preserving the claim boundary that PyTestLab supports laboratory evidence

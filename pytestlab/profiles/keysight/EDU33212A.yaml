@@ -61,24 +61,69 @@ scpi:
             validators:
                 channel: { min: 1, max: 2 }
 
+            parameters:
+                function:
+                    kind: enum
+                    strict: true
+                    description: Built-in waveform function SCPI token.
+                    choices:
+                      - token: SIN
+                        label: SIN
+                        aliases: [sin]
+                      - token: SQU
+                        label: SQU
+                        aliases: [squ]
+                      - token: RAMP
+                        label: RAMP
+                        aliases: [ramp]
+                      - token: PULS
+                        label: PULS
+                        aliases: [puls]
+                      - token: NOIS
+                        label: NOIS
+                        aliases: [nois]
+                      - token: PRBS
+                        label: PRBS
+                        aliases: [prbs]
+                      - token: DC
+                        label: DC
+                        aliases: [dc]
         set_frequency:
             template: "SOUR{channel}:FREQ {frequency}"
             defaults: { channel: 1 }
             validators:
                 channel: { min: 1, max: 2 }
 
+            parameters:
+                frequency:
+                    kind: raw
+                    allow_raw: true
+                    description: Output frequency numeric value in Hz.
+                    examples: [1000]
         set_amplitude:
             template: "SOUR{channel}:VOLTage {amplitude}"
             defaults: { channel: 1 }
             validators:
                 channel: { min: 1, max: 2 }
 
+            parameters:
+                amplitude:
+                    kind: raw
+                    allow_raw: true
+                    description: Output amplitude numeric value.
+                    examples: [1.0]
         set_offset:
             template: "SOUR{channel}:VOLTage:OFFSet {offset}"
             defaults: { channel: 1 }
             validators:
                 channel: { min: 1, max: 2 }
 
+            parameters:
+                offset:
+                    kind: raw
+                    allow_raw: true
+                    description: Output DC offset numeric value.
+                    examples: [0]
         set_output_state:
             template: "OUTPut{channel}:STATe {state}"
             defaults: { channel: 1 }

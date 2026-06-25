@@ -172,10 +172,25 @@ scpi:
     # Acquisition control
     acq_set_type:
       template: ":ACQuire:TYPE {value}"
+      parameters:
+        value:
+          kind: raw
+          allow_raw: true
+          description: Instrument-accepted acquisition type SCPI token.
     acq_set_mode:
       template: ":ACQuire:MODE {value}"
+      parameters:
+        value:
+          kind: raw
+          allow_raw: true
+          description: Instrument-accepted acquisition mode SCPI token.
     acq_set_count:
       template: ":ACQuire:COUNt {count}"
+      parameters:
+        count:
+          kind: raw
+          allow_raw: true
+          description: Acquisition count numeric value.
     seg_set_count:
       template: ":ACQuire:SEGMented:COUNt {count}"
     seg_set_index:
@@ -186,12 +201,30 @@ scpi:
       sequence:
         - ":TIMebase:SCALe {scale}"
         - ":TIMebase:POSition {position}"
+      parameters:
+        scale:
+          kind: raw
+          allow_raw: true
+          description: Horizontal timebase scale value in seconds/division.
+        position:
+          kind: raw
+          allow_raw: true
+          description: Horizontal timebase position value in seconds.
     set_channel_axis:
       sequence:
         - ":CHANnel{channel}:SCALe {scale}"
         - ":CHANnel{channel}:OFFSet {offset}"
       validators:
         channel: { min: 1, max: 4 }
+      parameters:
+        scale:
+          kind: raw
+          allow_raw: true
+          description: Vertical scale value for the selected channel.
+        offset:
+          kind: raw
+          allow_raw: true
+          description: Vertical offset value for the selected channel.
     configure_trigger:
       sequence:
         - ":TRIG:SOUR {source}"
@@ -200,6 +233,23 @@ scpi:
         - ":TRIGger:MODE {mode}"
       validators:
         channel: { min: 1, max: 4 }
+      parameters:
+        mode:
+          kind: raw
+          allow_raw: true
+          description: Instrument-accepted trigger mode SCPI token.
+        source:
+          kind: raw
+          allow_raw: true
+          description: Instrument-accepted trigger source SCPI token.
+        level:
+          kind: raw
+          allow_raw: true
+          description: Trigger level numeric value.
+        slope:
+          kind: raw
+          allow_raw: true
+          description: Instrument-accepted trigger slope SCPI token.
     set_trigger_coupling:
       template: ":TRIGger:{mode}:COUPling {coupling}"
     display_channel:
@@ -215,6 +265,11 @@ scpi:
     # Waveform transfer
     set_wave_source:
       template: ":WAVeform:SOURce {source}"
+      parameters:
+        source:
+          kind: raw
+          allow_raw: true
+          description: Instrument-accepted waveform source SCPI token.
     set_wave_points_max:
       template: ":WAVeform:POINts MAX"
     set_wave_format_byte:
@@ -223,6 +278,11 @@ scpi:
       template: ":WAVeform:POINts:MODE RAW"
     digitize:
       template: "DIGitize {sources}"
+      parameters:
+        sources:
+          kind: raw
+          allow_raw: true
+          description: Instrument-accepted digitize source list or token.
     run:
       template: "RUN"
     stop:

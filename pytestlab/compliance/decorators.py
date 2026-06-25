@@ -25,6 +25,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Callable
+from contextlib import closing
 from dataclasses import dataclass
 from datetime import UTC
 from datetime import datetime
@@ -450,43 +451,43 @@ class _AuditTrail:
         """Initialize audit database."""
         import sqlite3
 
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute(
+        with closing(sqlite3.connect(self.db_path)) as conn:
+            with conn:
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS audit_log (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        event_type TEXT NOT NULL,
+                        function_name TEXT NOT NULL,
+                        timestamp TEXT NOT NULL,
+                        result_hash TEXT NOT NULL,
+                        success INTEGER NOT NULL,
+                        error_message TEXT
+                    )
                 """
-                CREATE TABLE IF NOT EXISTS audit_log (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    event_type TEXT NOT NULL,
-                    function_name TEXT NOT NULL,
-                    timestamp TEXT NOT NULL,
-                    result_hash TEXT NOT NULL,
-                    success INTEGER NOT NULL,
-                    error_message TEXT
                 )
-            """
-            )
-            conn.commit()
 
     def append(self, record: AuditRecord):
         """Append record to audit trail."""
         import sqlite3
 
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute(
-                """
-                INSERT INTO audit_log
-                (event_type, function_name, timestamp, result_hash, success, error_message)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """,
-                (
-                    record.event_type,
-                    record.function_name,
-                    record.timestamp,
-                    record.result_hash,
-                    1 if record.success else 0,
-                    record.error_message,
-                ),
-            )
-            conn.commit()
+        with closing(sqlite3.connect(self.db_path)) as conn:
+            with conn:
+                conn.execute(
+                    """
+                    INSERT INTO audit_log
+                    (event_type, function_name, timestamp, result_hash, success, error_message)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                    (
+                        record.event_type,
+                        record.function_name,
+                        record.timestamp,
+                        record.result_hash,
+                        1 if record.success else 0,
+                        record.error_message,
+                    ),
+                )
 
 
 class _TSAClient:

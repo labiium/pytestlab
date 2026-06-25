@@ -115,7 +115,7 @@ sim_circuit:
         channels = bench._sim_session.psus["psu"].state.channels
         assert channels["CH1"].voltage_setpoint == pytest.approx(5.0)
         assert channels["CH2"].voltage_setpoint == pytest.approx(2.0)
-        assert cast(Any, bench.psu).read_voltage(2) == pytest.approx(2.0, abs=0.02)
+        assert _nominal(cast(Any, bench.psu).read_voltage(2)) == pytest.approx(2.0, abs=0.02)
     finally:
         bench.close_all()
 
@@ -176,7 +176,7 @@ sim_circuit:
     try:
         result = run_experiment(bench)
         assert _nominal(result["voltage"].values) == pytest.approx(0.0, abs=1e-3)
-        assert math.isfinite(float(result["current"]))
+        assert math.isfinite(_nominal(result["current"]))
         assert bench._sim_session is not None
         channel_state = bench._sim_session.psus["psu1"].state.channels["CH1"]
         assert channel_state.enabled is True

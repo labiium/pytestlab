@@ -14,9 +14,11 @@ from typing import Any
 import numpy as np
 from numpy.typing import ArrayLike
 
+from pytestlab.instruments.waveform_timing import WaveformTiming
 from pytestlab.uncertainty import Quantity
 from pytestlab.uncertainty import QuantityArray
 from pytestlab.uncertainty import waveform_reductions_to_digital_exports
+from pytestlab.uncertainty.metrology import ResultProvenance
 from pytestlab.uncertainty.waveform import WaveformUncertaintyModel
 from pytestlab.uncertainty.waveform import build_waveform_quantity_array
 
@@ -122,6 +124,12 @@ class WaveformResult:
     ) -> Quantity:
         return self.quantity_array().peak_to_peak_monte_carlo(samples=samples, seed=seed)
 
+    @property
+    def timing(self) -> WaveformTiming:
+        """Timing/frequency reductions with horizontal uncertainty propagation."""
+
+        return WaveformTiming(self)
+
     def reductions(
         self, *, monte_carlo_samples: int = 3000, seed: int | None = 20_260_618
     ) -> dict[str, Quantity]:
@@ -140,6 +148,21 @@ class WaveformResult:
 
         out = Path(output_dir)
         out.mkdir(parents=True, exist_ok=True)
+        quantity_array = self.quantity_array()
+        provenance = quantity_array.provenance
+        origin_payload = (
+            {
+                "data_origin": provenance.data_origin.value,
+                "evidence_purpose": provenance.evidence_purpose.value,
+                "origin_detail": provenance.origin_detail,
+            }
+            if isinstance(provenance, ResultProvenance)
+            else {
+                "data_origin": "unknown",
+                "evidence_purpose": "measurement_result",
+                "origin_detail": None,
+            }
+        )
         reductions = self.reductions()
         exports = waveform_reductions_to_digital_exports(
             reductions,
@@ -153,6 +176,7 @@ class WaveformResult:
             "channel": self.channel,
             "point_count": self.point_count,
             "unit": self.unit,
+            **origin_payload,
             "waveform_sha256": hashlib.sha256(self.values.tobytes()).hexdigest(),
             "time_sha256": hashlib.sha256(self.time.tobytes()).hexdigest()
             if self.time is not None
@@ -164,6 +188,12 @@ class WaveformResult:
                     "nominal": q.nominal,
                     "standard_uncertainty": q.u,
                     "unit": q.unit,
+                    "data_origin": q.provenance.data_origin.value
+                    if isinstance(q.provenance, ResultProvenance)
+                    else "unknown",
+                    "evidence_purpose": q.provenance.evidence_purpose.value
+                    if isinstance(q.provenance, ResultProvenance)
+                    else "measurement_result",
                     "method": getattr(q.measurement_model, "method", None),
                     "budget": q.budget().to_dicts(),
                 }
@@ -194,5 +224,7 @@ def _hash_export_xml(exports: dict[str, Any]) -> dict[str, Any]:
             "dsi": item.get("dsi"),
             "dcc_xml_sha256": hashlib.sha256(str(item.get("dcc_xml", "")).encode()).hexdigest(),
             "measurement_model_method": item.get("measurement_model_method"),
+            "data_origin": item.get("data_origin"),
+            "evidence_purpose": item.get("evidence_purpose"),
         }
     return copied

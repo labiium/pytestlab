@@ -9,6 +9,8 @@ from .instrument import Instrument
 from .Multimeter import Multimeter
 from .Oscilloscope import Oscilloscope
 from .PowerSupply import PowerSupply
+from .waveform_set import SharedClockModel
+from .waveform_set import WaveformSetResult
 from .WaveformGenerator import WaveformGenerator
 
 __all__ = [
@@ -21,5 +23,7 @@ __all__ = [
     "Multimeter",
     "Oscilloscope",
     "PowerSupply",
+    "SharedClockModel",
+    "WaveformSetResult",
     "WaveformGenerator",
 ]

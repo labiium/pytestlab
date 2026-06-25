@@ -58,3 +58,14 @@ def test_evidence_scope_twin_cli_generates_and_checks_bundle(tmp_path):
     assert "Scope-twin evidence check passed" in result.stdout
     assert (tmp_path / "scope_twin_known_truth_report.json").is_file()
     assert (tmp_path / "manifest.json").is_file()
+
+
+def test_evidence_scope_oracle_cli_alias_generates_and_checks_bundle(tmp_path):
+    result = CliRunner().invoke(
+        app,
+        ["evidence", "scope-oracle", "--output", str(tmp_path), "--mc-samples", "1200", "--check"],
+    )
+
+    assert result.exit_code == 0
+    assert "Scope-twin evidence check passed" in result.stdout
+    assert (tmp_path / "scope_twin_known_truth_report.json").is_file()

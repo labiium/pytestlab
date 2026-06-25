@@ -49,6 +49,8 @@ from .functions import tan
 from .metrology import CalibrationCertificate
 from .metrology import CalibrationCertificateEntry
 from .metrology import ConformityResult
+from .metrology import DataOrigin
+from .metrology import EvidencePurpose
 from .metrology import MeasurementModel
 from .metrology import ResultProvenance
 from .metrology import ToleranceInterval
@@ -63,8 +65,15 @@ from .montecarlo import shortest_coverage_interval
 from .multivariate import ComplexQuantity
 from .multivariate import QuantityVector
 from .multivariate import covariance_between
+from .noise import ENOBNoiseModel
+from .noise import effective_sample_size
+from .noise import enob_standard_uncertainty
+from .noise import lag1_autocorrelation
+from .noise import mean_uncertainty_with_autocorrelation
 from .quantity import CorrelationComponentWarning
+from .quantity import NominalOnlyDecisionWarning
 from .quantity import Quantity
+from .quantity import QuantityComparison
 from .quantity_array import ComplexQuantityArray
 from .quantity_array import QuantityArray
 from .quick import correlated_values
@@ -79,6 +88,16 @@ from .quick import std_dev
 from .quick import std_devs
 from .quick import to_ufloat_correlated
 from .quick import uq
+from .timing import TimingEstimator
+from .timing import TimingMeasurementError
+from .timing import TimingUncertaintyModel
+from .timing import delay_between
+from .timing import duty_cycle
+from .timing import fall_time_90_10
+from .timing import frequency_from_period
+from .timing import period_from_edges
+from .timing import rise_time_10_90
+from .timing import threshold_crossing_time
 from .units import UnitCompatibilityError
 from .units import require_dsi_unit
 from .units import to_dsi_unit
@@ -91,7 +110,9 @@ from .waveform import build_waveform_quantity_array
 
 __all__ = [
     "Quantity",
+    "QuantityComparison",
     "CorrelationComponentWarning",
+    "NominalOnlyDecisionWarning",
     "QuantityArray",
     "ComplexQuantityArray",
     "AtomRegistry",
@@ -120,6 +141,8 @@ __all__ = [
     "TraceabilityRef",
     "CalibrationCertificate",
     "CalibrationCertificateEntry",
+    "DataOrigin",
+    "EvidencePurpose",
     "MeasurementModel",
     "ResultProvenance",
     "ConformityResult",
@@ -149,6 +172,21 @@ __all__ = [
     "WaveformAxis",
     "WaveformUncertaintyModel",
     "build_waveform_quantity_array",
+    "ENOBNoiseModel",
+    "effective_sample_size",
+    "enob_standard_uncertainty",
+    "lag1_autocorrelation",
+    "mean_uncertainty_with_autocorrelation",
+    "TimingUncertaintyModel",
+    "TimingEstimator",
+    "TimingMeasurementError",
+    "threshold_crossing_time",
+    "period_from_edges",
+    "frequency_from_period",
+    "rise_time_10_90",
+    "fall_time_90_10",
+    "duty_cycle",
+    "delay_between",
     "Correction",
     "apply_correction",
     "QuantityVector",

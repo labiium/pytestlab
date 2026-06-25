@@ -17,6 +17,9 @@ import numpy as np
 
 from pytestlab.instruments.waveform_decode import WaveformDecodeError
 from pytestlab.instruments.waveform_decode import decode_waveform
+from pytestlab.uncertainty.metrology import DataOrigin
+from pytestlab.uncertainty.metrology import EvidencePurpose
+from pytestlab.uncertainty.metrology import ResultProvenance
 from pytestlab.uncertainty.quantity_array import QuantityArray
 
 
@@ -84,6 +87,13 @@ def summarize_waveform(values: np.ndarray, *, unit: str = "V") -> dict[str, Wave
     diffs = np.diff(np.unique(np.round(values, decimals=12)))
     step = float(np.min(diffs[diffs > 0])) if np.any(diffs > 0) else max(np.ptp(values), 1.0) * 1e-6
     qa = QuantityArray.from_samples(values, unit=unit, independent_std=step / math.sqrt(12.0))
+    qa.provenance = ResultProvenance.current(
+        input_data=values.tobytes(),
+        data_origin=DataOrigin.REPLAYED,
+        evidence_purpose=EvidencePurpose.REPLAY_REGRESSION,
+        origin_detail="hardware replay fixture waveform",
+        provenance_complete=False,
+    )
     mean = qa.mean(dof_method="validated_independent")
     rms = qa.rms(dof_method="lag1_autocorrelation")
     if values.size <= 4096:
@@ -119,6 +129,24 @@ def build_replay_fixture(
     values = decode_keysight_byte_waveform(raw_block, preamble)
     metrics = summarize_waveform(values)
     raw_sha = hashlib.sha256(raw_block).hexdigest()
+    redacted_idn = _redact_idn(idn)
+    log = [
+        {"type": "query", "command": "*IDN?", "response": redacted_idn},
+        {"type": "query", "command": ":SYSTem:ERRor?", "response": '+0,"No error"'},
+        {
+            "type": "query",
+            "command": ":ACQuire:SRATe:ANALog?",
+            "response": sample_rate or _sample_rate_from_preamble(preamble),
+        },
+        {"type": "query", "command": ":WAVeform:PREamble?", "response": preamble},
+        {
+            "type": "query_raw",
+            "command": ":WAVeform:DATA?",
+            "response_encoding": "base64",
+            "response_base64": base64.b64encode(raw_block).decode("ascii"),
+            "response_sha256": raw_sha,
+        },
+    ]
     fixture: dict[str, Any] = {
         "schema": "pytestlab.hardware_replay_fixture.v1",
         "model": model,
@@ -126,23 +154,9 @@ def build_replay_fixture(
         "generated_utc": datetime.now(UTC).isoformat(),
         "waveform_sha256": raw_sha,
         "point_count": int(values.size),
-        "log": [
-            {"type": "query", "command": "*IDN?", "response": _redact_idn(idn)},
-            {"type": "query", "command": ":SYSTem:ERRor?", "response": '+0,"No error"'},
-            {
-                "type": "query",
-                "command": ":ACQuire:SRATe:ANALog?",
-                "response": sample_rate or _sample_rate_from_preamble(preamble),
-            },
-            {"type": "query", "command": ":WAVeform:PREamble?", "response": preamble},
-            {
-                "type": "query_raw",
-                "command": ":WAVeform:DATA?",
-                "response_encoding": "base64",
-                "response_base64": base64.b64encode(raw_block).decode("ascii"),
-                "response_sha256": raw_sha,
-            },
-        ],
+        "instrument_identity": _identity_from_idn(idn, model_hint=model),
+        "command_transcript_sha256": _command_transcript_hash(log),
+        "log": log,
         "metrics": {name: asdict(metric) for name, metric in metrics.items()},
         "expected": {name: asdict(metric) for name, metric in metrics.items()},
         "classification": {
@@ -331,10 +345,38 @@ def _sample_rate_from_preamble(preamble: str) -> str:
 
 def _redact_idn(idn: str) -> str:
     parts = idn.strip().split(",")
-    if len(parts) >= 4:
+    if len(parts) >= 3:
         parts[2] = "<redacted>"
         return ",".join(parts)
     return idn.strip()
+
+
+def _identity_from_idn(idn: str, *, model_hint: str) -> dict[str, str | None]:
+    parts = [part.strip() for part in idn.strip().split(",")]
+    model = parts[1] if len(parts) > 1 and parts[1] else model_hint
+    serial = parts[2] if len(parts) > 2 and parts[2] else None
+    firmware = parts[3] if len(parts) > 3 and parts[3] else None
+    serial_digest = hashlib.sha256(serial.encode("utf-8")).hexdigest() if serial else None
+    return {
+        "model": model,
+        "serial_hash": f"sha256:{serial_digest}" if serial_digest else None,
+        "firmware": firmware,
+    }
+
+
+def _command_transcript_hash(log: list[dict[str, Any]]) -> str:
+    normalized = [
+        {
+            "type": entry.get("type"),
+            "command": entry.get("command"),
+            "response": entry.get("response"),
+            "response_encoding": entry.get("response_encoding"),
+            "response_sha256": entry.get("response_sha256"),
+        }
+        for entry in log
+    ]
+    raw = json.dumps(normalized, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
 
 
 def _method_name(quantity: Any) -> str:

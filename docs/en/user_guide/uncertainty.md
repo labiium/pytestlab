@@ -11,6 +11,36 @@ components, convert limits to standard uncertainty using the stated
 distribution, combine independent components in quadrature, and report
 expanded uncertainty when needed.
 
+## Reading a Measurement Result
+
+The everyday path is intentionally small: acquire a result, print it, and make
+any decision with an explicit uncertainty rule. Missing profile metadata returns
+a nominal-only `Quantity` with report-grade blockers instead of hiding the gap as
+a bare float.
+
+```python
+result = dmm.measure(DMMFunction.VOLTAGE_DC)
+voltage = result.values
+
+print(voltage)                    # human display: nominal +/- u unit
+nominal = voltage.n               # short explicit nominal-only number
+standard_u = voltage.u            # standard uncertainty
+expanded_u = voltage.U(k=2)       # expanded uncertainty
+budget = voltage.budget()         # component-level provenance
+
+if voltage.exceeds(4.75, k=2):    # guard-banded lower-limit decision
+    print("voltage is safely above the limit")
+
+if not voltage.is_report_grade:
+    print(voltage.report_grade_blockers())
+```
+
+`voltage == 5.0` and `voltage > 4.75` deliberately raise `TypeError`: they do
+not say whether you intended nominal-only logic or an uncertainty-aware decision.
+Use `voltage.n` (or `voltage.nominal`) when nominal-only control flow is intentional,
+`voltage.consistent_with(expected)` for agreement checks, and
+`voltage.exceeds(...)` / `voltage.below(...)` for guard-banded thresholds.
+
 ## Strict Accuracy Specs
 
 Accuracy fields are intentionally explicit. Ambiguous fields such as
@@ -40,11 +70,11 @@ When an applicable accuracy model is available, instrument methods return a
 result = dmm.measure(DMMFunction.VOLTAGE_DC)
 quantity = result.values
 
-print(quantity.nominal)      # nominal value
+print(quantity.n)            # short nominal value
 print(quantity.unit)         # "V"
 print(quantity.u)            # combined standard uncertainty
 print(quantity.U(k=2))       # expanded uncertainty
-print(quantity.budget)       # component-level provenance
+print(quantity.budget())      # component-level provenance
 ```
 
 `MeasurementQuantity` supports basic arithmetic propagation and can be exported
@@ -52,6 +82,35 @@ to the `uncertainties` package with `quantity.to_ufloat()` for explicit interop.
 Arithmetic preserves per-component provenance in the propagated budget metadata,
 so downstream results remain auditable instead of becoming anonymous standard
 deviations.
+
+## Oscilloscope Waveform and Timing Uncertainty
+
+Oscilloscope waveform reductions use `QuantityArray` under the hood. Vertical
+gain, offset, range, quantization, and observed-noise terms are represented as
+factored covariance components rather than dense waveform covariance matrices.
+Routine users can stay on the simple API:
+
+```python
+wave = scope.acquire_waveform(1)
+print(wave.rms().u)
+print(wave.timing.frequency().u)
+
+waves = scope.acquire_waveforms([1, 2])
+print(waves.delay(1, 2).u)
+```
+
+Horizontal terms are applied to timing measurands where they are physically
+meaningful. Voltage noise near an edge contributes through inverse slew rate;
+trigger jitter is a shared additive time offset; timebase uncertainty is a
+shared relative scale term; and channel skew remains a per-channel contribution
+for cross-channel delay/skew. Mean and RMS voltage reductions do not pretend to
+use horizontal uncertainty terms where the model would add complexity without a
+valid measurement equation.
+
+Timing outputs carry measurement-model assumptions such as threshold level, edge
+policy, interpolation model, trigger jitter, timebase reference, and channel
+skew. Missing horizontal traceability remains visible in provenance and
+report-grade gates.
 
 ## Advanced Models
 
@@ -108,9 +167,13 @@ term in a profile field or metadata path that the driver can provide.
 Model evaluation is strict by default: referenced expression variables and
 range/count terms must have explicit context values, with zero remaining a valid
 value. Driver methods propagate configured uncertainty-model failures instead of
-returning nominal-only results. Set `uncertainty_strict: false` only for an
-explicit exploratory session that should keep reading nominal floats while a
-profile is being repaired.
+returning nominal-only results. Missing profile metadata is different: the
+acquisition can still succeed, but drivers return a nominal-only
+non-report-grade `Quantity` whose blockers explain the profile gap. Such values
+display as nominal-only/not-report-grade, and decision helpers warn because a
+zero-uncertainty metadata gap is not a guard band. Set
+`uncertainty_strict: false` only when malformed model evaluation should also be
+kept exploratory while a profile is being repaired.
 
 ## Worked Examples
 
@@ -159,7 +222,7 @@ quantity = measurement.values
 print(quantity.nominal)
 print(quantity.u)
 print(quantity.U(k=2))
-print(quantity.budget.components[0].source)
+print(quantity.budget().components[0].source)
 ```
 
 For a 5 V reading on the 10 V range, the budget has separate reading, range,
@@ -182,7 +245,7 @@ margin = 5.0 - voltage
 print(power.nominal)
 print(power.unit)
 print(power.u)
-print(power.budget.components)
+print(power.budget().components)
 ```
 
 Addition and subtraction require compatible units. Multiplication and division
@@ -233,7 +296,7 @@ quantity = result.values
 
 print(quantity.nominal)
 print(quantity.u)
-print(quantity.budget.method)
+print(quantity.budget().method)
 ```
 
 If an expression references `bandwidth`, `range`, `resolution`, or another
@@ -318,7 +381,7 @@ with MeasurementDatabase("lab_results") as db:
 restored_quantity = restored.values
 print(restored_quantity.nominal)
 print(restored_quantity.u)
-print(restored_quantity.budget.components)
+print(restored_quantity.budget().components)
 ```
 
 Legacy `uncertainties.ufloat` values also round-trip, but new uncertainty-aware
@@ -513,9 +576,10 @@ and unit assumptions are recorded in the profile review artifact.
   and SciPy's Student-t/normal quantiles when available.
 - Unit compatibility and scaled-unit algebra are enforced with Pint when
   installed. For example, `1 V / 1000 mV` is treated as dimensionless `1`.
-- Missing context required by a model raises an error instead of silently
-  dropping uncertainty. Driver-level nominal-only fallback is available only
-  when `uncertainty_strict: false` is explicitly configured.
+- Missing context required by a configured model raises an error instead of
+  silently dropping uncertainty. Missing profile metadata returns a nominal-only
+  non-report-grade `Quantity`; `uncertainty_strict: false` is only for keeping
+  malformed model-evaluation failures exploratory.
 
 ## Covariance-Aware Waveform Arrays
 
@@ -630,8 +694,12 @@ installed, but normal PyTestLab code should stay on
 
 `float(quantity)` is intentionally rejected because it would discard uncertainty,
 unit, correlation, and provenance information.  `np.asarray([q], dtype=float)` is
-rejected for the same reason.  Use `nominal_value(q)` or `nominal_values(...)`
-when nominal extraction is intentional.
+rejected for the same reason.  Use `nominal_value(q)`, `nominal_values(...)`, or
+`q.n` / `q.nominal` when nominal extraction is intentional. Scalar equality and
+ordering also fail loud; use `q.n > limit` for routine nominal control flow, or
+`q.consistent_with(expected, k=...)`, `q.en_ratio(expected)`,
+`q.exceeds(limit, k=...)`, `q.below(limit, k=...)`, or `q.compare(...)` for an
+auditable uncertainty-aware decision record.
 
 Direct scalar ufunc calls such as `np.exp(q)`, `np.add(q, 1)`, and
 `np.multiply(q, 2)` propagate uncertainty.  Object-array ufuncs such as

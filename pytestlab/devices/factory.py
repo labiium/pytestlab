@@ -3,7 +3,6 @@ from __future__ import annotations
 import inspect
 import os
 import tempfile
-import warnings
 from pathlib import Path
 from typing import Any
 
@@ -195,14 +194,6 @@ class AutoDevice:
         sim_session: Any | None = None,
         role_override: str | None = None,
     ) -> Device[Any]:
-        if isinstance(config_source, str):
-            warnings.warn(
-                "AutoDevice.from_config(str) is a compatibility dispatcher. "
-                "Use from_preset(<packaged key>) or from_file(<local YAML/JSON path>) "
-                "to make the profile source explicit.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
         if args and isinstance(args[0], str):
             serial_number = args[0]
 

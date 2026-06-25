@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .instrument_config import SCPICommandSpec
-from .instrument_config import SCPIParameterSpec
+from .scpi_schema import SCPIParameterSpec
 
 
 @dataclass
@@ -153,63 +153,42 @@ class SCPIValidator:
         """
         errors = []
 
-        # Check required fields
-        if not hasattr(param_spec, "name") or not param_spec.name:
-            errors.append(f"Parameter '{param_name}' missing name attribute")
-
-        if not hasattr(param_spec, "type") or not param_spec.type:
-            errors.append(f"Parameter '{param_name}' missing type attribute")
-
-        if not hasattr(param_spec, "required"):
-            errors.append(f"Parameter '{param_name}' missing required attribute")
-
-        # Check type-specific validations
-        if hasattr(param_spec, "type") and param_spec.type:
-            if param_spec.type == "int":
-                if (
-                    hasattr(param_spec, "min_value")
-                    and param_spec.min_value is not None
-                    and hasattr(param_spec, "max_value")
-                    and param_spec.max_value is not None
-                ):
-                    if param_spec.min_value >= param_spec.max_value:
+        kind = getattr(param_spec, "kind", "raw")
+        if kind == "range":
+            if param_spec.min is None or param_spec.max is None:
+                errors.append(f"Parameter '{param_name}' range missing min/max")
+            elif param_spec.min > param_spec.max:
+                errors.append(
+                    f"Parameter '{param_name}' has invalid range: "
+                    f"min ({param_spec.min}) > max ({param_spec.max})"
+                )
+            if (
+                param_spec.default is not None
+                and param_spec.min is not None
+                and param_spec.max is not None
+            ):
+                try:
+                    default = float(param_spec.default)
+                except (TypeError, ValueError):
+                    errors.append(f"Parameter '{param_name}' has non-numeric default")
+                else:
+                    if not (param_spec.min <= default <= param_spec.max):
                         errors.append(
-                            f"Parameter '{param_name}' has invalid range: "
-                            f"min_value ({param_spec.min_value}) >= max_value ({param_spec.max_value})"
+                            f"Parameter '{param_name}' default {param_spec.default} "
+                            f"outside range [{param_spec.min}, {param_spec.max}]"
                         )
-
-                    # Check if default value is within range
-                    if hasattr(param_spec, "default") and param_spec.default is not None:
-                        if not (param_spec.min_value <= param_spec.default <= param_spec.max_value):
-                            errors.append(
-                                f"Parameter '{param_name}' has default value ({param_spec.default}) "
-                                f"outside range [{param_spec.min_value}, {param_spec.max_value}]"
-                            )
-
-            elif param_spec.type == "float":
-                if (
-                    hasattr(param_spec, "min_value")
-                    and param_spec.min_value is not None
-                    and hasattr(param_spec, "max_value")
-                    and param_spec.max_value is not None
-                ):
-                    if param_spec.min_value >= param_spec.max_value:
-                        errors.append(
-                            f"Parameter '{param_name}' has invalid range: "
-                            f"min_value ({param_spec.min_value}) >= max_value ({param_spec.max_value})"
-                        )
-
-                    # Check if default value is within range
-                    if hasattr(param_spec, "default") and param_spec.default is not None:
-                        if not (param_spec.min_value <= param_spec.default <= param_spec.max_value):
-                            errors.append(
-                                f"Parameter '{param_name}' has default value ({param_spec.default}) "
-                                f"outside range [{param_spec.min_value}, {param_spec.max_value}]"
-                            )
-
-            elif param_spec.type == "enum":
-                if not hasattr(param_spec, "allowed_values") or not param_spec.allowed_values:
-                    errors.append(f"Parameter '{param_name}' of type 'enum' missing values list")
+        elif kind in {"enum", "bool"}:
+            if param_spec.strict and not param_spec.choices:
+                errors.append(f"Parameter '{param_name}' strict {kind} missing choices")
+            for choice in param_spec.choices:
+                if choice.token is None:
+                    errors.append(f"Parameter '{param_name}' has choice without token")
+        elif kind == "open_string":
+            if param_spec.pattern:
+                try:
+                    re.compile(param_spec.pattern)
+                except re.error as exc:
+                    errors.append(f"Parameter '{param_name}' has invalid regex pattern: {exc}")
 
         return errors
 

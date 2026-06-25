@@ -10,6 +10,7 @@ Note: These tests require `cryptography`.
 
 import sqlite3
 import tempfile
+from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -158,7 +159,7 @@ def test_audited_decorator_writes_sqlite(temp_signer_dir):
     assert isinstance(result, CompliantResult)
     assert audit_db.exists()
 
-    with sqlite3.connect(audit_db) as conn:
+    with closing(sqlite3.connect(audit_db)) as conn:
         n = conn.execute("SELECT COUNT(*) FROM audit_log").fetchone()[0]
         assert n >= 1
 

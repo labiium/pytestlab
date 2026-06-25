@@ -9,3 +9,37 @@ address: "USB0::0x0957::0x2B18::MY55120007::INSTR" # Example USB address for sim
 frequency_compensation_value: 2.4e9 # 2.4 GHz
 averaging_count: 16
 power_units: "dBm"
+
+scpi:
+  commands:
+    set_sensor_frequency:
+      template: "SENS{channel}:FREQ {frequency}"
+      validators:
+        channel: {min: 1, max: 4}
+        frequency: {min: 0, max: 110e9}
+    set_averaging_count:
+      template: "SENS{channel}:AVER:COUN {count}"
+      validators:
+        channel: {min: 1, max: 4}
+        count: {min: 1, max: 1024}
+    set_power_units:
+      template: "UNIT:POW {units}"
+      enums:
+        units:
+          dBm: "DBM"
+          W: "W"
+          mW: "MW"
+          uW: "UW"
+      parameters:
+        channel:
+          kind: range
+          min: 1
+          max: 4
+          unit: sensor
+  queries:
+    fetch_power:
+      template: "FETC{channel}?"
+      validators:
+        channel: {min: 1, max: 4}
+      response:
+        type: float

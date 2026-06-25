@@ -13,6 +13,7 @@ import socket
 import subprocess
 from datetime import UTC
 from datetime import datetime
+from enum import Enum
 from typing import Any
 from typing import Literal
 
@@ -115,6 +116,29 @@ MeasurementMethod = Literal[
 ]
 
 
+class DataOrigin(str, Enum):
+    """Machine-readable source classification for measurement/evidence data."""
+
+    UNKNOWN = "unknown"
+    MEASURED = "measured"
+    SIMULATED = "simulated"
+    TWIN_ORACLE = "twin_oracle"
+    CHARACTERIZED_TWIN = "characterized_twin"
+    REPLAYED = "replayed"
+    SYNTHETIC_KNOWN_TRUTH = "synthetic_known_truth"
+
+
+class EvidencePurpose(str, Enum):
+    """Intended claim context for a result or evidence artifact."""
+
+    MEASUREMENT_RESULT = "measurement_result"
+    CALIBRATION_SUPPORT = "calibration_support"
+    SOFTWARE_VALIDATION = "software_validation"
+    TWIN_VALIDATION = "twin_validation"
+    REPLAY_REGRESSION = "replay_regression"
+    SIMULATION_STUDY = "simulation_study"
+
+
 class MeasurementModel(BaseModel):
     """Machine-readable measurement model emitted with derived quantities."""
 
@@ -146,6 +170,14 @@ class ResultProvenance(BaseModel):
     numpy_version: str | None = None
     scipy_version: str | None = None
     input_data_sha256: str | None = None
+    git_sha: str | None = None
+    data_origin: DataOrigin = DataOrigin.UNKNOWN
+    evidence_purpose: EvidencePurpose = EvidencePurpose.MEASUREMENT_RESULT
+    origin_detail: str | None = None
+    instrument_identity_hash: str | None = None
+    profile_sha256: str | None = None
+    session_or_fixture_sha256: str | None = None
+    twin_fidelity: str | None = None
     operator: str | None = None
     agent_id: str | None = None
     host: str | None = None
@@ -157,7 +189,11 @@ class ResultProvenance(BaseModel):
     def legacy_incomplete(cls) -> ResultProvenance:
         """Provenance marker for legacy records that predate report-grade metadata."""
 
-        return cls(provenance_complete=False)
+        return cls(
+            data_origin=DataOrigin.UNKNOWN,
+            evidence_purpose=EvidencePurpose.MEASUREMENT_RESULT,
+            provenance_complete=False,
+        )
 
     @classmethod
     def current(
@@ -168,6 +204,13 @@ class ResultProvenance(BaseModel):
         operator: str | None = None,
         agent_id: str | None = None,
         validation_report_id: str | None = None,
+        data_origin: DataOrigin | str = DataOrigin.UNKNOWN,
+        evidence_purpose: EvidencePurpose | str = EvidencePurpose.MEASUREMENT_RESULT,
+        origin_detail: str | None = None,
+        instrument_identity_hash: str | None = None,
+        profile_sha256: str | None = None,
+        session_or_fixture_sha256: str | None = None,
+        twin_fidelity: str | None = None,
         provenance_complete: bool = False,
     ) -> ResultProvenance:
         """Build a current technical-record provenance snapshot.
@@ -202,6 +245,14 @@ class ResultProvenance(BaseModel):
             numpy_version=numpy_version,
             scipy_version=scipy_version,
             input_data_sha256=input_data_sha256,
+            git_sha=current_git_sha(),
+            data_origin=DataOrigin(data_origin),
+            evidence_purpose=EvidencePurpose(evidence_purpose),
+            origin_detail=origin_detail,
+            instrument_identity_hash=instrument_identity_hash,
+            profile_sha256=profile_sha256,
+            session_or_fixture_sha256=session_or_fixture_sha256,
+            twin_fidelity=twin_fidelity,
             operator=operator,
             agent_id=agent_id,
             host=socket.gethostname(),
@@ -238,6 +289,11 @@ class ConformityResult(BaseModel):
 
 
 REPORT_GRADE_TRACEABILITY_SOURCES = {"accredited_cal", "nmi"}
+REPORT_GRADE_DATA_ORIGINS = {DataOrigin.MEASURED}
+REPORT_GRADE_EVIDENCE_PURPOSES = {
+    EvidencePurpose.MEASUREMENT_RESULT,
+    EvidencePurpose.CALIBRATION_SUPPORT,
+}
 
 
 def current_git_sha(cwd: str | None = None) -> str | None:
@@ -369,6 +425,20 @@ def report_grade_blockers(value: Any) -> list[str]:
     provenance = getattr(value, "provenance", None)
     if not isinstance(provenance, ResultProvenance) or not provenance.provenance_complete:
         blockers.append("provenance_complete is false or missing")
+        if isinstance(provenance, ResultProvenance) and provenance.origin_detail:
+            blockers.append(provenance.origin_detail)
+    if not isinstance(provenance, ResultProvenance):
+        blockers.append("data_origin is missing")
+        blockers.append("evidence_purpose is missing")
+    else:
+        if provenance.data_origin not in REPORT_GRADE_DATA_ORIGINS:
+            blockers.append(
+                f"data_origin {provenance.data_origin.value!r} cannot support measured report-grade output"
+            )
+        if provenance.evidence_purpose not in REPORT_GRADE_EVIDENCE_PURPOSES:
+            blockers.append(
+                f"evidence_purpose {provenance.evidence_purpose.value!r} cannot support measured report-grade output"
+            )
     if getattr(value, "measurement_model", None) is None:
         blockers.append("measurement_model is missing")
     dof_method = getattr(value, "dof_method", None) or getattr(

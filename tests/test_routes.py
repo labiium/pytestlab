@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
 import yaml
 from typer.testing import CliRunner
 
@@ -476,7 +475,7 @@ def test_bench_route_apply_uses_switch_matrix_device(tmp_path):
     ]
 
 
-def test_bench_warns_when_profile_is_used_as_local_file_path(tmp_path):
+def test_bench_resolves_profile_used_as_local_file_path(tmp_path):
     matrix_profile = tmp_path / "matrix.yaml"
     matrix_profile.write_text(yaml.safe_dump(_switch_profile()))
     data = _route_bench_data()
@@ -484,8 +483,7 @@ def test_bench_warns_when_profile_is_used_as_local_file_path(tmp_path):
     data["routes"]["scope_ch1_to_dut_input"]["device"] = "matrix"
     data["routes"]["scope_ch1_to_dut_input"]["connects"][0]["path"] = ["M1.C1", "M1.R5"]
 
-    with pytest.warns(DeprecationWarning, match="Use file: for local YAML/JSON profiles"):
-        bench = Bench.open(data)
+    bench = Bench.open(data)
 
     bench.route("scope_ch1_to_dut_input").apply()
     assert bench.matrix._backend.writes[:1] == [  # type: ignore[attr-defined]
@@ -546,7 +544,7 @@ def test_route_cli_resolves_switch_profile_files_relative_to_bench_yaml(tmp_path
     assert "scope_ch1_to_dut_input" in routes.output
 
 
-def test_relative_deprecated_profile_paths_resolve_during_validation_and_open(tmp_path):
+def test_relative_profile_paths_resolve_during_validation_and_open(tmp_path):
     devices_dir = tmp_path / "devices"
     devices_dir.mkdir()
     matrix_profile = devices_dir / "matrix.yaml"
@@ -562,8 +560,7 @@ def test_relative_deprecated_profile_paths_resolve_during_validation_and_open(tm
 
     assert validate_declared_routes(config, base_path=tmp_path) == []
     assert Bench(config, base_path=tmp_path).measurement_chain("input_ripple_vpp").accessories
-    with pytest.warns(DeprecationWarning, match="Use file: for local YAML/JSON profiles"):
-        bench = Bench.open(path)
+    bench = Bench.open(path)
     bench.route("scope_ch1_to_dut_input").apply()
     assert _backend_writes(bench.matrix._backend)[:1] == ["ROUTE:CLOSE M1.C1/M1.R5"]
 

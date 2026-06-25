@@ -57,7 +57,7 @@ def temp_output_file():
 @pytest.fixture
 def recording_backend(mock_backend, temp_output_file):
     """Create a SessionRecordingBackend for testing."""
-    return SessionRecordingBackend(mock_backend, temp_output_file)
+    return SessionRecordingBackend(mock_backend, temp_output_file, "instrument")
 
 
 class TestSessionRecordingBackend:
@@ -171,15 +171,16 @@ class TestSessionRecordingBackend:
             session_data = yaml.safe_load(f)
 
         # Check structure
-        assert "psu" in session_data
-        assert "profile" in session_data["psu"]
-        assert "log" in session_data["psu"]
+        assert "instrument" in session_data
+        saved = session_data["instrument"]
+        assert "profile" in saved
+        assert "log" in saved
 
-        assert session_data["psu"]["profile"] == "keysight/EDU36311A"
-        assert len(session_data["psu"]["log"]) == 3
+        assert saved["profile"] == "keysight/EDU36311A"
+        assert len(saved["log"]) == 3
 
         # Verify log entries
-        log = session_data["psu"]["log"]
+        log = saved["log"]
         assert log[0]["type"] == "query"
         assert log[0]["command"] == "*IDN?"
         assert log[1]["type"] == "write"
@@ -237,8 +238,8 @@ class TestSessionRecordingBackend:
     def test_multiple_profile_keys(self, mock_backend, temp_output_file):
         """Test recording multiple instruments to same session file."""
         # Create two recording backends for different instruments
-        psu_backend = SessionRecordingBackend(mock_backend, temp_output_file)
-        osc_backend = SessionRecordingBackend(mock_backend, temp_output_file)
+        psu_backend = SessionRecordingBackend(mock_backend, temp_output_file, "psu")
+        osc_backend = SessionRecordingBackend(mock_backend, temp_output_file, "osc")
 
         # Record commands for PSU
         psu_backend.query("*IDN?")
@@ -274,9 +275,22 @@ class TestSessionRecordingBackendEdgeCases:
         with open(temp_output_file) as f:
             session_data = yaml.safe_load(f)
 
-        assert "psu" in session_data
-        assert session_data["psu"]["profile"] == "test/profile"
-        assert session_data["psu"]["log"] == []
+        assert "instrument" in session_data
+        assert session_data["instrument"]["profile"] == "test/profile"
+        assert session_data["instrument"]["log"] == []
+
+    def test_save_session_without_recording_key_uses_profile_key(
+        self, mock_backend, temp_output_file
+    ):
+        backend = SessionRecordingBackend(mock_backend, temp_output_file)
+
+        backend.save_session("test/profile")
+
+        with open(temp_output_file) as f:
+            session_data = yaml.safe_load(f)
+
+        assert "test/profile" in session_data
+        assert session_data["test/profile"]["profile"] == "test/profile"
 
     def test_invalid_output_file_path(self, mock_backend):
         """Test error handling for invalid output file path."""
@@ -366,7 +380,7 @@ def test_session_recording_backend_integration():
 
     try:
         mock_backend = RealisticMockBackend()
-        recording_backend = SessionRecordingBackend(mock_backend, temp_file)
+        recording_backend = SessionRecordingBackend(mock_backend, temp_file, "psu")
 
         # Simulate a realistic measurement sequence
         idn = recording_backend.query("*IDN?")

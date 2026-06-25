@@ -4,6 +4,68 @@ device_type: virtual_instrument
 role: custom
 address: "VIRTUAL::INSTRUMENT"
 
+scpi:
+    commands:
+        set_voltage:
+            template: "SET:VOLT {voltage}"
+            validators:
+                voltage: {min: -1000, max: 1000}
+        set_current:
+            template: "SET:CURR {current}"
+            validators:
+                current: {min: -1000, max: 1000}
+        set_trigger_state:
+            template: "TRIG:STATE {state}"
+            parameters:
+                state:
+                    kind: enum
+                    strict: true
+                    choices:
+                        - {token: "ARMED", label: "Armed", aliases: ["armed"]}
+                        - {token: "TRIGGERED", label: "Triggered", aliases: ["triggered"]}
+                        - {token: "IDLE", label: "Idle", aliases: ["idle"]}
+        increment_counter:
+            template: "COUNT:INC"
+        decrement_counter:
+            template: "COUNT:DEC"
+        set_status_message:
+            template: "STATUS:MSG {message}"
+            parameters:
+                message:
+                    kind: open_string
+                    strict: false
+        dynamic_add:
+            template: "DYNAMIC:ADD {value}"
+            validators:
+                value: {min: -1000000, max: 1000000}
+        push_error:
+            template: "ERROR:PUSH"
+    queries:
+        measure_voltage:
+            template: "MEAS:VOLT?"
+            response: {type: float}
+        measure_current:
+            template: "MEAS:CURR?"
+            response: {type: float}
+        get_trigger_state:
+            template: "TRIG:STATE?"
+            response: {type: str}
+        get_counter:
+            template: "COUNT?"
+            response: {type: int}
+        get_status_message:
+            template: "STATUS:MSG?"
+            response: {type: str}
+        dynamic_random:
+            template: "DYNAMIC:RAND?"
+            response: {type: int}
+        check_error:
+            template: "ERROR:CHECK?"
+            response: {type: raw}
+        fetch_waveform:
+            template: "FETCH:WAV?"
+            response: {type: binblock}
+
 simulation:
     initial_state:
         counter: 0

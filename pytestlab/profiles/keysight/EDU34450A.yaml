@@ -220,14 +220,46 @@ scpi:
     commands:
         set_function:
             template: 'SENSe:FUNCtion "{function}"'
+            parameters:
+                function:
+                    kind: raw
+                    allow_raw: true
+                    description: "DMM measurement function SCPI token such as VOLT:DC or RES."
         set_range_auto:
             template: "{function}:RANGe:AUTO {state}"
             enums:
                 state: { on: "ON", off: "OFF", true: "ON", false: "OFF" }
+            parameters:
+                function:
+                    kind: raw
+                    allow_raw: true
+                    description: "DMM measurement function SCPI token such as VOLT:DC or RES."
         set_resolution:
             template: "{function}:RESolution {resolution}"
+            parameters:
+                function:
+                    kind: raw
+                    allow_raw: true
+                    description: "DMM measurement function SCPI token such as VOLT:DC or RES."
+                resolution:
+                    kind: raw
+                    allow_raw: true
+                    description: DMM resolution token or numeric resolution accepted by the instrument.
         configure:
             template: "CONFigure:{function} {range},{resolution}"
+            parameters:
+                function:
+                    kind: raw
+                    allow_raw: true
+                    description: "DMM measurement function SCPI token such as VOLT:DC or RES."
+                range:
+                    kind: raw
+                    allow_raw: true
+                    description: DMM range token or numeric range accepted by the instrument.
+                resolution:
+                    kind: raw
+                    allow_raw: true
+                    description: DMM resolution token or numeric resolution accepted by the instrument.
         set_trigger_source:
             template: "TRIG:SOUR {source}"
             enums:
@@ -252,6 +284,19 @@ scpi:
             template: "MEASURE:{function}? {range},{resolution}"
             response:
                 type: str
+            parameters:
+                function:
+                    kind: raw
+                    allow_raw: true
+                    description: "DMM measurement function SCPI token such as VOLT:DC or RES."
+                range:
+                    kind: raw
+                    allow_raw: true
+                    description: DMM range token or numeric range accepted by the instrument.
+                resolution:
+                    kind: raw
+                    allow_raw: true
+                    description: DMM resolution token or numeric resolution accepted by the instrument.
         get_config:
             template: "CONFigure?"
             response:

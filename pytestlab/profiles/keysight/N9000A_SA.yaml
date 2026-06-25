@@ -11,3 +11,25 @@ frequency_span: 100e6 # 100 MHz
 resolution_bandwidth: 1e6 # 1 MHz
 reference_level: -10 # -10 dBm
 attenuation: 10 # 10 dB
+
+scpi:
+  commands:
+    set_center_frequency:
+      template: "FREQ:CENT {frequency}"
+      validators:
+        frequency: {min: 1, max: 50e9}
+    set_span:
+      template: "FREQ:SPAN {span}"
+      validators:
+        span: {min: 0, max: 50e9}
+    set_rbw:
+      template: "BAND {bandwidth}"
+      validators:
+        bandwidth: {min: 1, max: 100e6}
+  queries:
+    trace_data:
+      template: "TRAC:DATA? TRACE{channel}"
+      validators:
+        channel: {min: 1, max: 4}
+      response:
+        type: csv_float

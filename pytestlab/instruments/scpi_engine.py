@@ -130,6 +130,13 @@ class _Validator:
 
         raise AssertionError(f"Unknown validator kind '{self.kind}'")
 
+    def describe(self) -> dict[str, Any]:
+        if self.kind == "range":
+            return {"kind": "range", "min": self.min_val, "max": self.max_val}
+        if self.kind == "enum":
+            return {"kind": "enum", "choices": dict(self.enum_map or {})}
+        return {"kind": self.kind}
+
 
 # ------------------------------------------------------------------------------
 #                               Response parsing
@@ -286,6 +293,7 @@ class _CommandSpec:
     sequence: list[str]
     defaults: dict[str, Any] = field(default_factory=dict)
     validators: dict[str, _Validator] = field(default_factory=dict)
+    parameters: dict[str, dict[str, Any]] = field(default_factory=dict)
     response: _ResponseSpec | None = None
 
 
@@ -319,8 +327,6 @@ class SCPIEngine:
 
         if not isinstance(scpi_section, Mapping):
             raise SCPIEngineError("'scpi_section' must be a mapping")
-        if not isinstance(scpi_section, Mapping):
-            raise SCPIEngineError("'scpi_section' must be a mapping")
 
         # -------- optional variant lookup ----------------------------- #
         if isinstance(scpi_section.get("variants"), Mapping):
@@ -342,14 +348,8 @@ class SCPIEngine:
                 ) from None
 
         # -------- commands / queries ---------------------------------- #
-        # Ensure scpi_section has the get method by checking if it's a Mapping
-        if hasattr(scpi_section, "get"):
-            commands_block = scpi_section.get("commands", {}) or {}
-            queries_block = scpi_section.get("queries", {}) or {}
-        else:
-            # Fallback for SCPISection objects
-            commands_block = getattr(scpi_section, "commands", {}) or {}
-            queries_block = getattr(scpi_section, "queries", {}) or {}
+        commands_block = scpi_section.get("commands", {}) or {}
+        queries_block = scpi_section.get("queries", {}) or {}
 
         if not isinstance(commands_block, Mapping) or not isinstance(queries_block, Mapping):
             raise SCPIEngineError("'commands'/'queries' must map to objects")
@@ -391,10 +391,10 @@ class SCPIEngine:
         if missing:
             raise ValidationError(f"Missing parameter(s) {', '.join(missing)} for '{cmd_name}'.")
 
-        # run validation
-        for pname, validator in spec.validators.items():
+        # run profile-backed parameter resolution/validation
+        for pname in set(spec.parameters) | set(spec.validators):
             if pname in merged:
-                merged[pname] = validator.validate(pname, merged[pname])
+                merged[pname] = self.resolve_parameter(cmd_name, pname, merged[pname])
 
         try:
             return [tmpl.format(**merged) for tmpl in spec.sequence]
@@ -435,6 +435,94 @@ class SCPIEngine:
         """Return a list of all SCPI command/query names known to the engine."""
         return list(self._specs.keys())
 
+    def list_parameters(self, cmd_name: str) -> list[str]:
+        """Return parameter names described for a SCPI command/query."""
+
+        return list(self._spec(cmd_name).parameters.keys())
+
+    def describe_parameter(self, cmd_name: str, parameter: str) -> dict[str, Any]:
+        """Return canonical metadata for one SCPI placeholder."""
+
+        spec = self._spec(cmd_name)
+        try:
+            return dict(spec.parameters[parameter])
+        except KeyError:
+            raise KeyError(
+                f"SCPI command '{cmd_name}' has no parameter metadata for '{parameter}'"
+            ) from None
+
+    def list_options(self, cmd_name: str, parameter: str) -> list[dict[str, Any]]:
+        """Return enum/bool raw-token choices for a parameter, or [] if not closed-choice."""
+
+        param = self.describe_parameter(cmd_name, parameter)
+        if param.get("kind") not in {"enum", "bool"}:
+            return []
+        return [dict(choice) for choice in param.get("choices", [])]
+
+    def resolve_parameter(self, cmd_name: str, parameter: str, value: Any) -> Any:
+        """Resolve/validate one parameter value using profile-backed metadata.
+
+        For enum/bool parameters only the profile choice ``token`` is returned for
+        template insertion. Labels and aliases are accepted input forms when the
+        profile declares them. No driver-level token table participates here.
+        """
+
+        spec = self._spec(cmd_name)
+        param = spec.parameters.get(parameter)
+        validator = spec.validators.get(parameter)
+        if param is None:
+            return validator.validate(parameter, value) if validator is not None else value
+
+        kind = str(param.get("kind", "raw"))
+        if kind in {"enum", "bool"}:
+            choices = list(param.get("choices", []) or [])
+            lookup: dict[str, Any] = {}
+            for choice in choices:
+                token = choice.get("token")
+                keys = [token, choice.get("label"), *list(choice.get("aliases", []) or [])]
+                for key in keys:
+                    if key is not None:
+                        lookup[str(key).lower()] = token
+            key = str(value.value if hasattr(value, "value") else value).lower()
+            if key in lookup:
+                return lookup[key]
+            if param.get("strict", False):
+                valid = ", ".join(str(choice.get("token")) for choice in choices)
+                raise ValidationError(
+                    f"Parameter '{parameter}'={value!r} not in allowed set {{{valid}}}."
+                )
+            return validator.validate(parameter, value) if validator is not None else value
+
+        if kind == "range":
+            min_val = param.get("min")
+            max_val = param.get("max")
+            if not isinstance(value, numbers.Real):
+                raise ValidationError(
+                    f"Parameter '{parameter}' must be numeric for range check, "
+                    f"but got type {type(value).__name__}."
+                )
+            if min_val is not None and float(value) < float(min_val):
+                raise ValidationError(
+                    f"Parameter '{parameter}'={value!r} outside allowed range "
+                    f"[{min_val}, {max_val}]."
+                )
+            if max_val is not None and float(value) > float(max_val):
+                raise ValidationError(
+                    f"Parameter '{parameter}'={value!r} outside allowed range "
+                    f"[{min_val}, {max_val}]."
+                )
+            return value
+
+        if kind == "open_string":
+            pattern = param.get("pattern")
+            if pattern and not re.match(str(pattern), str(value)):
+                raise ValidationError(
+                    f"Parameter '{parameter}'={value!r} does not match pattern {pattern!r}."
+                )
+            return value
+
+        return validator.validate(parameter, value) if validator is not None else value
+
     def describe(self, cmd_name: str) -> dict[str, Any]:
         """
         Return a dictionary describing the SCPI entry:
@@ -443,10 +531,7 @@ class SCPIEngine:
         - validators: mapping of parameter names to validator kind
         - response: minimal response spec (type/fields) if present
         """
-        try:
-            spec = self._specs[cmd_name]
-        except KeyError:
-            raise KeyError(f"SCPI command '{cmd_name}' not defined") from None
+        spec = self._spec(cmd_name)
 
         validators = {name: val.kind for name, val in spec.validators.items()}
         resp = None
@@ -456,6 +541,7 @@ class SCPIEngine:
             "sequence": list(spec.sequence),
             "defaults": dict(spec.defaults),
             "validators": validators,
+            "parameters": {name: dict(param) for name, param in spec.parameters.items()},
             "response": resp,
         }
 
@@ -493,6 +579,12 @@ class SCPIEngine:
     # ------------------------------------------------------------------ #
     # Private helpers
     # ------------------------------------------------------------------ #
+    def _spec(self, cmd_name: str) -> _CommandSpec:
+        try:
+            return self._specs[cmd_name]
+        except KeyError:
+            raise KeyError(f"SCPI command '{cmd_name}' not defined") from None
+
     @staticmethod
     def _find_missing_placeholders(templates: list[str], params: Mapping[str, Any]) -> list[str]:
         formatter = string.Formatter()
@@ -562,6 +654,8 @@ class SCPIEngine:
                     enum_map={str(k).lower(): v for k, v in enum.items()},
                 )
 
+        parameters = self._normalize_parameters(mapping, validators, enums_data)
+
         # ---- response ---------------------------------------------- #
         response = None
         if "response" in mapping and mapping["response"] is not None:
@@ -587,8 +681,104 @@ class SCPIEngine:
             sequence=sequence,
             defaults=defaults,
             validators=validators,
+            parameters=parameters,
             response=response,
         )
+
+    def _normalize_parameters(
+        self,
+        mapping: Mapping[str, Any],
+        validators: dict[str, _Validator],
+        enums_data: Any,
+    ) -> dict[str, dict[str, Any]]:
+        """Build canonical runtime parameter metadata from explicit and legacy fields."""
+
+        parameters: dict[str, dict[str, Any]] = {}
+        raw_parameters = mapping.get("parameters")
+        if isinstance(raw_parameters, Mapping):
+            for name, raw_param in raw_parameters.items():
+                parameters[str(name)] = self._explicit_parameter_metadata(raw_param)
+
+        for name, validator in validators.items():
+            if name in parameters:
+                continue
+            metadata = self._legacy_validator_metadata(validator)
+            if metadata is not None:
+                parameters[name] = metadata
+
+        if isinstance(enums_data, Mapping):
+            for name, enum in enums_data.items():
+                if name not in parameters and isinstance(enum, Mapping):
+                    parameters[str(name)] = self._legacy_enum_metadata(enum)
+
+        placeholders = self._find_missing_placeholders(self._parameter_templates(mapping), {})
+        for placeholder in placeholders:
+            parameters.setdefault(
+                placeholder,
+                {
+                    "kind": "raw",
+                    "required": True,
+                    "strict": False,
+                    "choices": [],
+                    "metadata_source": "inferred",
+                },
+            )
+
+        return parameters
+
+    @staticmethod
+    def _explicit_parameter_metadata(raw_param: Any) -> dict[str, Any]:
+        if isinstance(raw_param, Mapping):
+            param = dict(raw_param)
+        else:
+            param = {"kind": "raw", "description": str(raw_param)}
+        param["kind"] = str(param.get("kind") or param.get("type") or "raw")
+        param["choices"] = [
+            dict(choice) if isinstance(choice, Mapping) else {"token": choice}
+            for choice in param.get("choices", []) or []
+        ]
+        param.setdefault("metadata_source", "explicit")
+        return param
+
+    @staticmethod
+    def _legacy_validator_metadata(validator: _Validator) -> dict[str, Any] | None:
+        if validator.kind == "range":
+            return {
+                "kind": "range",
+                "required": True,
+                "strict": True,
+                "min": validator.min_val,
+                "max": validator.max_val,
+                "choices": [],
+                "metadata_source": "legacy_validator",
+            }
+        if validator.kind != "enum":
+            return None
+        assert validator.enum_map is not None
+        return SCPIEngine._legacy_enum_metadata(validator.enum_map)
+
+    @staticmethod
+    def _legacy_enum_metadata(enum: Mapping[str, Any]) -> dict[str, Any]:
+        return {
+            "kind": "enum",
+            "required": True,
+            "strict": True,
+            "choices": [
+                {"token": token, "label": str(key), "aliases": [str(key)]}
+                for key, token in enum.items()
+            ],
+            "metadata_source": "legacy_enum",
+        }
+
+    @staticmethod
+    def _parameter_templates(mapping: Mapping[str, Any]) -> list[str]:
+        sequence_value = mapping.get("sequence")
+        template_value = mapping.get("template")
+        if isinstance(sequence_value, list):
+            return [item for item in sequence_value if isinstance(item, str)]
+        if isinstance(template_value, str):
+            return [template_value]
+        return []
 
 
 # ------------------------------------------------------------------------------

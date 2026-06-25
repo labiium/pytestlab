@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from pytestlab.sim.circuit import Session
 from pytestlab.sim.circuit.bench import AWG
@@ -154,7 +155,11 @@ def test_simbench_scpi_accepts_full_and_short_dmm_mnemonics(netlist_path) -> Non
     backend.write(":SENS:VOLT:DC:RES 5")
     assert backend.query(":CONFigure:VOLTage:DC?").startswith("DCV")
     assert backend.query(":CONF:VOLT:DC?").startswith("DCV")
-    assert float(backend.query(":MEASure:VOLTage:DC?")) == float(backend.query(":MEAS:VOLT:DC?"))
+    with pytest.warns(RuntimeWarning, match="topology/convergence"):
+        full = float(backend.query(":MEASure:VOLTage:DC?"))
+    with pytest.warns(RuntimeWarning, match="topology/convergence"):
+        short = float(backend.query(":MEAS:VOLT:DC?"))
+    assert full == short
 
 
 def test_simbench_scpi_accepts_full_and_short_psu_awg_scope_mnemonics(netlist_path) -> None:

@@ -44,7 +44,8 @@
 * **Record & Replay** – record real instrument sessions and replay them exactly for reproducible measurements, offline analysis, and regression testing with strict sequence validation.
 * **Bench descriptors** – group multiple instruments in one `bench.yaml`, define safety limits, automation hooks, traceability, accessory profiles, and measurement plans.
 * **High-level measurement builder** – notebook-friendly `MeasurementSession` for parameter sweeps that stores data as Polars DataFrames and exports straight to the experiment database.
-* **Scientific uncertainty propagation** – profile-defined accuracy budgets return `MeasurementQuantity` values with units, standard/expanded uncertainty, component provenance, arithmetic propagation, explicit accessory chains for probes/leads/cables, and database round-trips. See [`docs/en/user_guide/uncertainty.md`](docs/en/user_guide/uncertainty.md).
+* **Scientific uncertainty propagation** – profile-defined accuracy budgets return `MeasurementQuantity` values with units, standard/expanded uncertainty, component provenance, arithmetic propagation, explicit accessory chains for probes/leads/cables, and database round-trips. Oscilloscope waveforms also support covariance-aware voltage reductions, timing uncertainty, and shared-clock cross-channel delay/skew. See [`docs/en/user_guide/uncertainty.md`](docs/en/user_guide/uncertainty.md).
+* **Conservative digital-twin evidence** – known-truth scope oracles, replay/LAMB residual reports, characterized-twin gates, and tamper-checkable evidence artifacts keep `data_origin` and `evidence_purpose` explicit. See [`docs/en/user_guide/digital_twin.md`](docs/en/user_guide/digital_twin.md).
 * **Rich database** – compressed storage of experiments & measurements with full-text search (`MeasurementDatabase`).
 * **Powerful CLI** – `pytestlab …` commands to list/validate profiles, query instruments, convert benches to simulation, replay sessions, etc.
 * **Extensible back-ends** – VISA, Lamb server, pure simulation, and custom
@@ -87,6 +88,52 @@ main()
 
 PyTestLab opens instrument/device backends automatically on first use; experiment
 code does not need manual connection boilerplate.
+
+### 2b. Reading uncertainty-aware results
+
+```python
+reading = dmm.measure(DMMFunction.VOLTAGE_DC).values
+
+print(reading)                 # nominal +/- standard uncertainty
+print(reading.n)               # short explicit nominal-only value
+print(reading.u)               # standard uncertainty
+print(reading.budget())        # component-level provenance
+
+if reading.exceeds(4.75, k=2):
+    print("guard-banded pass")
+
+if not reading.is_report_grade:
+    print(reading.report_grade_blockers())
+```
+
+Scalar comparisons such as `reading > 4.75` intentionally fail loud; use
+`reading.n > 4.75` for routine nominal control flow or `reading.exceeds(...)`,
+`reading.below(...)`, and `reading.consistent_with(...)` for uncertainty-aware
+decisions.
+
+### 2c. Oscilloscope uncertainty and twin evidence
+
+```python
+wave = scope.acquire_waveform(1)
+print(wave.rms())
+print(wave.timing.frequency())
+
+waves = scope.acquire_waveforms([1, 2])
+print(waves.skew(1, 2))
+
+scope.twin.validate(".omx/evidence/twin-oracle", kind="oracle")
+```
+
+For CLI evidence workflows:
+
+```bash
+pytestlab twin oracle --output .omx/evidence/twin-oracle --check
+pytestlab twin residual-from-replay tests/fixtures/hardware_replay/hd304mso_lamb_capture.json --check
+pytestlab evidence scope-oracle --output .omx/evidence/scope-oracle --check
+```
+
+These commands produce software-validation evidence, not accreditation
+certificates or signed DCCs.
 
 ### 3. Choose the right device factory
 

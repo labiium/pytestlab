@@ -24,6 +24,50 @@ class RangeValidator(BaseModel):
     max: float
 
 
+class SCPIChoiceSpec(BaseModel):
+    """One raw SCPI value choice for an enum/bool parameter.
+
+    ``token`` is the only value that may be substituted into a SCPI template.
+    Labels and aliases are input-side conveniences supplied by the profile.
+    """
+
+    model_config = ConfigDict(validate_assignment=True, extra="forbid")
+    token: str | int | float | bool
+    label: str | None = None
+    aliases: list[str] = Field(default_factory=list)
+    description: str | None = None
+    evidence: dict[str, Any] | str | None = None
+
+
+class SCPIParameterSpec(BaseModel):
+    """Canonical profile/runtime metadata for a SCPI placeholder."""
+
+    model_config = ConfigDict(validate_assignment=True, extra="forbid")
+    kind: Literal["enum", "range", "open_string", "bool", "raw"] = "raw"
+    required: bool = True
+    strict: bool = False
+    allow_raw: bool = False
+    choices: list[SCPIChoiceSpec] = Field(default_factory=list)
+    min: float | None = None
+    max: float | None = None
+    unit: str | None = None
+    pattern: str | None = None
+    examples: list[str | int | float] = Field(default_factory=list)
+    default: str | int | float | bool | None = None
+    description: str | None = None
+    evidence: dict[str, Any] | str | None = None
+
+    @model_validator(mode="after")
+    def _validate_parameter_shape(self) -> SCPIParameterSpec:
+        if self.kind in {"enum", "bool"} and self.strict and not self.choices:
+            raise ValueError(f"strict {self.kind} parameter requires choices")
+        if self.kind == "range" and (self.min is None or self.max is None):
+            raise ValueError("range parameter requires min and max")
+        if self.min is not None and self.max is not None and self.min > self.max:
+            raise ValueError("parameter min cannot be greater than max")
+        return self
+
+
 class ResponseSpec(BaseModel):
     model_config = ConfigDict(validate_assignment=True, extra="forbid")
     type: Literal[
@@ -31,6 +75,7 @@ class ResponseSpec(BaseModel):
         "str",
         "int",
         "float",
+        "scpi_float",
         "csv",
         "csv_int",
         "csv_float",
@@ -51,6 +96,7 @@ class CommandSpec(BaseModel):
     validators: dict[str, RangeValidator] = Field(default_factory=dict)
     # Allow mixed-type keys (e.g., true/false/1/0) for convenience in YAML profiles
     enums: dict[str, dict[Any, str | int | float]] = Field(default_factory=dict)
+    parameters: dict[str, SCPIParameterSpec] = Field(default_factory=dict)
     response: ResponseSpec | None = None
 
 

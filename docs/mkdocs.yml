@@ -156,6 +156,7 @@ nav:
       - "Bench Descriptors": user_guide/bench_descriptors.md
       - "Error Handling": user_guide/errors.md
       - "Handling Uncertainty": user_guide/uncertainty.md
+      - "Digital Twins and Evidence": user_guide/digital_twin.md
       - "Notebook Styling Guide": user_guide/notebook_styling.md
       - "Command-Line Interface": user_guide/cli.md
       - "Documentation Scripts": scripts/index.md

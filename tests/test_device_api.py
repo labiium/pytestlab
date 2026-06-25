@@ -230,9 +230,8 @@ def test_autodevice_explicit_source_factories_are_unambiguous(tmp_path):
         AutoDevice.from_model({"device_type": "source_widget"})  # type: ignore[arg-type]
 
 
-def test_from_config_string_remains_compatible_but_warns():
-    with pytest.warns(DeprecationWarning, match="from_preset"):
-        device = AutoDevice.from_config("keysight/EDU34450A", simulate=True)
+def test_from_config_string_remains_compatible_without_warning():
+    device = AutoDevice.from_config("keysight/EDU34450A", simulate=True)
 
     assert isinstance(device, Multimeter)
 

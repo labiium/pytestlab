@@ -12,6 +12,7 @@ import pytestlab.uncertainty as ptu
 from pytestlab.experiments.uncertainty_serialization import deserialize_uncertain_value
 from pytestlab.experiments.uncertainty_serialization import serialize_uncertain_value
 from pytestlab.uncertainty import CorrelationComponentWarning
+from pytestlab.uncertainty import NominalOnlyDecisionWarning
 from pytestlab.uncertainty import Quantity
 from pytestlab.uncertainty import correlated_values
 from pytestlab.uncertainty import correlated_values_norm
@@ -73,10 +74,99 @@ def test_quick_factory_and_string_constructor():
 
 def test_lossy_float_conversion_is_rejected():
     q = uq(2.0, 0.1, "V")
-    with pytest.raises(TypeError, match="nominal extraction"):
+    with pytest.raises(TypeError, match="q.n"):
         float(q)
-    with pytest.raises(TypeError, match="nominal extraction"):
+    with pytest.raises(TypeError, match="QuantityArray.nominal"):
         np.asarray([q], dtype=float)
+
+
+def test_scalar_equality_and_ordering_fail_loud_with_decision_helpers():
+    q = uq(2.0, 0.1, "V")
+
+    with pytest.raises(TypeError, match="q.consistent_with"):
+        _ = q == 2.0
+    with pytest.raises(TypeError, match="q.consistent_with"):
+        _ = q != 2.0
+    with pytest.raises(TypeError, match="q.n > limit"):
+        _ = q > 1.0
+    with pytest.raises(TypeError, match="q.n < limit"):
+        _ = q < 3.0
+
+    same = q
+    different = uq(2.0, 0.2, "V")
+    assert q == same
+    assert q != different
+
+
+def test_quantity_decision_helpers_are_guard_banded_and_auditable():
+    q = uq(2.0, 0.1, "V")
+
+    assert q.consistent_with(2.15, k=2.0)
+    assert not q.consistent_with(2.25, k=2.0)
+    assert q.en_ratio(2.15, k=2.0) == pytest.approx(0.75)
+    assert q.exceeds(1.79, k=2.0)
+    assert not q.exceeds(1.85, k=2.0)
+    assert q.below(2.21, k=2.0)
+    assert not q.below(2.15, k=2.0)
+    assert q.within(1.79, 2.21, k=2.0)
+
+    comparison = q.compare(1.79, k=2.0)
+    assert comparison.left_nominal == pytest.approx(2.0)
+    assert comparison.right_nominal == pytest.approx(1.79)
+    assert comparison.combined_standard_uncertainty == pytest.approx(0.1)
+    assert comparison.direction == "above"
+    assert comparison.unit == "V"
+
+
+def test_nominal_only_decision_helpers_warn_user():
+    q = Quantity.constant(5.0, "V")
+    q.provenance = ptu.ResultProvenance.current(
+        data_origin=ptu.DataOrigin.MEASURED,
+        evidence_purpose=ptu.EvidencePurpose.MEASUREMENT_RESULT,
+        origin_detail="missing accuracy metadata",
+        provenance_complete=False,
+    )
+
+    assert "nominal-only" in repr(q)
+    assert "nominal-only" in str(q)
+    with pytest.warns(NominalOnlyDecisionWarning, match="not guard-banded"):
+        assert q.exceeds(4.9)
+    with pytest.warns(NominalOnlyDecisionWarning, match="report_grade_blockers"):
+        assert q.consistent_with(5.0)
+
+
+def test_quantity_comparison_preserves_shared_covariance_for_same_registry():
+    x, y = correlated_values(
+        [10.0, 10.1],
+        [[0.04, 0.04], [0.04, 0.04]],
+        units=["V", "V"],
+        labels=["x", "y"],
+    )
+
+    comparison = y.compare(x, k=2.0)
+
+    assert comparison.delta == pytest.approx(0.1)
+    assert comparison.combined_standard_uncertainty == pytest.approx(0.0, abs=1e-8)
+    assert comparison.en_ratio > 1e6
+    assert not y.consistent_with(x, k=2.0)
+
+
+def test_scaled_unit_add_sub_and_compare_scale_gradients():
+    reg = ptu.AtomRegistry()
+    volts = uq(1.0, 0.1, "V", label="volts", registry=reg)
+    millivolts = uq(1000.0, 100.0, "mV", label="millivolts", registry=reg)
+
+    summed = volts + millivolts
+    difference = volts - millivolts
+    comparison = volts.compare(millivolts)
+
+    assert summed.nominal == pytest.approx(2.0)
+    assert summed.unit == "V"
+    assert summed.u == pytest.approx(math.sqrt(0.1**2 + 0.1**2))
+    assert difference.nominal == pytest.approx(0.0)
+    assert difference.u == pytest.approx(math.sqrt(0.1**2 + 0.1**2))
+    assert comparison.combined_standard_uncertainty == pytest.approx(math.sqrt(0.1**2 + 0.1**2))
+    assert comparison.consistent
 
 
 def test_uncertainty_formatting_and_html_repr():
@@ -176,8 +266,12 @@ def test_error_components_expose_correlation_cross_terms():
     with pytest.warns(CorrelationComponentWarning):
         pct = z.budget().percentage_contributions()
     assert pct
-    assert z.budget().to_dicts()[0]["label"] in {"x", "y"}
-    assert z.budget().to_polars().height == 2
+    with pytest.warns(CorrelationComponentWarning):
+        dict_rows = z.budget().to_dicts()
+    assert dict_rows[0]["label"] in {"x", "y"}
+    with pytest.warns(CorrelationComponentWarning):
+        polars_rows = z.budget().to_polars()
+    assert polars_rows.height == 2
 
 
 def test_measurement_result_serializes_native_quantity():

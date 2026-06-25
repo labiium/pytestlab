@@ -22,6 +22,8 @@ from .atoms import AtomRegistry
 from .atoms import Distribution
 from .atoms import Kind
 from .atoms import divisor_for
+from .metrology import DataOrigin
+from .metrology import EvidencePurpose
 from .metrology import InputQuantityRecord
 from .metrology import MeasurementModel
 from .metrology import ResultProvenance
@@ -39,7 +41,11 @@ class WaveformAxis:
     reference: float = 0.0
     sample_rate_sps: float | None = None
     timebase_relative_std: float | None = None
+    timebase_reference_s: float = 0.0
     trigger_jitter_std_s: float | None = None
+    sample_aperture_s: float | None = None
+    interpolation_model: str = "linear"
+    channel_skew_std_s: float | None = None
 
     @property
     def has_horizontal_uncertainty(self) -> bool:
@@ -69,6 +75,9 @@ class WaveformUncertaintyModel:
     preamble: dict[str, Any] = field(default_factory=dict)
     assumptions: tuple[str, ...] = ()
     provenance_complete: bool = False
+    data_origin: DataOrigin = DataOrigin.UNKNOWN
+    evidence_purpose: EvidencePurpose = EvidencePurpose.MEASUREMENT_RESULT
+    origin_detail: str | None = None
 
     @classmethod
     def from_metadata(
@@ -128,7 +137,11 @@ class WaveformUncertaintyModel:
             reference=_optional_float(preamble.get("xref")) or 0.0,
             sample_rate_sps=_optional_float(meta.get("sampling_rate")),
             timebase_relative_std=_optional_float(meta.get("timebase_relative_std")),
+            timebase_reference_s=_optional_float(meta.get("timebase_reference_s")) or 0.0,
             trigger_jitter_std_s=_optional_float(meta.get("trigger_jitter_std_s")),
+            sample_aperture_s=_optional_float(meta.get("sample_aperture_s")),
+            interpolation_model=str(meta.get("interpolation_model") or "linear"),
+            channel_skew_std_s=_optional_float(meta.get("channel_skew_std_s")),
         )
         if not axis.has_horizontal_uncertainty:
             assumptions.append(
@@ -149,15 +162,22 @@ class WaveformUncertaintyModel:
             preamble=preamble,
             assumptions=tuple(assumptions),
             provenance_complete=bool(meta.get("provenance_complete", False)),
+            data_origin=DataOrigin(meta.get("data_origin", DataOrigin.UNKNOWN)),
+            evidence_purpose=EvidencePurpose(
+                meta.get("evidence_purpose", EvidencePurpose.MEASUREMENT_RESULT)
+            ),
+            origin_detail=meta.get("origin_detail"),
         )
 
-    def quantity_array(self, samples: ArrayLike) -> QuantityArray:
+    def quantity_array(
+        self, samples: ArrayLike, *, registry: AtomRegistry | None = None
+    ) -> QuantityArray:
         """Return a factored-covariance :class:`QuantityArray` for samples."""
 
         values = np.asarray(samples, dtype=float)
         if values.ndim != 1:
             raise ValueError("waveform samples must be one-dimensional")
-        registry = AtomRegistry()
+        registry = registry or AtomRegistry()
         sensitivities: dict[str, np.ndarray] = {}
         inputs: list[InputQuantityRecord] = []
         trace = self.traceability or TraceabilityRef(source="manufacturer_spec")
@@ -241,7 +261,11 @@ class WaveformUncertaintyModel:
                 dof_method="unresolved_until_reduction",
             ),
             provenance=ResultProvenance.current(
-                input_data=values.tobytes(), provenance_complete=self.provenance_complete
+                input_data=values.tobytes(),
+                data_origin=self.data_origin,
+                evidence_purpose=self.evidence_purpose,
+                origin_detail=self.origin_detail,
+                provenance_complete=self.provenance_complete,
             ),
             dof_method="unresolved_until_reduction",
         )
@@ -264,6 +288,9 @@ class WaveformUncertaintyModel:
             "preamble": self.preamble,
             "assumptions": list(self.assumptions),
             "provenance_complete": self.provenance_complete,
+            "data_origin": self.data_origin.value,
+            "evidence_purpose": self.evidence_purpose.value,
+            "origin_detail": self.origin_detail,
         }
 
 
@@ -273,6 +300,7 @@ def build_waveform_quantity_array(
     *,
     unit: str = "V",
     channel: int | None = None,
+    registry: AtomRegistry | None = None,
 ) -> QuantityArray:
     """Build a waveform `QuantityArray` from samples and typed/legacy metadata."""
 
@@ -282,7 +310,7 @@ def build_waveform_quantity_array(
         model = WaveformUncertaintyModel.from_metadata(
             metadata, samples=samples, unit=unit, channel=channel
         )
-    return model.quantity_array(samples)
+    return model.quantity_array(samples, registry=registry)
 
 
 def _accuracy_spec_terms(

@@ -20,6 +20,9 @@ from pytestlab.sim.circuit.instruments.twins import ScopeTwin
 from pytestlab.uncertainty.atoms import AtomRegistry
 from pytestlab.uncertainty.atoms import Distribution
 from pytestlab.uncertainty.atoms import Kind
+from pytestlab.uncertainty.metrology import DataOrigin
+from pytestlab.uncertainty.metrology import EvidencePurpose
+from pytestlab.uncertainty.metrology import ResultProvenance
 from pytestlab.uncertainty.metrology import TraceabilityRef
 from pytestlab.uncertainty.quantity_array import QuantityArray
 
@@ -115,6 +118,10 @@ def run_scope_twin_known_truth_validation(
     waveform_sha = _sha256_array(waveform)
     payload = {
         "schema": "pytestlab.scope_twin_known_truth.v1",
+        "data_origin": DataOrigin.TWIN_ORACLE.value,
+        "evidence_purpose": EvidencePurpose.SOFTWARE_VALIDATION.value,
+        "twin_fidelity": "ideal",
+        "twin_claim_scope": "algorithm validation oracle; not characterized hardware",
         "parameters": parameters,
         "waveform_sha256": waveform_sha,
         "metrics": [asdict(metric) for metric in metrics],
@@ -260,6 +267,14 @@ def _run_scope_twin_waveform(
         diagonal_variance=np.full_like(acquired, (lsb / math.sqrt(12.0)) ** 2),
         atom_sensitivities={offset_atom.uid: np.ones_like(acquired), gain_atom.uid: acquired},
         registry=reg,
+        provenance=ResultProvenance.current(
+            input_data=acquired.tobytes(),
+            data_origin=DataOrigin.SYNTHETIC_KNOWN_TRUTH,
+            evidence_purpose=EvidencePurpose.SOFTWARE_VALIDATION,
+            origin_detail="deterministic scope-twin known-truth validation oracle",
+            validation_report_id="scope_twin_known_truth",
+            provenance_complete=False,
+        ),
     )
     return acquired, quantity_array
 

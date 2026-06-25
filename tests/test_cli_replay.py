@@ -430,7 +430,8 @@ if __name__ == "__main__":
         try:
             # CLI should handle YAML parsing errors
             with pytest.raises(yaml.YAMLError):
-                yaml.safe_load(open(malformed_session))
+                with open(malformed_session) as f:
+                    yaml.safe_load(f)
         finally:
             Path(malformed_session).unlink(missing_ok=True)
 

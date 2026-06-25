@@ -7,12 +7,19 @@ and the project adheres to Semantic Versioning (https://semver.org/spec/v2.0.0.h
 
 ## [Unreleased]
 ### Added
+- Digital-twin taxonomy and evidence tooling: validation-oracle labeling, characterized scope-twin gates, residual reports from replay/LAMB captures, and `pytestlab twin ...` CLI commands.
+- Waveform timing uncertainty APIs for period, frequency, rise/fall time, duty cycle, delay, and shared-clock cross-channel skew.
+- Quantity decision helpers (`compare`, `consistent_with`, `en_ratio`, `exceeds`, `below`, `within`) and report-grade convenience accessors.
+- Set-bound `WaveformSetResult.channel(...)` views so natural cross-channel timing code preserves shared-clock covariance.
 - Evidence bundle generation for JCGM/GUM rows, DCC/D-SI schema hashes, claim-boundary scans, and validation artifact indexes.
 - QuantityArray oscilloscope waveform reductions with covariance-aware mean/RMS/Vpp helpers and D-SI / unsigned DCC-subset exports.
 - Remote LAMB oscilloscope verification harness for MXR404A/HD304MSO, deterministic scope-twin known-truth evidence, and redacted HD304MSO replay fixture parity checks.
 - Citation metadata and explicit validation claim-boundary documentation.
 
 ### Changed
+- Scalar `Quantity` equality/ordering against bare numbers now fails loud with migration guidance; use `.n`/`.nominal` for nominal-only logic or the decision helpers for uncertainty-aware decisions.
+- Missing measurement uncertainty metadata now returns an explicit nominal-only, non-report-grade `Quantity` instead of silently falling back to a bare float in normal acquisition paths; decision helpers warn on nominal-only non-report-grade values.
+- Provenance now records data origin, evidence purpose, git SHA, profile/session hashes, and report-grade blockers for non-measured or incompatible evidence claims.
 - Replay and session recording backends now preserve raw binary query payloads using base64 plus SHA-256 metadata.
 - HD304MSO profile now includes read-only SCPI aliases required for LAMB validation.
 

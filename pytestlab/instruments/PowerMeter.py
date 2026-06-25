@@ -3,6 +3,7 @@ from typing import get_args
 from ..config.power_meter_config import PowerMeterConfig
 from ..errors import InstrumentDataError
 from .instrument import Instrument
+from .operation_contract import OperationDescriptor
 
 
 class PowerMeter(Instrument[PowerMeterConfig]):
@@ -12,6 +13,31 @@ class PowerMeter(Instrument[PowerMeterConfig]):
     building upon the base `Instrument` class. It includes methods for
     configuring the power sensor and reading power values.
     """
+
+    OPERATION_CONTRACT: tuple[OperationDescriptor, ...] = (
+        OperationDescriptor(
+            "power_readout",
+            required_aliases=("fetch_power",),
+            safety_class="read",
+            parameters={
+                "channel": {"bindings": [{"alias": "fetch_power", "parameter": "channel"}]}
+            },
+        ),
+        OperationDescriptor(
+            "sensor_configuration",
+            optional_aliases=("set_sensor_frequency", "set_averaging_count", "set_power_units"),
+            required=False,
+            parameters={
+                "channel": {
+                    "bindings": [
+                        {"alias": "set_sensor_frequency", "parameter": "channel"},
+                        {"alias": "set_averaging_count", "parameter": "channel"},
+                    ]
+                },
+                "units": {"bindings": [{"alias": "set_power_units", "parameter": "units"}]},
+            },
+        ),
+    )
 
     def configure_sensor(
         self,
@@ -36,12 +62,12 @@ class PowerMeter(Instrument[PowerMeterConfig]):
 
         # Set the frequency compensation for the sensor.
         if freq is not None:
-            self._send_command(f"SENS{channel}:FREQ {freq}")
+            self.send_scpi_alias("set_sensor_frequency", channel=channel, frequency=freq)
             self.config.frequency_compensation_value = freq  # Update local config state
 
         # Set the number of readings to average.
         if averaging_count is not None:
-            self._send_command(f"SENS{channel}:AVER:COUN {averaging_count}")
+            self.send_scpi_alias("set_averaging_count", channel=channel, count=averaging_count)
             self.config.averaging_count = averaging_count  # Update local config state
 
         # Set the units for the power measurement.
@@ -59,7 +85,7 @@ class PowerMeter(Instrument[PowerMeterConfig]):
                     allowed = set()
 
             if not allowed or units in allowed:
-                self._send_command(f"UNIT:POW {units.upper()}")
+                self.send_scpi_alias("set_power_units", channel=channel, units=units)
                 self.config.power_units = units  # type: ignore[assignment]
             else:
                 self._logger.warning(
@@ -80,7 +106,7 @@ class PowerMeter(Instrument[PowerMeterConfig]):
             The measured power as a float. The units depend on the current
             instrument configuration.
         """
-        response = self._query(f"FETC{channel}?")
+        response = self.query_scpi_alias("fetch_power", channel=channel)
         try:
             return float(response.strip())
         except ValueError as exc:

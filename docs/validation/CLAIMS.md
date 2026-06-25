@@ -27,6 +27,11 @@ behaviors when the referenced evidence bundle was generated from a clean tree:
    `docs/validation/waveform_scientific_contract.md`: shared systematic atoms,
    diagonal independent terms, explicit acquisition mode, and fail-loud export
    boundaries.
+8. Timing measurands such as period, frequency, rise/fall time, and duty cycle
+   propagate voltage uncertainty through local edge slew rate and propagate
+   horizontal timebase/trigger terms as explicit input quantities. Timing
+   outputs without complete horizontal specifications remain labeled as
+   non-report-grade candidates.
 
 ## Non-claims
 
@@ -43,3 +48,6 @@ remain the responsibility of the issuing laboratory.
 - Say "D-SI-compatible payload" only when unit resolution succeeded.
 - Say "report-grade candidate" only after provenance, traceability, model, unit,
   and uncertainty gates pass.
+- Say "validation oracle" for synthetic known-truth twins unless a twin has a
+  passing residual report and declared domain for a specific physical
+  instrument identity.

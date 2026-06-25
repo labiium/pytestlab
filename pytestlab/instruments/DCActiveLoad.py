@@ -24,9 +24,11 @@ from ..uncertainty import Quantity as MeasurementQuantity
 from ..uncertainty.compat import UFloat
 from .instrument import Instrument
 from .instrument import InstrumentIO
+from .operation_contract import OperationDescriptor
 from .uncertainty_adapters import dc_load_measurement_context
 from .uncertainty_adapters import dc_load_range_value
 from .uncertainty_adapters import dc_load_readback_accuracy
+from .uncertainty_adapters import nominal_measurement_quantity
 from .uncertainty_adapters import nonzero_uncertainty_quantity
 
 
@@ -49,6 +51,73 @@ class DCActiveLoad(Instrument):
 
     config: DCActiveLoadConfig  # Type hint for the specific config
     current_mode: str | None = None
+
+    OPERATION_CONTRACT: tuple[OperationDescriptor, ...] = (
+        OperationDescriptor("set_mode", required_aliases=("set_mode",)),
+        OperationDescriptor("set_input_state", required_aliases=("set_input_state",)),
+        OperationDescriptor(
+            "get_input_state", required_aliases=("get_input_state",), safety_class="read"
+        ),
+        OperationDescriptor("input_short_state", required_aliases=("input_short_state",)),
+        OperationDescriptor("measure", required_aliases=("measure",), safety_class="read"),
+        OperationDescriptor(
+            "mode_get_range", required_aliases=("mode_get_range",), safety_class="read"
+        ),
+        OperationDescriptor("mode_set_range", required_aliases=("mode_set_range",)),
+        OperationDescriptor("mode_set_slew", required_aliases=("mode_set_slew",), required=False),
+        OperationDescriptor(
+            "transient_set_mode", required_aliases=("transient_set_mode",), required=False
+        ),
+        OperationDescriptor(
+            "transient_set_level", required_aliases=("transient_set_level",), required=False
+        ),
+        OperationDescriptor(
+            "transient_start", required_aliases=("transient_start",), required=False
+        ),
+        OperationDescriptor(
+            "transient_abort", required_aliases=("transient_abort",), required=False
+        ),
+        OperationDescriptor("battery_enable", required_aliases=("battery_enable",), required=False),
+        OperationDescriptor(
+            "battery_measure",
+            required_aliases=("battery_measure",),
+            safety_class="read",
+            required=False,
+        ),
+        OperationDescriptor(
+            "fetch_array", required_aliases=("fetch_array",), safety_class="read", required=False
+        ),
+        OperationDescriptor(
+            "fetch_datalogger",
+            required_aliases=("fetch_datalogger",),
+            safety_class="read",
+            required=False,
+        ),
+        OperationDescriptor(
+            "battery_cutoff_voltage_state",
+            required_aliases=("battery_cutoff_voltage_state",),
+            required=False,
+        ),
+        OperationDescriptor(
+            "battery_cutoff_voltage", required_aliases=("battery_cutoff_voltage",), required=False
+        ),
+        OperationDescriptor(
+            "battery_cutoff_capacity_state",
+            required_aliases=("battery_cutoff_capacity_state",),
+            required=False,
+        ),
+        OperationDescriptor(
+            "battery_cutoff_capacity", required_aliases=("battery_cutoff_capacity",), required=False
+        ),
+        OperationDescriptor(
+            "battery_cutoff_timer_state",
+            required_aliases=("battery_cutoff_timer_state",),
+            required=False,
+        ),
+        OperationDescriptor(
+            "battery_cutoff_timer", required_aliases=("battery_cutoff_timer",), required=False
+        ),
+    )
 
     def __init__(self, config: DCActiveLoadConfig, backend: InstrumentIO, **kwargs: Any) -> None:
         super().__init__(config, backend, **kwargs)
@@ -267,7 +336,16 @@ class DCActiveLoad(Instrument):
         q = self.scpi_engine.build("measure", quantity=measurement_type, channel=channel)[0]
         reading = float(self.scpi_engine.parse("measure", self._query(q)))
 
-        value_to_return: float | MeasurementQuantity = reading
+        value_to_return: float | MeasurementQuantity = nominal_measurement_quantity(
+            reading,
+            unit,
+            function=measurement_type,
+            output_name=f"{measurement_type}_ch{channel}",
+            reason=(
+                f"{self.config.model} {measurement_type} channel {channel}: no applied "
+                "uncertainty metadata yet; result is nominal-only and non-report-grade."
+            ),
+        )
 
         # Find and apply accuracy spec if mode is set
         if self.current_mode:
@@ -283,7 +361,7 @@ class DCActiveLoad(Instrument):
                         function=measurement_type,
                         range_value=range_value,
                         channel=channel,
-                        instrument_key=f"{self.config.model}:{id(self)}",
+                        instrument_key=self._uncertainty_source_key(),
                     )
                     quantity = nonzero_uncertainty_quantity(
                         accuracy_spec,
@@ -297,17 +375,44 @@ class DCActiveLoad(Instrument):
                         value_to_return = quantity
                         self._logger.info(f"Measured {measurement_type}: {value_to_return} {unit}")
                 else:
+                    value_to_return = nominal_measurement_quantity(
+                        reading,
+                        unit,
+                        function=measurement_type,
+                        output_name=f"{measurement_type}_ch{channel}",
+                        reason=(
+                            f"{self.config.model} {measurement_type} channel {channel}: "
+                            "no readback accuracy spec available; add readback_accuracy."
+                        ),
+                    )
                     self._logger.info(
-                        f"Warning: No accuracy spec available for {measurement_type}. Returning float."
+                        "Warning: No accuracy spec available for %s. Returning nominal-only "
+                        "non-report-grade Quantity.",
+                        measurement_type,
                     )
             else:
+                value_to_return = nominal_measurement_quantity(
+                    reading,
+                    unit,
+                    function=measurement_type,
+                    output_name=f"{measurement_type}_ch{channel}",
+                    reason=(
+                        f"{self.config.model} {measurement_type} channel {channel}: no matching "
+                        "readback spec found for the current mode."
+                    ),
+                )
                 self._logger.info(
-                    f"Warning: No matching readback spec found for {measurement_type}. Returning float."
+                    "Warning: No matching readback spec found for %s. Returning nominal-only "
+                    "non-report-grade Quantity.",
+                    measurement_type,
                 )
         else:
-            self._logger.info("Warning: Mode not set, cannot determine measurement uncertainty.")
+            self._logger.info(
+                "Warning: Mode not set, cannot determine measurement uncertainty. Returning "
+                "nominal-only non-report-grade Quantity."
+            )
 
-        # Ensure value_to_return is a float or UFloat, not Variable
+        # Preserve PyTestLab Quantity results; only normalize legacy uncertainties.Variable values.
         try:
             from uncertainties import Variable
 

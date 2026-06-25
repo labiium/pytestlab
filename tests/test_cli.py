@@ -1,3 +1,5 @@
+import json
+
 from typer.testing import CliRunner
 
 from pytestlab.cli import app
@@ -166,6 +168,122 @@ def test_instrument_check_commands_build_only():
     assert "All 10 instrument command checks passed" in result.stdout
     assert "set_voltage" in result.stdout
     assert "measure_voltage" in result.stdout
+
+
+def test_instrument_check_commands_uses_explicit_parameter_choices():
+    """Build-only smoke samples must honour profile-declared enum tokens."""
+    result = runner.invoke(app, ["instrument", "check-commands", "keysight/E5071C_VNA"])
+
+    assert result.exit_code == 0
+    assert "define_sparameter" in result.stdout
+    assert "s_parameter='S11'" in result.stdout
+
+
+def test_instrument_check_commands_choices_override_generic_fallbacks():
+    """Profile-declared choices must drive command-check samples."""
+    result = runner.invoke(app, ["instrument", "check-commands", "keysight/EDU33212A"])
+
+    assert result.exit_code == 0
+    assert "set_function" in result.stdout
+    assert "function='SIN'" in result.stdout
+
+
+def test_instrument_check_commands_fails_without_sample_metadata(tmp_path):
+    """The command checker must not invent parameter values from placeholder names."""
+    profile_path = tmp_path / "missing_sample_metadata.yaml"
+    profile_path.write_text(
+        """
+manufacturer: Test
+model: MissingSampleMetadata
+device_type: instrument
+role: measurement
+scpi:
+  commands:
+    set_function:
+      template: "FUNC {function}"
+""",
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(app, ["instrument", "check-commands", str(profile_path)])
+
+    assert result.exit_code == 1
+    assert "No sample value metadata" in result.stdout
+    assert "function" in result.stdout
+
+
+def test_instrument_check_commands_uses_virtual_profile_choices():
+    result = runner.invoke(
+        app, ["instrument", "check-commands", "pytestlab/virtual_instrument"]
+    )
+
+    assert result.exit_code == 0
+    assert "set_trigger_state" in result.stdout
+    assert "state='ARMED'" in result.stdout
+
+
+def test_instrument_check_operation_contract_reports_enabled_missing_aliases():
+    result = runner.invoke(app, ["instrument", "check-operation-contract", "keysight/HD304MSO"])
+
+    assert result.exit_code == 0
+    assert "Instrument Operation Contract Check" in result.stdout
+    assert "warn" in result.stdout
+
+
+def test_instrument_check_operation_contract_strict_allows_optional_missing_aliases():
+    result = runner.invoke(
+        app, ["instrument", "check-operation-contract", "keysight/HD304MSO", "--strict"]
+    )
+
+    assert result.exit_code == 0
+    assert "warn" in result.stdout
+
+
+def test_instrument_check_operation_contract_strict_fails_on_required_missing_aliases():
+    result = runner.invoke(
+        app, ["instrument", "check-operation-contract", "keysight/34460A", "--strict"]
+    )
+
+    assert result.exit_code == 1
+    assert "required enabled operations miss SCPI aliases" in result.stdout
+
+
+def test_instrument_describe_operation_include_scpi_json():
+    result = runner.invoke(
+        app,
+        [
+            "instrument",
+            "describe-operation",
+            "keysight/E5071C_VNA",
+            "sparameter_sweep_setup",
+            "--include-scpi",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["operation_id"] == "sparameter_sweep_setup"
+    assert "define_sparameter" in payload["scpi"]
+    assert payload["scpi"]["define_sparameter"]["parameters"]["s_parameter"]["kind"] == "enum"
+
+
+def test_instrument_list_options_json():
+    result = runner.invoke(
+        app,
+        [
+            "instrument",
+            "list-options",
+            "keysight/E5071C_VNA",
+            "sparameter_sweep_setup",
+            "s_parameter",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert [item["token"] for item in payload] == ["S11", "S12", "S21", "S22"]
 
 
 def test_instrument_full_test_can_use_visa_backend(monkeypatch):

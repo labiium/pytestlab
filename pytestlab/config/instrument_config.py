@@ -9,29 +9,9 @@ from pydantic import Field
 from ..uncertainty.metrology import CalibrationCertificate
 from ..uncertainty.specs import AccuracyModel
 from .device_config import DeviceConfig
+from .scpi_schema import SCPIParameterSpec as CanonicalSCPIParameterSpec
 
-
-class SCPIParameterSpec(BaseModel):
-    """Specification for a single SCPI command parameter."""
-
-    model_config = ConfigDict(validate_assignment=True, extra="forbid")
-
-    name: str = Field(..., description="Parameter name")
-    type: str = Field(..., description="Parameter type (e.g., 'int', 'float', 'str', 'enum')")
-    required: bool = Field(True, description="Whether this parameter is required")
-    description: str | None = Field(None, description="Parameter description")
-
-    # Validation rules
-    min_value: float | int | None = Field(None, description="Minimum allowed value")
-    max_value: float | int | None = Field(None, description="Maximum allowed value")
-    allowed_values: list[Any] | None = Field(None, description="Allowed values for enum types")
-
-    # Default value
-    default: Any = Field(None, description="Default parameter value")
-
-    # Units and formatting
-    units: str | None = Field(None, description="Parameter units")
-    format: str | None = Field(None, description="Parameter format specification")
+SCPIParameterSpec = CanonicalSCPIParameterSpec
 
 
 class SCPICommandSpec(BaseModel):
@@ -43,8 +23,8 @@ class SCPICommandSpec(BaseModel):
     sequence: list[str] | None = Field(None, description="Sequence of SCPI commands")
 
     # Parameter specifications
-    parameters: dict[str, SCPIParameterSpec] | None = Field(
-        None, description="Parameter specifications for this command"
+    parameters: dict[str, CanonicalSCPIParameterSpec] | None = Field(
+        None, description="Canonical parameter metadata for this command"
     )
 
     # Legacy fields (kept for backward compatibility)

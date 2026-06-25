@@ -86,7 +86,7 @@ ptl = "pytestlab.cli:main"
 circuit_sim = "pytestlab.sim.circuit._entry:build_circuit_sim_backend"
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "0.1.5"
+version = "0.3.0"
 version_files = [
     "pytestlab/__init__.py:__version__", # For __version__ = "..."
 ]

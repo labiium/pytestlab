@@ -20,10 +20,21 @@ def test_evidence_generate_writes_manifest_and_report(tmp_path) -> None:
     manifest = json.loads(bundle.manifest_path.read_text(encoding="utf-8"))
     assert manifest["payload_sha256"] == payload_hash(manifest)
     assert "not accreditation certificates" in manifest["non_accreditation_notice"]
+    assert manifest["release_hygiene"]["status"] == "pass"
+    assert (
+        manifest["release_hygiene"]["runtime_version"]
+        == manifest["release_hygiene"]["commitizen_version"]
+    )
+    assert (
+        "data_origin=measured"
+        in manifest["release_hygiene"]["report_grade_gate_policy"]["measured_report_grade_requires"]
+    )
     assert {"dcc", "d-si"} <= set(manifest["schema_hashes"])
     assert any("test_gum_annex_h.py" in item["path"] for item in manifest["source_artifacts"])
     report = bundle.report_path.read_text(encoding="utf-8")
     assert "PyTestLab Evidence Bundle" in report
+    assert "Release Hygiene" in report
+    assert "non-measured export gate" in report
     assert manifest["payload_sha256"] in report
 
 

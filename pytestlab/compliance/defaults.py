@@ -17,6 +17,7 @@ import hashlib
 import json
 import os
 import sqlite3
+from contextlib import closing
 from datetime import UTC
 from datetime import datetime
 from pathlib import Path
@@ -230,51 +231,51 @@ class SQLiteAuditor:
 
     def _init_db(self) -> None:
         """Initialize database schema."""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS audit_log (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    event_type TEXT NOT NULL,
-                    function_name TEXT NOT NULL DEFAULT '',
-                    timestamp TEXT NOT NULL,
-                    data_hash TEXT NOT NULL,
-                    success INTEGER NOT NULL,
-                    metadata TEXT,
-                    error_message TEXT
-                )
-            """
-            )
-            # Best-effort migration for older databases missing function_name
-            try:
+        with closing(sqlite3.connect(self.db_path)) as conn:
+            with conn:
                 conn.execute(
-                    "ALTER TABLE audit_log ADD COLUMN function_name TEXT NOT NULL DEFAULT ''"
+                    """
+                    CREATE TABLE IF NOT EXISTS audit_log (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        event_type TEXT NOT NULL,
+                        function_name TEXT NOT NULL DEFAULT '',
+                        timestamp TEXT NOT NULL,
+                        data_hash TEXT NOT NULL,
+                        success INTEGER NOT NULL,
+                        metadata TEXT,
+                        error_message TEXT
+                    )
+                """
                 )
-            except Exception:
-                pass
-            conn.commit()
+                # Best-effort migration for older databases missing function_name
+                try:
+                    conn.execute(
+                        "ALTER TABLE audit_log ADD COLUMN function_name TEXT NOT NULL DEFAULT ''"
+                    )
+                except Exception:
+                    pass
 
     def append(self, entry: AuditEntry) -> str:
         """Append entry to audit log."""
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute(
-                    """
-                    INSERT INTO audit_log
-                    (event_type, function_name, timestamp, data_hash, success, metadata, error_message)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                    (
-                        entry.event_type,
-                        entry.function_name,
-                        entry.timestamp,
-                        entry.result_hash,
-                        1 if entry.success else 0,
-                        json.dumps(entry.metadata),
-                        entry.error_message,
-                    ),
-                )
-                conn.commit()
+            with closing(sqlite3.connect(self.db_path)) as conn:
+                with conn:
+                    cursor = conn.execute(
+                        """
+                        INSERT INTO audit_log
+                        (event_type, function_name, timestamp, data_hash, success, metadata, error_message)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                        (
+                            entry.event_type,
+                            entry.function_name,
+                            entry.timestamp,
+                            entry.result_hash,
+                            1 if entry.success else 0,
+                            json.dumps(entry.metadata),
+                            entry.error_message,
+                        ),
+                    )
                 return str(cursor.lastrowid)
         except Exception as e:
             raise AuditError(f"Failed to append to audit log: {e}") from e
@@ -282,7 +283,7 @@ class SQLiteAuditor:
     def get(self, entry_id: str) -> AuditEntry | None:
         """Retrieve entry by ID."""
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with closing(sqlite3.connect(self.db_path)) as conn:
                 row = conn.execute("SELECT * FROM audit_log WHERE id = ?", (entry_id,)).fetchone()
 
                 if row is None:
@@ -304,7 +305,7 @@ class SQLiteAuditor:
         """Verify audit trail integrity."""
         # For SQLite, we just check the database is readable
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with closing(sqlite3.connect(self.db_path)) as conn:
                 conn.execute("SELECT COUNT(*) FROM audit_log").fetchone()
             return True
         except Exception:
@@ -315,7 +316,7 @@ class SQLiteAuditor:
         if format != "json":
             raise ValueError(f"Unsupported format: {format}")
 
-        with sqlite3.connect(self.db_path) as conn:
+        with closing(sqlite3.connect(self.db_path)) as conn:
             conn.row_factory = sqlite3.Row
             rows = conn.execute("SELECT * FROM audit_log").fetchall()
             data = [dict(row) for row in rows]

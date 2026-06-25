@@ -11,7 +11,9 @@ from pytestlab.experiments.uncertainty_serialization import deserialize_uncertai
 from pytestlab.experiments.uncertainty_serialization import serialize_uncertain_value
 from pytestlab.uncertainty import AtomRegistry
 from pytestlab.uncertainty import CalibrationCertificate
+from pytestlab.uncertainty import DataOrigin
 from pytestlab.uncertainty import Distribution
+from pytestlab.uncertainty import EvidencePurpose
 from pytestlab.uncertainty import MeasurementModel
 from pytestlab.uncertainty import Quantity
 from pytestlab.uncertainty import QuantityArray
@@ -192,12 +194,19 @@ def test_conformity_result_is_structured_and_specific_risk_requires_prior() -> N
 
 def test_unsigned_dcc_export_records_schema_and_unsigned_scope() -> None:
     measured = Quantity.constant(1.0, "V")
-    with pytest.raises(ValueError, match="non-report-grade"):
+    with pytest.raises(ValueError, match="non-measured or unknown data origin"):
         quantity_to_unsigned_dcc_xml(measured, identifier="r1")
-    xml = quantity_to_unsigned_dcc_xml(measured, identifier="r1", allow_incomplete=True)
+    xml = quantity_to_unsigned_dcc_xml(
+        measured,
+        identifier="r1",
+        allow_incomplete=True,
+        allow_non_measured=True,
+    )
 
     assert 'schemaVersion="3.3.0"' in xml
     assert 'unsigned="true"' in xml
+    assert "<dataOrigin>unknown</dataOrigin>" in xml
+    assert "<evidencePurpose>measurement_result</evidencePurpose>" in xml
     assert "pytestlabMeasurementEvidence" in xml
     assert "digitalCalibrationCertificate" not in xml
     assert "coverageFactor" in xml
@@ -218,7 +227,11 @@ def test_report_grade_requires_accredited_traceability_and_complete_provenance()
     )
     q = Quantity(1.0, "V", {atom.uid: 1.0}, reg)
     q.measurement_model = MeasurementModel(output_name="voltage", output_unit="V", function="test")
-    q.provenance = ResultProvenance.current(provenance_complete=True)
+    q.provenance = ResultProvenance.current(
+        data_origin=DataOrigin.MEASURED,
+        evidence_purpose=EvidencePurpose.MEASUREMENT_RESULT,
+        provenance_complete=True,
+    )
 
     assert is_report_grade(q) is True
     xml = quantity_to_unsigned_dcc_xml(q, identifier="report-grade")

@@ -119,8 +119,7 @@ def test_bench_instruments_section_initializes_only_instruments():
         assert "dmm" in bench.resources
         assert "dmm" in bench.instruments
         assert bench.support_devices == {}
-        with pytest.warns(DeprecationWarning, match="will return support devices only"):
-            assert "dmm" in bench.devices
+        assert "dmm" in bench.devices
         session = MeasurementSession(bench=bench, compliance=False)
         assert session.instrument("dmm", "unused") is bench.dmm
     finally:

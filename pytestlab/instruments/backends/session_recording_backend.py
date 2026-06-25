@@ -96,10 +96,8 @@ class SessionRecordingBackend(InstrumentIO):
             # No file output configured, session is stored in the list
             return
 
-        # Map profile keys to instrument types for test compatibility
-        instrument_key = self._get_instrument_key(profile_key)
-
-        session_data = {instrument_key: {"profile": profile_key, "log": self._command_log}}
+        session_key = self.profile_key or profile_key
+        session_data = {session_key: {"profile": profile_key, "log": self._command_log}}
 
         # Load existing session data if file exists
         existing_data: dict[str, Any] = {}
@@ -123,18 +121,6 @@ class SessionRecordingBackend(InstrumentIO):
         # Write to file
         with open(self.output_file, "w") as f:
             yaml.dump(existing_data, f, default_flow_style=False)
-
-    def _get_instrument_key(self, profile_key: str) -> str:
-        """Map profile keys to instrument type keys for test compatibility."""
-        if "EDU36311A" in profile_key or "psu" in profile_key.lower():
-            return "psu"
-        elif "DSOX1204G" in profile_key or "osc" in profile_key.lower():
-            return "osc"
-        elif "dmm" in profile_key.lower():
-            return "dmm"
-        else:
-            # For other profiles, use 'psu' as default for test compatibility
-            return "psu"
 
     def close(self):
         # The file writing is now handled by save_session or CLI command

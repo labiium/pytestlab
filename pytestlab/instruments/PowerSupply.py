@@ -12,7 +12,9 @@ from ..errors import InstrumentParameterError
 from ..uncertainty import Quantity as MeasurementQuantity
 from ..uncertainty.compat import UFloat
 from .instrument import Instrument
+from .operation_contract import OperationDescriptor
 from .scpi_engine import SCPIEngine
+from .uncertainty_adapters import nominal_measurement_quantity
 from .uncertainty_adapters import nonzero_uncertainty_quantity
 from .uncertainty_adapters import psu_measurement_context
 
@@ -174,6 +176,25 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
     _current_limit: float | None
     _voltage_value: float
     _current_value: float
+
+    OPERATION_CONTRACT: tuple[OperationDescriptor, ...] = (
+        OperationDescriptor("identify", required_aliases=("identify",), safety_class="read"),
+        OperationDescriptor("reset", required_aliases=("reset",)),
+        OperationDescriptor("set_voltage", required_aliases=("set_voltage",)),
+        OperationDescriptor("set_current", required_aliases=("set_current",)),
+        OperationDescriptor("set_slew_rate", required_aliases=("set_slew_rate",), required=False),
+        OperationDescriptor("set_output", required_aliases=("set_output",)),
+        OperationDescriptor("set_display", required_aliases=("set_display",), required=False),
+        OperationDescriptor(
+            "measure_voltage", required_aliases=("measure_voltage",), safety_class="read"
+        ),
+        OperationDescriptor(
+            "measure_current", required_aliases=("measure_current",), safety_class="read"
+        ),
+        OperationDescriptor(
+            "get_output_state", required_aliases=("get_output_state",), safety_class="read"
+        ),
+    )
 
     def __init__(self, config: PowerSupplyConfig, **kwargs: Any):
         super().__init__(config=config, **kwargs)
@@ -372,7 +393,16 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         cmd = self._eng().build("measure_voltage", channel=channel)[0]
         reading = float(self._eng().parse("measure_voltage", self._query(cmd)))
 
-        value_to_return: Any = reading
+        value_to_return: Any = nominal_measurement_quantity(
+            reading,
+            "V",
+            function="read_voltage",
+            output_name=f"read_voltage_ch{channel}",
+            reason=(
+                f"{self.config.model} read_voltage channel {channel}: no applied uncertainty "
+                "metadata yet; result is nominal-only and non-report-grade."
+            ),
+        )
 
         if self.config.measurement_accuracy:
             mode_key = f"read_voltage_ch{channel}"
@@ -388,7 +418,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
                     reading=reading,
                     unit="V",
                     function="read_voltage",
-                    instrument_key=f"{self.config.model}:{id(self)}",
+                    instrument_key=self._uncertainty_source_key(),
                 )
                 quantity = nonzero_uncertainty_quantity(
                     spec,
@@ -400,12 +430,27 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
                 if quantity is not None:
                     value_to_return = quantity
             else:
+                value_to_return = nominal_measurement_quantity(
+                    reading,
+                    "V",
+                    function="read_voltage",
+                    output_name=f"read_voltage_ch{channel}",
+                    reason=(
+                        f"{self.config.model} read_voltage channel {channel}: missing "
+                        f"measurement_accuracy key {mode_key!r}; add an accuracy spec."
+                    ),
+                )
                 self._logger.debug(
-                    f"No accuracy spec found for read_voltage on channel {channel} with key '{mode_key}'. Returning float."
+                    "No accuracy spec found for read_voltage on channel %s with key %r; "
+                    "returning nominal-only non-report-grade Quantity.",
+                    channel,
+                    mode_key,
                 )
         else:
             self._logger.debug(
-                f"No measurement_accuracy configuration in instrument for read_voltage on channel {channel}. Returning float."
+                "No measurement_accuracy configuration in instrument for read_voltage on channel "
+                "%s; returning nominal-only non-report-grade Quantity.",
+                channel,
             )
 
         return value_to_return
@@ -431,7 +476,16 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         cmd = self._eng().build("measure_current", channel=channel)[0]
         reading = float(self._eng().parse("measure_current", self._query(cmd)))
 
-        value_to_return: Any = reading
+        value_to_return: Any = nominal_measurement_quantity(
+            reading,
+            "A",
+            function="read_current",
+            output_name=f"read_current_ch{channel}",
+            reason=(
+                f"{self.config.model} read_current channel {channel}: no applied uncertainty "
+                "metadata yet; result is nominal-only and non-report-grade."
+            ),
+        )
 
         if self.config.measurement_accuracy:
             mode_key = f"read_current_ch{channel}"
@@ -447,7 +501,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
                     reading=reading,
                     unit="A",
                     function="read_current",
-                    instrument_key=f"{self.config.model}:{id(self)}",
+                    instrument_key=self._uncertainty_source_key(),
                 )
                 quantity = nonzero_uncertainty_quantity(
                     spec,
@@ -459,12 +513,27 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
                 if quantity is not None:
                     value_to_return = quantity
             else:
+                value_to_return = nominal_measurement_quantity(
+                    reading,
+                    "A",
+                    function="read_current",
+                    output_name=f"read_current_ch{channel}",
+                    reason=(
+                        f"{self.config.model} read_current channel {channel}: missing "
+                        f"measurement_accuracy key {mode_key!r}; add an accuracy spec."
+                    ),
+                )
                 self._logger.debug(
-                    f"No accuracy spec found for read_current on channel {channel} with key '{mode_key}'. Returning float."
+                    "No accuracy spec found for read_current on channel %s with key %r; "
+                    "returning nominal-only non-report-grade Quantity.",
+                    channel,
+                    mode_key,
                 )
         else:
             self._logger.debug(
-                f"No measurement_accuracy configuration in instrument for read_current on channel {channel}. Returning float."
+                "No measurement_accuracy configuration in instrument for read_current on channel "
+                "%s; returning nominal-only non-report-grade Quantity.",
+                channel,
             )
 
         return value_to_return

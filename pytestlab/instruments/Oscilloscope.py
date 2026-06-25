@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import math
-import warnings
 from dataclasses import dataclass
 from io import BytesIO
 from typing import TYPE_CHECKING
@@ -32,14 +33,18 @@ from ..uncertainty import Quantity as MeasurementQuantity
 from ..uncertainty import QuantityArray
 from ..uncertainty.waveform import WaveformUncertaintyModel
 from .instrument import Instrument
+from .operation_contract import OperationDescriptor
 from .scpi_binary import BinaryBlockParseError
 from .scpi_binary import definite_length_block_to_array
 from .scpi_binary import strip_definite_length_block
+from .uncertainty_adapters import nominal_measurement_quantity
 from .uncertainty_adapters import nonzero_uncertainty_quantity
 from .uncertainty_adapters import oscilloscope_measurement_context
 from .waveform_result import AcquisitionTrace
 from .waveform_result import ScopeStateSnapshot
 from .waveform_result import WaveformResult
+from .waveform_set import SharedClockModel
+from .waveform_set import WaveformSetResult
 
 if TYPE_CHECKING:  # for type checkers only; avoids runtime import cycles
     from ..plotting.simple import PlotSpec
@@ -610,6 +615,139 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
 
     config: OscilloscopeConfig  # Type hint for validated config
 
+    OPERATION_CONTRACT: tuple[OperationDescriptor, ...] = (
+        OperationDescriptor(
+            "time_axis",
+            required_aliases=("set_time_axis", "get_timebase_scale", "get_timebase_position"),
+        ),
+        OperationDescriptor(
+            "channel_axis",
+            required_aliases=("set_channel_axis", "get_channel_scale", "get_channel_offset"),
+        ),
+        OperationDescriptor(
+            "channel_setup",
+            required_aliases=("set_channel_coupling", "probe_set", "channel_bandwidth"),
+            required=False,
+        ),
+        OperationDescriptor("configure_trigger", required_aliases=("configure_trigger",)),
+        OperationDescriptor(
+            "trigger_setup_edge",
+            required_aliases=("configure_trigger", "set_trigger_coupling"),
+            required=False,
+        ),
+        OperationDescriptor(
+            "acquisition",
+            required_aliases=(
+                "acq_set_type",
+                "acq_get_type",
+                "acq_set_mode",
+                "acq_get_mode",
+                "acq_set_count",
+                "acq_get_count",
+                "acquire_points",
+                "acquire_sample_rate",
+            ),
+        ),
+        OperationDescriptor(
+            "segmented_acquisition",
+            required_aliases=(
+                "seg_set_count",
+                "seg_get_count",
+                "seg_set_index",
+                "seg_get_index",
+                "seg_analyze",
+            ),
+            required=False,
+        ),
+        OperationDescriptor(
+            "waveform_readout",
+            required_aliases=(
+                "set_wave_source",
+                "set_wave_points_max",
+                "set_wave_format_byte",
+                "set_wave_points_mode_raw",
+                "wave_preamble",
+                "wave_data",
+            ),
+            safety_class="read",
+        ),
+        OperationDescriptor("digitize", required_aliases=("digitize",)),
+        OperationDescriptor(
+            "measure_vpp", required_aliases=("measure_vpp",), safety_class="read", required=False
+        ),
+        OperationDescriptor(
+            "measure_vrms", required_aliases=("measure_vrms",), safety_class="read", required=False
+        ),
+        OperationDescriptor(
+            "screenshot", required_aliases=("screenshot",), safety_class="read", required=False
+        ),
+        OperationDescriptor("system_lock", required_aliases=("system_lock",), required=False),
+        OperationDescriptor(
+            "display_channel", required_aliases=("display_channel",), required=False
+        ),
+        OperationDescriptor(
+            "wave_generator_basic",
+            required_aliases=(
+                "wgen_output",
+                "wgen_set_func",
+                "wgen_set_freq",
+                "wgen_set_volt",
+                "wgen_set_offset",
+            ),
+            capability="function_generator",
+            required=False,
+        ),
+        OperationDescriptor(
+            "wave_generator_shapes",
+            required_aliases=(
+                "wgen_set_low",
+                "wgen_set_high",
+                "wgen_set_square_duty",
+                "wgen_set_ramp_symmetry",
+                "wgen_set_period",
+                "wgen_set_pulse_width",
+            ),
+            capability="function_generator",
+            required=False,
+        ),
+        OperationDescriptor(
+            "fft",
+            required_aliases=(
+                "fft_display",
+                "fft_source",
+                "fft_window",
+                "fft_span",
+                "fft_vtype",
+                "fft_scale",
+                "fft_offset",
+            ),
+            capability="fft",
+            required=False,
+        ),
+        OperationDescriptor(
+            "function_display",
+            required_aliases=("function_display",),
+            capability="fft",
+            required=False,
+        ),
+        OperationDescriptor(
+            "frequency_response_analysis",
+            required_aliases=(
+                "fran_enable",
+                "fran_start",
+                "fran_stop",
+                "fran_amplitude",
+                "fran_points",
+                "fran_trace",
+                "fran_load",
+                "fran_disable",
+                "fran_fetch",
+            ),
+            capability="franalysis",
+            required=False,
+        ),
+    )
+
     # visa_resource is handled by base Instrument or backend through config.address
     def __init__(
         self,
@@ -633,6 +771,14 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         # Initialize facades
         self.trigger = ScopeTriggerFacade(self)
         self.acquisition = ScopeAcquisitionFacade(self)
+
+    @property
+    def twin(self) -> Any:
+        """Low-burden digital-twin validation helpers for this oscilloscope."""
+
+        from pytestlab.twin import OscilloscopeTwinTools
+
+        return OscilloscopeTwinTools(model=self.config.model)
 
     @validate_call
     def channel(self, ch_num: int) -> ScopeChannelFacade:
@@ -1090,7 +1236,16 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         q = self.scpi_engine.build("measure_vpp", channel=channel)[0]
         reading = float(self.scpi_engine.parse("measure_vpp", self._query(q)))
 
-        value_to_return: float | MeasurementQuantity = reading
+        value_to_return: float | MeasurementQuantity = nominal_measurement_quantity(
+            reading,
+            "V",
+            function="measure_vpp",
+            output_name=f"vpp_ch{channel}",
+            reason=(
+                f"{self.config.model} Vpp channel {channel}: no applied uncertainty metadata "
+                "yet; result is nominal-only and non-report-grade."
+            ),
+        )
 
         if self.config.measurement_accuracy:
             mode_key = f"vpp_ch{channel}"
@@ -1105,7 +1260,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                     reading=reading,
                     unit="V",
                     function="measure_vpp",
-                    instrument_key=f"{self.config.model}:{id(self)}",
+                    instrument_key=self._uncertainty_source_key(),
                 )
                 quantity = nonzero_uncertainty_quantity(
                     spec,
@@ -1117,12 +1272,27 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                 if quantity is not None:
                     value_to_return = quantity
             else:
+                value_to_return = nominal_measurement_quantity(
+                    reading,
+                    "V",
+                    function="measure_vpp",
+                    output_name=f"vpp_ch{channel}",
+                    reason=(
+                        f"{self.config.model} Vpp channel {channel}: missing "
+                        f"measurement_accuracy key {mode_key!r}; add an accuracy spec."
+                    ),
+                )
                 self._logger.debug(
-                    f"No accuracy spec found for Vpp on channel {channel} with key '{mode_key}'. Returning float."
+                    "No accuracy spec found for Vpp on channel %s with key %r; returning "
+                    "nominal-only non-report-grade Quantity.",
+                    channel,
+                    mode_key,
                 )
         else:
             self._logger.debug(
-                f"No measurement_accuracy configuration in instrument for Vpp on channel {channel}. Returning float."
+                "No measurement_accuracy configuration in instrument for Vpp on channel %s; "
+                "returning nominal-only non-report-grade Quantity.",
+                channel,
             )
 
         measurement_result = MeasurementResult(
@@ -1155,7 +1325,16 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         q = self.scpi_engine.build("measure_vrms", channel=channel)[0]
         reading = float(self.scpi_engine.parse("measure_vrms", self._query(q)))
 
-        value_to_return: float | MeasurementQuantity = reading
+        value_to_return: float | MeasurementQuantity = nominal_measurement_quantity(
+            reading,
+            "V",
+            function="measure_vrms",
+            output_name=f"vrms_ch{channel}",
+            reason=(
+                f"{self.config.model} Vrms channel {channel}: no applied uncertainty metadata "
+                "yet; result is nominal-only and non-report-grade."
+            ),
+        )
 
         if self.config.measurement_accuracy:
             mode_key = f"vrms_ch{channel}"
@@ -1170,7 +1349,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                     reading=reading,
                     unit="V",
                     function="measure_vrms",
-                    instrument_key=f"{self.config.model}:{id(self)}",
+                    instrument_key=self._uncertainty_source_key(),
                 )
                 quantity = nonzero_uncertainty_quantity(
                     spec,
@@ -1182,12 +1361,27 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                 if quantity is not None:
                     value_to_return = quantity
             else:
+                value_to_return = nominal_measurement_quantity(
+                    reading,
+                    "V",
+                    function="measure_vrms",
+                    output_name=f"vrms_ch{channel}",
+                    reason=(
+                        f"{self.config.model} Vrms channel {channel}: missing "
+                        f"measurement_accuracy key {mode_key!r}; add an accuracy spec."
+                    ),
+                )
                 self._logger.debug(
-                    f"No accuracy spec found for Vrms on channel {channel} with key '{mode_key}'. Returning float."
+                    "No accuracy spec found for Vrms on channel %s with key %r; returning "
+                    "nominal-only non-report-grade Quantity.",
+                    channel,
+                    mode_key,
                 )
         else:
             self._logger.debug(
-                f"No measurement_accuracy configuration in instrument for Vrms on channel {channel}. Returning float."
+                "No measurement_accuracy configuration in instrument for Vrms on channel %s; "
+                "returning nominal-only non-report-grade Quantity.",
+                channel,
             )
 
         self._logger.debug(f"RMS Voltage (Channel {channel}): {value_to_return}")
@@ -1200,7 +1394,6 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         )
         return measurement_result
 
-    @validate_call
     @validate_call
     def read_channels(
         self,
@@ -1231,11 +1424,6 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
 
         # ---------------------- argument normalisation (unchanged) ----------------------
         if "runAfter" in kwargs:
-            warnings.warn(
-                "'runAfter' is deprecated, use 'run_after' instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
             _ = kwargs["runAfter"]
 
         if not channels:
@@ -1307,7 +1495,7 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                 reading=float(np.mean(volts)) if len(volts) else 0.0,
                 unit="V",
                 function="read_channels",
-                instrument_key=f"{self.config.model}:{id(self)}",
+                instrument_key=self._uncertainty_source_key(),
             )
             spec = None
             if self.config.measurement_accuracy:
@@ -1322,6 +1510,9 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                 "sample_count": len(volts),
                 "sampling_rate": sampling_rate,
                 "source_key": context.source_key,
+                "data_origin": "measured",
+                "evidence_purpose": "measurement_result",
+                "origin_detail": f"oscilloscope read_channels {self.config.model} channel {ch}",
                 "traceability": context.traceability,
                 "accuracy_spec": spec,
                 "preamble": {
@@ -1454,6 +1645,9 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             model = WaveformUncertaintyModel(
                 unit=wave.unit,
                 channel=wave.channel,
+                data_origin=wave.model.data_origin,
+                evidence_purpose=wave.model.evidence_purpose,
+                origin_detail=wave.model.origin_detail,
                 provenance_complete=False,
                 assumptions=("uncertainty model disabled by caller",),
             )
@@ -1467,6 +1661,50 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             model=model,
             acquisition=trace,
             metadata=metadata,
+        )
+
+    @validate_call
+    def acquire_waveforms(
+        self,
+        channels: list[int] | tuple[int, ...],
+        *,
+        run_after: bool = True,
+        timebase: float | None = None,
+        timeout_ms: int | None = None,
+    ) -> WaveformSetResult:
+        """Acquire multiple channels as one shared-clock waveform set."""
+
+        if not channels:
+            raise InstrumentParameterError(message="No channels specified.")
+        result = self.read_channels(
+            *list(channels),
+            run_after=run_after,
+            timebase=timebase,
+            timeout_ms=timeout_ms,
+        )
+        waves = {channel: result.waveform(channel) for channel in result.channels}
+        trace = AcquisitionTrace(
+            mode="controlled" if run_after else "read_only",
+            commands=(
+                "digitize",
+                "set_wave_source",
+                "wave_preamble",
+                "wave_data",
+            ),
+            notes=("multi-channel read_channels acquisition path used",),
+        )
+        first = next(iter(waves.values()))
+        return WaveformSetResult(
+            waves,
+            acquisition=trace,
+            clock_model=SharedClockModel(
+                source_key=_shared_clock_source_key(self.config.model, waves),
+                timebase_relative_std=first.model.axis.timebase_relative_std,
+                trigger_jitter_std_s=first.model.axis.trigger_jitter_std_s,
+                sample_aperture_s=first.model.axis.sample_aperture_s,
+                interpolation_model=first.model.axis.interpolation_model,
+                channel_skew_std_s=first.model.axis.channel_skew_std_s,
+            ),
         )
 
     def plot_channels(
@@ -1657,7 +1895,6 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
                 self.config.model, "Function generator not configured."
             )
 
-        # Check if the SCPI value of the enum is in the list of supported waveform types from config
         if func_type.value not in self.config.function_generator.waveform_types:
             raise InstrumentParameterError(
                 parameter="func_type",
@@ -1762,11 +1999,6 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         :param duty_cycle: The duty cycle (1% to 99%).
         """
         if "dutyCycle" in kwargs:
-            warnings.warn(
-                "'dutyCycle' is deprecated, use 'duty_cycle' instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
             duty_cycle = kwargs["dutyCycle"]
 
         if duty_cycle is None:
@@ -1834,11 +2066,6 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         :param pulse_width: The pulse width in seconds.
         """
         if "pulseWidth" in kwargs:
-            warnings.warn(
-                "'pulseWidth' is deprecated, use 'pulse_width' instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
             pulse_width = kwargs["pulseWidth"]
 
         if pulse_width is None:
@@ -2239,3 +2466,14 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
             measurement_type="FrequencyResponse",
             values=pl.DataFrame({"Frequency (Hz)": freq_values, "Magnitude": mag_values}),
         )
+
+
+def _shared_clock_source_key(model: str, waves: dict[int, WaveformResult]) -> str:
+    payload = {
+        str(channel): hashlib.sha256(wave.values.tobytes()).hexdigest()
+        for channel, wave in sorted(waves.items())
+    }
+    digest = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()[:16]
+    return f"{model}:shared_clock:{digest}"

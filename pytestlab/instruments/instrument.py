@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+import json
+import uuid
 from collections.abc import Callable
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -19,6 +22,8 @@ from ..errors import InstrumentDataError
 from .command_session import InstrumentCommandSession
 from .error_queue import InstrumentErrorQueue
 from .health_monitor import InstrumentHealthMonitor
+from .operation_contract import OperationDescriptor
+from .operation_contract import OperationSupportReport
 from .operation_waiter import InstrumentOperationWaiter
 from .scpi_binary import BinaryBlockParseError
 from .scpi_binary import definite_length_block_to_array
@@ -57,6 +62,8 @@ class Instrument(Device[ConfigType], Generic[ConfigType]):
     # Maximum number of errors to read before stopping
     MAX_ERRORS_TO_READ = 50
 
+    OPERATION_CONTRACT: tuple[OperationDescriptor, ...] = ()
+
     # Class-level annotations for instance variables
     config: ConfigType
     _backend: InstrumentIO
@@ -92,6 +99,42 @@ class Instrument(Device[ConfigType], Generic[ConfigType]):
         self._error_queue = InstrumentErrorQueue(self)
         self._operation_waiter = InstrumentOperationWaiter(self)
         self._health_monitor = InstrumentHealthMonitor(self)
+        self._uncertainty_instance_key = uuid.uuid4().hex
+
+    def _uncertainty_source_key(self) -> str:
+        """Stable, redaction-safe identity prefix for correlated uncertainty atoms."""
+
+        backend = self._backend
+        backend_identity = {
+            name: getattr(backend, name, None)
+            for name in (
+                "address",
+                "instrument_address",
+                "base_url",
+                "model_name",
+                "serial_number",
+                "profile_path",
+            )
+        }
+        has_hardware_identity = any(
+            backend_identity.get(name)
+            for name in ("address", "instrument_address", "base_url", "serial_number")
+        )
+        if not has_hardware_identity:
+            backend_identity["session_instance_key"] = self._uncertainty_instance_key
+        config_identity = {
+            "manufacturer": getattr(self.config, "manufacturer", None),
+            "model": getattr(self.config, "model", self.__class__.__name__),
+        }
+        digest = hashlib.sha256(
+            json.dumps(
+                {"backend": backend_identity, "config": config_identity},
+                sort_keys=True,
+                default=str,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()[:16]
+        return f"{config_identity['model']}:source:{digest}"
 
     def _validate_features_against_scpi(
         self, feature_map: dict[str, dict[str, list[str]]], strict: bool = False
@@ -131,6 +174,387 @@ class Instrument(Device[ConfigType], Generic[ConfigType]):
                 raise RuntimeError(f"Missing required SCPI for features -> {details}")
             else:
                 self._logger.warning(f"Missing required SCPI for features -> {details}")
+
+    @classmethod
+    def operation_descriptors(cls) -> tuple[OperationDescriptor, ...]:
+        """Return merged operation descriptors declared along the class MRO."""
+
+        merged: dict[str, OperationDescriptor] = {}
+        for klass in reversed(cls.mro()):
+            for descriptor in getattr(klass, "OPERATION_CONTRACT", ()) or ():
+                merged[descriptor.operation_id] = descriptor
+        return tuple(merged.values())
+
+    def list_operations(self, *, include_unsupported: bool = True) -> list[str]:
+        """List high-level operation IDs declared by this driver class."""
+
+        descriptors = self.operation_descriptors()
+        if include_unsupported:
+            return [descriptor.operation_id for descriptor in descriptors]
+        return [
+            descriptor.operation_id
+            for descriptor in descriptors
+            if self.supports_operation(descriptor.operation_id)
+        ]
+
+    def describe_operation(
+        self, operation_id: str, *, include_scpi: bool = False
+    ) -> dict[str, Any]:
+        """Describe one high-level operation and its current support status."""
+
+        descriptor = self._get_operation_descriptor(operation_id)
+        support = self.operation_support_report(operation_id)
+        result = {**descriptor.to_dict(), "support": support.to_dict()}
+        if include_scpi:
+            aliases = [*descriptor.required_aliases, *descriptor.optional_aliases]
+            result["scpi"] = {
+                alias: self.describe_scpi_alias(alias)
+                for alias in aliases
+                if self.scpi_engine.validate_presence([alias]).get(alias, False)
+            }
+            result["parameter_bindings"] = self._operation_parameter_binding_diagnostics(descriptor)
+        return result
+
+    def describe_scpi_alias(self, alias: str) -> dict[str, Any]:
+        """Describe one loaded SCPI command/query alias from the profile."""
+
+        return self.scpi_engine.describe(alias)
+
+    def build_scpi_alias(self, alias: str, **params: Any) -> list[str]:
+        """Build SCPI strings for an alias without sending them."""
+
+        return self.scpi_engine.build(alias, **params)
+
+    def build_required_scpi_alias(self, alias: str, **params: Any) -> list[str]:
+        """Build a required SCPI alias or fail with a profile-configuration error."""
+
+        try:
+            return self.scpi_engine.build(alias, **params)
+        except KeyError as exc:
+            raise InstrumentConfigurationError(
+                self.config.model,
+                f"Profile is missing required SCPI alias '{alias}'.",
+            ) from exc
+
+    def send_scpi_alias(self, alias: str, **params: Any) -> None:
+        """Build and send a required SCPI command alias."""
+
+        for command in self.build_required_scpi_alias(alias, **params):
+            self._send_command(command)
+
+    def query_scpi_alias(self, alias: str, **params: Any) -> str:
+        """Build and query a required SCPI alias.
+
+        Multi-command query aliases are treated as setup commands followed by a
+        final query. This preserves the declarative SCPI sequence instead of
+        guessing which element should return data.
+        """
+
+        commands = self.build_required_scpi_alias(alias, **params)
+        if not commands:
+            raise InstrumentConfigurationError(
+                self.config.model,
+                f"Profile SCPI alias '{alias}' produced no query command.",
+            )
+        for command in commands[:-1]:
+            self._send_command(command)
+        return self._query(commands[-1])
+
+    def list_operation_options(self, operation_id: str, parameter: str) -> list[dict[str, Any]]:
+        """List raw SCPI options for an operation parameter.
+
+        Explicit ``OperationDescriptor.parameters`` bindings win. Without an
+        explicit binding, required aliases are scanned before optional aliases.
+        Divergent multi-alias matches are rejected to avoid hidden assumptions.
+        """
+
+        descriptor = self._get_operation_descriptor(operation_id)
+        bindings = self._operation_parameter_bindings(descriptor, parameter)
+        option_sets: list[tuple[str, str, list[dict[str, Any]]]] = []
+        for alias, alias_parameter in bindings:
+            try:
+                options = self.scpi_engine.list_options(alias, alias_parameter)
+            except KeyError:
+                continue
+            if options:
+                option_sets.append((alias, alias_parameter, options))
+
+        if not option_sets:
+            return []
+        token_sets = {
+            tuple(sorted(str(choice.get("token")) for choice in options))
+            for _, _, options in option_sets
+        }
+        if len(token_sets) > 1:
+            candidates = ", ".join(f"{alias}.{param}" for alias, param, _ in option_sets)
+            raise ValueError(
+                f"Ambiguous operation parameter '{operation_id}.{parameter}' across {candidates}; "
+                "add explicit OperationDescriptor.parameters binding."
+            )
+        merged: dict[str, dict[str, Any]] = {}
+        for _, _, options in option_sets:
+            for choice in options:
+                self._merge_operation_choice(merged, choice)
+        return list(merged.values())
+
+    @staticmethod
+    def _merge_operation_choice(
+        merged: dict[str, dict[str, Any]], choice: dict[str, Any]
+    ) -> None:
+        token = str(choice.get("token"))
+        existing = merged.setdefault(token, dict(choice))
+        aliases = set(existing.get("aliases", []) or [])
+        aliases.update(choice.get("aliases", []) or [])
+        if aliases:
+            existing["aliases"] = sorted(aliases)
+        Instrument._merge_choice_text_field(existing, choice, "label", "labels")
+        Instrument._merge_choice_text_field(existing, choice, "description", "descriptions")
+        Instrument._merge_choice_evidence(existing, choice)
+
+    @staticmethod
+    def _merge_choice_text_field(
+        existing: dict[str, Any], choice: dict[str, Any], singular: str, plural: str
+    ) -> None:
+        values: list[Any] = []
+        current_plural = existing.get(plural)
+        if isinstance(current_plural, list):
+            values.extend(current_plural)
+        current_singular = existing.get(singular)
+        if current_singular not in (None, ""):
+            values.append(current_singular)
+        incoming_singular = choice.get(singular)
+        if incoming_singular not in (None, ""):
+            values.append(incoming_singular)
+        incoming_plural = choice.get(plural)
+        if isinstance(incoming_plural, list):
+            values.extend(incoming_plural)
+        deduped = Instrument._dedupe_preserving_order(values)
+        if deduped:
+            existing[plural] = deduped
+            existing[singular] = deduped[0]
+
+    @staticmethod
+    def _merge_choice_evidence(existing: dict[str, Any], choice: dict[str, Any]) -> None:
+        evidence_values: list[Any] = []
+        current_evidence = existing.get("evidence")
+        if isinstance(current_evidence, list):
+            evidence_values.extend(current_evidence)
+        elif current_evidence not in (None, ""):
+            evidence_values.append(current_evidence)
+        incoming_evidence = choice.get("evidence")
+        if isinstance(incoming_evidence, list):
+            evidence_values.extend(incoming_evidence)
+        elif incoming_evidence not in (None, ""):
+            evidence_values.append(incoming_evidence)
+        deduped_evidence = Instrument._dedupe_preserving_order(evidence_values)
+        if len(deduped_evidence) == 1:
+            existing["evidence"] = deduped_evidence[0]
+        elif deduped_evidence:
+            existing["evidence"] = deduped_evidence
+
+    @staticmethod
+    def _dedupe_preserving_order(values: list[Any]) -> list[Any]:
+        deduped: list[Any] = []
+        for value in values:
+            if value not in deduped:
+                deduped.append(value)
+        return deduped
+
+    def supports_operation(self, operation_id: str) -> bool:
+        """Return True when the loaded profile can support this operation."""
+
+        return self.operation_support_report(operation_id).supported
+
+    def operation_support_report(
+        self, operation_id: str, *, check_parameters: bool = False
+    ) -> OperationSupportReport:
+        """Return structured support information for one operation."""
+
+        descriptor = self._get_operation_descriptor(operation_id)
+        capability_enabled = self._operation_capability_enabled(descriptor)
+        if not capability_enabled:
+            return OperationSupportReport(
+                operation_id=descriptor.operation_id,
+                supported=False,
+                capability_enabled=False,
+                required=descriptor.required,
+                reason=f"capability '{descriptor.capability}' is not enabled",
+            )
+
+        required_presence = self.scpi_engine.validate_presence(list(descriptor.required_aliases))
+        optional_presence = self.scpi_engine.validate_presence(list(descriptor.optional_aliases))
+        missing_required = tuple(
+            alias for alias, present in required_presence.items() if not present
+        )
+        missing_optional = tuple(
+            alias for alias, present in optional_presence.items() if not present
+        )
+        missing_parameter_metadata: tuple[str, ...] = ()
+        if check_parameters:
+            missing_parameter_metadata = tuple(
+                self._missing_operation_parameter_metadata(descriptor)
+            )
+        return OperationSupportReport(
+            operation_id=descriptor.operation_id,
+            supported=not missing_required and not missing_parameter_metadata,
+            capability_enabled=True,
+            missing_required_aliases=missing_required,
+            missing_optional_aliases=missing_optional,
+            missing_parameter_metadata=missing_parameter_metadata,
+            required=descriptor.required,
+            reason=(
+                "missing required aliases"
+                if missing_required
+                else "missing parameter metadata"
+                if missing_parameter_metadata
+                else None
+            ),
+        )
+
+    def validate_operation_contract(
+        self,
+        *,
+        strict: bool = False,
+        include_unsupported: bool = False,
+        check_parameters: bool = False,
+    ) -> dict[str, dict[str, Any]]:
+        """Validate this profile against the driver's operation descriptors.
+
+        By default, operations gated by disabled capabilities are reported but
+        not considered failures. If ``strict`` is true, missing required aliases
+        for enabled operations raise ``RuntimeError``.
+        """
+
+        reports = {
+            descriptor.operation_id: self.operation_support_report(
+                descriptor.operation_id, check_parameters=check_parameters
+            )
+            for descriptor in self.operation_descriptors()
+        }
+        failures = {
+            operation_id: report
+            for operation_id, report in reports.items()
+            if report.required
+            and report.capability_enabled
+            and (report.missing_required_aliases or report.missing_parameter_metadata)
+        }
+        if strict and failures:
+            details = "; ".join(
+                f"{operation_id}: aliases={list(report.missing_required_aliases)} "
+                f"parameters={list(report.missing_parameter_metadata)}"
+                for operation_id, report in failures.items()
+            )
+            raise RuntimeError(f"Missing required operation SCPI support -> {details}")
+        visible = (
+            reports
+            if include_unsupported
+            else {
+                operation_id: report
+                for operation_id, report in reports.items()
+                if report.capability_enabled
+            }
+        )
+        return {operation_id: report.to_dict() for operation_id, report in visible.items()}
+
+    def _get_operation_descriptor(self, operation_id: str) -> OperationDescriptor:
+        for descriptor in self.operation_descriptors():
+            if descriptor.operation_id == operation_id:
+                return descriptor
+        raise KeyError(f"Operation '{operation_id}' is not declared by {self.__class__.__name__}")
+
+    def _operation_capability_enabled(self, descriptor: OperationDescriptor) -> bool:
+        if descriptor.capability is None:
+            return True
+        value = getattr(self.config, descriptor.capability, None)
+        return bool(value)
+
+    def _operation_parameter_binding_diagnostics(
+        self, descriptor: OperationDescriptor
+    ) -> dict[str, Any]:
+        diagnostics: dict[str, Any] = {}
+        for parameter in descriptor.parameters:
+            bindings = self._operation_parameter_bindings(descriptor, parameter)
+            diagnostics[parameter] = [
+                {"alias": alias, "parameter": alias_parameter}
+                for alias, alias_parameter in bindings
+            ]
+        return diagnostics
+
+    def _operation_parameter_bindings(
+        self, descriptor: OperationDescriptor, parameter: str
+    ) -> list[tuple[str, str]]:
+        raw_spec = descriptor.parameters.get(parameter) if descriptor.parameters else None
+        if isinstance(raw_spec, dict) and raw_spec.get("bindings"):
+            bindings: list[tuple[str, str]] = []
+            for binding in raw_spec["bindings"]:
+                if isinstance(binding, dict):
+                    bindings.append(
+                        (str(binding.get("alias")), str(binding.get("parameter", parameter)))
+                    )
+            return bindings
+
+        bindings = []
+        for alias in [*descriptor.required_aliases, *descriptor.optional_aliases]:
+            try:
+                parameters = self.scpi_engine.list_parameters(alias)
+            except KeyError:
+                continue
+            if parameter in parameters:
+                bindings.append((alias, parameter))
+        return bindings
+
+    def _missing_operation_parameter_metadata(self, descriptor: OperationDescriptor) -> list[str]:
+        missing: list[str] = []
+        alias_placeholders: dict[str, set[str]] = {}
+        for alias in [*descriptor.required_aliases, *descriptor.optional_aliases]:
+            try:
+                alias_placeholders[alias] = set(
+                    self.scpi_engine.validate_placeholders(alias)["placeholders"]
+                )
+            except KeyError:
+                continue
+
+        def validate_alias_parameter(alias: str, alias_parameter: str) -> list[str]:
+            binding_key = f"{alias}.{alias_parameter}"
+            try:
+                metadata = self.scpi_engine.describe_parameter(alias, alias_parameter)
+            except KeyError:
+                return [binding_key]
+            source = metadata.get("metadata_source")
+            if source == "inferred":
+                return [f"{binding_key}:inferred"]
+            if metadata.get("kind") == "raw" and not (
+                metadata.get("allow_raw") or metadata.get("description") or metadata.get("evidence")
+            ):
+                return [f"{binding_key}:unjustified-raw"]
+            return []
+
+        covered: set[str] = set()
+        for parameter in descriptor.parameters:
+            bindings = self._operation_parameter_bindings(descriptor, parameter)
+            if not bindings:
+                missing.append(parameter)
+                continue
+            for alias, alias_parameter in bindings:
+                binding_key = f"{alias}.{alias_parameter}"
+                if alias_parameter not in alias_placeholders.get(alias, set()):
+                    missing.append(f"{binding_key}:binding-not-placeholder")
+                    continue
+                covered.add(binding_key)
+                missing.extend(validate_alias_parameter(alias, alias_parameter))
+
+        exemptions = getattr(descriptor, "parameter_exemptions", {}) or {}
+        for alias, placeholders in alias_placeholders.items():
+            for placeholder in placeholders:
+                binding_key = f"{alias}.{placeholder}"
+                if binding_key in covered or binding_key in exemptions:
+                    continue
+                alias_missing = validate_alias_parameter(alias, placeholder)
+                if alias_missing:
+                    missing.extend(alias_missing)
+                    continue
+                covered.add(binding_key)
+        return sorted(set(missing))
 
     @classmethod
     def from_config(

@@ -12,3 +12,44 @@ stop_frequency: 8.5e9 # 8.5 GHz
 num_points: 201
 if_bandwidth: 10e3 # 10 kHz
 power_level: -5 # -5 dBm
+
+scpi:
+  commands:
+    define_sparameter:
+      template: 'CALC:PAR{index}:DEF {s_parameter}'
+      validators:
+        index: {min: 1, max: 16}
+      parameters:
+        s_parameter:
+          kind: enum
+          strict: true
+          choices:
+            - {token: "S11", label: "S11"}
+            - {token: "S12", label: "S12"}
+            - {token: "S21", label: "S21"}
+            - {token: "S22", label: "S22"}
+    set_start_frequency:
+      template: "SENS:FREQ:STAR {frequency}"
+      validators:
+        frequency: {min: 1, max: 20e9}
+    set_stop_frequency:
+      template: "SENS:FREQ:STOP {frequency}"
+      validators:
+        frequency: {min: 1, max: 20e9}
+    set_points:
+      template: "SENS:SWE:POIN {points}"
+      validators:
+        points: {min: 2, max: 20001}
+    set_if_bandwidth:
+      template: "SENS:BWID {bandwidth}"
+      validators:
+        bandwidth: {min: 1, max: 15e6}
+    set_power_level:
+      template: "SOUR:POW {power}"
+      validators:
+        power: {min: -90, max: 30}
+  queries:
+    sparameter_data:
+      template: "CALC:DATA? SDAT"
+      response:
+        type: csv_float

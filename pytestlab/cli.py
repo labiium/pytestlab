@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import code
+import contextlib
 import difflib
 import importlib.util  # For finding profile paths
+import json
 import os
 import shutil
 import sys
@@ -70,6 +72,9 @@ sim_app = typer.Typer(name="sim", help="Circuit simulation lane utilities (pytes
 evidence_app = typer.Typer(
     name="evidence", help="Generate and check PyTestLab validation evidence artifacts."
 )
+twin_app = typer.Typer(
+    name="twin", help="Digital-twin oracle, residual, and characterized-evidence utilities."
+)
 
 # Create a new Typer app for replay commands
 replay_app = typer.Typer(name="replay", help="Record and replay complex measurement sessions.")
@@ -84,6 +89,7 @@ app.add_typer(visa_app)
 app.add_typer(lamb_app)
 app.add_typer(sim_app)
 app.add_typer(evidence_app)
+app.add_typer(twin_app)
 
 
 @evidence_app.command("generate")
@@ -172,6 +178,30 @@ def evidence_scope_twin(
         rich.print(f"[green]Scope-twin evidence check passed[/] ({check_report.payload_sha256})")
 
 
+@evidence_app.command("scope-oracle")
+def evidence_scope_oracle(
+    output: Annotated[
+        Path,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Directory where scope-oracle known-truth validation artifacts are written.",
+        ),
+    ] = Path(".omx/evidence/scope-oracle"),
+    mc_samples: Annotated[
+        int,
+        typer.Option("--mc-samples", help="Monte Carlo samples for Vpp validation."),
+    ] = 3000,
+    check: Annotated[
+        bool,
+        typer.Option("--check", help="Check the generated bundle after writing it."),
+    ] = False,
+):
+    """Generate deterministic oscilloscope validation-oracle evidence."""
+
+    evidence_scope_twin(output=output, mc_samples=mc_samples, check=check)
+
+
 @evidence_app.command("hardware-parity")
 def evidence_hardware_parity(
     fixture: Annotated[
@@ -202,6 +232,148 @@ def evidence_hardware_parity(
         rich.print("[bold red]Hardware replay parity failed.[/bold red]")
         raise typer.Exit(code=1)
     rich.print(f"[green]{len(report.rows)} parity checks passed[/]")
+
+
+@twin_app.command("oracle")
+def twin_oracle(
+    output: Annotated[
+        Path,
+        typer.Option("--output", "-o", help="Directory where oracle artifacts are written."),
+    ] = Path(".omx/evidence/twin-oracle"),
+    mc_samples: Annotated[
+        int,
+        typer.Option("--mc-samples", help="Monte Carlo samples for Vpp validation."),
+    ] = 3000,
+    check: Annotated[
+        bool,
+        typer.Option("--check", help="Check the generated oracle bundle after writing it."),
+    ] = False,
+):
+    """Run the known-truth oscilloscope validation oracle."""
+
+    from pytestlab.validation.scope_twin import check_scope_twin_known_truth_validation
+    from pytestlab.validation.scope_twin import run_scope_twin_known_truth_validation
+
+    report = run_scope_twin_known_truth_validation(output, mc_samples=mc_samples)
+    rich.print(f"[green]Twin oracle report:[/] {report.report_path}")
+    rich.print(f"[green]Twin oracle manifest:[/] {report.manifest_path}")
+    rich.print("Claim: software validation oracle; not characterized hardware")
+    rich.print(f"Payload SHA256: {report.payload_sha256}")
+    if not report.passed:
+        rich.print("[bold red]Twin oracle validation failed.[/bold red]")
+        raise typer.Exit(code=1)
+    if check:
+        check_report = check_scope_twin_known_truth_validation(output)
+        rich.print(f"[green]Twin oracle evidence check passed[/] ({check_report.payload_sha256})")
+
+
+@twin_app.command("residual-from-replay")
+def twin_residual_from_replay(
+    fixture: Annotated[Path, typer.Argument(help="Hardware replay fixture JSON.")],
+    output: Annotated[
+        Path,
+        typer.Option("--output", "-o", help="Directory where residual evidence is written."),
+    ] = Path(".omx/evidence/twin-residual"),
+    coverage_factor: Annotated[
+        float,
+        typer.Option("--coverage-factor", help="Coverage factor for residual acceptance."),
+    ] = 2.0,
+    check: Annotated[
+        bool,
+        typer.Option("--check", help="Check the residual report after writing it."),
+    ] = False,
+):
+    """Generate a twin residual report from a replay fixture.
+
+    Fixture self-consistency reports are intentionally labeled replay-regression
+    evidence. Only fixtures classified as independent parity become
+    twin-validation evidence suitable for characterized-twin claims.
+    """
+
+    from pytestlab.twin import check_residual_report
+    from pytestlab.twin import residual_report_from_replay_fixture
+    from pytestlab.twin import write_residual_report
+
+    report = residual_report_from_replay_fixture(fixture, coverage_factor=coverage_factor)
+    path = write_residual_report(output / "twin_residual_report.json", report)
+    rich.print(f"[green]Twin residual report:[/] {path}")
+    rich.print(f"Status: {report.status.value}")
+    rich.print(f"Origin/purpose: {report.data_origin} / {report.evidence_purpose}")
+    rich.print(f"Payload SHA256: {report.payload_sha256}")
+    if check:
+        check_residual_report(path)
+        rich.print("[green]Twin residual evidence check passed[/]")
+    if report.status.value not in {"pass", "incomplete"}:
+        raise typer.Exit(code=1)
+
+
+@twin_app.command("characterize-scope")
+def twin_characterize_scope(
+    residual_report: Annotated[
+        Path,
+        typer.Argument(help="Passing twin-validation residual report JSON."),
+    ],
+    output: Annotated[
+        Path,
+        typer.Option("--output", "-o", help="Directory where characterized evidence is written."),
+    ] = Path(".omx/evidence/characterized-scope"),
+    check: Annotated[
+        bool,
+        typer.Option("--check", help="Check the characterized evidence after writing it."),
+    ] = False,
+):
+    """Create characterized scope-twin evidence from a passing residual report."""
+
+    from pytestlab.twin import CharacterizedScopeTwin
+    from pytestlab.twin import check_twin_evidence
+    from pytestlab.twin import load_residual_report
+    from pytestlab.twin import write_twin_evidence
+
+    report = load_residual_report(residual_report)
+    try:
+        twin = CharacterizedScopeTwin(
+            identity=report.twin_identity,
+            domain=report.domain,
+            residual_report=report,
+        )
+    except ValueError as exc:
+        rich.print(f"[bold red]Cannot characterize scope twin:[/] {rich_escape(str(exc))}")
+        raise typer.Exit(code=1) from None
+    evidence = twin.validation_evidence()
+    path = write_twin_evidence(output / "characterized_scope_twin_evidence.json", evidence)
+    rich.print(f"[green]Characterized scope-twin evidence:[/] {path}")
+    rich.print("Claim: validation evidence only; not a measured calibration result or certificate")
+    rich.print(f"Payload SHA256: {evidence.payload_sha256}")
+    if check:
+        check_twin_evidence(path)
+        rich.print("[green]Characterized scope-twin evidence check passed[/]")
+
+
+@twin_app.command("check")
+def twin_check(
+    path: Annotated[Path, typer.Argument(help="Twin evidence or residual-report JSON.")],
+):
+    """Check a twin evidence JSON artifact for tampering and claim-boundary labels."""
+
+    from pytestlab.twin import TwinEvidenceError
+    from pytestlab.twin import check_residual_report
+    from pytestlab.twin import check_twin_evidence
+
+    try:
+        payload = check_residual_report(path)
+        rich.print(f"[green]Residual report OK:[/] {path}")
+    except TwinEvidenceError as residual_error:
+        try:
+            payload = check_twin_evidence(path)
+            rich.print(f"[green]Twin evidence OK:[/] {path}")
+        except TwinEvidenceError as twin_error:
+            rich.print(
+                "[bold red]Twin artifact invalid:[/] "
+                f"residual={rich_escape(str(residual_error))}; "
+                f"evidence={rich_escape(str(twin_error))}"
+            )
+            raise typer.Exit(code=1) from None
+    rich.print(f"Payload SHA256: {payload['payload_sha256']}")
 
 
 @sim_app.command("doctor")
@@ -922,6 +1094,24 @@ def validate_profiles(
     profiles_path: Annotated[
         Path, typer.Argument(help="Path to a directory of profiles or a single profile file.")
     ],
+    operation_contract: Annotated[
+        bool,
+        typer.Option(
+            "--operation-contract",
+            help="Also validate high-level instrument operation contract support.",
+        ),
+    ] = False,
+    check_parameters: Annotated[
+        bool,
+        typer.Option(
+            "--check-parameters",
+            help="With --operation-contract, require declared operation parameter metadata.",
+        ),
+    ] = False,
+    strict: Annotated[
+        bool,
+        typer.Option("--strict", help="Fail on operation contract warnings."),
+    ] = False,
 ):
     """Validates YAML profiles against their corresponding Pydantic models."""
     from pytestlab.config.loader import load_device_profile
@@ -953,6 +1143,16 @@ def validate_profiles(
     for profile_file in profile_files:
         try:
             load_device_profile(profile_file)
+            if operation_contract:
+                from pytestlab import AutoInstrument
+
+                with contextlib.redirect_stdout(sys.stderr):
+                    instrument = AutoInstrument.from_config(str(profile_file), simulate=True)
+                instrument.validate_operation_contract(
+                    strict=strict,
+                    include_unsupported=True,
+                    check_parameters=check_parameters,
+                )
             rich.print(f"  [green]✔[/green] [cyan]{profile_file.name}[/cyan] - Valid")
             success_count += 1
         except Exception as e:
@@ -1205,7 +1405,9 @@ def _template_placeholders(raw_spec: Any) -> set[str]:
     return placeholders
 
 
-def _sample_value_for_param(name: str, raw_spec: Any) -> Any:
+def _sample_value_for_param(
+    name: str, raw_spec: Any, parameter_spec: dict[str, Any] | None = None
+) -> Any:
     spec: dict[str, Any] = raw_spec if isinstance(raw_spec, dict) else {}
 
     raw_defaults = spec.get("defaults")
@@ -1213,62 +1415,39 @@ def _sample_value_for_param(name: str, raw_spec: Any) -> Any:
     if name in defaults:
         return defaults[name]
 
-    raw_enums = spec.get("enums")
-    enums: dict[str, Any] = raw_enums if isinstance(raw_enums, dict) else {}
-    enum_values = enums.get(name)
-    if isinstance(enum_values, dict) and enum_values:
-        return next(iter(enum_values.keys()))
+    if isinstance(parameter_spec, dict):
+        if "default" in parameter_spec and parameter_spec["default"] is not None:
+            return parameter_spec["default"]
+        examples = parameter_spec.get("examples")
+        if isinstance(examples, list) and examples:
+            return examples[0]
+        choices = parameter_spec.get("choices")
+        if isinstance(choices, list):
+            for choice in choices:
+                if isinstance(choice, dict) and "token" in choice:
+                    return choice["token"]
+                if choice is not None:
+                    return choice
+        if parameter_spec.get("kind") == "bool":
+            return True
+        if parameter_spec.get("kind") == "range" and parameter_spec.get("min") is not None:
+            min_val = parameter_spec["min"]
+            return int(min_val) if float(min_val).is_integer() else float(min_val)
+        if parameter_spec.get("kind") == "open_string":
+            return "TEST"
 
-    raw_validators = spec.get("validators")
-    validators: dict[str, Any] = raw_validators if isinstance(raw_validators, dict) else {}
-    validator = validators.get(name)
-    if isinstance(validator, dict) and "min" in validator and "max" in validator:
-        min_val = validator["min"]
-        max_val = validator["max"]
-        if name in {"channel", "ch", "count", "index"}:
-            return int(min_val)
-        if isinstance(min_val, int) and isinstance(max_val, int):
-            return min_val
-        return float(min_val)
-
-    fallback_samples: dict[str, Any] = {
-        "amplitude": 1.0,
-        "bandwidth": 20_000_000,
-        "channel": 1,
-        "ch": 1,
-        "count": 1,
-        "coupling": "DC",
-        "current": 0.1,
-        "duty": 50,
-        "frequency": 1_000,
-        "func": "SIN",
-        "function": "VOLT:DC",
-        "index": 1,
-        "mode": "EDGE",
-        "offset": 0,
-        "period": 0.001,
-        "range": "AUTO",
-        "rate": 1_000_000,
-        "resolution": 0.001,
-        "scale": 1,
-        "source": "IMM",
-        "sources": "CHAN1",
-        "span": 1_000,
-        "state": "ON",
-        "symmetry": 50,
-        "time": 0.001,
-        "units": "VPP",
-        "value": 1,
-        "voltage": 1.0,
-        "width": 0.0001,
-        "window": "HANN",
-    }
-    return fallback_samples.get(name, 1)
+    raise ValueError(
+        f"No sample value metadata for parameter '{name}'. "
+        "Declare a default, examples, choices, range, or validator in the profile."
+    )
 
 
-def _sample_params_for_spec(raw_spec: Any) -> dict[str, Any]:
+def _sample_params_for_spec(
+    raw_spec: Any, parameter_metadata: dict[str, dict[str, Any]] | None = None
+) -> dict[str, Any]:
+    parameter_metadata = parameter_metadata or {}
     return {
-        name: _sample_value_for_param(name, raw_spec)
+        name: _sample_value_for_param(name, raw_spec, parameter_metadata.get(name))
         for name in sorted(_template_placeholders(raw_spec))
     }
 
@@ -1301,8 +1480,12 @@ def _profile_scpi_command_rows(
 
     for kind, entries in (("command", commands), ("query", queries)):
         for alias, raw_spec in entries.items():
-            params = _sample_params_for_spec(raw_spec)
+            params: dict[str, Any] = {}
             try:
+                description = engine.describe(str(alias))
+                params = _sample_params_for_spec(
+                    raw_spec, cast(dict[str, dict[str, Any]], description["parameters"])
+                )
                 rendered = engine.build(alias, **params)
                 response = ""
                 if device is not None:
@@ -1436,6 +1619,143 @@ def instrument_check_commands(
         warnings=warnings,
         skipped=skipped,
     )
+
+
+@instrument_app.command("check-operation-contract")
+def instrument_check_operation_contract(
+    profile_key_or_path: Annotated[str, typer.Argument(help="Profile key or YAML path.")],
+    strict: Annotated[
+        bool,
+        typer.Option(
+            "--strict", help="Exit non-zero when enabled operations miss required aliases."
+        ),
+    ] = False,
+    check_parameters: Annotated[
+        bool,
+        typer.Option(
+            "--check-parameters",
+            help="Also require declared operation parameters to have SCPI metadata.",
+        ),
+    ] = False,
+):
+    """Check the loaded profile against its driver's high-level operation contract."""
+
+    try:
+        from pytestlab import AutoInstrument
+
+        instrument = AutoInstrument.from_config(profile_key_or_path, simulate=True)
+        report = instrument.validate_operation_contract(
+            strict=False, include_unsupported=True, check_parameters=check_parameters
+        )
+    except FileNotFoundError:
+        rich.print(f"[bold red]Error: Profile '{rich_escape(profile_key_or_path)}' not found.[/]")
+        raise typer.Exit(code=1) from None
+    except Exception as exc:
+        rich.print(f"[bold red]Operation contract check failed: {rich_escape(str(exc))}[/]")
+        raise typer.Exit(code=1) from None
+
+    table = Table(title=f"Instrument Operation Contract Check: {instrument.config.model}")
+    table.add_column("Operation", style="cyan")
+    table.add_column("Capability", style="magenta")
+    table.add_column("Required")
+    table.add_column("Status", style="green")
+    table.add_column("Missing Required Aliases")
+    table.add_column("Missing Parameters")
+
+    missing_required_enabled = 0
+    for operation_id, operation_report in report.items():
+        descriptor = instrument.describe_operation(operation_id)
+        missing_required = operation_report["missing_required_aliases"]
+        missing_parameters = operation_report.get("missing_parameter_metadata", [])
+        capability = descriptor["capability"] or "-"
+        required = bool(operation_report["required"])
+        if not operation_report["capability_enabled"]:
+            status = "[yellow]unsupported[/yellow]"
+        elif missing_required or missing_parameters:
+            if required:
+                status = "[red]fail[/red]"
+                missing_required_enabled += 1
+            else:
+                status = "[yellow]warn[/yellow]"
+        else:
+            status = "[green]ok[/green]"
+        table.add_row(
+            operation_id,
+            capability,
+            "yes" if required else "no",
+            status,
+            ", ".join(missing_required) or "-",
+            ", ".join(missing_parameters) or "-",
+        )
+    rich.print(table)
+
+    if missing_required_enabled:
+        rich.print(
+            f"[bold red]{missing_required_enabled} required enabled operations miss SCPI aliases or parameter metadata.[/bold red]"
+        )
+        if strict:
+            raise typer.Exit(code=1)
+    else:
+        rich.print("[bold green]All enabled operation contract checks passed[/bold green].")
+
+
+@instrument_app.command("describe-operation")
+def instrument_describe_operation(
+    profile_key_or_path: Annotated[str, typer.Argument(help="Profile key or YAML path.")],
+    operation_id: Annotated[str, typer.Argument(help="Operation ID to describe.")],
+    include_scpi: Annotated[
+        bool,
+        typer.Option("--include-scpi", help="Include bound SCPI alias metadata."),
+    ] = False,
+    as_json: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
+):
+    """Describe one high-level operation for a profile."""
+
+    try:
+        from pytestlab import AutoInstrument
+
+        if as_json:
+            with contextlib.redirect_stdout(sys.stderr):
+                instrument = AutoInstrument.from_config(profile_key_or_path, simulate=True)
+        else:
+            instrument = AutoInstrument.from_config(profile_key_or_path, simulate=True)
+        result = instrument.describe_operation(operation_id, include_scpi=include_scpi)
+    except Exception as exc:
+        rich.print(f"[bold red]Operation description failed: {rich_escape(str(exc))}[/]")
+        raise typer.Exit(code=1) from None
+
+    if as_json:
+        rich.print(json.dumps(result, indent=2, sort_keys=True, default=str))
+    else:
+        rich.print(result)
+
+
+@instrument_app.command("list-options")
+def instrument_list_options(
+    profile_key_or_path: Annotated[str, typer.Argument(help="Profile key or YAML path.")],
+    operation_id: Annotated[str, typer.Argument(help="Operation ID.")],
+    parameter: Annotated[str, typer.Argument(help="Operation parameter name.")],
+    as_json: Annotated[bool, typer.Option("--json", help="Emit JSON.")] = False,
+):
+    """List raw SCPI options for one operation parameter."""
+
+    try:
+        from pytestlab import AutoInstrument
+
+        if as_json:
+            with contextlib.redirect_stdout(sys.stderr):
+                instrument = AutoInstrument.from_config(profile_key_or_path, simulate=True)
+        else:
+            instrument = AutoInstrument.from_config(profile_key_or_path, simulate=True)
+        result = instrument.list_operation_options(operation_id, parameter)
+    except Exception as exc:
+        rich.print(f"[bold red]Option listing failed: {rich_escape(str(exc))}[/]")
+        raise typer.Exit(code=1) from None
+
+    if as_json:
+        rich.print(json.dumps(result, indent=2, sort_keys=True, default=str))
+    else:
+        rich.print(result)
 
 
 @instrument_app.command("full-test")

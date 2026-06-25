@@ -8,6 +8,9 @@ from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree as ET
 
+from .metrology import DataOrigin
+from .metrology import EvidencePurpose
+from .metrology import ResultProvenance
 from .metrology import report_grade_blockers
 from .quantity import Quantity
 from .quantity_array import QuantityArray
@@ -37,6 +40,7 @@ def quantity_to_pytestlab_evidence_xml(
     identifier: str,
     coverage_factor: float = 2.0,
     allow_incomplete: bool = False,
+    allow_non_measured: bool = False,
 ) -> str:
     """Create PyTestLab's unsigned XML evidence record for scalar/reduction results.
 
@@ -46,6 +50,14 @@ def quantity_to_pytestlab_evidence_xml(
     """
 
     blockers = report_grade_blockers(value)
+    origin_payload = _origin_payload(value)
+    if _requires_non_measured_override(value) and not allow_non_measured:
+        raise ValueError(
+            "Refusing measured-result evidence XML for non-measured or unknown data origin: "
+            f"data_origin={origin_payload['data_origin']!r}, "
+            f"evidence_purpose={origin_payload['evidence_purpose']!r}. "
+            "Pass allow_non_measured=True only for explicitly labeled validation/simulation evidence."
+        )
     if blockers and not allow_incomplete:
         raise ValueError("Refusing DCC export for non-report-grade result: " + "; ".join(blockers))
     dsi = quantity_to_dsi(value, coverage_factor=coverage_factor)
@@ -63,6 +75,10 @@ def quantity_to_pytestlab_evidence_xml(
     administrative = ET.SubElement(root, "administrativeData")
     ET.SubElement(administrative, "software").text = "PyTestLab"
     ET.SubElement(administrative, "reportGrade").text = str(not blockers).lower()
+    ET.SubElement(administrative, "dataOrigin").text = origin_payload["data_origin"]
+    ET.SubElement(administrative, "evidencePurpose").text = origin_payload["evidence_purpose"]
+    if origin_payload["origin_detail"]:
+        ET.SubElement(administrative, "originDetail").text = origin_payload["origin_detail"]
     if blockers:
         blocker_el = ET.SubElement(administrative, "reportGradeBlockers")
         for blocker in blockers:
@@ -90,6 +106,7 @@ def quantity_to_dcc_candidate_xml(
     identifier: str,
     coverage_factor: float = 2.0,
     allow_incomplete: bool = False,
+    allow_non_measured: bool = False,
     require_full_xsd: bool = True,
 ) -> str:
     """Return DCC candidate XML only when full DCC validation is available.
@@ -109,6 +126,7 @@ def quantity_to_dcc_candidate_xml(
         identifier=identifier,
         coverage_factor=coverage_factor,
         allow_incomplete=allow_incomplete,
+        allow_non_measured=allow_non_measured,
     )
 
 
@@ -118,6 +136,7 @@ def quantity_to_unsigned_dcc_xml(
     identifier: str,
     coverage_factor: float = 2.0,
     allow_incomplete: bool = False,
+    allow_non_measured: bool = False,
 ) -> str:
     """Compatibility alias for PyTestLab's unsigned evidence XML.
 
@@ -130,6 +149,7 @@ def quantity_to_unsigned_dcc_xml(
         identifier=identifier,
         coverage_factor=coverage_factor,
         allow_incomplete=allow_incomplete,
+        allow_non_measured=allow_non_measured,
     )
 
 
@@ -139,6 +159,7 @@ def waveform_reductions_to_digital_exports(
     identifier_prefix: str = "waveform",
     coverage_factor: float = 2.0,
     allow_incomplete: bool = True,
+    allow_non_measured: bool = True,
 ) -> dict[str, Any]:
     """Export waveform scalar reductions as D-SI payloads plus unsigned DCC XML.
 
@@ -157,6 +178,7 @@ def waveform_reductions_to_digital_exports(
             "Unsigned PyTestLab software-validation evidence; not an accredited "
             "calibration certificate, not a signed DCC, and not DCC certification."
         ),
+        "allow_non_measured": allow_non_measured,
         "reductions": {},
     }
     for name, quantity in reductions.items():
@@ -167,6 +189,7 @@ def waveform_reductions_to_digital_exports(
             identifier=identifier,
             coverage_factor=coverage_factor,
             allow_incomplete=allow_incomplete,
+            allow_non_measured=allow_non_measured,
         )
         validate_dcc_profile_xml(xml)
         payload["reductions"][name] = {
@@ -174,6 +197,7 @@ def waveform_reductions_to_digital_exports(
             "dsi": dsi,
             "dcc_xml": xml,
             "measurement_model_method": getattr(quantity.measurement_model, "method", None),
+            **_origin_payload(quantity),
         }
     return payload
 
@@ -199,6 +223,13 @@ def validate_dcc_profile_xml(xml: str) -> None:
         raise ValueError("PyTestLab evidence XML must state notDccCertificate=true.")
     if root.find("administrativeData") is None:
         raise ValueError("DCC profile requires administrativeData.")
+    administrative = root.find("administrativeData")
+    if administrative is None:
+        raise ValueError("DCC profile requires administrativeData.")
+    if administrative.find("dataOrigin") is None:
+        raise ValueError("DCC profile requires administrativeData/dataOrigin.")
+    if administrative.find("evidencePurpose") is None:
+        raise ValueError("DCC profile requires administrativeData/evidencePurpose.")
     result = root.find("measurementResult")
     if result is None or not result.attrib.get("id"):
         raise ValueError("DCC profile requires a measurementResult id.")
@@ -206,6 +237,32 @@ def validate_dcc_profile_xml(xml: str) -> None:
     missing = [name for name in required if result.find(name) is None]
     if missing:
         raise ValueError(f"DCC profile missing required result fields: {missing}.")
+
+
+def _origin_payload(value: Quantity | QuantityArray) -> dict[str, str | None]:
+    provenance = getattr(value, "provenance", None)
+    if isinstance(provenance, ResultProvenance):
+        return {
+            "data_origin": provenance.data_origin.value,
+            "evidence_purpose": provenance.evidence_purpose.value,
+            "origin_detail": provenance.origin_detail,
+        }
+    return {
+        "data_origin": DataOrigin.UNKNOWN.value,
+        "evidence_purpose": EvidencePurpose.MEASUREMENT_RESULT.value,
+        "origin_detail": None,
+    }
+
+
+def _requires_non_measured_override(value: Quantity | QuantityArray) -> bool:
+    provenance = getattr(value, "provenance", None)
+    if not isinstance(provenance, ResultProvenance):
+        return True
+    return not (
+        provenance.data_origin is DataOrigin.MEASURED
+        and provenance.evidence_purpose
+        in {EvidencePurpose.MEASUREMENT_RESULT, EvidencePurpose.CALIBRATION_SUPPORT}
+    )
 
 
 def verify_cached_schema_files(schema_root: Path | None = None) -> dict[str, str]:

@@ -4,7 +4,11 @@ from typing import Any
 from typing import Literal
 from typing import Protocol
 
+from ..uncertainty import DataOrigin
+from ..uncertainty import EvidencePurpose
+from ..uncertainty import MeasurementModel
 from ..uncertainty import Quantity
+from ..uncertainty import ResultProvenance
 from ..uncertainty import resolve_traceability_ref
 from ..uncertainty.specs import AccuracyModel
 from ..uncertainty.specs import UncertaintyContext
@@ -48,7 +52,10 @@ def nonzero_uncertainty_quantity(
     except Exception as exc:
         if strict:
             raise
-        message = f"Could not evaluate {label}: {exc}. Returning float."
+        message = (
+            f"Could not evaluate {label}: {exc}. Leaving caller's nominal-only "
+            "non-report-grade Quantity in place."
+        )
         if logger is not None:
             log_method = logger.info if warning_level == "info" else logger.warning
             log_method(message)
@@ -60,8 +67,45 @@ def nonzero_uncertainty_quantity(
         return quantity
 
     if logger is not None:
-        logger.debug(f"{label} resulted in u=0. Returning float.")
+        logger.debug(
+            f"{label} resulted in u=0. Leaving caller's nominal-only "
+            "non-report-grade Quantity in place."
+        )
     return None
+
+
+def nominal_measurement_quantity(
+    reading: float,
+    unit: str,
+    *,
+    function: str,
+    reason: str,
+    output_name: str | None = None,
+) -> Quantity:
+    """Return a measured nominal result with explicit non-report-grade provenance.
+
+    This keeps driver return types uniform when profile metadata is incomplete:
+    the acquisition succeeded, but the value is deliberately blocked from
+    report-grade export until the profile/evidence gap is fixed.
+    """
+
+    quantity = Quantity.constant(float(reading), unit)
+    quantity.measurement_model = MeasurementModel(
+        output_name=output_name or function,
+        output_unit=unit,
+        function=function,
+        method="gum_first_order",
+        assumptions=[reason],
+        dof_method="uncertainty_metadata_missing",
+    )
+    quantity.provenance = ResultProvenance.current(
+        data_origin=DataOrigin.MEASURED,
+        evidence_purpose=EvidencePurpose.MEASUREMENT_RESULT,
+        origin_detail=reason,
+        provenance_complete=False,
+    )
+    quantity.dof_method = "uncertainty_metadata_missing"
+    return quantity
 
 
 def dmm_range_value(function: Any, range_spec: Any) -> float | None:

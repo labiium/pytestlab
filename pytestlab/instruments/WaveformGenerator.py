@@ -35,6 +35,7 @@ from ..errors import InstrumentCommunicationError
 from ..errors import InstrumentConfigurationError
 from ..errors import InstrumentParameterError
 from .instrument import Instrument
+from .operation_contract import OperationDescriptor
 
 # Forward declaration removed; using forward-referenced type hints via string annotations (PEP 563 / __future__)
 
@@ -286,6 +287,24 @@ class WaveformGenerator(Instrument[WaveformGeneratorConfig]):
     """
 
     config: WaveformGeneratorConfig  # Type hint for validated config
+
+    OPERATION_CONTRACT: tuple[OperationDescriptor, ...] = (
+        OperationDescriptor("set_function", required_aliases=("set_function",)),
+        OperationDescriptor("set_frequency", required_aliases=("set_frequency",)),
+        OperationDescriptor(
+            "get_frequency", required_aliases=("get_frequency",), safety_class="read"
+        ),
+        OperationDescriptor("set_amplitude", required_aliases=("set_amplitude",)),
+        OperationDescriptor(
+            "get_amplitude", required_aliases=("get_amplitude",), safety_class="read"
+        ),
+        OperationDescriptor("set_offset", required_aliases=("set_offset",)),
+        OperationDescriptor("get_offset", required_aliases=("get_offset",), safety_class="read"),
+        OperationDescriptor("set_output_state", required_aliases=("set_output_state",)),
+        OperationDescriptor(
+            "get_output_state", required_aliases=("get_output_state",), safety_class="read"
+        ),
+    )
     model_config = {"arbitrary_types_allowed": True}
 
     def __init__(

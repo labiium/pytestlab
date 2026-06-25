@@ -350,12 +350,6 @@ class Bench:
                 role_override=entry.role,
             )
         elif entry.profile is not None and entry.profile_is_local_file(base_path=self._base_path):
-            warnings.warn(
-                f"Bench entry '{alias}' uses profile: {entry.profile!r} as a local file path. "
-                "Use file: for local YAML/JSON profiles; profile: is for packaged presets.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
             source_path = Path(entry.profile)
             if not source_path.is_absolute() and self._base_path is not None:
                 source_path = self._base_path / source_path
@@ -682,6 +676,10 @@ class Bench:
                 except Exception as exc:  # pragma: no cover - defensive logging
                     errors.append(exc)
 
+        if self._db is not None:
+            self._db.close()
+            self._db = None
+
         if errors:
             logger.error(f"{len(errors)} errors occurred while closing devices")
             for err in errors:
@@ -749,16 +747,7 @@ class Bench:
 
     @property
     def devices(self) -> dict[str, Device]:
-        """Compatibility alias for all bench resources.
-
-        Deprecated: in 1.0 this will return support devices only. Use
-        ``resources`` for all resources or ``support_devices`` for non-instruments.
-        """
-        warnings.warn(
-            "Bench.devices currently returns all resources but will return support devices only in 1.0; use Bench.resources for all resources.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
+        """All bench resources keyed by alias."""
         return self._device_instances
 
     @property

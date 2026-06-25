@@ -1,9 +1,7 @@
 from ..config.spectrum_analyzer_config import SpectrumAnalyzerConfig
 from ..errors import InstrumentDataError
 from .instrument import Instrument
-
-# from ..experiments.results import MeasurementResult # If this is the return type for traces
-# from .scpi_maps import CommonSCPI, SystemSCPI # And a specific SA SCPI map
+from .operation_contract import OperationDescriptor
 
 
 class PlaceholderMeasurementResult:
@@ -19,29 +17,38 @@ class PlaceholderMeasurementResult:
         self.x_label = x_label
         self.y_label = y_label
 
-
-# SCPI map for a generic SA (can be expanded in scpi_maps.py)
-# class GenericSASCPIMap(CommonSCPI, SystemSCPI):
-#    FREQ_CENTER = "FREQ:CENT"
-#    FREQ_SPAN = "FREQ:SPAN"
-#    BAND_RES = "BAND" # RBW
-#    TRACE_DATA_QUERY = "TRAC:DATA? TRACE1" # Example
-
-
 class SpectrumAnalyser(Instrument[SpectrumAnalyzerConfig]):
-    # SCPI_MAP = GenericSASCPIMap() # Assign if defined
+    OPERATION_CONTRACT: tuple[OperationDescriptor, ...] = (
+        OperationDescriptor(
+            "spectrum_measurement_setup",
+            required_aliases=("set_center_frequency", "set_span", "set_rbw"),
+            parameters={
+                "center_frequency": {
+                    "bindings": [{"alias": "set_center_frequency", "parameter": "frequency"}]
+                },
+                "span": {"bindings": [{"alias": "set_span", "parameter": "span"}]},
+                "rbw": {"bindings": [{"alias": "set_rbw", "parameter": "bandwidth"}]},
+            },
+        ),
+        OperationDescriptor(
+            "trace_readout",
+            required_aliases=("trace_data",),
+            safety_class="read",
+            parameters={"channel": {"bindings": [{"alias": "trace_data", "parameter": "channel"}]}},
+        ),
+    )
 
     def configure_measurement(
         self, center_freq: float | None = None, span: float | None = None, rbw: float | None = None
     ) -> None:
         if center_freq is not None:
-            self._send_command(f"FREQ:CENT {center_freq}")  # Use SCPI_MAP later
+            self.send_scpi_alias("set_center_frequency", frequency=center_freq)
             self.config.frequency_center = center_freq  # Update config
         if span is not None:
-            self._send_command(f"FREQ:SPAN {span}")
+            self.send_scpi_alias("set_span", span=span)
             self.config.frequency_span = span  # Update config
         if rbw is not None:
-            self._send_command(f"BAND {rbw}")  # RBW command
+            self.send_scpi_alias("set_rbw", bandwidth=rbw)
             self.config.resolution_bandwidth = rbw  # Update config
         # Update self.config if these settings are part of it and should reflect runtime changes
         # Or rely on Pydantic models for initial config and these are runtime overrides
@@ -49,7 +56,7 @@ class SpectrumAnalyser(Instrument[SpectrumAnalyzerConfig]):
     def get_trace(
         self, channel: int = 1
     ) -> PlaceholderMeasurementResult:  # Use actual MeasurementResult later
-        raw_data = self._query(f"TRAC:DATA? TRACE{channel}")
+        raw_data = self.query_scpi_alias("trace_data", channel=channel)
         try:
             amplitudes = [float(part.strip()) for part in raw_data.split(",") if part.strip()]
         except ValueError as exc:

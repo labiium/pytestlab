@@ -7,6 +7,7 @@ from typing import Literal
 from pytestlab.config.instrument_config import InstrumentConfig
 from pytestlab.config.multimeter_config import MultimeterConfig
 from pytestlab.instruments.uncertainty_adapters import dmm_measurement_context
+from pytestlab.instruments.uncertainty_adapters import nominal_measurement_quantity
 from pytestlab.instruments.uncertainty_adapters import nonzero_uncertainty_quantity
 from pytestlab.uncertainty import Quantity
 
@@ -17,6 +18,7 @@ from ..errors import InstrumentCommunicationError
 from ..errors import InstrumentDataError
 from ..experiments.results import MeasurementResult
 from .instrument import Instrument
+from .operation_contract import OperationDescriptor
 
 logger = get_logger(__name__)
 
@@ -64,6 +66,18 @@ class Multimeter(Instrument[MultimeterConfig]):
     """
 
     config: MultimeterConfig
+
+    OPERATION_CONTRACT: tuple[OperationDescriptor, ...] = (
+        OperationDescriptor("identify", required_aliases=("identify",), safety_class="read"),
+        OperationDescriptor("read", required_aliases=("read",), safety_class="read"),
+        OperationDescriptor("measure", required_aliases=("measure",), safety_class="read"),
+        OperationDescriptor("configure", required_aliases=("configure",)),
+        OperationDescriptor("get_config", required_aliases=("get_config",), safety_class="read"),
+        OperationDescriptor("set_function", required_aliases=("set_function",)),
+        OperationDescriptor("set_range_auto", required_aliases=("set_range_auto",)),
+        OperationDescriptor("set_resolution", required_aliases=("set_resolution",)),
+        OperationDescriptor("set_trigger_source", required_aliases=("set_trigger_source",)),
+    )
 
     # The base class `__init__` is sufficient and will be used.
     # It correctly assigns self.config and self._backend.
@@ -386,7 +400,17 @@ class Multimeter(Instrument[MultimeterConfig]):
                 self.config.model, f"Could not parse measurement reading: '{response_str}'"
             ) from e
 
-        value_to_return: float | Quantity = reading
+        units_val, measurement_name_val = self._get_measurement_unit_and_type(function)
+        value_to_return: float | Quantity = nominal_measurement_quantity(
+            reading,
+            units_val,
+            function=str(getattr(function, "value", function)),
+            output_name=measurement_name_val,
+            reason=(
+                f"{self.config.model} {function!s} measurement has no applied uncertainty "
+                "metadata yet; result is nominal-only and non-report-grade."
+            ),
+        )
 
         # --- Uncertainty Calculation ---
         function_spec = self._get_function_spec(function)
@@ -396,6 +420,15 @@ class Multimeter(Instrument[MultimeterConfig]):
                 current_instrument_config = self.get_config()
                 actual_instrument_range = current_instrument_config.range_value
                 self._logger.debug(f"Actual instrument range: {actual_instrument_range}")
+                try:
+                    actual_instrument_range_numeric = float(actual_instrument_range)
+                except (TypeError, ValueError):
+                    actual_instrument_range_numeric = None
+                    self._logger.warning(
+                        "Instrument range %r is not numeric; uncertainty result will remain "
+                        "nominal-only until the range context is explicit.",
+                        actual_instrument_range,
+                    )
 
                 # Find the matching range specification
                 matching_range_spec = None
@@ -437,72 +470,57 @@ class Multimeter(Instrument[MultimeterConfig]):
 
                     self._logger.debug(f"Using range field: {range_field}")
 
-                    if range_field:
-                        try:
-                            # Filter out ranges with None values and provide defaults
-                            valid_ranges = []
-                            for r in function_spec.ranges:
-                                range_value = getattr(r, range_field, None)
-                                if range_value is not None:
-                                    valid_ranges.append((r, range_value))
-                                else:
-                                    self._logger.warning(
-                                        f"Range spec {r} has None value for {range_field}"
-                                    )
-
-                            if valid_ranges:
-                                # Sort by range value
-                                valid_ranges.sort(key=lambda x: x[1])
-                                sorted_ranges = [r for r, _ in valid_ranges]
-
-                                for r_spec in sorted_ranges:
-                                    rng_val = getattr(r_spec, range_field, None)
-                                    if rng_val is None:
-                                        continue
-                                    range_value = float(rng_val)
-                                    self._logger.debug(
-                                        f"Checking range spec: {range_value} >= {actual_instrument_range}"
-                                    )
-                                    if range_value >= actual_instrument_range:
-                                        matching_range_spec = r_spec
-                                        self._logger.debug(
-                                            f"Found matching range spec: {range_value}"
-                                        )
-                                        break
-
-                                # Fallback to the largest range if no suitable one is found
-                                if not matching_range_spec:
-                                    matching_range_spec = max(valid_ranges, key=lambda x: x[1])[0]
-                                    self._logger.debug(
-                                        f"Using fallback range spec: {getattr(matching_range_spec, range_field, 0)}"
-                                    )
-                            else:
+                    if range_field and actual_instrument_range_numeric is not None:
+                        valid_ranges = []
+                        for r in function_spec.ranges:
+                            raw_range_value = getattr(r, range_field, None)
+                            if raw_range_value is None:
                                 self._logger.warning(
-                                    f"No valid ranges found for field {range_field}"
+                                    f"Range spec {r} has None value for {range_field}"
+                                )
+                                continue
+                            try:
+                                valid_ranges.append((r, float(raw_range_value)))
+                            except (TypeError, ValueError):
+                                self._logger.warning(
+                                    "Range spec %r has non-numeric %s=%r; ignoring it for "
+                                    "uncertainty matching.",
+                                    r,
+                                    range_field,
+                                    raw_range_value,
                                 )
 
-                        except Exception as sort_error:
-                            self._logger.error(f"Error during range sorting: {sort_error}")
-                            # Fallback to first range if sorting fails
-                            if function_spec.ranges:
-                                matching_range_spec = function_spec.ranges[0]
-                                self._logger.debug("Using fallback to first range spec")
+                        valid_ranges.sort(key=lambda item: item[1])
+                        for r_spec, range_value in valid_ranges:
+                            self._logger.debug(
+                                f"Checking range spec: {range_value} >= {actual_instrument_range_numeric}"
+                            )
+                            if range_value >= actual_instrument_range_numeric:
+                                matching_range_spec = r_spec
+                                self._logger.debug(f"Found matching range spec: {range_value}")
+                                break
+                        if valid_ranges and matching_range_spec is None:
+                            self._logger.warning(
+                                "No configured %s range covers instrument range %r; result "
+                                "will remain nominal-only rather than reusing an unrelated range.",
+                                range_field,
+                                actual_instrument_range,
+                            )
+                        elif not valid_ranges:
+                            self._logger.warning(f"No valid ranges found for field {range_field}")
                 else:
                     self._logger.debug("No range specifications found")
 
                 if matching_range_spec:
                     accuracy_spec = matching_range_spec.accuracy
                     if accuracy_spec:
-                        units_val, measurement_name_val = self._get_measurement_unit_and_type(
-                            function
-                        )
                         context = dmm_measurement_context(
                             reading=reading,
                             unit=units_val,
                             function=function,
                             range_spec=matching_range_spec,
                             measurement_type=measurement_name_val,
-                            instrument_key=f"{self.config.model}:{id(self)}",
+                            instrument_key=self._uncertainty_source_key(),
                         )
                         if context is not None:
                             quantity = nonzero_uncertainty_quantity(
@@ -515,37 +533,75 @@ class Multimeter(Instrument[MultimeterConfig]):
                             if quantity is not None:
                                 value_to_return = quantity
                         else:
-                            if self.config.uncertainty_strict:
-                                raise ValueError(
-                                    "Could not determine range value for uncertainty calculation."
-                                )
+                            reason = (
+                                f"{self.config.model} {function!s}: could not determine range "
+                                "value for uncertainty calculation; add a range value/resolution "
+                                "to the profile or keep the result as non-report-grade."
+                            )
+                            value_to_return = nominal_measurement_quantity(
+                                reading,
+                                units_val,
+                                function=str(getattr(function, "value", function)),
+                                output_name=measurement_name_val,
+                                reason=reason,
+                            )
                             self._logger.warning(
-                                "Could not determine range value for uncertainty calculation. Returning float."
+                                "%s Returning nominal-only non-report-grade Quantity.", reason
                             )
                     else:
+                        reason = (
+                            f"{self.config.model} {function!s}: no applicable accuracy "
+                            f"specification found at range {actual_instrument_range}; add an "
+                            "accuracy entry to the matching range."
+                        )
+                        value_to_return = nominal_measurement_quantity(
+                            reading,
+                            units_val,
+                            function=str(getattr(function, "value", function)),
+                            output_name=measurement_name_val,
+                            reason=reason,
+                        )
                         self._logger.warning(
-                            f"No applicable accuracy specification found for function '{function}' at range {actual_instrument_range}. Returning float."
+                            "%s Returning nominal-only non-report-grade Quantity.", reason
                         )
                 else:
-                    if self.config.uncertainty_strict:
-                        raise ValueError(
-                            f"Could not find a matching range specification for function '{function}' "
-                            f"at range {actual_instrument_range}."
-                        )
+                    reason = (
+                        f"{self.config.model} {function!s}: could not find a matching range "
+                        f"specification at instrument range {actual_instrument_range}; add a "
+                        "range spec or keep the result as non-report-grade."
+                    )
+                    value_to_return = nominal_measurement_quantity(
+                        reading,
+                        units_val,
+                        function=str(getattr(function, "value", function)),
+                        output_name=measurement_name_val,
+                        reason=reason,
+                    )
                     self._logger.warning(
-                        f"Could not find a matching range specification for function '{function}' at range {actual_instrument_range}. Returning float."
+                        "%s Returning nominal-only non-report-grade Quantity.", reason
                     )
 
             except Exception as e:
                 if self.config.uncertainty_strict:
                     raise
-                self._logger.error(f"Error during uncertainty calculation: {e}. Returning float.")
+                reason = (
+                    f"{self.config.model} {function!s}: uncertainty calculation failed: {e}; "
+                    "result is nominal-only and non-report-grade."
+                )
+                value_to_return = nominal_measurement_quantity(
+                    reading,
+                    units_val,
+                    function=str(getattr(function, "value", function)),
+                    output_name=measurement_name_val,
+                    reason=reason,
+                )
+                self._logger.error("%s", reason)
         else:
             self._logger.debug(
-                f"No measurement function specification in config for '{function}'. Returning float."
+                "No measurement function specification in config for %r; returning nominal-only "
+                "non-report-grade Quantity.",
+                function,
             )
-
-        units_val, measurement_name_val = self._get_measurement_unit_and_type(function)
 
         return MeasurementResult(
             values=value_to_return,

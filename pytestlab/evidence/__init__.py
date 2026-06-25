@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import platform
+import tomllib
 from dataclasses import dataclass
 from datetime import UTC
 from datetime import datetime
@@ -126,6 +127,7 @@ def build_manifest(*, section: str = "all") -> dict[str, Any]:
         "environment": _environment_payload(),
         "repository": _repository_payload(),
         "schema_hashes": verify_cached_schema_files(),
+        "release_hygiene": build_release_hygiene_payload(),
         "source_artifacts": _source_artifacts_payload(),
         "conformance": build_jcgm_conformance_rows(),
         "digital_exports": build_digital_export_evidence(),
@@ -149,11 +151,22 @@ def build_manifest(*, section: str = "all") -> dict[str, Any]:
 def build_digital_export_evidence() -> dict[str, Any]:
     """Build a compact DCC/D-SI validation sample for waveform reductions."""
 
+    from pytestlab.uncertainty import DataOrigin
+    from pytestlab.uncertainty import EvidencePurpose
     from pytestlab.uncertainty import QuantityArray
+    from pytestlab.uncertainty import ResultProvenance
     from pytestlab.uncertainty import validate_dcc_profile_xml
     from pytestlab.uncertainty import waveform_reductions_to_digital_exports
 
     waveform = QuantityArray.from_samples([0.0, 0.5, -0.5, 0.25], unit="V", independent_std=0.01)
+    waveform.provenance = ResultProvenance.current(
+        input_data=waveform.nominal.tobytes(),
+        data_origin=DataOrigin.SYNTHETIC_KNOWN_TRUTH,
+        evidence_purpose=EvidencePurpose.SOFTWARE_VALIDATION,
+        origin_detail="deterministic evidence-generation sample",
+        validation_report_id="pytestlab_evidence_digital_export_sample",
+        provenance_complete=False,
+    )
     reductions = {
         "mean": waveform.mean(),
         "rms": waveform.rms(),
@@ -175,6 +188,8 @@ def build_digital_export_evidence() -> dict[str, Any]:
                 "dsi_schema_version": item["dsi"]["dsi_schema_version"],
                 "dcc_xml_sha256": hashlib.sha256(str(item["dcc_xml"]).encode()).hexdigest(),
                 "method": item["measurement_model_method"],
+                "data_origin": item["data_origin"],
+                "evidence_purpose": item["evidence_purpose"],
                 "status": "pass",
             }
         )
@@ -183,6 +198,45 @@ def build_digital_export_evidence() -> dict[str, Any]:
         "unsigned_dcc_subset": True,
         "non_claim": exports["non_claim"],
         "rows": rows,
+    }
+
+
+def build_release_hygiene_payload() -> dict[str, Any]:
+    """Build version and report-grade gate metadata for release evidence."""
+
+    from pytestlab import __version__
+
+    pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+    commitizen_version = str(pyproject.get("tool", {}).get("commitizen", {}).get("version", ""))
+    runtime_version = str(__version__)
+    version_consistent = bool(runtime_version and runtime_version == commitizen_version)
+    gate_policy = {
+        "measured_report_grade_requires": [
+            "data_origin=measured",
+            "evidence_purpose in {measurement_result, calibration_support}",
+            "provenance_complete=true",
+            "measurement_model present",
+            "degrees-of-freedom method resolved",
+            "D-SI-resolvable unit",
+            "uncertainty inputs have SI-supporting traceability",
+        ],
+        "non_measured_exports": (
+            "Non-measured, replayed, simulated, twin, or unknown-origin evidence must be "
+            "machine-labeled and requires allow_non_measured=True for local XML export."
+        ),
+        "dcc_boundary": (
+            "PyTestLab may emit unsigned local evidence XML but does not issue signed DCCs "
+            "or accreditation certificates."
+        ),
+    }
+    return {
+        "schema": "pytestlab.release_hygiene.v1",
+        "status": "pass" if version_consistent else "fail",
+        "runtime_version": runtime_version,
+        "commitizen_version": commitizen_version,
+        "version_consistent": version_consistent,
+        "dynamic_project_version": pyproject.get("project", {}).get("dynamic", []),
+        "report_grade_gate_policy": gate_policy,
     }
 
 
@@ -462,6 +516,16 @@ def render_markdown_report(manifest: dict[str, Any]) -> str:
     ]
     for key, value in sorted(manifest["repository"].items()):
         lines.append(f"- {key}: `{value}`")
+    hygiene = manifest.get("release_hygiene", {})
+    lines.extend(["", "## Release Hygiene", ""])
+    lines.append(f"- status: `{hygiene.get('status', 'unknown')}`")
+    lines.append(f"- runtime_version: `{hygiene.get('runtime_version', 'unknown')}`")
+    lines.append(f"- commitizen_version: `{hygiene.get('commitizen_version', 'unknown')}`")
+    gate_policy = hygiene.get("report_grade_gate_policy", {})
+    for requirement in gate_policy.get("measured_report_grade_requires", []):
+        lines.append(f"- report-grade gate: {requirement}")
+    if gate_policy.get("non_measured_exports"):
+        lines.append(f"- non-measured export gate: {gate_policy['non_measured_exports']}")
     lines.extend(["", "## Schema Hashes", ""])
     for key, value in sorted(manifest["schema_hashes"].items()):
         lines.append(f"- {key}: `{value}`")
