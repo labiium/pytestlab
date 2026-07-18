@@ -84,6 +84,13 @@ class ExtractedInstrument:
     has_custom_logic: bool = False
 
 
+@dataclass
+class BatchFailure:
+    file: str
+    error_type: str
+    message: str
+
+
 # ---------------------------------------------------------------------------
 #  Validator mapping: PyMeasure → PyTestLab YAML
 # ---------------------------------------------------------------------------
@@ -499,15 +506,24 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--out-py", type=Path, default=None, help="Output Python stub path")
     p.add_argument("--batch-out-dir", type=Path, default=None, help="Batch output directory")
     p.add_argument(
+        "--best-effort",
+        action="store_true",
+        help="In batch mode, report failed files but exit zero after processing valid drivers",
+    )
+    p.add_argument(
         "--json-summary", type=Path, default=None, help="Write JSON summary of extraction"
     )
     return p.parse_args()
 
 
-def _process_single(source_file: Path, out_yaml: Path | None, out_py: Path | None) -> None:
+def _extract_file(source_file: Path) -> ExtractedInstrument:
     source = source_file.read_text()
     extractor = _Extractor()
-    extracted = extractor.extract(source, source_file)
+    return extractor.extract(source, source_file)
+
+
+def _process_single(source_file: Path, out_yaml: Path | None, out_py: Path | None) -> None:
+    extracted = _extract_file(source_file)
 
     print(f"Class: {extracted.class_name}")
     print(f"Properties: {extracted.raw_properties}")
@@ -523,9 +539,45 @@ def _process_single(source_file: Path, out_yaml: Path | None, out_py: Path | Non
         print(f"Wrote Python stub → {out_py}")
 
 
-def _batch_process(source_dir: Path, out_dir: Path, json_summary: Path | None) -> None:
+def _batch_file_summary(
+    source_dir: Path,
+    out_dir: Path,
+    src: Path,
+) -> dict[str, Any] | None:
+    extracted = _extract_file(src)
+    if extracted.raw_properties == 0:
+        return None
+
+    rel = src.relative_to(source_dir)
+    yaml_path = out_dir / rel.with_suffix(".yaml")
+    py_path = out_dir / rel.with_suffix(".py")
+
+    generate_yaml(extracted, yaml_path)
+    generate_python_stub(extracted, py_path)
+
+    return {
+        "file": rel.as_posix(),
+        "class": extracted.class_name,
+        "manufacturer": extracted.manufacturer,
+        "model": extracted.model,
+        "device_type": extracted.device_type,
+        "properties": extracted.raw_properties,
+        "custom_methods": len(extracted.custom_methods),
+        "channels": len(extracted.channels),
+        "has_custom_logic": extracted.has_custom_logic,
+    }
+
+
+def _batch_process(
+    source_dir: Path,
+    out_dir: Path,
+    json_summary: Path | None,
+    *,
+    best_effort: bool = False,
+) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     all_results: list[dict[str, Any]] = []
+    failures: list[BatchFailure] = []
 
     py_files = sorted(source_dir.rglob("*.py"))
     # Exclude base infrastructure files
@@ -544,46 +596,35 @@ def _batch_process(source_dir: Path, out_dir: Path, json_summary: Path | None) -
 
     processed = 0
     for src in py_files:
+        rel = src.relative_to(source_dir).as_posix()
         try:
-            source = src.read_text()
-            extractor = _Extractor()
-            extracted = extractor.extract(source, src)
-            if extracted.raw_properties == 0:
-                continue  # skip files with no extractable properties
-
-            rel = src.relative_to(source_dir)
-            yaml_path = out_dir / rel.with_suffix(".yaml")
-            py_path = out_dir / rel.with_suffix(".py")
-
-            generate_yaml(extracted, yaml_path)
-            generate_python_stub(extracted, py_path)
-
-            all_results.append(
-                {
-                    "file": str(rel),
-                    "class": extracted.class_name,
-                    "manufacturer": extracted.manufacturer,
-                    "model": extracted.model,
-                    "device_type": extracted.device_type,
-                    "properties": extracted.raw_properties,
-                    "custom_methods": len(extracted.custom_methods),
-                    "channels": len(extracted.channels),
-                    "has_custom_logic": extracted.has_custom_logic,
-                }
-            )
+            summary = _batch_file_summary(source_dir, out_dir, src)
+            if summary is None:
+                continue
+            all_results.append(summary)
             processed += 1
-            print(f"  ✓ {rel} ({extracted.raw_properties} properties)")
-        except SyntaxError as e:
-            print(f"  ✗ {rel} — SyntaxError: {e}")
+            print(f"  ✓ {rel} ({summary['properties']} properties)")
         except Exception as e:
-            print(f"  ✗ {rel} — {type(e).__name__}: {e}")
+            failures.append(BatchFailure(rel, type(e).__name__, str(e)))
+            print(f"  ✗ {rel} — {type(e).__name__}: {e}", file=sys.stderr)
 
     print(f"\nProcessed {processed}/{len(py_files)} drivers.")
+    if failures:
+        print(f"{len(failures)} failed:", file=sys.stderr)
+        for failure in failures:
+            print(
+                f"  ✗ {failure.file} — {failure.error_type}: {failure.message}",
+                file=sys.stderr,
+            )
+    if failures and best_effort:
+        print("Best-effort mode completed with failures.", file=sys.stderr)
     print(f"Output written to: {out_dir}")
 
     if json_summary:
         json_summary.write_text(json.dumps(all_results, indent=2))
         print(f"Summary written to: {json_summary}")
+
+    return 0 if best_effort or not failures else 1
 
 
 def main() -> None:
@@ -594,7 +635,14 @@ def main() -> None:
         if not args.batch_out_dir:
             print("ERROR: --batch-out-dir is required when source is a directory.", file=sys.stderr)
             sys.exit(1)
-        _batch_process(args.source, args.batch_out_dir, args.json_summary)
+        sys.exit(
+            _batch_process(
+                args.source,
+                args.batch_out_dir,
+                args.json_summary,
+                best_effort=args.best_effort,
+            )
+        )
     else:
         print(f"ERROR: Source path does not exist: {args.source}", file=sys.stderr)
         sys.exit(1)

@@ -271,6 +271,7 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
         # dispatcher
         self._exact_map: dict[str, Any] = {}
         self._pattern_rules: list[_PatternRule] = []
+        self._declared_write_noops: set[str] = set()
         self._build_dispatch_tables()
         logger.info("SimBackend initialised for %s", self.model)
 
@@ -359,7 +360,7 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
             elif ("*" in raw) or any(ch in raw for ch in ".[](){}+|^$?"):
                 # treat as regex; escape SCPI special chars except *
                 patt = raw
-                if "*" in raw and "(" not in raw:
+                if "*" in raw and "(" not in raw and not any(ch in raw for ch in ".[]{}+|^$?"):
                     # convert simple glob to regex group capture
                     patt = re.escape(raw).replace("\\*", "(.*)")
                 else:
@@ -379,26 +380,55 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
         # sort patterns longest-specific first to favour deterministic match
         self._pattern_rules.sort(key=lambda r: r.pattern.pattern.count("*"), reverse=True)
 
+        self._collect_declared_write_noops()
+
         # errors
         self._error_specs: list[dict[str, Any]] = sim.get("errors", [])
 
+    def _collect_declared_write_noops(self) -> None:
+        declared = self._profile.get("scpi", {}).get("commands", {})
+        if not isinstance(declared, dict):
+            return
+        for spec in declared.values():
+            if not isinstance(spec, dict):
+                continue
+            templates = spec.get("sequence") or [spec.get("template")]
+            for template in templates:
+                if not isinstance(template, str) or "{" in template or "}" in template:
+                    continue
+                literal = template.strip().upper()
+                if not literal or "?" in literal or literal.startswith("*"):
+                    continue
+                self._declared_write_noops.add(literal)
+
     # ................ command execution ............... #
+
+    @staticmethod
+    def _command_variants(cmd: str) -> tuple[str, ...]:
+        if cmd.startswith(":"):
+            return (cmd, cmd[1:])
+        return (cmd, f":{cmd}")
 
     def _handle_command(self, cmd: str, *, expect_response: bool = False) -> str:
         cmd = cmd.strip()
-        upper = cmd.upper()
+        variants = self._command_variants(cmd)
+        upper_variants = tuple(variant.upper() for variant in variants)
 
         # 1. Exact match in user-defined SCPI map (highest priority)
-        if upper in self._exact_map:
-            result = self._execute_entry(self._exact_map[upper], cmd, ())
-            return str(result)
+        for upper in upper_variants:
+            if upper in self._exact_map:
+                result = self._execute_entry(self._exact_map[upper], cmd, ())
+                return str(result)
 
         # 2. Pattern-based rules
         for rule in self._pattern_rules:
-            m = rule.pattern.fullmatch(cmd)
-            if m:
-                result = self._execute_entry(rule.template, cmd, m.groups())
-                return str(result)
+            for variant in variants:
+                m = rule.pattern.fullmatch(variant)
+                if m:
+                    result = self._execute_entry(rule.template, variant, m.groups())
+                    return str(result)
+
+        upper = upper_variants[0]
 
         # 3. Built-in commands (fallback)
         if (
@@ -411,15 +441,25 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
         if upper == "*CLS":
             self._clear_errors()
             return ""
+        if upper == "*OPC?":
+            return "1"
         if upper == "*IDN?":
             # Check if IDN is defined in the profile's exact map first for overrides
             if "*IDN?" in self._exact_map:
                 result = self._execute_entry(self._exact_map["*IDN?"], cmd, ())
                 return str(result)
-            return self._profile.get("identification", f"Simulated,PyTestLab,{self.model}-SIM,1.0")
+            return self._profile.get(
+                "identification",
+                f"Simulated,PyTestLab,{self.model}-SIM,1.0",
+            )
+
+        if not expect_response:
+            for upper in upper_variants:
+                if upper in self._declared_write_noops:
+                    return ""
 
         # 4. No match found, push an error
-        # self._push_error(-113, "Undefined header")
+        self._push_error(-113, "Undefined header")
         if expect_response:
             return ""
         return ""
@@ -429,19 +469,26 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
         Handle a SCPI command and return raw bytes, preserving any binary data.
         """
         cmd = cmd.strip()
-        upper = cmd.upper()
+        variants = self._command_variants(cmd)
+        upper_variants = tuple(variant.upper() for variant in variants)
 
         # 1. Exact match
-        if upper in self._exact_map:
-            resp = self._execute_entry(self._exact_map[upper], cmd, (), raw=True)
-            return resp if isinstance(resp, bytes | bytearray) else str(resp).encode("utf-8")
+        for upper in upper_variants:
+            if upper in self._exact_map:
+                resp = self._execute_entry(self._exact_map[upper], cmd, (), raw=True)
+                return resp if isinstance(resp, bytes | bytearray) else str(resp).encode("utf-8")
 
         # 2. Pattern-based rules
         for rule in self._pattern_rules:
-            m = rule.pattern.fullmatch(cmd)
-            if m:
-                resp = self._execute_entry(rule.template, cmd, m.groups(), raw=True)
-                return resp if isinstance(resp, bytes | bytearray) else str(resp).encode("utf-8")
+            for variant in variants:
+                m = rule.pattern.fullmatch(variant)
+                if m:
+                    resp = self._execute_entry(rule.template, variant, m.groups(), raw=True)
+                    return (
+                        resp if isinstance(resp, bytes | bytearray) else str(resp).encode("utf-8")
+                    )
+
+        upper = upper_variants[0]
 
         # 3. Built-in commands (fallback)
         if (
@@ -454,6 +501,8 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
         if upper == "*CLS":
             self._clear_errors()
             return b""
+        if upper == "*OPC?":
+            return b"1"
         if upper == "*IDN?":
             # Check override first
             if "*IDN?" in self._exact_map:
@@ -464,6 +513,7 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
             ).encode("utf-8")
 
         # 4. No match
+        self._push_error(-113, "Undefined header")
         return b""
 
     # ................ execute a mapping/string ........ #
@@ -531,7 +581,7 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
                 if value is not None:
                     response = str(value)
                 else:
-                    response = ""
+                    raise SCPIError(f"state mapping {substituted_key!r} is undefined")
             elif "response" in entry:
                 response = self._substitute(entry["response"], groups)
             elif "binary" in entry:
@@ -591,7 +641,7 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
             response_bytes = bytes(response)
             try:
                 response = response_bytes.decode()
-            except Exception:
+            except UnicodeDecodeError:
                 response = response_bytes.decode("utf-8", errors="ignore")
         return response
 

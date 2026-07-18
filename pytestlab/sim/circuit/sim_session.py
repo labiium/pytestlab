@@ -51,7 +51,7 @@ def _node_str(value: str | NodeRef) -> str:
     return str(value)
 
 
-class PortKind(str, Enum):
+class PortKind(str, Enum):  # noqa: UP042 - keep str(Enum) semantics for compatibility.
     SIGNAL = "signal"
     PROBE = "probe"
     SUPPLY = "supply"
@@ -521,7 +521,7 @@ class SimPSU:
             settings=self.session.kernel_settings,
             params=_model_params(self.session),
         )
-        return _mean_voltage(result, hi, lo)
+        return _mean_voltage(self.session, result, hi, lo, AnalysisKind.OP)
 
     def read_current(self, channel: int = 1) -> float:
         key = f"{self.instrument_id}.{_channel_name(channel)}"
@@ -540,19 +540,13 @@ class SimPSU:
             settings=self.session.kernel_settings,
             params=_model_params(self.session),
         )
-        current = result.source_currents.get(key)
-        if current is None:
-            raise_missing_vector(
-                self.session.kernel,
-                analysis=AnalysisKind.OP.value,
-                reason=UnsupportedReason.SOURCE_CURRENT_UNSUPPORTED,
-                vector=key,
-            )
-            return float(
-                self.session.psus[self.instrument_id]
-                .measure(channel=_channel_name(channel))
-                .values["current"]
-            )
+        current = _required_vector(
+            self.session,
+            result.source_currents,
+            vector=key,
+            analysis=AnalysisKind.OP,
+            reason=UnsupportedReason.SOURCE_CURRENT_UNSUPPORTED,
+        )
         return float(-np.mean(current))
 
     def on(self, channel: int = 1) -> SimPSU:
@@ -638,7 +632,13 @@ class SimScope:
             settings=self.session.kernel_settings,
             params=_model_params(self.session),
         )
-        wave = _voltage_waveform(result, self.port.hi_node, self.port.lo_node)
+        wave = _voltage_waveform(
+            self.session,
+            result,
+            self.port.hi_node,
+            self.port.lo_node,
+            AnalysisKind.TRANSIENT,
+        )
         acquired = scope.acquire(wave)
         return WaveformResult(
             time_s=np.asarray(acquired.values["t"], dtype=float),
@@ -816,7 +816,7 @@ class SimDMM:
             settings=self.session.kernel_settings,
             params=_model_params(self.session),
         )
-        value = _mean_voltage(result, hi, lo)
+        value = _mean_voltage(self.session, result, hi, lo, AnalysisKind.OP)
         return float(self.session.dmms[self.instrument_id].measure(value).values)
 
     def read_ac_voltage(self) -> float:
@@ -846,7 +846,13 @@ class SimDMM:
             settings=self.session.kernel_settings,
             params=_model_params(self.session),
         )
-        wave = _voltage_waveform(result, hi, lo)
+        wave = _voltage_waveform(
+            self.session,
+            result,
+            hi,
+            lo,
+            AnalysisKind.TRANSIENT,
+        )
         return float(twin.measure(wave, sample_rate=sample_rate).values)
 
     def read_dc_current(self) -> float:
@@ -874,17 +880,14 @@ class SimDMM:
             currents=[key],
             params=_model_params(self.session),
         )
-        current = result.element_currents.get(key)
-        if current is None:
-            raise_missing_vector(
-                self.session.kernel,
-                analysis=AnalysisKind.OP.value,
-                reason=UnsupportedReason.ELEMENT_CURRENT_UNSUPPORTED,
-                vector=key,
-            )
-            value = 0.0
-        else:
-            value = float(np.mean(current))
+        current = _required_vector(
+            self.session,
+            result.element_currents,
+            vector=key,
+            analysis=AnalysisKind.OP,
+            reason=UnsupportedReason.ELEMENT_CURRENT_UNSUPPORTED,
+        )
+        value = float(np.mean(current))
         return float(self.session.dmms[self.instrument_id].measure(value).values)
 
     def read(self) -> float:
@@ -935,10 +938,13 @@ class SimProbe:
             settings=self.session.kernel_settings,
             params=_model_params(self.session),
         )
-        value = result.node_voltages[self.port.hi_node]
-        if self.port.lo_node in result.node_voltages:
-            value = value - result.node_voltages[self.port.lo_node]
-        return float(np.mean(value))
+        return _mean_voltage(
+            self.session,
+            result,
+            self.port.hi_node,
+            self.port.lo_node,
+            AnalysisKind.OP,
+        )
 
     def waveform(self, duration: float, sample_rate: float) -> WaveformResult:
         record_length = _record_length(duration, sample_rate)
@@ -952,7 +958,13 @@ class SimProbe:
         )
         return WaveformResult(
             time_s=result.time_s,
-            voltage=_voltage_waveform(result, self.port.hi_node, self.port.lo_node),
+            voltage=_voltage_waveform(
+                self.session,
+                result,
+                self.port.hi_node,
+                self.port.lo_node,
+                AnalysisKind.TRANSIENT,
+            ),
             sample_rate=sample_rate,
             instrument="probe",
             metadata=dict(result.metadata),
@@ -1018,12 +1030,62 @@ def _mapped_terminal_pair(
     return hi, lo
 
 
-def _voltage_waveform(result: SpiceResult, hi: str, lo: str | None) -> np.ndarray:
-    wave = np.asarray(result.node_voltages[hi], dtype=float)
-    if lo in result.node_voltages:
-        wave = wave - np.asarray(result.node_voltages[lo], dtype=float)
-    return np.asarray(wave, dtype=float)
+def _voltage_waveform(
+    session: Session,
+    result: SpiceResult,
+    hi: str,
+    lo: str | None,
+    analysis: AnalysisKind,
+) -> np.ndarray:
+    wave = _required_vector(
+        session,
+        result.node_voltages,
+        vector=hi,
+        analysis=analysis,
+        reason=UnsupportedReason.OUTPUT_VECTOR_UNPROVEN,
+    )
+    if lo and not _is_ground_node(session, lo):
+        wave = wave - _required_vector(
+            session,
+            result.node_voltages,
+            vector=lo,
+            analysis=analysis,
+            reason=UnsupportedReason.OUTPUT_VECTOR_UNPROVEN,
+        )
+    return wave
 
 
-def _mean_voltage(result: SpiceResult, hi: str, lo: str | None) -> float:
-    return float(np.mean(_voltage_waveform(result, hi, lo)))
+def _mean_voltage(
+    session: Session,
+    result: SpiceResult,
+    hi: str,
+    lo: str | None,
+    analysis: AnalysisKind,
+) -> float:
+    return float(np.mean(_voltage_waveform(session, result, hi, lo, analysis)))
+
+
+def _required_vector(
+    session: Session,
+    vectors: dict[str, np.ndarray],
+    *,
+    vector: str,
+    analysis: AnalysisKind,
+    reason: UnsupportedReason,
+) -> np.ndarray:
+    raw = vectors.get(vector)
+    values = np.asarray(raw, dtype=float) if raw is not None else np.asarray([])
+    if values.size == 0:
+        raise_missing_vector(
+            session.kernel,
+            analysis=analysis.value,
+            reason=reason,
+            vector=vector,
+        )
+    return values
+
+
+def _is_ground_node(session: Session, node: str) -> bool:
+    canonical = str(node).strip().lower()
+    ground = str(session.wiring.ground_node).strip().lower()
+    return canonical in {"0", ground}

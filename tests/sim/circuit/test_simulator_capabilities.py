@@ -17,6 +17,7 @@ from pytestlab.sim.circuit.bench import DMM
 from pytestlab.sim.circuit.bench import PSU
 from pytestlab.sim.circuit.bench import BenchConfig
 from pytestlab.sim.circuit.bench import PSUChannel
+from pytestlab.sim.circuit.bench import Scope
 from pytestlab.sim.circuit.factories import circuit_from_netlist
 from pytestlab.sim.circuit.simulators import SimulatorCapabilities
 from pytestlab.sim.circuit.spice import SpiceResult
@@ -82,6 +83,44 @@ class NoCurrentKernel(CurrentCapableNoVectorKernel):
         )
 
 
+class NoCapabilityMetadataKernel:
+    def __init__(self) -> None:
+        self.op_calls = 0
+
+    def op(self, session, nodes, *, settings=None, currents=None, params=None):
+        self.op_calls += 1
+        node_voltages = {node: np.asarray([1.0]) for node in nodes}
+        return SpiceResult("op", np.asarray([0.0]), "op", node_voltages, {}, ())
+
+
+class ScopeTransientKernel:
+    def __init__(self, node_voltages: dict[str, np.ndarray]) -> None:
+        self.node_voltages = node_voltages
+
+    def capabilities(self) -> SimulatorCapabilities:
+        return SimulatorCapabilities(
+            backend="scope_fake",
+            transient=True,
+            node_voltages=True,
+            raw_netlists=True,
+            settings=True,
+        )
+
+    def transient(
+        self,
+        session,
+        nodes,
+        *,
+        sample_rate,
+        record_length,
+        settings=None,
+        currents=None,
+        params=None,
+    ):
+        scale = np.arange(int(record_length), dtype=float) / float(sample_rate)
+        return SpiceResult("tran", scale, "s", dict(self.node_voltages), {}, ())
+
+
 def _circuit(tmp_path):
     path = tmp_path / "current.cir"
     path.write_text("Current test\nRLOAD vload 0 10\n.end\n")
@@ -132,6 +171,11 @@ def _session_with_voltage_dmm(tmp_path) -> Session:
             Connection(from_="dmm1.V.LO", to="0"),
         ]
     )
+    return Session(circuit=_circuit(tmp_path), bench=bench, wiring=wiring)
+
+
+def _session_with_scope(tmp_path, wiring: WiringConfig) -> Session:
+    bench = BenchConfig(bench_id="scope", instruments={"scope1": Scope(channels=1)})
     return Session(circuit=_circuit(tmp_path), bench=bench, wiring=wiring)
 
 
@@ -345,6 +389,84 @@ def test_capability_aware_missing_vectors_are_contract_failures(tmp_path) -> Non
     assert UnsupportedReason.ELEMENT_CURRENT_UNSUPPORTED in dmm_exc.value.reasons
     assert "dmm1.I" in dmm_exc.value.details[0]
     assert dmm_fake.op_calls == 1
+
+
+def test_missing_capability_metadata_does_not_fallback_to_twin_current(tmp_path) -> None:
+    session = _session_with_psu(tmp_path)
+    fake = NoCapabilityMetadataKernel()
+    session.kernel = fake
+    sim = _sim_with_session(
+        tmp_path,
+        session,
+        "vdd",
+        "psu1",
+        Port.supply("vload", "0"),
+    )
+
+    with pytest.raises(UnsupportedCapability) as excinfo:
+        sim.psu("vdd").read_current()
+
+    assert excinfo.value.backend == "unknown"
+    assert UnsupportedReason.SOURCE_CURRENT_UNSUPPORTED in excinfo.value.reasons
+    assert "psu1.CH1" in excinfo.value.details[0]
+    assert fake.op_calls == 1
+
+
+def test_scope_zero_vector_capture_is_not_treated_as_missing_data(tmp_path) -> None:
+    session = _session_with_scope(
+        tmp_path,
+        WiringConfig(
+            connections=[
+                Connection(from_="scope1.CH1.HI", to="vload"),
+                Connection(from_="scope1.CH1.LO", to="0"),
+            ]
+        ),
+    )
+    session.kernel = ScopeTransientKernel({"vload": np.zeros(8), "0": np.zeros(8)})
+    backend = SimbenchScpiBackend(session=session, instrument_id="scope1")
+
+    backend.write("RUN")
+    backend.write("WAV:POIN 8")
+    backend.write("DIGITIZE CHANnel1")
+
+    assert backend.query("SYST:ERR?") == '+0,"No error"'
+    assert backend.query_raw("WAV:DATA?").startswith(b"#")
+
+
+def test_scope_capture_rejects_missing_channel_mapping(tmp_path) -> None:
+    session = _session_with_scope(
+        tmp_path,
+        WiringConfig(connections=[Connection(from_="scope1.CH1.LO", to="0")]),
+    )
+    session.kernel = ScopeTransientKernel({})
+    backend = SimbenchScpiBackend(session=session, instrument_id="scope1")
+
+    backend.write("RUN")
+    with pytest.raises(ValueError, match="scope1.CH1.HI is not wired"):
+        backend.write("DIGITIZE CHANnel1")
+
+
+def test_scope_capture_rejects_missing_transient_vector(tmp_path) -> None:
+    session = _session_with_scope(
+        tmp_path,
+        WiringConfig(
+            connections=[
+                Connection(from_="scope1.CH1.HI", to="vload"),
+                Connection(from_="scope1.CH1.LO", to="0"),
+            ]
+        ),
+    )
+    session.kernel = ScopeTransientKernel({"0": np.zeros(8)})
+    backend = SimbenchScpiBackend(session=session, instrument_id="scope1")
+
+    backend.write("RUN")
+    backend.write("WAV:POIN 8")
+    with pytest.raises(UnsupportedCapability) as excinfo:
+        backend.write("DIGITIZE CHANnel1")
+
+    assert excinfo.value.backend == "scope_fake"
+    assert UnsupportedReason.OUTPUT_VECTOR_UNPROVEN in excinfo.value.reasons
+    assert "vload" in excinfo.value.details[0]
 
 
 def test_eespice_structured_source_spacing() -> None:

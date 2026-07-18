@@ -120,14 +120,17 @@ class Session:
         """Return the authoritative netlist node set, or ``None`` if unavailable.
 
         Used to validate wiring and probe node names against real circuit nodes.
-        Extraction failures degrade gracefully to ``None`` (validation skipped)
-        rather than breaking session construction.
+        A missing netlist keeps validation unavailable for compatibility, but
+        parser/extraction failures must fail loudly so validation is not
+        silently disabled.
         """
+        entry = self.circuit.root / self.circuit.manifest.entry_netlist
         try:
-            entry = self.circuit.root / self.circuit.manifest.entry_netlist
             return extract_nodes(entry.read_text(), base_dir=entry.parent)
-        except Exception:
+        except FileNotFoundError:
             return None
+        except (OSError, UnicodeError, ValueError) as exc:
+            raise ValueError(f"failed to extract nodes from {entry}: {exc}") from exc
 
     def validate_nodes(self, *names: str) -> None:
         """Raise :class:`UnknownNode` if any name is not a real netlist node.

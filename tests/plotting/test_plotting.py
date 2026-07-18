@@ -1,9 +1,12 @@
-import polars as pl
-import pytest
+import matplotlib
 
-matplotlib = pytest.importorskip("matplotlib")
 matplotlib.use("Agg", force=True)
-plt = pytest.importorskip("matplotlib.pyplot")
+import matplotlib.pyplot as plt
+import polars as pl
+
+
+def teardown_function():
+    plt.close("all")
 
 
 def test_plot_dataframe_basic():

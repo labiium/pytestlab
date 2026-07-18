@@ -10,6 +10,7 @@ from typing import cast
 
 from pydantic import BaseModel
 
+from .._log import get_logger
 from ..config.device_config import DeviceConfig
 from ..errors import InstrumentConfigurationError
 from .base import Device
@@ -39,6 +40,8 @@ _config_model_specs: dict[str, tuple[str, str]] = {}
 _backends: dict[str, BackendFactory] = {}
 _entry_points_loaded = False
 _builtins_registered = False
+_entry_point_diagnostics: list[dict[str, str]] = []
+_LOG = get_logger("devices.registry")
 
 
 def load_import_path(path: str) -> Any:
@@ -61,6 +64,33 @@ def _load_spec(spec: tuple[str, str]) -> Any:
     module_name, attr_name = spec
     module = import_module(module_name)
     return getattr(module, attr_name)
+
+
+def clear_entry_point_diagnostics() -> None:
+    _entry_point_diagnostics.clear()
+
+
+def get_entry_point_diagnostics() -> list[dict[str, str]]:
+    return [dict(item) for item in _entry_point_diagnostics]
+
+
+def _record_entry_point_failure(group: str, kind: str, name: str, exc: Exception) -> None:
+    diagnostic = {
+        "group": group,
+        "kind": kind,
+        "name": name,
+        "error_type": type(exc).__name__,
+        "message": str(exc),
+    }
+    _entry_point_diagnostics.append(diagnostic)
+    _LOG.warning(
+        "Failed to load %s entry point %r from %s: %s: %s",
+        kind,
+        name,
+        group,
+        diagnostic["error_type"],
+        diagnostic["message"],
+    )
 
 
 def register_device_type(
@@ -180,7 +210,8 @@ def load_entry_points() -> None:
             else:
                 legacy_entry_points = cast(Any, discovered)
                 entry_points = legacy_entry_points.get(group, [])
-        except Exception:
+        except Exception as exc:
+            _record_entry_point_failure(group, kind, f"{group} discovery", exc)
             continue
         for ep in entry_points:
             try:
@@ -191,7 +222,8 @@ def load_entry_points() -> None:
                     register_config_model(ep.name, loaded, replace=True)
                 else:
                     register_backend(ep.name, loaded, replace=True)
-            except Exception:
+            except Exception as exc:
+                _record_entry_point_failure(group, kind, ep.name, exc)
                 continue
 
 

@@ -391,42 +391,37 @@ def test_psu_dmm_integration(bench_config_file):
 
     with Bench.open(bench_config_file) as bench:
         # Only run this test if both PSU and DMM are available and not simulated
-        try:
-            psu_id = bench.psu.id()
-            dmm_id = bench.dmm.id()
+        psu_id = bench.psu.id()
+        dmm_id = bench.dmm.id()
 
-            if "SIM" in psu_id or "SIM" in dmm_id:
-                pytest.skip("Skipping PSU-DMM integration test in simulation mode")
+        if "SIM" in psu_id or "SIM" in dmm_id:
+            pytest.skip("Skipping PSU-DMM integration test in simulation mode")
 
-            # Configure DMM for voltage measurement
-            bench.dmm.set_measurement_function(DMMFunction.VOLTAGE_DC)
+        # Configure DMM for voltage measurement
+        bench.dmm.set_measurement_function(DMMFunction.VOLTAGE_DC)
 
-            # Set PSU to 3.3V and enable output
-            bench.psu.set_voltage(1, 3.3)
-            bench.psu.set_current(1, 0.1)
-            bench.psu.output(1, True)
+        # Set PSU to 3.3V and enable output
+        bench.psu.set_voltage(1, 3.3)
+        bench.psu.set_current(1, 0.1)
+        bench.psu.output(1, True)
 
-            # Wait for voltage to stabilize
-            time.sleep(1)
+        # Wait for voltage to stabilize
+        time.sleep(1)
 
-            # Measure voltage with DMM
-            measurement = bench.dmm.measure(function=DMMFunction.VOLTAGE_DC)
+        # Measure voltage with DMM
+        measurement = bench.dmm.measure(function=DMMFunction.VOLTAGE_DC)
 
-            # Check if measured voltage is close to set voltage
-            # We use a wide tolerance since we don't know how DMM is connected
-            voltage = float(measurement.values.nominal_value)
+        # Check if measured voltage is close to set voltage
+        # We use a wide tolerance since we don't know how DMM is connected
+        voltage = float(measurement.values.nominal_value)
 
-            # If DMM is connected to PSU, voltage should be around 3.3V
-            # If not connected, it might read close to 0V
-            # We accept both cases since we can't guarantee physical connections
-            assert voltage < 10.0, "Measured voltage is too high"
+        # If DMM is connected to PSU, voltage should be around 3.3V
+        # If not connected, it might read close to 0V
+        # We accept both cases since we can't guarantee physical connections
+        assert voltage < 10.0, "Measured voltage is too high"
 
-            # Turn off PSU output
-            bench.psu.output(1, False)
-        except Exception as e:
-            # Log the exception before skipping
-            print(f"Integration test exception: {e}")
-            pytest.skip("Skipping PSU-DMM integration test due to connection issues")
+        # Turn off PSU output
+        bench.psu.output(1, False)
 
 
 def test_invalid_bench_config():
@@ -580,8 +575,7 @@ def test_bench_simulation_mode(simulation_bench_config_file):
 
             dmm_id = bench.dmm.id()
             assert isinstance(dmm_id, str)
-        except Exception as e:
-            # If simulation mode isn't fully implemented, skip the test
+        except NotImplementedError as e:
             pytest.skip(f"Simulation mode not fully implemented: {str(e)}")
 
 

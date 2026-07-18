@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import random
 import re
+import time
 from dataclasses import asdict
 from typing import Any
 from typing import cast
@@ -207,8 +208,6 @@ class SimbenchScpiBackend:
 
     def query(self, cmd: str, delay: float | None = None) -> str:
         if delay:
-            import time
-
             time.sleep(delay)
         resp = self._handle_command(cmd.strip(), expect_response=True)
         if isinstance(resp, bytes):
@@ -217,8 +216,6 @@ class SimbenchScpiBackend:
 
     def query_raw(self, cmd: str, delay: float | None = None) -> bytes:
         if delay:
-            import time
-
             time.sleep(delay)
         resp = self._handle_command(cmd.strip(), expect_response=True)
         if resp is None:
@@ -672,7 +669,13 @@ class SimbenchScpiBackend:
         if trigger_source:
             trig_hi, trig_lo = nodes_by_source.get(trigger_source, (None, None))
             if trig_hi:
-                trig_wave = self._resolve_scope_waveform(spice, trig_hi, trig_lo, record_length)
+                trig_wave = self._resolve_scope_waveform(
+                    spice,
+                    node_hi=trig_hi,
+                    node_lo=trig_lo,
+                    record_length=record_length,
+                    source=trigger_source,
+                )
                 trig_att = self._probe_attenuation_for_source(trigger_source)
                 trigger_index = twin.compute_trigger_index(
                     trig_wave,
@@ -681,7 +684,13 @@ class SimbenchScpiBackend:
 
         for source in sources:
             node_hi, node_lo = nodes_by_source.get(source, (None, None))
-            volts = self._resolve_scope_waveform(spice, node_hi, node_lo, record_length)
+            volts = self._resolve_scope_waveform(
+                spice,
+                node_hi=node_hi,
+                node_lo=node_lo,
+                record_length=record_length,
+                source=source,
+            )
             attenuation = self._probe_attenuation_for_source(source)
             processed = twin.acquire(
                 volts,
@@ -727,7 +736,7 @@ class SimbenchScpiBackend:
 
         hi, lo = self._dmm_voltage_nodes()
         if not hi:
-            return self._with_measurement_noise(twin.measure(0.0))
+            raise ValueError(f"{self.instrument_id}.V.HI is not wired")
 
         if twin.state.function == "ACV":
             sample_rate, record_length = self._dmm_transient_plan(twin)
@@ -742,14 +751,13 @@ class SimbenchScpiBackend:
                 settings=self.session.kernel_settings,
                 params=_model_params(self.session),
             )
-            v_hi = spice.node_voltages.get(hi)
-            if v_hi is None:
-                return self._with_measurement_noise(twin.measure(0.0))
-            if lo:
-                v_lo = spice.node_voltages.get(lo)
-                if v_lo is not None:
-                    v_hi = v_hi - v_lo
-            return self._with_measurement_noise(twin.measure(v_hi, sample_rate=sample_rate))
+            waveform = self._voltage_waveform(
+                spice,
+                node_hi=hi,
+                node_lo=lo,
+                analysis=AnalysisKind.TRANSIENT,
+            )
+            return self._with_measurement_noise(twin.measure(waveform, sample_rate=sample_rate))
 
         nodes = [hi]
         if lo:
@@ -760,14 +768,13 @@ class SimbenchScpiBackend:
             settings=self.session.kernel_settings,
             params=_model_params(self.session),
         )
-        v_hi = spice.node_voltages.get(hi)
-        if v_hi is None or not v_hi.size:
-            return self._with_measurement_noise(twin.measure(0.0))
-        if lo:
-            v_lo = spice.node_voltages.get(lo)
-            if v_lo is not None:
-                v_hi = v_hi - v_lo
-        return self._with_measurement_noise(twin.measure(float(np.mean(v_hi))))
+        waveform = self._voltage_waveform(
+            spice,
+            node_hi=hi,
+            node_lo=lo,
+            analysis=AnalysisKind.OP,
+        )
+        return self._with_measurement_noise(twin.measure(float(np.mean(waveform))))
 
     def _sample_dmm_current(self, twin: DMMTwin) -> MeasurementResult:
         hi, lo = self._dmm_current_nodes()
@@ -792,15 +799,12 @@ class SimbenchScpiBackend:
             currents=[element_key],
             params=_model_params(self.session),
         )
-        current = spice.element_currents.get(element_key)
-        if current is None or not current.size:
-            raise_missing_vector(
-                self.session.kernel,
-                analysis=AnalysisKind.OP.value,
-                reason=UnsupportedReason.ELEMENT_CURRENT_UNSUPPORTED,
-                vector=element_key,
-            )
-            return twin.measure(0.0)
+        current = self._required_vector(
+            spice.element_currents,
+            vector=element_key,
+            analysis=AnalysisKind.OP,
+            reason=UnsupportedReason.ELEMENT_CURRENT_UNSUPPORTED,
+        )
         # ngspice defines i(R) as current flowing from node1 to node2.
         return twin.measure(float(np.mean(current)))
 
@@ -830,7 +834,7 @@ class SimbenchScpiBackend:
         self.twin.random = random.Random(seed)
         hi = self.session.mapping.get(f"{psu_id}.{channel_name}.HI")
         if not hi:
-            return None
+            raise ValueError(f"{psu_id}.{channel_name}.HI is not wired")
         lo = (
             self.session.mapping.get(f"{psu_id}.{channel_name}.LO")
             or self.session.wiring.ground_node
@@ -862,25 +866,22 @@ class SimbenchScpiBackend:
         )
 
         if kind == "voltage":
-            v_hi = spice.node_voltages.get(hi)
-            if v_hi is None:
-                return None
-            v_lo = spice.node_voltages.get(lo) if lo in spice.node_voltages else None
-            if v_lo is None:
-                return float(np.mean(v_hi))
-            return float(np.mean(v_hi - v_lo))
+            waveform = self._voltage_waveform(
+                spice,
+                node_hi=hi,
+                node_lo=lo,
+                analysis=AnalysisKind.OP,
+            )
+            return float(np.mean(waveform))
 
         if kind == "current":
             key = f"{psu_id}.{channel_name}"
-            current = spice.source_currents.get(key)
-            if current is None:
-                raise_missing_vector(
-                    self.session.kernel,
-                    analysis=AnalysisKind.OP.value,
-                    reason=UnsupportedReason.SOURCE_CURRENT_UNSUPPORTED,
-                    vector=key,
-                )
-                return None
+            current = self._required_vector(
+                spice.source_currents,
+                vector=key,
+                analysis=AnalysisKind.OP,
+                reason=UnsupportedReason.SOURCE_CURRENT_UNSUPPORTED,
+            )
             # ngspice defines i(V) as current entering the positive terminal of the source.
             return float(-np.mean(current))
 
@@ -953,28 +954,27 @@ class SimbenchScpiBackend:
             return float(probe.attenuation)
         return 1.0
 
-    @staticmethod
     def _resolve_scope_waveform(
+        self,
         spice,
+        *,
         node_hi: str | None,
         node_lo: str | None,
         record_length: int,
+        source: str,
     ) -> np.ndarray:
-        volts: np.ndarray | None = None
-        if spice is not None and node_hi:
-            v_hi = spice.node_voltages.get(node_hi)
-            if v_hi is not None:
-                if node_lo:
-                    v_lo = spice.node_voltages.get(node_lo)
-                    if v_lo is not None:
-                        volts = v_hi - v_lo
-                    else:
-                        volts = v_hi
-                else:
-                    volts = v_hi
-        if volts is None:
-            volts = np.zeros(record_length)
-        volts = np.asarray(volts, dtype=float)
+        channel = self._scope_channel_index(source)
+        terminal = f"{self.instrument_id}.CH{channel}.HI" if channel else f"{source}.HI"
+        if not node_hi:
+            raise ValueError(f"{terminal} is not wired")
+        volts = self._voltage_waveform(
+            spice,
+            node_hi=node_hi,
+            node_lo=node_lo,
+            analysis=AnalysisKind.TRANSIENT,
+        )
+        # A returned all-zero vector is a valid configured no-signal capture; only
+        # absent mappings or absent simulator vectors fail closed above.
         if volts.size != record_length:
             volts = (
                 volts[:record_length]
@@ -982,6 +982,54 @@ class SimbenchScpiBackend:
                 else np.pad(volts, (0, record_length - volts.size))
             )
         return volts
+
+    def _voltage_waveform(
+        self,
+        spice,
+        *,
+        node_hi: str,
+        node_lo: str | None,
+        analysis: AnalysisKind,
+    ) -> np.ndarray:
+        vectors = {} if spice is None else spice.node_voltages
+        waveform = self._required_vector(
+            vectors,
+            vector=node_hi,
+            analysis=analysis,
+            reason=UnsupportedReason.OUTPUT_VECTOR_UNPROVEN,
+        )
+        if node_lo and not self._is_ground_node(node_lo):
+            waveform = waveform - self._required_vector(
+                vectors,
+                vector=node_lo,
+                analysis=analysis,
+                reason=UnsupportedReason.OUTPUT_VECTOR_UNPROVEN,
+            )
+        return waveform
+
+    def _required_vector(
+        self,
+        vectors,
+        *,
+        vector: str,
+        analysis: AnalysisKind,
+        reason: UnsupportedReason,
+    ) -> np.ndarray:
+        raw = vectors.get(vector)
+        values = np.asarray(raw, dtype=float) if raw is not None else np.asarray([])
+        if values.size == 0:
+            raise_missing_vector(
+                self.session.kernel,
+                analysis=analysis.value,
+                reason=reason,
+                vector=vector,
+            )
+        return values
+
+    def _is_ground_node(self, node: str) -> bool:
+        canonical = str(node).strip().lower()
+        ground = str(self.session.wiring.ground_node).strip().lower()
+        return canonical in {"0", ground}
 
     def _dmm_transient_plan(self, twin: DMMTwin) -> tuple[float, int]:
         aperture = float(twin.state.aperture_s)

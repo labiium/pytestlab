@@ -62,8 +62,8 @@ def combine_units(left: str | None, right: str | None, op: str) -> str:
                 return _format_unit(getattr(left_quantity * right_quantity, "units", ""))
             if op == "truediv":
                 return _format_unit(getattr(left_quantity / right_quantity, "units", ""))
-        except Exception:
-            pass
+        except Exception as exc:
+            raise UnitCompatibilityError(f"Incompatible units: {left!r} and {right!r}") from exc
     if op == "mul":
         if left and right:
             return f"{left}*{right}"
@@ -136,8 +136,12 @@ def product_nominal(
             nominal = float(result.magnitude)
             scale = (nominal / raw) if raw else 1.0
             return nominal, _format_unit(result.units), scale
-        except Exception:
-            pass
+        except UnitCompatibilityError:
+            raise
+        except Exception as exc:
+            raise UnitCompatibilityError(
+                f"Incompatible units: {left_unit!r} and {right_unit!r}"
+            ) from exc
     return raw, combine_units(left_unit, right_unit, op), 1.0
 
 

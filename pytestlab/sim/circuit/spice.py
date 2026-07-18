@@ -759,7 +759,7 @@ def _run_ngspice(
         def _limit_resources() -> None:  # pragma: no cover - platform specific
             try:
                 import resource
-            except Exception:
+            except ImportError:
                 return
             try:
                 if max_memory_mb is not None:
@@ -768,8 +768,8 @@ def _run_ngspice(
                 if cpu_time_s is not None:
                     cpu_limit = int(cpu_time_s)
                     resource.setrlimit(resource.RLIMIT_CPU, (cpu_limit, cpu_limit))
-            except Exception:
-                return
+            except (OSError, ValueError, AttributeError) as exc:
+                raise NgspiceRunError(f"ngspice resource limit setup failed: {exc}") from exc
 
         proc = subprocess.run(
             [cmd, "-b", "-o", str(log_path), str(netlist_path)],
@@ -789,6 +789,10 @@ def _run_ngspice(
         raise NgspiceRunError(
             f"ngspice failed with exit code {exc.returncode}. {details}".strip()
         ) from exc
+    except subprocess.SubprocessError as exc:  # pragma: no cover
+        if max_memory_mb is not None or cpu_time_s is not None:
+            raise NgspiceRunError(f"ngspice resource limit setup failed: {exc}") from exc
+        raise
 
     # Backstop: ngspice can report convergence/topology problems (floating
     # nodes, singular matrices) on a *successful* exit. These are silently

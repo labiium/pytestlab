@@ -17,8 +17,11 @@ import pytest
 
 from pytestlab.compliance.auto_config import ensure_key_pair
 from pytestlab.compliance.decorators import CompliantResult
+from pytestlab.compliance.decorators import _TSAClient
 from pytestlab.compliance.decorators import audited
 from pytestlab.compliance.decorators import signed
+from pytestlab.compliance.decorators import timestamped
+from pytestlab.compliance.interfaces import TimestampError
 from pytestlab.compliance.verification import verify_result
 
 
@@ -52,8 +55,6 @@ def temp_signer_dir():
 
 def test_key_pair_generation(temp_signer_dir):
     """Key generation should create a private and public key."""
-    pytest.importorskip("cryptography")
-
     ensure_key_pair(temp_signer_dir)
     assert (temp_signer_dir / "auto_generated.pem").exists()
     assert (temp_signer_dir / "auto_generated.pub").exists()
@@ -61,8 +62,6 @@ def test_key_pair_generation(temp_signer_dir):
 
 def test_signed_decorator_produces_signature(mock_instrument, temp_signer_dir):
     """`@signed` should produce a CompliantResult with a Signature."""
-    pytest.importorskip("cryptography")
-
     ensure_key_pair(temp_signer_dir)
     priv = temp_signer_dir / "auto_generated.pem"
     pub = temp_signer_dir / "auto_generated.pub"
@@ -89,8 +88,6 @@ def test_signed_decorator_produces_signature(mock_instrument, temp_signer_dir):
 
 def test_tampering_is_detected(temp_signer_dir):
     """Mutating signed data should invalidate signature verification."""
-    pytest.importorskip("cryptography")
-
     ensure_key_pair(temp_signer_dir)
     priv = temp_signer_dir / "auto_generated.pem"
     pub = temp_signer_dir / "auto_generated.pub"
@@ -118,8 +115,6 @@ def test_tampering_is_detected(temp_signer_dir):
 
 def test_result_can_be_stored_and_verified(temp_signer_dir):
     """A stored result+signature remains verifiable."""
-    pytest.importorskip("cryptography")
-
     ensure_key_pair(temp_signer_dir)
     priv = temp_signer_dir / "auto_generated.pem"
     pub = temp_signer_dir / "auto_generated.pub"
@@ -132,17 +127,16 @@ def test_result_can_be_stored_and_verified(temp_signer_dir):
     assert verify_result(result, trust_anchor=pub).signature_valid is True
 
     # Simulate storage (JSON-like)
-    stored = {
-        "data": result.data,
-        "signature": result.signature.to_dict() if result.signature else None,
-    }
+    assert result.signature is not None
+    stored_data = result.data
+    stored_signature = result.signature.to_dict()
 
     # Reload
     from pytestlab.compliance.interfaces import Signature
 
     reloaded = CompliantResult(
-        data=stored["data"],
-        signature=Signature.from_dict(stored["signature"]),
+        data=stored_data,
+        signature=Signature.from_dict(stored_signature),
     )
     assert verify_result(reloaded, trust_anchor=pub).signature_valid is True
 
@@ -166,8 +160,6 @@ def test_audited_decorator_writes_sqlite(temp_signer_dir):
 
 def test_private_key_file_is_pem(temp_signer_dir):
     """Generated private key should be a PEM file."""
-    pytest.importorskip("cryptography")
-
     ensure_key_pair(temp_signer_dir)
     private_key_path = temp_signer_dir / "auto_generated.pem"
     content = private_key_path.read_text()
@@ -177,8 +169,6 @@ def test_private_key_file_is_pem(temp_signer_dir):
 
 def test_signatures_from_different_keys_are_distinct(temp_signer_dir):
     """Different keys should yield different key fingerprints."""
-    pytest.importorskip("cryptography")
-
     d1 = temp_signer_dir / "k1"
     d2 = temp_signer_dir / "k2"
     d1.mkdir()
@@ -210,44 +200,37 @@ def test_signatures_from_different_keys_are_distinct(temp_signer_dir):
     assert verify_result(r2, trust_anchor=pub2).signature_valid is True
 
 
-@pytest.mark.skip(reason="Complex timestamping authority integration requires network access.")
-def test_timestamping_authority_integration():
-    """Placeholder for testing integration with a timestamping authority.
+def test_tsa_client_rejects_unimplemented_authority():
+    """Configured TSA authorities must not produce fabricated RFC 3161 evidence."""
+    client = _TSAClient("https://tsa.example.test/tsr", local_fallback=True)
 
-    This test is intentionally skipped because it requires:
-    1. Network access to external RFC 3161 timestamping authorities
-    2. Complex certificate validation infrastructure
-    3. Handling of network timeouts and failures
-    4. Integration with third-party timestamping services
-
-    Implementation would involve:
-    - Connecting to trusted timestamping authorities
-    - Sending timestamp requests for measurement signatures
-    - Validating timestamp responses and certificates
-    - Embedding timestamps in compliance envelopes
-    """
-    # This would test RFC 3161 timestamping integration
-    # when that feature is implemented
-    pass
+    with pytest.raises(TimestampError, match="RFC 3161 timestamping is not implemented"):
+        client.timestamp("a" * 64)
 
 
-@pytest.mark.skip(reason="Complex compliance reporting not yet implemented.")
-def test_compliance_report_generation():
-    """Placeholder for testing compliance report generation.
+def test_tsa_client_returns_local_token_only_when_fallback_enabled():
+    """Local fallback should be explicit and unavailable when disabled."""
+    client = _TSAClient(None, local_fallback=True)
 
-    This test is intentionally skipped because it requires:
-    1. Comprehensive report generation infrastructure
-    2. Template system for various compliance standards
-    3. Integration with database for historical data
-    4. PDF/document generation capabilities
-    5. Audit trail aggregation and formatting
+    token = client.timestamp("b" * 64)
 
-    Implementation would involve:
-    - Aggregating all measurements, signatures, and audit events
-    - Generating standardized compliance reports (ISO, FDA, etc.)
-    - Including verification of all digital signatures
-    - Formatting for regulatory submission requirements
-    """
-    # This would test generation of compliance reports
-    # that include all measurements, signatures, and audit trails
-    pass
+    assert token.startswith("local:"), token
+
+
+def test_tsa_client_rejects_local_timestamp_without_fallback():
+    """No TSA authority and no local fallback is a timestamping error."""
+    client = _TSAClient(None, local_fallback=False)
+
+    with pytest.raises(TimestampError, match="local timestamp fallback is disabled"):
+        client.timestamp("c" * 64)
+
+
+def test_timestamped_decorator_propagates_configured_authority_error():
+    """Configured TSA authority failures must not fall back to local timestamps."""
+
+    @timestamped(authority="https://tsa.example.test/tsr", local_fallback=True)
+    def measure():
+        return {"measurement": "voltage", "value": 1.23}
+
+    with pytest.raises(TimestampError, match="RFC 3161 timestamping is not implemented"):
+        measure()

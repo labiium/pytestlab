@@ -7,12 +7,14 @@ node name returned ~0 V instead of raising.
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from pytestlab.sim.circuit import Port
 from pytestlab.sim.circuit import SimSession
 from pytestlab.sim.circuit.netlist import extract_nodes
+from pytestlab.sim.circuit.session import Session
 from pytestlab.sim.circuit.spice import _warn_on_ngspice_diagnostics
 from pytestlab.sim.circuit.wiring import UnknownNode
 
@@ -141,6 +143,36 @@ def test_valid_nodes_do_not_raise(tmp_path):
         vcc=Port.supply("vcc", "0"),
         vout=Port.voltage_measurement("vout", "0"),
     )
+
+
+def test_unreadable_netlist_keeps_validation_failure_actionable(tmp_path):
+    missing = tmp_path / "missing.sp"
+
+    with pytest.raises(FileNotFoundError, match="missing.sp"):
+        SimSession.from_netlist(missing).ports(vout=Port.voltage_measurement("vout", "0"))
+
+
+def test_node_extraction_parser_failure_does_not_disable_validation(tmp_path, monkeypatch):
+    net = _netlist(tmp_path, TWO_TRANSISTOR)
+
+    def fail_extract_nodes(*args, **kwargs):
+        raise ValueError("bad include syntax near .include")
+
+    monkeypatch.setattr("pytestlab.sim.circuit.session.extract_nodes", fail_extract_nodes)
+
+    with pytest.raises(ValueError, match="failed to extract nodes.*bad include syntax"):
+        SimSession.from_netlist(net).ports(vout=Port.voltage_measurement("vout", "0"))
+
+
+def test_node_extraction_missing_file_remains_validation_unavailable(tmp_path):
+    session = SimpleNamespace(
+        circuit=SimpleNamespace(
+            root=tmp_path,
+            manifest=SimpleNamespace(entry_netlist="missing.sp"),
+        )
+    )
+
+    assert Session._extract_node_set(session) is None
 
 
 def test_node_validation_is_case_insensitive(tmp_path):

@@ -6,7 +6,7 @@ from dataclasses import field
 from enum import Enum
 
 
-class UnsupportedReason(str, Enum):
+class UnsupportedReason(str, Enum):  # noqa: UP042 - keep str(Enum) semantics for compatibility.
     CONTROL_WRDATA_UNSUPPORTED = "CONTROL_WRDATA_UNSUPPORTED"
     SOURCE_CURRENT_UNSUPPORTED = "SOURCE_CURRENT_UNSUPPORTED"
     ELEMENT_CURRENT_UNSUPPORTED = "ELEMENT_CURRENT_UNSUPPORTED"
@@ -150,10 +150,10 @@ def require_capability(kernel, request) -> None:
         raise UnsupportedCapability(caps.backend, analysis, check.reasons, check.details)
 
 
-def capability_backend(kernel) -> str | None:
+def capability_backend(kernel) -> str:
     caps_func = getattr(kernel, "capabilities", None)
     if caps_func is None:
-        return None
+        return "unknown"
     return str(caps_func().backend)
 
 
@@ -165,13 +165,11 @@ def raise_missing_vector(
     vector: str,
 ) -> None:
     backend = capability_backend(kernel)
-    if backend is None:
-        return
     raise UnsupportedCapability(
         backend,
         analysis,
         (reason,),
-        (f"required current vector was not returned: {vector}",),
+        (f"required output vector was not returned: {vector}",),
     )
 
 

@@ -137,10 +137,5 @@ quote-style = "double"
 [tool.coverage.run]
 branch = true
 
-[tool.pytest.ini_options]
-markers = [
-    "requires_real_hw: tests that require opt-in access to real laboratory hardware",
-]
-
 [dependency-groups]
 dev = ["ruff>=0.12.9"]

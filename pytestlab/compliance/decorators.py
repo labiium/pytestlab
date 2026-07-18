@@ -36,6 +36,7 @@ from typing import Any
 from .._log import get_logger
 from .interfaces import AuditEntry as AuditRecord
 from .interfaces import Signature
+from .interfaces import TimestampError
 from .interfaces import TimestampToken
 
 _LOG = get_logger("compliance.decorators")
@@ -238,8 +239,7 @@ def audited(
                 if isinstance(result, CompliantResult):
                     result.audit_record = entry
                     return result
-                else:
-                    return CompliantResult(data=result_data, audit_record=entry)
+                return CompliantResult(data=result_data, audit_record=entry)
 
             except Exception as e:
                 # Log failure
@@ -270,7 +270,7 @@ def timestamped(
 
     Args:
         authority: TSA URL (e.g., "https://freetsa.org/tsr")
-        local_fallback: Whether to use local timestamp if TSA fails
+        local_fallback: Whether to use a local timestamp when no authority is configured
         hash_algorithm: Hash algorithm for TSA request
 
     Returns:
@@ -297,32 +297,21 @@ def timestamped(
             else:
                 result_data = result if isinstance(result, dict) else {"value": result}
 
-            # Get timestamp from TSA
-            try:
-                token_value = tsa_client.timestamp(_hash_result(result_data))
-                token = TimestampToken(
-                    value=token_value,
-                    authority=authority or "local",
-                    algorithm=hash_algorithm,
-                )
-                _LOG.debug(f"Timestamped result from {_callable_name(func)} via {token.authority}")
-            except Exception as e:
-                if local_fallback:
-                    _LOG.warning(f"TSA failed, using local timestamp: {e}")
-                    token = TimestampToken(
-                        value=_utc_now(),
-                        authority="local",
-                        algorithm="LOCAL_TIMESTAMP",
-                    )
-                else:
-                    raise
+            data_hash = _hash_result(result_data)
+
+            token_value = tsa_client.timestamp(data_hash)
+            token = TimestampToken(
+                value=token_value,
+                authority=authority or "local",
+                algorithm=hash_algorithm,
+            )
+            _LOG.debug(f"Timestamped result from {_callable_name(func)} via {token.authority}")
 
             # Return enhanced result
             if isinstance(result, CompliantResult):
                 result.timestamp_token = token
                 return result
-            else:
-                return CompliantResult(data=result_data, timestamp_token=token)
+            return CompliantResult(data=result_data, timestamp_token=token)
 
         return wrapper
 
@@ -500,12 +489,10 @@ class _TSAClient:
     def timestamp(self, data_hash: str) -> str:
         """Get timestamp token for data hash."""
         if self.authority:
-            # TODO: Implement RFC 3161 TSA request
-            # For now, return mock token
-            return f"tsa:{self.authority}:{data_hash[:16]}:{_utc_now()}"
-        else:
-            # Local timestamp
-            return f"local:{data_hash[:16]}:{_utc_now()}"
+            raise TimestampError("RFC 3161 timestamping is not implemented")
+        if not self.local_fallback:
+            raise TimestampError("local timestamp fallback is disabled")
+        return f"local:{data_hash[:16]}:{_utc_now()}"
 
 
 # ============================================================================

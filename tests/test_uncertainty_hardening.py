@@ -65,6 +65,32 @@ def test_uncertainty_strict_defaults_to_fail_loud():
     )
 
 
+def test_pint_invalid_product_units_raise_unit_compatibility_error():
+    if units_mod._UNIT_REGISTRY is None:
+        pytest.skip("Pint is not installed in this environment")
+
+    with pytest.raises(UnitCompatibilityError, match="Incompatible units"):
+        units_mod.product_nominal(1.0, "definitely_not_a_unit", 2.0, "V", "mul")
+
+    with pytest.raises(UnitCompatibilityError, match="Incompatible units"):
+        units_mod.product_nominal(1.0, "V", 2.0, "definitely_not_a_unit", "truediv")
+
+
+def test_product_units_keep_string_fallback_when_pint_is_unavailable(monkeypatch):
+    monkeypatch.setattr(units_mod, "_UNIT_REGISTRY", None)
+
+    assert units_mod.product_nominal(1.0, "made_up_unit", 2.0, "V", "mul") == (
+        2.0,
+        "made_up_unit*V",
+        1.0,
+    )
+    assert units_mod.product_nominal(1.0, "V", 2.0, "made_up_unit", "truediv") == (
+        0.5,
+        "V/made_up_unit",
+        1.0,
+    )
+
+
 def quantity(offset: float, unit: str = "V", nominal: float = 1.0) -> MeasurementQuantity:
     return AccuracySpec(
         offset=offset,
