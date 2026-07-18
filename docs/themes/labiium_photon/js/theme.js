@@ -1,565 +1,285 @@
-/**
- * LABIIUM Photon Theme - JavaScript
- * For PyTestLab Documentation
- */
-
+/** PyTestLab documentation interactions. */
 document.addEventListener("DOMContentLoaded", () => {
-  // --- Interactive Background Beams ---
-  const backgroundBeams = document.getElementById("background-beams");
-  if (backgroundBeams) {
-    document.addEventListener("mousemove", (e) => {
-      const { clientX, clientY } = e;
-      const { innerWidth, innerHeight } = window;
-      const xPercent = (clientX / innerWidth) * 100;
-      const yPercent = (clientY / innerHeight) * 100;
-
-      window.requestAnimationFrame(() => {
-        backgroundBeams.style.background = `
-                    radial-gradient(ellipse 80% 80% at ${xPercent - 10}% ${yPercent - 20}%, rgba(83, 51, 237, 0.15), transparent),
-                    radial-gradient(ellipse 60% 80% at ${xPercent + 10}% ${yPercent + 20}%, rgba(4, 226, 220, 0.15), transparent)
-                `;
-      });
-    });
-  }
-
-  // --- Navbar Scroll Effect ---
-  const siteHeader = document.querySelector(".site-header");
-  if (siteHeader) {
-    let lastScrollY = window.scrollY;
-
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-
-      if (currentScrollY > 50) {
-        siteHeader.classList.add("scrolled");
-      } else {
-        siteHeader.classList.remove("scrolled");
-      }
-
-      lastScrollY = currentScrollY;
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-
-    // Initial check
-    handleScroll();
-  }
-
-  // --- Enhanced Mobile Navigation Toggle ---
+  const body = document.body;
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const header = document.querySelector(".site-header");
+  const frame = document.querySelector(".docs-frame");
   const menuToggle = document.querySelector(".menu-toggle");
-  const navPrimary = document.querySelector(".nav-primary");
+  const primaryNav = document.querySelector(".nav-primary");
+  const docsToggle = document.querySelector(".docs-nav-toggle");
+  const sidebarBackdrop = document.querySelector(".sidebar-backdrop");
 
-  if (menuToggle && navPrimary) {
-    const openNav = () => {
-      menuToggle.classList.add("active");
-      navPrimary.classList.add("active");
-      document.body.style.overflow = "hidden";
-    };
+  const setPrimaryNav = (open) => {
+    primaryNav?.classList.toggle("open", open);
+    menuToggle?.setAttribute("aria-expanded", String(open));
+  };
 
-    const closeNav = () => {
-      menuToggle.classList.remove("active");
-      navPrimary.classList.remove("active");
-      document.body.style.overflow = "";
+  const setDocsNav = (open) => {
+    body.classList.toggle("docs-nav-open", open);
+    docsToggle?.setAttribute("aria-expanded", String(open));
+  };
 
-      // Close any open dropdowns
-      document.querySelectorAll(".dropdown.active").forEach((dropdown) => {
-        dropdown.classList.remove("active");
-      });
-    };
+  menuToggle?.addEventListener("click", () => setPrimaryNav(!primaryNav?.classList.contains("open")));
+  docsToggle?.addEventListener("click", () => setDocsNav(!body.classList.contains("docs-nav-open")));
+  sidebarBackdrop?.addEventListener("click", () => setDocsNav(false));
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 900) {
+      setDocsNav(false);
+      setPrimaryNav(false);
+    }
+  });
+  window.addEventListener("scroll", () => header?.classList.toggle("scrolled", window.scrollY > 8), { passive: true });
 
-    // Ensure hamburger menu works in production
-    const handleMenuClick = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      console.log("Menu toggle clicked");
-      if (navPrimary.classList.contains("active")) {
-        closeNav();
-      } else {
-        openNav();
-      }
-    };
-
-    menuToggle.addEventListener("click", handleMenuClick);
-    menuToggle.addEventListener("touchstart", handleMenuClick, {
-      passive: true,
-    });
-
-    // Close menu when clicking on the nav background (not nav content)
-    navPrimary.addEventListener("click", (e) => {
-      // Only close if clicking directly on the nav container, not its children
-      if (e.target === navPrimary) {
-        closeNav();
-      }
-    });
-
-    // Close menu when clicking outside nav content
-    document.addEventListener("click", (e) => {
-      if (
-        navPrimary.classList.contains("active") &&
-        !navPrimary.contains(e.target) &&
-        !menuToggle.contains(e.target)
-      ) {
-        closeNav();
-      }
-    });
-
-    // Close menu on escape key
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && navPrimary.classList.contains("active")) {
-        closeNav();
-      }
-    });
-
-    // Close menu when clicking on nav links
-    const navLinks = document.querySelectorAll(".nav-links a");
-    navLinks.forEach((link) => {
-      link.addEventListener("click", () => {
-        if (!link.classList.contains("dropdown-toggle")) {
-          closeNav();
-        }
-      });
-    });
-
-    // Handle dropdown toggles
-    const dropdownToggles = document.querySelectorAll(".dropdown-toggle");
-    dropdownToggles.forEach((toggle) => {
-      toggle.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        const dropdown = toggle.closest(".dropdown");
-        const isActive = dropdown.classList.contains("active");
-
-        // Close all other dropdowns
-        document
-          .querySelectorAll(".dropdown.active")
-          .forEach((otherDropdown) => {
-            if (otherDropdown !== dropdown) {
-              otherDropdown.classList.remove("active");
-            }
-          });
-
-        // Toggle current dropdown
-        dropdown.classList.toggle("active", !isActive);
-      });
+  if (!reducedMotion) {
+    const beams = document.getElementById("background-beams");
+    document.addEventListener("pointermove", (event) => {
+      const x = Math.round((event.clientX / window.innerWidth) * 100);
+      const y = Math.round((event.clientY / window.innerHeight) * 100);
+      window.requestAnimationFrame(() => beams?.style.setProperty("--beam-position", `${x}% ${y}%`));
     });
   }
 
-  // --- Enhanced Table of Contents ---
-  const tocLinks = document.querySelectorAll(".toc a");
-  const headings = document.querySelectorAll("h1, h2, h3, h4, h5, h6");
-
-  if (tocLinks.length && headings.length) {
-    const observerOptions = {
-      root: null,
-      rootMargin: "-10% 0px -85% 0px",
-      threshold: [0, 0.25, 0.5, 0.75, 1],
-    };
-
-    const highlightTocLink = (id) => {
-      tocLinks.forEach((link) => {
-        link.classList.remove("active");
-        const href = link.getAttribute("href");
-        if (href && href.substring(href.indexOf("#") + 1) === id) {
-          link.classList.add("active");
-        }
-      });
-    };
-
-    const headingObserver = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting && entry.target.id) {
-          highlightTocLink(entry.target.id);
-        }
-      });
-    }, observerOptions);
-
-    headings.forEach((heading) => headingObserver.observe(heading));
-  }
-
-  // --- Code Block Enhancement (User Guide Only) ---
-  // Only target code blocks in user guide pages, completely avoid notebook pages
-  console.log(
-    "Checking for jupyter-wrapper:",
-    document.querySelector(".jupyter-wrapper"),
-  );
-  if (!document.querySelector(".jupyter-wrapper")) {
-    const codeBlocks = document.querySelectorAll(
-      "pre.highlight, pre[class*='language-'], .codehilite pre",
-    );
-    console.log("Found code blocks:", codeBlocks.length);
-    codeBlocks.forEach((block) => {
-      console.log("Processing block:", block);
-      // Skip if already has a copy button (avoid duplicates)
-      if (block.querySelector(".copy-button")) return;
-
-      // Add simple copy button
-      const copyButton = document.createElement("button");
-      copyButton.className = "copy-button";
-      copyButton.textContent = "Copy";
-      copyButton.setAttribute("aria-label", "Copy code to clipboard");
-      copyButton.style.cssText = `
-        position: absolute;
-        top: 0.75rem;
-        right: 0.75rem;
-        background: #5333ed;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        padding: 0.4rem 0.8rem;
-        font-size: 0.75rem;
-        cursor: pointer;
-        opacity: 0;
-        transition: opacity 0.3s;
-        z-index: 10;
-      `;
-
-      // Make sure parent is positioned relative
-      if (getComputedStyle(block).position === "static") {
-        block.style.position = "relative";
-      }
-
-      // Show button on hover
-      block.addEventListener("mouseenter", () => {
-        copyButton.style.opacity = "1";
-      });
-      block.addEventListener("mouseleave", () => {
-        copyButton.style.opacity = "0";
-      });
-
-      copyButton.addEventListener("click", () => {
-        const code =
-          block.querySelector("code")?.textContent || block.textContent;
-
-        navigator.clipboard
-          .writeText(code)
-          .then(() => {
-            copyButton.classList.add("copied");
-            copyButton.textContent = "Copied!";
-            copyButton.style.background = "#00c98d";
-
-            setTimeout(() => {
-              copyButton.classList.remove("copied");
-              copyButton.textContent = "Copy";
-              copyButton.style.background = "#5333ed";
-            }, 2000);
-          })
-          .catch((err) => {
-            console.error("Failed to copy:", err);
-            copyButton.textContent = "Error!";
-            copyButton.style.background = "#ef4444";
-            setTimeout(() => {
-              copyButton.textContent = "Copy";
-              copyButton.style.background = "#5333ed";
-            }, 2000);
-          });
-      });
-
-      block.appendChild(copyButton);
-      console.log("Added copy button to block");
-    });
-  } else {
-    console.log("Skipping copy buttons - this is a notebook page");
-  }
-
-  // --- Enhanced Search Modal ---
-  const searchButton = document.querySelector(".search-button");
-  const searchModal = document.querySelector(".search-modal");
+  const modal = document.querySelector(".search-modal");
+  const searchTrigger = document.querySelector(".search-trigger");
   const searchClose = document.querySelector(".search-close");
   const searchInput = document.querySelector(".search-input");
+  const searchStatus = document.querySelector(".search-status");
+  const searchResults = document.querySelector(".search-results");
+  let searchDocuments = [];
+  let selectedResult = -1;
+  let returnFocus = null;
+  let debounceTimer = 0;
 
-  if (searchButton && searchModal && searchInput) {
-    let searchIndex = null;
+  const setPageInert = (inert) => {
+    [header, frame].forEach((element) => {
+      if (element) element.inert = inert;
+    });
+  };
 
-    // Detect current language from URL path (e.g., /zh/, /es/, /ja/, /it/, /pl/, /fr/)
-    const langMatch = window.location.pathname.match(/^\/(zh|es|ja|it|pl|fr)\//);
-    const langPrefix = langMatch ? langMatch[0] : '/';
-
-    // Build the correct search index URL based on language
-    // For English: /search/search_index.json
-    // For other languages: /{lang}/search/search_index.json
-    const searchIndexUrl = window.location.origin + langPrefix + 'search/search_index.json';
-
-    // Load search index - try multiple paths for production compatibility
-    const searchPaths = [
-      searchIndexUrl,
-      langPrefix + 'search/search_index.json',
-      '/search/search_index.json',
-      './search/search_index.json',
-      'search/search_index.json',
-      '../search/search_index.json',
-      window.location.origin + '/search/search_index.json',
-    ];
-
-    function loadSearchIndex() {
-      let i = 0;
-      const tryNext = () => {
-        if (i >= searchPaths.length) {
-          console.log("Search index could not be loaded from any path");
-          return;
-        }
-        const path = searchPaths[i++];
-        console.log("Trying search index path:", path);
-        fetch(path)
-          .then((response) => {
-            if (!response.ok) throw new Error("HTTP " + response.status);
-            return response.json();
-          })
-          .then((data) => {
-            searchIndex = data;
-            console.log("Search index loaded successfully from:", path);
-          })
-          .catch((error) => {
-            console.log("Failed to load search index from:", path, error);
-            tryNext();
-          });
-      };
-      tryNext();
+  const updateSelectedResult = (nextIndex) => {
+    const results = [...(searchResults?.querySelectorAll(".search-result") || [])];
+    if (!results.length) {
+      selectedResult = -1;
+      searchInput?.removeAttribute("aria-activedescendant");
+      return;
     }
-
-    loadSearchIndex();
-
-    const openSearch = () => {
-      searchModal.classList.add("active");
-      document.body.style.overflow = "hidden";
-
-      // Focus search input after animation
-      setTimeout(() => {
-        searchInput.focus();
-      }, 100);
-    };
-
-    const closeSearch = () => {
-      searchModal.classList.remove("active");
-      document.body.style.overflow = "";
-      searchInput.value = "";
-
-      // Clear search results
-      const searchResults = document.getElementById("searchResults");
-      const searchResultsMeta = document.getElementById("searchResultsMeta");
-      if (searchResults) searchResults.innerHTML = "";
-      if (searchResultsMeta)
-        searchResultsMeta.textContent = "Type to start searching";
-    };
-
-    searchButton.addEventListener("click", openSearch);
-    searchClose?.addEventListener("click", closeSearch);
-
-    // Close on backdrop click
-    searchModal.addEventListener("click", (e) => {
-      if (e.target === searchModal) {
-        closeSearch();
+    selectedResult = (nextIndex + results.length) % results.length;
+    results.forEach((result, index) => {
+      const selected = index === selectedResult;
+      result.classList.toggle("selected", selected);
+      result.setAttribute("aria-selected", String(selected));
+      if (selected) {
+        searchInput?.setAttribute("aria-activedescendant", result.id);
+        result.scrollIntoView({ block: "nearest" });
       }
     });
+  };
 
-    // Keyboard shortcuts
-    document.addEventListener("keydown", (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
-        e.preventDefault();
-        openSearch();
-      }
+  const openSearch = async () => {
+    if (!modal) return;
+    returnFocus = document.activeElement;
+    modal.classList.add("open");
+    modal.setAttribute("aria-hidden", "false");
+    searchInput?.setAttribute("aria-expanded", "true");
+    body.classList.add("modal-open");
+    setPageInert(true);
+    window.setTimeout(() => searchInput?.focus(), 30);
+    if (searchDocuments.length || !modal.dataset.searchIndex) return;
+    if (searchStatus) searchStatus.textContent = "Loading search index…";
+    try {
+      const response = await fetch(modal.dataset.searchIndex);
+      if (!response.ok) throw new Error(`Search index returned ${response.status}`);
+      const index = await response.json();
+      searchDocuments = index.docs || [];
+      if (searchStatus) searchStatus.textContent = "Type to start searching";
+    } catch (_) {
+      if (searchStatus) searchStatus.textContent = "Search is temporarily unavailable.";
+    }
+  };
 
-      if (e.key === "Escape" && searchModal.classList.contains("active")) {
-        closeSearch();
+  const closeSearch = () => {
+    if (!modal?.classList.contains("open")) return;
+    modal.classList.remove("open");
+    modal.setAttribute("aria-hidden", "true");
+    searchInput?.setAttribute("aria-expanded", "false");
+    searchInput?.removeAttribute("aria-activedescendant");
+    body.classList.remove("modal-open");
+    setPageInert(false);
+    if (searchInput) searchInput.value = "";
+    searchResults?.replaceChildren();
+    if (searchStatus) searchStatus.textContent = "Type to start searching";
+    selectedResult = -1;
+    if (returnFocus instanceof HTMLElement) returnFocus.focus();
+  };
+
+  const excerptFor = (text, terms) => {
+    const normalized = text.replace(/\s+/g, " ").trim();
+    const firstMatch = terms.map((term) => normalized.toLowerCase().indexOf(term)).filter((index) => index >= 0).sort((a, b) => a - b)[0] || 0;
+    const start = Math.max(0, firstMatch - 55);
+    const excerpt = normalized.slice(start, start + 190);
+    return `${start > 0 ? "…" : ""}${excerpt}${start + 190 < normalized.length ? "…" : ""}`;
+  };
+
+  const appendHighlighted = (element, text, terms) => {
+    const escaped = terms.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).filter(Boolean);
+    if (!escaped.length) {
+      element.textContent = text;
+      return;
+    }
+    const pattern = new RegExp(`(${escaped.join("|")})`, "gi");
+    text.split(pattern).forEach((part) => {
+      if (escaped.some((term) => term.toLowerCase() === part.toLowerCase())) {
+        const mark = document.createElement("mark");
+        mark.textContent = part;
+        element.append(mark);
+      } else {
+        element.append(document.createTextNode(part));
       }
     });
+  };
 
-    // Search functionality
-    searchInput.addEventListener("input", (e) => {
-      const query = e.target.value.trim().toLowerCase();
-      const searchResultsMeta = document.getElementById("searchResultsMeta");
-      const searchResults = document.getElementById("searchResults");
+  const renderResults = (query) => {
+    if (!searchResults || !searchStatus) return;
+    searchResults.replaceChildren();
+    selectedResult = -1;
+    if (query.length < 2) {
+      searchStatus.textContent = "Type at least two characters";
+      return;
+    }
+    const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+    const results = searchDocuments
+      .map((document) => {
+        const title = (document.title || "").toLowerCase();
+        const text = (document.text || "").toLowerCase();
+        const location = (document.location || "").toLowerCase();
+        const score = terms.reduce((total, term) => total + (title.includes(term) ? 12 : 0) + (location.includes(term) ? 4 : 0) + (text.includes(term) ? 1 : 0), 0);
+        const completeMatch = terms.every((term) => title.includes(term) || text.includes(term) || location.includes(term));
+        return { document, score: completeMatch ? score + 6 : score };
+      })
+      .filter((result) => result.score > 0)
+      .sort((a, b) => b.score - a.score || (a.document.title || "").localeCompare(b.document.title || ""))
+      .slice(0, 12);
 
-      if (query.length > 1) {
-        if (searchResultsMeta) searchResultsMeta.textContent = "Searching...";
-        if (searchResults) searchResults.innerHTML = "";
+    searchStatus.textContent = results.length ? `${results.length} result${results.length === 1 ? "" : "s"}` : "No results found";
+    results.forEach(({ document: result }, index) => {
+      const link = document.createElement("a");
+      link.className = "search-result";
+      link.id = `search-result-${index}`;
+      link.setAttribute("role", "option");
+      link.setAttribute("aria-selected", "false");
+      const siteRoot = document.querySelector(".site-logo")?.href || window.location.origin;
+      link.href = new URL(result.location || "", siteRoot).href;
+      const context = document.createElement("small");
+      const readableLocation = decodeURIComponent((result.location || "").replace(/\/$/, "").replace(/[-_/#+]+/g, " ").trim());
+      context.textContent = readableLocation || "Documentation";
+      const title = document.createElement("strong");
+      appendHighlighted(title, result.title || "Untitled", terms);
+      const excerpt = document.createElement("span");
+      appendHighlighted(excerpt, excerptFor(result.text || "", terms), terms);
+      link.append(context, title, excerpt);
+      link.addEventListener("pointermove", () => updateSelectedResult(index));
+      searchResults.append(link);
+    });
+  };
 
-        if (searchIndex) {
-          console.log(
-            "Search index is available, performing search for:",
-            query,
-          );
-          const results = performSearch(query, searchIndex);
-          console.log("Search results:", results);
-          displaySearchResults(results, searchResultsMeta, searchResults);
-        } else {
-          console.log("Search index is null, showing error message");
-          if (searchResultsMeta)
-            searchResultsMeta.textContent = "Search index not loaded";
-          if (searchResults) {
-            searchResults.innerHTML =
-              '<p style="color: rgba(255, 255, 255, 0.7); padding: 1rem; text-align: center;">Search functionality requires the MkDocs search plugin to be enabled and the site to be built.</p>';
+  searchTrigger?.addEventListener("click", openSearch);
+  searchClose?.addEventListener("click", closeSearch);
+  modal?.addEventListener("click", (event) => { if (event.target === modal) closeSearch(); });
+  searchInput?.addEventListener("input", (event) => {
+    window.clearTimeout(debounceTimer);
+    debounceTimer = window.setTimeout(() => renderResults(event.target.value.trim()), 120);
+  });
+  searchInput?.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      updateSelectedResult(selectedResult + 1);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      updateSelectedResult(selectedResult - 1);
+    } else if (event.key === "Enter" && selectedResult >= 0) {
+      event.preventDefault();
+      searchResults?.querySelectorAll(".search-result")[selectedResult]?.click();
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      event.preventDefault();
+      openSearch();
+    }
+    if (event.key === "Escape") {
+      closeSearch();
+      setDocsNav(false);
+      setPrimaryNav(false);
+    }
+    if (event.key === "Tab" && modal?.classList.contains("open")) {
+      const focusable = [...modal.querySelectorAll('button:not([disabled]), input:not([disabled]), a[href]')];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+  });
+
+  document.querySelector(".copy-page")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    const label = button.querySelector("span");
+    try {
+      await navigator.clipboard.writeText(`${document.title}\n${window.location.href}`);
+      if (label) label.textContent = "Link copied";
+      window.setTimeout(() => { if (label) label.textContent = "Copy link"; }, 1600);
+    } catch (_) {
+      if (label) label.textContent = "Copy failed";
+    }
+  });
+  document.querySelector("[data-history-back]")?.addEventListener("click", () => window.history.back());
+
+  const article = document.querySelector(".article");
+  const pageTools = document.querySelector(".page-tools");
+  const firstTitle = article?.querySelector(":scope > h1:first-child");
+  const introduction = firstTitle?.nextElementSibling?.matches("p") ? firstTitle.nextElementSibling : firstTitle;
+  if (article && pageTools && introduction) introduction.insertAdjacentElement("afterend", pageTools);
+
+  document.querySelectorAll(".article pre").forEach((block) => {
+    if (block.querySelector(".copy-code")) return;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "copy-code";
+    button.textContent = "Copy";
+    button.addEventListener("click", async () => {
+      await navigator.clipboard.writeText(block.querySelector("code")?.textContent || block.textContent || "");
+      button.textContent = "Copied";
+      window.setTimeout(() => { button.textContent = "Copy"; }, 1600);
+    });
+    block.append(button);
+  });
+
+  const outlineLinks = [...document.querySelectorAll(".page-outline a")];
+  const headings = [...document.querySelectorAll(".article h1[id], .article h2[id], .article h3[id], .article .doc-heading[id]")];
+  if (outlineLinks.length && headings.length) {
+    const activate = (id) => {
+      const exactIndex = outlineLinks.findIndex((link) => decodeURIComponent(link.hash.slice(1)) === id);
+      let target = exactIndex >= 0 ? outlineLinks[exactIndex] : null;
+      if (!target?.offsetParent) {
+        for (let index = exactIndex; index >= 0; index -= 1) {
+          if (outlineLinks[index]?.offsetParent) {
+            target = outlineLinks[index];
+            break;
           }
         }
-      } else {
-        if (searchResultsMeta)
-          searchResultsMeta.textContent = "Type to start searching";
-        if (searchResults) searchResults.innerHTML = "";
       }
-    });
-
-    function performSearch(query, index) {
-      const results = [];
-      const docs = index.docs || [];
-
-      docs.forEach((doc, i) => {
-        const title = (doc.title || "").toLowerCase();
-        const text = (doc.text || "").toLowerCase();
-
-        if (title.includes(query) || text.includes(query)) {
-          const titleIndex = title.indexOf(query);
-          const textIndex = text.indexOf(query);
-          const score = (titleIndex >= 0 ? 10 : 0) + (textIndex >= 0 ? 1 : 0);
-
-          results.push({
-            title: doc.title,
-            location: doc.location,
-            text: doc.text,
-            score: score,
-          });
-        }
-      });
-
-      return results.sort((a, b) => b.score - a.score).slice(0, 10);
-    }
-
-    function displaySearchResults(results, metaElement, resultsElement) {
-      if (!metaElement || !resultsElement) return;
-
-      if (results.length > 0) {
-        metaElement.textContent = `${results.length} result${results.length > 1 ? "s" : ""} found`;
-
-        resultsElement.innerHTML = results
-          .map((result) => {
-            // Convert relative URLs to absolute paths from site root
-            let resultUrl = result.location;
-
-            // For relative URLs (not starting with / or http), make them absolute
-            if (resultUrl && !resultUrl.startsWith("/") && !resultUrl.startsWith("http") && !resultUrl.startsWith("#")) {
-              resultUrl = "/" + resultUrl;
-            }
-
-            return `
-              <div class="search-result-item">
-                <a href="${resultUrl}" class="search-result-link">
-                  <div class="search-result-title">${result.title}</div>
-                  <div class="search-result-text">${result.text.substring(0, 150)}...</div>
-                </a>
-              </div>
-            `;
-          })
-          .join("");
-      } else {
-        metaElement.textContent = "No results found";
-        resultsElement.innerHTML = "";
-      }
-    }
+      outlineLinks.forEach((link) => link.classList.toggle("active", link === target));
+    };
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+      if (visible?.target.id) activate(visible.target.id);
+    }, { rootMargin: "-12% 0px -76% 0px" });
+    headings.forEach((heading) => observer.observe(heading));
   }
-
-  // --- Dynamic Page Transitions ---
-  const addPageTransitions = () => {
-    const mainContent = document.querySelector(".main-content");
-    if (!mainContent) return;
-
-    // Add fade-in class to trigger animations
-    setTimeout(() => {
-      mainContent.classList.add("fade-in");
-    }, 100);
-
-    // Handle internal link transitions
-    const internalLinks = document.querySelectorAll(
-      'a[href^="/"], a[href^="./"], a[href^="../"]',
-    );
-
-    internalLinks.forEach((link) => {
-      link.addEventListener("click", (e) => {
-        // Allow default navigation but add visual feedback
-        link.style.transform = "scale(0.98)";
-        setTimeout(() => {
-          link.style.transform = "";
-        }, 150);
-      });
-    });
-  };
-
-  addPageTransitions();
-
-  // --- Accessibility Enhancements ---
-  const enhanceAccessibility = () => {
-    // Add skip-to-content link
-    const skipLink = document.createElement("a");
-    skipLink.href = "#main-content";
-    skipLink.textContent = "Skip to main content";
-    skipLink.className = "skip-link";
-    skipLink.style.cssText = `
-      position: absolute;
-      top: -40px;
-      left: 6px;
-      background: var(--lab-violet);
-      color: white;
-      padding: 8px;
-      text-decoration: none;
-      border-radius: 4px;
-      z-index: 1000;
-      transition: top 0.3s;
-    `;
-
-    skipLink.addEventListener("focus", () => {
-      skipLink.style.top = "6px";
-    });
-
-    skipLink.addEventListener("blur", () => {
-      skipLink.style.top = "-40px";
-    });
-
-    document.body.insertBefore(skipLink, document.body.firstChild);
-
-    // Add main content ID if missing
-    const mainContent = document.querySelector(".main-content, .page-content");
-    if (mainContent && !mainContent.id) {
-      mainContent.id = "main-content";
-    }
-
-    // Enhance focus indicators
-    const focusableElements = document.querySelectorAll(
-      'a, button, input, textarea, select, [tabindex]:not([tabindex="-1"])',
-    );
-
-    focusableElements.forEach((element) => {
-      element.addEventListener("focus", () => {
-        element.style.outline = "3px solid var(--lab-violet)";
-        element.style.outlineOffset = "2px";
-      });
-
-      element.addEventListener("blur", () => {
-        element.style.outline = "";
-        element.style.outlineOffset = "";
-      });
-    });
-  };
-
-  enhanceAccessibility();
-
-  // --- Performance Monitoring ---
-  const monitorPerformance = () => {
-    if (window.performance && window.performance.mark) {
-      window.performance.mark("theme-enhancement-complete");
-
-      // Log performance metrics in development
-      if (window.location.hostname === "localhost") {
-        setTimeout(() => {
-          const navigation = performance.getEntriesByType("navigation")[0];
-          console.log("Page Load Performance:", {
-            domContentLoaded:
-              navigation.domContentLoadedEventEnd -
-              navigation.domContentLoadedEventStart,
-            loadComplete: navigation.loadEventEnd - navigation.loadEventStart,
-            totalTime: navigation.loadEventEnd - navigation.fetchStart,
-          });
-        }, 0);
-      }
-    }
-  };
-
-  monitorPerformance();
 });

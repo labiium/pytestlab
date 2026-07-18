@@ -69,7 +69,7 @@ main()
 
 ## 4. Need Help?
 
-- Check the [User Guide](../index.md) for more topics.
+- Continue with [Connecting to Instruments](connecting.md), or browse the other guides from the documentation sidebar.
 - Join the community or open an issue on GitHub if you get stuck.
 
 ---

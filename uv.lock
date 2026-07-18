@@ -115,15 +115,6 @@ css = [
 ]
 
 [[package]]
-name = "bracex"
-version = "2.6"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/63/9a/fec38644694abfaaeca2798b58e276a8e61de49e2e37494ace423395febc/bracex-2.6.tar.gz", hash = "sha256:98f1347cd77e22ee8d967a30ad4e310b233f7754dbf31ff3fceb76145ba47dc7", size = 26642, upload-time = "2025-06-22T19:12:31.254Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/9d/2a/9186535ce58db529927f6cf5990a849aa9e052eea3e2cfefe20b9e1802da/bracex-2.6-py3-none-any.whl", hash = "sha256:0b0049264e7340b3ec782b5cb99beb325f36c3782a32e36e876452fd49a09952", size = 11508, upload-time = "2025-06-22T19:12:29.781Z" },
-]
-
-[[package]]
 name = "certifi"
 version = "2025.8.3"
 source = { registry = "https://pypi.org/simple" }
@@ -639,30 +630,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/d9/29/d40217cbe2f6b1359e00c6c307bb3fc876ba74068cbab3dde77f03ca0dc4/ghp-import-2.1.0.tar.gz", hash = "sha256:9c535c4c61193c2df8871222567d7fd7e5014d835f97dc7b7439069e2413d343", size = 10943, upload-time = "2022-05-02T15:47:16.11Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f7/ec/67fbef5d497f86283db54c22eec6f6140243aae73265799baaaa19cd17fb/ghp_import-2.1.0-py3-none-any.whl", hash = "sha256:8337dd7b50877f163d4c0289bc1f1c7f127550241988d568c1db512c4324a619", size = 11034, upload-time = "2022-05-02T15:47:14.552Z" },
-]
-
-[[package]]
-name = "gitdb"
-version = "4.0.12"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "smmap" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/72/94/63b0fc47eb32792c7ba1fe1b694daec9a63620db1e313033d18140c2320a/gitdb-4.0.12.tar.gz", hash = "sha256:5ef71f855d191a3326fcfbc0d5da835f26b13fbcba60c32c21091c349ffdb571", size = 394684, upload-time = "2025-01-02T07:20:46.413Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/a0/61/5c78b91c3143ed5c14207f463aecfc8f9dbb5092fb2869baf37c273b2705/gitdb-4.0.12-py3-none-any.whl", hash = "sha256:67073e15955400952c6565cc3e707c554a4eea2e428946f7a4c162fab9bd9bcf", size = 62794, upload-time = "2025-01-02T07:20:43.624Z" },
-]
-
-[[package]]
-name = "gitpython"
-version = "3.1.45"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "gitdb" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/9a/c8/dd58967d119baab745caec2f9d853297cec1989ec1d63f677d3880632b88/gitpython-3.1.45.tar.gz", hash = "sha256:85b0ee964ceddf211c41b9f27a49086010a190fd8132a24e21f362a4b36a791c", size = 215076, upload-time = "2025-07-24T03:45:54.871Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/01/61/d4b89fec821f72385526e1b9d9a3a0385dda4a72b206d28049e2c7cd39b8/gitpython-3.1.45-py3-none-any.whl", hash = "sha256:8908cb2e02fb3b93b7eb0f2827125cb699869470432cc885f019b8fd0fccff77", size = 208168, upload-time = "2025-07-24T03:45:52.517Z" },
 ]
 
 [[package]]
@@ -1218,20 +1185,6 @@ wheels = [
 ]
 
 [[package]]
-name = "mkdocs-awesome-pages-plugin"
-version = "2.10.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "mkdocs" },
-    { name = "natsort" },
-    { name = "wcmatch" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/92/e8/6ae9c18d8174a5d74ce4ade7a7f4c350955063968bc41ff1e5833cff4a2b/mkdocs_awesome_pages_plugin-2.10.1.tar.gz", hash = "sha256:cda2cb88c937ada81a4785225f20ef77ce532762f4500120b67a1433c1cdbb2f", size = 16303, upload-time = "2024-12-22T21:13:49.19Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/73/61/19fc1e9c579dbfd4e8a402748f1d63cab7aabe8f8d91eb0235e45b32d040/mkdocs_awesome_pages_plugin-2.10.1-py3-none-any.whl", hash = "sha256:c6939dbea37383fc3cf8c0a4e892144ec3d2f8a585e16fdc966b34e7c97042a7", size = 15118, upload-time = "2024-12-22T21:13:46.945Z" },
-]
-
-[[package]]
 name = "mkdocs-get-deps"
 version = "0.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1243,34 +1196,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/98/f5/ed29cd50067784976f25ed0ed6fcd3c2ce9eb90650aa3b2796ddf7b6870b/mkdocs_get_deps-0.2.0.tar.gz", hash = "sha256:162b3d129c7fad9b19abfdcb9c1458a651628e4b1dea628ac68790fb3061c60c", size = 10239, upload-time = "2023-11-20T17:51:09.981Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9f/d4/029f984e8d3f3b6b726bd33cafc473b75e9e44c0f7e80a5b29abc466bdea/mkdocs_get_deps-0.2.0-py3-none-any.whl", hash = "sha256:2bf11d0b133e77a0dd036abeeb06dec8775e46efa526dc70667d8863eefc6134", size = 9521, upload-time = "2023-11-20T17:51:08.587Z" },
-]
-
-[[package]]
-name = "mkdocs-git-revision-date-localized-plugin"
-version = "1.4.7"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "babel" },
-    { name = "gitpython" },
-    { name = "mkdocs" },
-    { name = "pytz" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/5e/f8/a17ec39a4fc314d40cc96afdc1d401e393ebd4f42309d454cc940a2cf38a/mkdocs_git_revision_date_localized_plugin-1.4.7.tar.gz", hash = "sha256:10a49eff1e1c3cb766e054b9d8360c904ce4fe8c33ac3f6cc083ac6459c91953", size = 450473, upload-time = "2025-05-28T18:26:20.697Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/53/b6/106fcc15287e7228658fbd0ad9e8b0d775becced0a089cc39984641f4a0f/mkdocs_git_revision_date_localized_plugin-1.4.7-py3-none-any.whl", hash = "sha256:056c0a90242409148f1dc94d5c9d2c25b5b8ddd8de45489fa38f7fa7ccad2bc4", size = 25382, upload-time = "2025-05-28T18:26:18.907Z" },
-]
-
-[[package]]
-name = "mkdocs-i18n"
-version = "0.4.6"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "mkdocs" },
-    { name = "mkdocs-material" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/6b/31/6aad3256057551b1b8b2c8447a3669bfb3c1f99f833280e167b8fedd1d97/mkdocs-i18n-0.4.6.tar.gz", hash = "sha256:977736ac643e6a9fece2f331c72168dda298b09ed55049a9c3bb6be33e099af0", size = 24232, upload-time = "2023-04-27T11:48:09.43Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/40/d0/9523dcdfaa9f6968a85e967225213e9ea79e046e8da65282af56e8dbd4c1/mkdocs_i18n-0.4.6-py3-none-any.whl", hash = "sha256:44054cd7de6150f8e03aa074fc46d9ea661e660c9df0aab802115dd30636bc08", size = 17730, upload-time = "2023-04-27T11:48:07.445Z" },
 ]
 
 [[package]]
@@ -1365,15 +1290,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/37/f0/b0550d9b84759f4d045fd43da2f811e8b23dc2001e38c3254456da7f3adb/narwhals-2.1.2.tar.gz", hash = "sha256:afb9597e76d5b38c2c4b7c37d27a2418b8cc8049a66b8a5aca9581c92ae8f8bf", size = 533772, upload-time = "2025-08-15T08:24:50.916Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a8/01/824fff6789ce92a53242d24b6f5f3a982df2f610c51020f934bf878d2a99/narwhals-2.1.2-py3-none-any.whl", hash = "sha256:136b2f533a4eb3245c54254f137c5d14cef5c4668cff67dc6e911a602acd3547", size = 392064, upload-time = "2025-08-15T08:24:48.788Z" },
-]
-
-[[package]]
-name = "natsort"
-version = "8.4.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/e2/a9/a0c57aee75f77794adaf35322f8b6404cbd0f89ad45c87197a937764b7d0/natsort-8.4.0.tar.gz", hash = "sha256:45312c4a0e5507593da193dedd04abb1469253b601ecaf63445ad80f0a1ea581", size = 76575, upload-time = "2023-06-20T04:17:19.925Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ef/82/7a9d0550484a62c6da82858ee9419f3dd1ccc9aa1c26a1e43da3ecd20b0d/natsort-8.4.0-py3-none-any.whl", hash = "sha256:4732914fb471f56b5cce04d7bae6f164a592c7712e1c85f9ef585e197299521c", size = 38268, upload-time = "2023-06-20T04:17:17.522Z" },
 ]
 
 [[package]]
@@ -1983,12 +1899,7 @@ dev = [
     { name = "matplotlib" },
     { name = "mkdocs" },
     { name = "mkdocs-autorefs" },
-    { name = "mkdocs-awesome-pages-plugin" },
-    { name = "mkdocs-git-revision-date-localized-plugin" },
-    { name = "mkdocs-i18n" },
     { name = "mkdocs-jupyter" },
-    { name = "mkdocs-material" },
-    { name = "mkdocs-material-extensions" },
     { name = "mkdocstrings", extra = ["python"] },
     { name = "plotly" },
     { name = "pre-commit" },
@@ -2008,12 +1919,7 @@ docs = [
     { name = "matplotlib" },
     { name = "mkdocs" },
     { name = "mkdocs-autorefs" },
-    { name = "mkdocs-awesome-pages-plugin" },
-    { name = "mkdocs-git-revision-date-localized-plugin" },
-    { name = "mkdocs-i18n" },
     { name = "mkdocs-jupyter" },
-    { name = "mkdocs-material" },
-    { name = "mkdocs-material-extensions" },
     { name = "mkdocstrings", extra = ["python"] },
     { name = "plotly" },
     { name = "pymdown-extensions" },
@@ -2044,18 +1950,8 @@ requires-dist = [
     { name = "mkdocs", marker = "extra == 'docs'", specifier = ">=1.6.1" },
     { name = "mkdocs-autorefs", marker = "extra == 'dev'", specifier = ">=1.4.2" },
     { name = "mkdocs-autorefs", marker = "extra == 'docs'", specifier = ">=1.4.2" },
-    { name = "mkdocs-awesome-pages-plugin", marker = "extra == 'dev'", specifier = ">=2.10.1" },
-    { name = "mkdocs-awesome-pages-plugin", marker = "extra == 'docs'", specifier = ">=2.10.1" },
-    { name = "mkdocs-git-revision-date-localized-plugin", marker = "extra == 'dev'", specifier = ">=1.4.7" },
-    { name = "mkdocs-git-revision-date-localized-plugin", marker = "extra == 'docs'", specifier = ">=1.4.7" },
-    { name = "mkdocs-i18n", marker = "extra == 'dev'", specifier = ">=0.4.6" },
-    { name = "mkdocs-i18n", marker = "extra == 'docs'", specifier = ">=0.4.6" },
     { name = "mkdocs-jupyter", marker = "extra == 'dev'", specifier = ">=0.25.1" },
     { name = "mkdocs-jupyter", marker = "extra == 'docs'", specifier = ">=0.25.1" },
-    { name = "mkdocs-material", marker = "extra == 'dev'", specifier = ">=9.6.15" },
-    { name = "mkdocs-material", marker = "extra == 'docs'", specifier = ">=9.6.15" },
-    { name = "mkdocs-material-extensions", marker = "extra == 'dev'", specifier = ">=1.3.1" },
-    { name = "mkdocs-material-extensions", marker = "extra == 'docs'", specifier = ">=1.3.1" },
     { name = "mkdocstrings", extras = ["python"], marker = "extra == 'dev'", specifier = ">=0.29.1" },
     { name = "mkdocstrings", extras = ["python"], marker = "extra == 'docs'", specifier = ">=0.29.1" },
     { name = "numpy" },
@@ -2104,15 +2000,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/66/c0/0c8b6ad9f17a802ee498c46e004a0eb49bc148f2fd230864601a86dcf6db/python-dateutil-2.9.0.post0.tar.gz", hash = "sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3", size = 342432, upload-time = "2024-03-01T18:36:20.211Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ec/57/56b9bcc3c9c6a792fcbaf139543cee77261f3651ca9da0c93f5c1221264b/python_dateutil-2.9.0.post0-py2.py3-none-any.whl", hash = "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427", size = 229892, upload-time = "2024-03-01T18:36:18.57Z" },
-]
-
-[[package]]
-name = "pytz"
-version = "2025.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/f8/bf/abbd3cdfb8fbc7fb3d4d38d320f2441b1e7cbe29be4f23797b4a2b5d8aac/pytz-2025.2.tar.gz", hash = "sha256:360b9e3dbb49a209c21ad61809c7fb453643e048b38924c765813546746e81c3", size = 320884, upload-time = "2025-03-25T02:25:00.538Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/81/c4/34e93fe5f5429d7570ec1fa436f1986fb1f00c3e0f43a589fe2bbcd22c3f/pytz-2025.2-py2.py3-none-any.whl", hash = "sha256:5ddf76296dd8c44c26eb8f4b6f35488f3ccbf6fbbd7adee0b7262d43f0ec2f00", size = 509225, upload-time = "2025-03-25T02:24:58.468Z" },
 ]
 
 [[package]]
@@ -2526,15 +2413,6 @@ wheels = [
 ]
 
 [[package]]
-name = "smmap"
-version = "5.0.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/44/cd/a040c4b3119bbe532e5b0732286f805445375489fceaec1f48306068ee3b/smmap-5.0.2.tar.gz", hash = "sha256:26ea65a03958fa0c8a1c7e8c7a58fdc77221b8910f6be2131affade476898ad5", size = 22329, upload-time = "2025-01-02T07:14:40.909Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/04/be/d09147ad1ec7934636ad912901c5fd7667e1c858e19d355237db0d0cd5e4/smmap-5.0.2-py3-none-any.whl", hash = "sha256:b30115f0def7d7531d22a0fb6502488d879e75b260a9db4d0819cfb25403af5e", size = 24303, upload-time = "2025-01-02T07:14:38.724Z" },
-]
-
-[[package]]
 name = "sniffio"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2817,18 +2695,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/07/f6/d0e5b343768e8bcb4cda79f0f2f55051bf26177ecd5651f84c07567461cf/watchdog-6.0.0-py3-none-win32.whl", hash = "sha256:07df1fdd701c5d4c8e55ef6cf55b8f0120fe1aef7ef39a1c6fc6bc2e606d517a", size = 79065, upload-time = "2024-11-01T14:07:09.525Z" },
     { url = "https://files.pythonhosted.org/packages/db/d9/c495884c6e548fce18a8f40568ff120bc3a4b7b99813081c8ac0c936fa64/watchdog-6.0.0-py3-none-win_amd64.whl", hash = "sha256:cbafb470cf848d93b5d013e2ecb245d4aa1c8fd0504e863ccefa32445359d680", size = 79070, upload-time = "2024-11-01T14:07:10.686Z" },
     { url = "https://files.pythonhosted.org/packages/33/e8/e40370e6d74ddba47f002a32919d91310d6074130fe4e17dabcafc15cbf1/watchdog-6.0.0-py3-none-win_ia64.whl", hash = "sha256:a1914259fa9e1454315171103c6a30961236f508b9b623eae470268bbcc6a22f", size = 79067, upload-time = "2024-11-01T14:07:11.845Z" },
-]
-
-[[package]]
-name = "wcmatch"
-version = "10.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "bracex" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/79/3e/c0bdc27cf06f4e47680bd5803a07cb3dfd17de84cde92dd217dcb9e05253/wcmatch-10.1.tar.gz", hash = "sha256:f11f94208c8c8484a16f4f48638a85d771d9513f4ab3f37595978801cb9465af", size = 117421, upload-time = "2025-06-22T19:14:02.49Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/eb/d8/0d1d2e9d3fabcf5d6840362adcf05f8cf3cd06a73358140c3a97189238ae/wcmatch-10.1-py3-none-any.whl", hash = "sha256:5848ace7dbb0476e5e55ab63c6bbd529745089343427caa5537f230cc01beb8a", size = 39854, upload-time = "2025-06-22T19:14:00.978Z" },
 ]
 
 [[package]]

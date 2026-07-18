@@ -80,27 +80,56 @@ def test_lossy_float_conversion_is_rejected():
         np.asarray([q], dtype=float)
 
 
-def test_scalar_equality_and_ordering_fail_loud_with_decision_helpers():
+def test_scalar_equality_and_ordering_use_nominal_values():
     q = uq(2.0, 0.1, "V")
 
-    with pytest.raises(TypeError, match="q.consistent_with"):
-        _ = q == 2.0
-    with pytest.raises(TypeError, match="q.consistent_with"):
-        _ = q != 2.0
-    with pytest.raises(TypeError, match="q.n > limit"):
-        _ = q > 1.0
-    with pytest.raises(TypeError, match="q.n < limit"):
-        _ = q < 3.0
+    assert q == 2.0
+    assert 2.0 == q
+    assert q != 2.1
+    assert q > 1.0
+    assert 1.0 < q
+    assert q >= 2.0
+    assert q < 3.0
+    assert q <= 2.0
+    assert q == pytest.approx(2.0)
+    assert pytest.approx(2.0) == q
+    assert bool(q)
+    assert not bool(uq(0.0, 0.1, "V"))
 
     same = q
     different = uq(2.0, 0.2, "V")
     assert q == same
-    assert q != different
+    assert q == different
+    assert q.same_representation(same)
+    assert not q.same_representation(different)
+    ordered = sorted([uq(3.0, 0.5, "V"), q, uq(1.0, 0.01, "V")])
+    assert [value.n for value in ordered] == [1.0, 2.0, 3.0]
+
+
+def test_nominal_comparisons_convert_units_and_reject_incompatible_units():
+    volts = uq(1.0, 0.1, "V", registry=ptu.AtomRegistry())
+    millivolts = uq(1000.0, 50.0, "mV", registry=ptu.AtomRegistry())
+    higher = uq(1001.0, 0.01, "mV", registry=ptu.AtomRegistry())
+
+    assert volts == millivolts
+    assert volts >= millivolts
+    assert volts <= millivolts
+    assert volts < higher
+    assert higher > volts
+
+    with pytest.raises(ptu.UnitCompatibilityError):
+        _ = volts > uq(1.0, 0.1, "A")
+    with pytest.raises(ptu.UnitCompatibilityError):
+        _ = volts == uq(1.0, 0.1)
 
 
 def test_quantity_decision_helpers_are_guard_banded_and_auditable():
     q = uq(2.0, 0.1, "V")
 
+    # Operators intentionally answer the routine nominal-value question, while
+    # decision helpers account for the expanded uncertainty interval.
+    assert q > 1.85
+    assert not q.exceeds(1.85, k=2.0)
     assert q.consistent_with(2.15, k=2.0)
     assert not q.consistent_with(2.25, k=2.0)
     assert q.en_ratio(2.15, k=2.0) == pytest.approx(0.75)
@@ -171,6 +200,7 @@ def test_scaled_unit_add_sub_and_compare_scale_gradients():
 
 def test_uncertainty_formatting_and_html_repr():
     q = uq(2.0, 0.1)
+    assert f"{q}" == str(q) == "2.0 +/- 0.1"
     assert format(q, ".1u") == "2.0+/-0.1"
     assert format(q, ".1uS") == "2.0(1)"
     assert format(q, ".1uP") == "2.0±0.1"
@@ -189,6 +219,9 @@ def test_umath_and_numpy_scalar_ufuncs_propagate_uncertainty():
     assert _q_ufunc(np.multiply, x, 2.0).s == pytest.approx(0.02)
     assert _q_ufunc(np.true_divide, x, 2.0).s == pytest.approx(0.005)
     assert _q_ufunc(np.power, x, 2.0).s == pytest.approx(2.0 * 0.5 * 0.01)
+    absolute = abs(uq(-2.0, 0.1, "V"))
+    assert absolute.n == pytest.approx(2.0)
+    assert absolute.s == pytest.approx(0.1)
     with pytest.raises(TypeError):
         np.isfinite(x)
 
@@ -202,6 +235,11 @@ def test_numpy_scalar_left_hand_ufuncs_do_not_recurse():
     assert _q_ufunc(np.multiply, np.int64(4), q).n == pytest.approx(8.0)
     assert _q_ufunc(np.subtract, np.float64(5.0), q).n == pytest.approx(3.0)
     assert _q_ufunc(np.true_divide, np.float64(4.0), q).s == pytest.approx(0.1)
+    assert _q_ufunc(np.equal, np.float64(2.0), q)
+    assert _q_ufunc(np.less, np.float64(1.0), q)
+    assert _q_ufunc(np.greater, np.float64(3.0), q)
+    assert np.float64(1.0) < q
+    assert np.float64(3.0) > q
 
 
 def test_correlated_values_and_uncertainties_migration_round_trip():

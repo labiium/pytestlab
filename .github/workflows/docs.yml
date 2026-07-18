@@ -1,0 +1,38 @@
+name: Documentation
+
+on:
+  push:
+    branches: [master, dev]
+  pull_request:
+    branches: [master, dev]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      JUPYTER_PLATFORM_DIRS: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install documentation dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[docs]
+
+      - name: Verify generated profile gallery
+        run: |
+          python scripts/generate_profile_gallery.py
+          git diff --exit-code -- docs/en/profiles/gallery.md
+
+      - name: Build documentation strictly
+        run: mkdocs build --strict -f docs/mkdocs.yml
+
+      - name: Run documentation regression checks
+        run: python scripts/check_docs.py

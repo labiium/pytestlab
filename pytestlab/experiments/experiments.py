@@ -188,7 +188,7 @@ class Experiment:
 
     # ------------------------------------------------------------------
     # Plotting convenience
-    def plot(self, spec: PlotSpec | None = None, **kwargs):
+    def plot(self, spec: PlotSpec | None = None, **kwargs: Any) -> Any:
         """
         Plot the experiment's data using the lightweight plotting layer.
 

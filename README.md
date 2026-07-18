@@ -99,6 +99,9 @@ print(reading.n)               # short explicit nominal-only value
 print(reading.u)               # standard uncertainty
 print(reading.budget())        # component-level provenance
 
+if reading > 4.75:
+    print("nominal reading is above the limit")
+
 if reading.exceeds(4.75, k=2):
     print("guard-banded pass")
 
@@ -106,10 +109,10 @@ if not reading.is_report_grade:
     print(reading.report_grade_blockers())
 ```
 
-Scalar comparisons such as `reading > 4.75` intentionally fail loud; use
-`reading.n > 4.75` for routine nominal control flow or `reading.exceeds(...)`,
-`reading.below(...)`, and `reading.consistent_with(...)` for uncertainty-aware
-decisions.
+Scalar comparison operators use the nominal value and interpret a bare scalar in
+the reading's unit. Comparisons between quantities convert compatible units. Use
+`reading.exceeds(...)`, `reading.below(...)`, `reading.consistent_with(...)`, or
+`reading.compare(...)` when uncertainty must affect the decision.
 
 ### 2c. Oscilloscope uncertainty and twin evidence
 

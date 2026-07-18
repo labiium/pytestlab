@@ -1,3 +1,4 @@
+import subprocess
 from pathlib import Path
 
 import yaml
@@ -6,7 +7,20 @@ import yaml
 SCRIPT_DIR = Path(__file__).parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 PROFILES_DIR = PROJECT_ROOT / "pytestlab" / "profiles"
-GALLERY_MD_PATH = PROJECT_ROOT / "docs" / "profiles" / "gallery.md"
+GALLERY_MD_PATH = PROJECT_ROOT / "docs" / "en" / "profiles" / "gallery.md"
+REPOSITORY_BLOB_URL = "https://github.com/labiium/pytestlab/blob/master"
+
+
+def _last_updated(profile_file: Path) -> str:
+    """Return the last committed date without making generated output machine-specific."""
+    result = subprocess.run(
+        ["git", "log", "-1", "--format=%cs", "--", str(profile_file)],
+        cwd=PROJECT_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip() or "Not yet committed"
 
 
 def generate_profile_gallery():
@@ -51,22 +65,25 @@ This page lists available instrument profiles.
             model = data_to_extract_from.get(
                 "model", profile_file.stem
             )  # Fallback to filename stem
-            device_type = data_to_extract_from.get("device_type", "N/A")
-            code_owners = data_to_extract_from.get("code_owners", ["N/A"])
-            last_updated = data_to_extract_from.get("last_updated", "N/A")
+            default_type = "accessory" if "accessories" in profile_file.parts else "Not specified"
+            device_type = data_to_extract_from.get("device_type", default_type)
+            code_owners = data_to_extract_from.get("code_owners", [])
+            last_updated = data_to_extract_from.get("last_updated", _last_updated(profile_file))
 
-            # Create a relative path to the profile from the docs directory
-            # gallery.md is in docs/profiles/
-            # profile_file is like /path/to/project/pytestlab/profiles/keysight/E36313A.yaml
-            # We want ../../pytestlab/profiles/keysight/E36313A.yaml
-            relative_profile_path = Path("../../") / profile_file.relative_to(PROJECT_ROOT)
+            relative_profile_path = profile_file.relative_to(PROJECT_ROOT).as_posix()
+
+            owner_line = ""
+            if code_owners:
+                owner_links = ", ".join(
+                    f"[`@{owner}`](https://github.com/{owner})" for owner in code_owners
+                )
+                owner_line = f"- **Code Owners:** {owner_links}\n"
 
             snippet = f"""### {manufacturer} {model}
 
 - **Device Type:** `{device_type}`
-- **Profile:** [`{profile_file.name}`]({relative_profile_path})
-- **Code Owners:** {", ".join(f"[`@{owner}`](https://github.com/{owner})" for owner in code_owners)}
-- **Last Updated:** {last_updated}
+- **Profile:** [`{profile_file.name}`]({REPOSITORY_BLOB_URL}/{relative_profile_path})
+{owner_line}- **Last Updated:** {last_updated}
 """
             markdown_snippets.append(snippet)
 
@@ -76,9 +93,14 @@ This page lists available instrument profiles.
             print(f"Error processing file {profile_file}: {e}")
 
     # Construct the full Markdown page content
-    gallery_content = f"""# Instrument Profile Gallery
+    gallery_content = f"""---
+title: Profile Gallery
+description: Built-in PyTestLab instrument profiles for oscilloscopes, power supplies, meters, loads, and analyzers.
+---
 
-This page lists available instrument profiles.
+# Instrument Profile Gallery
+
+These profiles are available out of the box and live in `pytestlab/profiles/`. Use a profile by its repository-relative key, such as `keysight/DSOX1204G`.
 {"---" if markdown_snippets else ""}
 """
     if markdown_snippets:

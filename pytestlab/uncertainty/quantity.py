@@ -16,10 +16,12 @@ from __future__ import annotations
 
 import math
 import numbers
+import operator
 import re
 import warnings
 from dataclasses import dataclass
 from html import escape
+from types import NotImplementedType
 from typing import TYPE_CHECKING
 from typing import Any
 
@@ -187,8 +189,9 @@ class Quantity:
     def compare(self, other: object, *, k: float = 2.0) -> QuantityComparison:
         """Compare against another value using expanded uncertainty ``k * u_c``.
 
-        This is the auditable replacement for ambiguous scalar ``==``/``>`` checks.
-        Scalars are treated as exact thresholds in this quantity's unit.
+        Rich comparison operators use nominal values. This method is the auditable,
+        uncertainty-aware alternative for measurement decisions. Scalars are treated
+        as exact thresholds in this quantity's unit.
         """
 
         if k <= 0.0 or not math.isfinite(k):
@@ -463,6 +466,10 @@ class Quantity:
     def __pos__(self) -> Quantity:
         return self
 
+    def __abs__(self) -> Quantity:
+        factor = 1.0 if self.nominal >= 0.0 else -1.0
+        return self._new(abs(self.nominal), self.unit, self._scaled_grad(factor))
+
     def __pow__(self, power: object) -> Quantity:
         if isinstance(power, Quantity) and power.grad:
             # a**b = exp(b ln a): d = a**b * (b/a da + ln a db)
@@ -490,15 +497,32 @@ class Quantity:
         return f"{self.unit}**{p:g}"
 
     # -- comparisons ---------------------------------------------------------
-    def __eq__(self, other: object) -> bool:
+    def _nominal_comparison_value(self, other: object) -> float | NotImplementedType:
+        """Return ``other`` expressed as a nominal value in this quantity's unit."""
+
+        if isinstance(other, Quantity):
+            if bool(self.unit) != bool(other.unit):
+                raise units.UnitCompatibilityError(
+                    f"Incompatible units: {self.unit!r} and {other.unit!r}"
+                )
+            return units.convert_units(other.nominal, other.unit, self.unit)
         if isinstance(other, numbers.Real):
-            raise TypeError(
-                "Quantity equality with a scalar is ambiguous. Use q.n == value only for "
-                "exact nominal tests, or q.consistent_with(value, k=2) for agreement "
-                "within uncertainty."
-            )
+            # Bare scalars are interpreted in this quantity's unit. This mirrors
+            # arithmetic with scalars and keeps ordinary Python control flow concise.
+            return float(other)
+        return NotImplemented
+
+    def same_representation(self, other: object) -> bool:
+        """Return whether two quantities have the same scalar representation.
+
+        Unlike ``==``, which compares unit-converted nominal values, this checks the
+        uncertainty engine's scalar identity fields: nominal value, unit spelling,
+        gradient, and correlation registry identity. It does not compare provenance
+        or measurement-model metadata.
+        """
+
         if not isinstance(other, Quantity):
-            return NotImplemented
+            return False
         return (
             self.nominal == other.nominal
             and self.unit == other.unit
@@ -506,19 +530,48 @@ class Quantity:
             and self.registry is other.registry
         )
 
+    def __eq__(self, other: object) -> bool:
+        right = self._nominal_comparison_value(other)
+        if right is NotImplemented:
+            return NotImplemented
+        return self.nominal == right
+
+    def __ne__(self, other: object) -> bool:
+        equal = self.__eq__(other)
+        if equal is NotImplemented:
+            return NotImplemented
+        return not equal
+
     __hash__ = None
 
     def __lt__(self, other: object) -> bool:
-        raise TypeError(_ambiguous_ordering_message("<", "q.n < limit", "q.below(limit, k=2)"))
+        right = self._nominal_comparison_value(other)
+        if right is NotImplemented:
+            return NotImplemented
+        return self.nominal < right
 
     def __le__(self, other: object) -> bool:
-        raise TypeError(_ambiguous_ordering_message("<=", "q.n <= limit", "q.below(limit, k=2)"))
+        right = self._nominal_comparison_value(other)
+        if right is NotImplemented:
+            return NotImplemented
+        return self.nominal <= right
 
     def __gt__(self, other: object) -> bool:
-        raise TypeError(_ambiguous_ordering_message(">", "q.n > limit", "q.exceeds(limit, k=2)"))
+        right = self._nominal_comparison_value(other)
+        if right is NotImplemented:
+            return NotImplemented
+        return self.nominal > right
 
     def __ge__(self, other: object) -> bool:
-        raise TypeError(_ambiguous_ordering_message(">=", "q.n >= limit", "q.exceeds(limit, k=2)"))
+        right = self._nominal_comparison_value(other)
+        if right is NotImplemented:
+            return NotImplemented
+        return self.nominal >= right
+
+    def __bool__(self) -> bool:
+        """Use the nominal value for ordinary Python truth testing."""
+
+        return bool(self.nominal)
 
     # -- conversions --------------------------------------------------------
     def __float__(self) -> float:
@@ -530,6 +583,8 @@ class Quantity:
         )
 
     def __format__(self, spec: str) -> str:
+        if not spec:
+            return str(self)
         if "u" in spec:
             return self._format_with_uncertainty(spec)
         return format(self.nominal, spec)
@@ -660,6 +715,20 @@ class Quantity:
             return fn.tan(inputs[0])
         if ufunc is np.arctan2:
             return fn.atan2(inputs[0], inputs[1])
+        comparison = {
+            np.equal: operator.eq,
+            np.not_equal: operator.ne,
+            np.less: operator.lt,
+            np.less_equal: operator.le,
+            np.greater: operator.gt,
+            np.greater_equal: operator.ge,
+        }.get(ufunc)
+        if comparison is not None:
+            left, right = (
+                value.item() if isinstance(value, np.ndarray) and value.ndim == 0 else value
+                for value in inputs
+            )
+            return comparison(left, right)
         return NotImplemented
 
     def error_components(
@@ -834,12 +903,3 @@ class Quantity:
         q.provenance = provenance_from_any(data.get("provenance"))
         q.dof_method = data.get("dof_method")
         return q
-
-
-def _ambiguous_ordering_message(operator: str, nominal_example: str, decision_example: str) -> str:
-    return (
-        f"Quantity ordering with '{operator}' is ambiguous because it would ignore "
-        f"uncertainty, units, correlations, and provenance. For routine nominal control "
-        f"flow use {nominal_example}; for an uncertainty-aware measurement decision use "
-        f"{decision_example}."
-    )

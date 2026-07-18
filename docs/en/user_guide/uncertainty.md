@@ -13,10 +13,11 @@ expanded uncertainty when needed.
 
 ## Reading a Measurement Result
 
-The everyday path is intentionally small: acquire a result, print it, and make
-any decision with an explicit uncertainty rule. Missing profile metadata returns
-a nominal-only `Quantity` with report-grade blockers instead of hiding the gap as
-a bare float.
+The everyday path is intentionally small: acquire a result, print it, and use
+ordinary comparison operators for nominal-value control flow. Use the explicit
+decision helpers when uncertainty must affect a pass/fail decision. Missing
+profile metadata returns a nominal-only `Quantity` with report-grade blockers
+instead of hiding the gap as a bare float.
 
 ```python
 result = dmm.measure(DMMFunction.VOLTAGE_DC)
@@ -28,6 +29,9 @@ standard_u = voltage.u            # standard uncertainty
 expanded_u = voltage.U(k=2)       # expanded uncertainty
 budget = voltage.budget()         # component-level provenance
 
+if voltage > 4.75:                # nominal comparison in volts
+    print("displayed voltage is above the limit")
+
 if voltage.exceeds(4.75, k=2):    # guard-banded lower-limit decision
     print("voltage is safely above the limit")
 
@@ -35,11 +39,13 @@ if not voltage.is_report_grade:
     print(voltage.report_grade_blockers())
 ```
 
-`voltage == 5.0` and `voltage > 4.75` deliberately raise `TypeError`: they do
-not say whether you intended nominal-only logic or an uncertainty-aware decision.
-Use `voltage.n` (or `voltage.nominal`) when nominal-only control flow is intentional,
-`voltage.consistent_with(expected)` for agreement checks, and
+`voltage == 5.0` and `voltage > 4.75` compare nominal values. A bare scalar is
+interpreted in the quantity's unit; comparisons between quantities convert
+compatible units. These operators deliberately do not use uncertainty. Use
+`voltage.consistent_with(expected)` for agreement checks and
 `voltage.exceeds(...)` / `voltage.below(...)` for guard-banded thresholds.
+Use `voltage.same_representation(other)` only when internal scalar-representation
+identity—not measurement agreement or complete metadata equality—is required.
 
 ## Strict Accuracy Specs
 
@@ -696,8 +702,8 @@ installed, but normal PyTestLab code should stay on
 unit, correlation, and provenance information.  `np.asarray([q], dtype=float)` is
 rejected for the same reason.  Use `nominal_value(q)`, `nominal_values(...)`, or
 `q.n` / `q.nominal` when nominal extraction is intentional. Scalar equality and
-ordering also fail loud; use `q.n > limit` for routine nominal control flow, or
-`q.consistent_with(expected, k=...)`, `q.en_ratio(expected)`,
+ordering use unit-aware nominal values, making sorting and ordinary Python control
+flow work as expected. Use `q.consistent_with(expected, k=...)`, `q.en_ratio(expected)`,
 `q.exceeds(limit, k=...)`, `q.below(limit, k=...)`, or `q.compare(...)` for an
 auditable uncertainty-aware decision record.
 

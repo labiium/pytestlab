@@ -1,6 +1,6 @@
 # Installation
 
-PyTestLab requires **Python 3.9** or higher.
+PyTestLab requires **Python 3.11** or higher.
 
 ## Standard Installation
 
@@ -13,17 +13,9 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 You can install PyTestLab from PyPI using `pip`.
 
-### Core Package
+### Install PyTestLab
 
-For the core functionality:
-
-```bash
-pip install pytestlab
-```
-
-### Default Installation Includes Plotting
-
-Plotting and scientific data features are included in the default install:
+The default package includes plotting and scientific-data support:
 
 ```bash
 pip install pytestlab

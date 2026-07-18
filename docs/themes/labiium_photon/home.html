@@ -6,6 +6,14 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta name="description" content="{{ config.site_description }}" />
         <meta name="author" content="LABIIUM" />
+        <link rel="canonical" href="{{ config.site_url }}" />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="{{ config.site_name }}" />
+        <meta property="og:title" content="{{ config.site_name }} - {{ t.hero_title_1 }} {{ t.hero_title_2 }}" />
+        <meta property="og:description" content="{{ config.site_description }}" />
+        <meta property="og:url" content="{{ config.site_url }}" />
+        <meta property="og:image" content="{{ config.site_url }}img/pytestlab_logo.png" />
+        <meta name="twitter:card" content="summary" />
 
         <title>
             {{ config.site_name }} - {{ t.hero_title_1 }} {{ t.hero_title_2 }}
@@ -16,19 +24,8 @@
         <link rel="shortcut icon" href="{{ 'img/favicon.ico'|url }}" type="image/x-icon">
         <link rel="apple-touch-icon" href="{{ 'img/pytestlab_logo.png'|url }}">
 
-        <!-- Google Fonts -->
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link
-            href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&family=Manrope:wght@800&family=IBM+Plex+Mono:wght@400;500&display=swap"
-            rel="stylesheet"
-        />
-
-        <!-- Prism.js CSS for syntax highlighting -->
-        <link
-            rel="stylesheet"
-            href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css"
-        />
+        <link rel="stylesheet" href="{{ 'css/tokens.css'|url }}" />
+        <link rel="stylesheet" href="{{ 'css/theme.css'|url }}" />
 
         <!-- Extra CSS files from mkdocs.yml -->
         {% for path in config.extra_css %}
@@ -38,17 +35,6 @@
         <style>
             /* Core Variables */
             :root {
-                --photon-black: #0b0e11;
-                --photon-white: #f5f7fa;
-                --lab-violet: #5333ed;
-                --lab-violet-light: #7a5ff5;
-                --lab-aqua: #04e2dc;
-                --lab-aqua-light: #2cefea;
-
-                --glass-frost-bg: rgba(30, 33, 38, 0.75);
-                --glass-border: rgba(255, 255, 255, 0.1);
-                --glass-border-hover: rgba(255, 255, 255, 0.25);
-
                 /* Enhanced glassmorphism variables */
                 --glass-overlay-bg: rgba(11, 14, 17, 0.85);
                 --glass-nav-bg: rgba(15, 18, 23, 0.88);
@@ -71,36 +57,7 @@
                     rgba(4, 226, 220, 0.15) 100%
                 );
 
-                --graphite-30: #1a1d20;
-                --graphite-50: #2b2e32;
-                --graphite-70: #42454a;
-
-                --status-success: #00b27c;
-                --status-warning: #ffb02e;
-                --status-error: #ff5460;
-
-                --ease-curve: cubic-bezier(0.16, 1, 0.3, 1);
-
-                --font-ui:
-                    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
-                    Roboto, sans-serif;
-                --font-display: "Manrope", "Inter", sans-serif;
-                --font-code:
-                    "IBM Plex Mono", SFMono-Regular, Consolas,
-                    "Liberation Mono", Menlo, monospace;
-
-                --spacing-xs: 0.25rem;
-                --spacing-sm: 0.5rem;
-                --spacing-md: 1rem;
-                --spacing-lg: 1.5rem;
-                --spacing-xl: 2rem;
-                --spacing-xxl: 3rem;
-
                 --header-height: 80px;
-                --border-radius-sm: 4px;
-                --border-radius-md: 8px;
-                --border-radius-lg: 16px;
-                --border-radius-xl: 32px;
             }
 
             /* Reset & Base Styles */
@@ -2507,7 +2464,5 @@ run_sweep()`,
         </script>
 
         <!-- Prism.js for syntax highlighting -->
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
     </body>
 </html>

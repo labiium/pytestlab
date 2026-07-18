@@ -1714,8 +1714,8 @@ class Oscilloscope(Instrument[OscilloscopeConfig]):
         run_after: bool = True,
         timebase: float | None = None,
         spec: PlotSpec | None = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> Any:
         """
         Convenience: acquire one or more channels and plot the result.
 

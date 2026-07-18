@@ -271,7 +271,9 @@ class MeasurementSession(contextlib.AbstractContextManager):
         self._parameters[name] = _Parameter(name, resolved, unit, notes)
 
     # ─── Measurement registration ─────────────────────────────────────
-    def acquire(self, func: T_MeasFunc | None = None, /, *, name: str | None = None):
+    def acquire(
+        self, func: T_MeasFunc | None = None, /, *, name: str | None = None
+    ) -> T_MeasFunc | Callable[[T_MeasFunc], T_MeasFunc]:
         """Register a measurement function.
 
         If compliance is enabled for this session, the function is automatically
@@ -533,7 +535,7 @@ class MeasurementSession(contextlib.AbstractContextManager):
         return html
 
     # Plotting convenience ------------------------------------------------
-    def plot(self, spec: PlotSpec | None = None, **kwargs):
+    def plot(self, spec: PlotSpec | None = None, **kwargs: Any) -> Any:
         """
         Plot the current session data (if any). Typically called after run().
 

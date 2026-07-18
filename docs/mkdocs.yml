@@ -3,9 +3,9 @@ docs_dir: en
 site_dir: ../site
 site_description: "Scientific test & measurement toolbox for Python."
 site_author: "LABIIUM"
-copyright: "Copyright &copy; 2023-2024 LABIIUM"
+copyright: "Copyright &copy; 2023-2026 LABIIUM"
 repo_url: https://github.com/labiium/pytestlab
-edit_uri: edit/master/docs/
+edit_uri: edit/master/docs/en/
 site_url: https://pytestlab.org/
 use_directory_urls: true
 
@@ -94,16 +94,13 @@ theme:
   custom_dir: themes/labiium_photon
   logo: img/pytestlab_logo.png
   favicon: img/favicon.ico
-  features:
-    - navigation.instant
-    - navigation.top
-    - search.suggest
-    - content.code.copy
-  palette:
-    primary: custom
+  search_index_only: true
+  static_templates:
+    - 404.html
 
 plugins:
-  - search
+  - search:
+      indexing: full
   - mkdocstrings:
       handlers:
         python:
@@ -113,10 +110,16 @@ plugins:
             show_category_heading: true
             docstring_section_style: "spacy"
             merge_init_into_class: true
-            show_if_no_docstring: true
+            show_if_no_docstring: false
+            show_source: false
+            separate_signature: true
+            members_order: source
+            filters:
+              - "!^_"
   - mkdocs-jupyter
-  - awesome-pages
-  - git-revision-date-localized
+
+hooks:
+  - hooks.py
 
 markdown_extensions:
   - admonition
@@ -133,33 +136,32 @@ markdown_extensions:
   - pymdownx.snippets
   - attr_list
   - md_in_html
+  - toc:
+      permalink: "#"
+      permalink_title: Copy link to this section
 
 extra_css:
-  - stylesheets/extra.css
-  - stylesheets/notebook-enhancements.css
-
-extra_javascript:
-  - https://polyfill.io/v3/polyfill.min.js?features=es6
-  - js/notebook-enhancements.js
+  - stylesheets/docs-redesign.css
 
 nav:
   - Home: index.md
   - Docs:
-      - Installation: installation.md
-      - "Getting Started": user_guide/getting_started.md
-
-      - "Connecting to Instruments": user_guide/connecting.md
-      - "Measurement Sessions": user_guide/measurement_session.md
-      - "Simulation Mode": user_guide/simulation.md
-      - "Circuit Simulation": user_guide/circuit_simulation.md
-      - "Record & Replay Mode": user_guide/replay_mode.md
-      - "Bench Descriptors": user_guide/bench_descriptors.md
-      - "Error Handling": user_guide/errors.md
-      - "Handling Uncertainty": user_guide/uncertainty.md
-      - "Digital Twins and Evidence": user_guide/digital_twin.md
-      - "Notebook Styling Guide": user_guide/notebook_styling.md
-      - "Command-Line Interface": user_guide/cli.md
-      - "Documentation Scripts": scripts/index.md
+      - Get started:
+          - Installation: installation.md
+          - "Getting Started": user_guide/getting_started.md
+          - Troubleshooting: user_guide/troubleshooting.md
+      - User guide:
+          - "Connecting to Instruments": user_guide/connecting.md
+          - "Measurement Sessions": user_guide/measurement_session.md
+          - "Simulation Mode": user_guide/simulation.md
+          - "Circuit Simulation": user_guide/circuit_simulation.md
+          - "Replay Mode Guide": user_guide/replay_mode.md
+          - "Bench Descriptors": user_guide/bench_descriptors.md
+          - "Error Handling": user_guide/errors.md
+          - "Handling Uncertainty": user_guide/uncertainty.md
+          - "Digital Twins and Evidence": user_guide/digital_twin.md
+          - "Notebook Styling Guide": user_guide/notebook_styling.md
+          - "Command-Line Interface": user_guide/cli.md
   - Tutorials:
       - "10 Minute Tour": tutorials/10_minute_tour.ipynb
       - "Record & Replay Mode": tutorials/replay_mode.ipynb
@@ -167,10 +169,22 @@ nav:
       - "Custom Validations": tutorials/custom_validations.ipynb
       - "Profile Creation": tutorials/profile_creation.ipynb
       - "SmartBench Example": tutorials/smartbench.ipynb
-      - "Example Tutorial": tutorials/example.ipynb
+      - "Instrument Control Workflow": tutorials/example.ipynb
       - "Advanced Measurements": tutorials/advanced_measurements.ipynb
   - API:
-      - "Instruments": api/instruments.md
+      - "API Overview": api/index.md
+      - "Instrument drivers":
+          - "Overview": api/instruments/index.md
+          - "AutoInstrument": api/instruments/autoinstrument.md
+          - "Instrument": api/instruments/instrument.md
+          - "Oscilloscope": api/instruments/oscilloscope.md
+          - "Power Supply": api/instruments/power-supply.md
+          - "Waveform Generator": api/instruments/waveform-generator.md
+          - "Multimeter": api/instruments/multimeter.md
+          - "DC Active Load": api/instruments/dc-active-load.md
+          - "Spectrum Analyzer": api/instruments/spectrum-analyzer.md
+          - "Vector Network Analyzer": api/instruments/vector-network-analyzer.md
+          - "Power Meter": api/instruments/power-meter.md
       - "Measurements": api/measurements.md
       - "Experiments & Database": api/experiments.md
       - "Backends": api/backends.md
@@ -182,5 +196,6 @@ nav:
       - "Creating Profiles": profiles/creating.md
   - Community:
       - "Contributing": contributing.md
+      - "Documentation Tooling": scripts/index.md
       - "Code of Conduct": CODE_OF_CONDUCT.md
       - "Changelog": changelog.md

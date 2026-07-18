@@ -7,4 +7,4 @@ hide:
   - footer
 ---
 
-<!-- Content is provided by the landing.html template -->
+<!-- Content is provided by the home.html template. -->

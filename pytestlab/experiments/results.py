@@ -532,7 +532,7 @@ class MeasurementResult:  # noqa: D101
 
     # ------------------------------------------------------------------
     # Plotting convenience
-    def plot(self, spec: PlotSpec | None = None, **kwargs):
+    def plot(self, spec: PlotSpec | None = None, **kwargs: Any) -> Any:
         """
         Plot this measurement result.
 
