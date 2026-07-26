@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import warnings
 from typing import Any
 from typing import cast
 
@@ -72,12 +73,16 @@ def test_quick_factory_and_string_constructor():
     assert uq.relative(10.0, 0.02).s == pytest.approx(0.2)
 
 
-def test_lossy_float_conversion_is_rejected():
-    q = uq(2.0, 0.1, "V")
-    with pytest.raises(TypeError, match="q.n"):
-        float(q)
-    with pytest.raises(TypeError, match="QuantityArray.nominal"):
-        np.asarray([q], dtype=float)
+def test_numeric_conversions_return_nominal_values_without_warning():
+    q = uq(-2.75, 0.1, "V")
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        assert float(q) == pytest.approx(-2.75)
+        assert int(q) == -2
+        assert np.asarray([q], dtype=float) == pytest.approx([-2.75])
+
+    assert caught == []
 
 
 def test_scalar_equality_and_ordering_use_nominal_values():

@@ -696,14 +696,17 @@ installed, but normal PyTestLab code should stay on
 `nominal_values`, `std_devs`, `covariance_matrix`, `correlation_matrix`,
 `correlated_values`, and `correlated_values_norm` operate on PyTestLab quantities.
 
-### Lossy conversions and NumPy scalar ufuncs
+### Numeric conversions and NumPy scalar ufuncs
 
-`float(quantity)` is intentionally rejected because it would discard uncertainty,
-unit, correlation, and provenance information.  `np.asarray([q], dtype=float)` is
-rejected for the same reason.  Use `nominal_value(q)`, `nominal_values(...)`, or
-`q.n` / `q.nominal` when nominal extraction is intentional. Scalar equality and
-ordering use unit-aware nominal values, making sorting and ordinary Python control
-flow work as expected. Use `q.consistent_with(expected, k=...)`, `q.en_ratio(expected)`,
+`float(quantity)` and `int(quantity)` return the nominal value without a warning;
+`int()` uses Python's usual truncation toward zero.  These explicit conversions
+discard uncertainty, unit, correlation, and provenance information.
+`np.asarray([q], dtype=float)` likewise produces nominal values.  The named
+accessors `nominal_value(q)`, `nominal_values(...)`, `q.n`, and `q.nominal` remain
+available when code benefits from making nominal extraction self-documenting.
+Scalar equality and ordering use unit-aware nominal values, making sorting and
+ordinary Python control flow work as expected. Use
+`q.consistent_with(expected, k=...)`, `q.en_ratio(expected)`,
 `q.exceeds(limit, k=...)`, `q.below(limit, k=...)`, or `q.compare(...)` for an
 auditable uncertainty-aware decision record.
 

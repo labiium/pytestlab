@@ -375,8 +375,8 @@ def test_quantity_operations_cover_units_scalars_and_zero_nominal(monkeypatch):
     assert voltage.relative_u == pytest.approx(0.05)
     assert quantity(0.1, "V", 0.0).relative_u == float("inf")
     assert voltage.to_ufloat().std_dev == pytest.approx(0.1)
-    with pytest.raises(TypeError, match="nominal extraction"):
-        float(voltage)
+    assert float(voltage) == pytest.approx(2.0)
+    assert int(voltage) == 2
     assert str(voltage).endswith(" V")
 
     assert (voltage - quantity(0.2, "V", 1.0)).nominal == pytest.approx(1.0)

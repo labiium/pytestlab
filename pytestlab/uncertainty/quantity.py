@@ -575,12 +575,14 @@ class Quantity:
 
     # -- conversions --------------------------------------------------------
     def __float__(self) -> float:
-        raise TypeError(
-            "Quantity cannot be converted to float implicitly because that would discard "
-            "uncertainty, correlations, units, and provenance. Use q.n, q.nominal, or "
-            "nominal_value(q) when nominal extraction is intentional; use nominal_values(...) "
-            "or QuantityArray.nominal for arrays/waveforms."
-        )
+        """Return the nominal value as a ``float``."""
+
+        return self.nominal
+
+    def __int__(self) -> int:
+        """Return the nominal value as an ``int``, truncating toward zero."""
+
+        return int(self.nominal)
 
     def __format__(self, spec: str) -> str:
         if not spec:
