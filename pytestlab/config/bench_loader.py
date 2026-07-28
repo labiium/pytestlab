@@ -28,10 +28,38 @@ def load_bench_yaml(path_or_dict: str | Path | dict) -> BenchConfigExtended:
 
 
 def load_sim_bench_yaml(path: str | Path) -> tuple[BenchConfigExtended, Any | None]:
-    """Load a bench YAML and build the shared circuit-simulation Session when configured."""
+    """Load a bench YAML and prepare the legacy shared circuit-simulation resource."""
+    from ..devices.providers import get_backend_provider
+
     config = load_bench_yaml(path)
-    if config.sim_circuit is None:
+    provider = get_backend_provider("circuit_sim")
+    if provider is None or not provider.is_configured(config):
         return config, None
+    return config, provider.prepare(config, base_path=Path(path).parent)
+
+
+class CircuitSimBackendProvider:
+    """Prepare the shared circuit simulation session for a bench."""
+
+    def is_configured(self, config: Any) -> bool:
+        return getattr(config, "sim_circuit", None) is not None
+
+    def prepare(self, config: Any, *, base_path: Path | None) -> Any:
+        if base_path is None:
+            raise InstrumentConfigurationError(
+                "sim_circuit",
+                "circuit_sim requires a filesystem base path for netlists.",
+            )
+        return _build_sim_circuit_session(config, base_path=base_path)
+
+    def cleanup(self, resource: Any) -> None:
+        close = getattr(resource, "close", None)
+        if callable(close):
+            close()
+
+
+def _build_sim_circuit_session(config: BenchConfigExtended, *, base_path: Path) -> Any:
+    """Build the shared circuit-simulation session for ``config``."""
 
     from pytestlab.sim.circuit import KernelSettings
     from pytestlab.sim.circuit import Session
@@ -39,9 +67,10 @@ def load_sim_bench_yaml(path: str | Path) -> tuple[BenchConfigExtended, Any | No
     from pytestlab.sim.circuit import noise_config_from_preset
     from pytestlab.sim.circuit.noise import NoisePreset
 
-    bench_path = Path(path)
     sc = config.sim_circuit
-    netlist_path, twin_payload = _resolve_sim_circuit_source(sc, base_path=bench_path.parent)
+    if sc is None:  # guarded by the provider; retained for direct internal callers
+        raise InstrumentConfigurationError("sim_circuit", "Missing sim_circuit configuration.")
+    netlist_path, twin_payload = _resolve_sim_circuit_source(sc, base_path=base_path)
     metadata = {
         "title": netlist_path.stem,
         "author": "pytestlab",
@@ -64,7 +93,7 @@ def load_sim_bench_yaml(path: str | Path) -> tuple[BenchConfigExtended, Any | No
     # pytestlab_sim.CircuitPackage stores manifest metadata, but pytestlab callers
     # need a stable branch-free place to inspect twin provenance too.
     circuit.metadata = dict(metadata)
-    sim_bench = _build_sim_bench_from_bench_config(config, base_path=bench_path.parent)
+    sim_bench = _build_sim_bench_from_bench_config(config, base_path=base_path)
     wiring = _build_sim_wiring_from_entries(sc)
     noise = noise_config_from_preset(NoisePreset(sc.noise_preset), seed=sc.noise_seed)
     kernel_settings = KernelSettings(**sc.kernel_settings) if sc.kernel_settings else None
@@ -81,7 +110,7 @@ def load_sim_bench_yaml(path: str | Path) -> tuple[BenchConfigExtended, Any | No
     if twin_payload is not None:
         session.twin_package = twin_payload
 
-    return config, session
+    return session
 
 
 def _resolve_sim_circuit_source(

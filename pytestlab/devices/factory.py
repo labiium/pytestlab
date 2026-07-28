@@ -3,6 +3,7 @@ from __future__ import annotations
 import inspect
 import os
 import tempfile
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -192,6 +193,7 @@ class AutoDevice:
         backend_override: DeviceIO | None = None,
         backend_spec_override: dict[str, Any] | None = None,
         sim_session: Any | None = None,
+        backend_resources: Mapping[str, Any] | None = None,
         role_override: str | None = None,
     ) -> Device[Any]:
         if args and isinstance(args[0], str):
@@ -214,6 +216,7 @@ class AutoDevice:
             backend_override=backend_override,
             backend_spec_override=backend_spec_override,
             sim_session=sim_session,
+            backend_resources=backend_resources,
         )
 
     @classmethod
@@ -233,6 +236,7 @@ class AutoDevice:
         backend_override: DeviceIO | None,
         backend_spec_override: dict[str, Any] | None,
         sim_session: Any | None,
+        backend_resources: Mapping[str, Any] | None,
     ) -> Device[Any]:
         if serial_number is not None and hasattr(config_model, "serial_number"):
             config_model.serial_number = serial_number
@@ -249,6 +253,7 @@ class AutoDevice:
             timeout_override_ms=timeout_override_ms,
             backend_spec_override=backend_spec_override,
             sim_session=sim_session,
+            backend_resources=backend_resources,
         )
 
         driver_class = cls._resolve_driver(config_model, config_data, config_source)
@@ -272,6 +277,7 @@ class AutoDevice:
         backend_override: DeviceIO | None = None,
         backend_spec_override: dict[str, Any] | None = None,
         sim_session: Any | None = None,
+        backend_resources: Mapping[str, Any] | None = None,
         role_override: str | None = None,
     ) -> Device[Any]:
         """Instantiate a device from a packaged pytestlab profile preset."""
@@ -296,6 +302,7 @@ class AutoDevice:
             backend_override=backend_override,
             backend_spec_override=backend_spec_override,
             sim_session=sim_session,
+            backend_resources=backend_resources,
         )
 
     @classmethod
@@ -312,6 +319,7 @@ class AutoDevice:
         backend_override: DeviceIO | None = None,
         backend_spec_override: dict[str, Any] | None = None,
         sim_session: Any | None = None,
+        backend_resources: Mapping[str, Any] | None = None,
         role_override: str | None = None,
     ) -> Device[Any]:
         """Instantiate a device from a local YAML/JSON profile file."""
@@ -336,6 +344,7 @@ class AutoDevice:
             backend_override=backend_override,
             backend_spec_override=backend_spec_override,
             sim_session=sim_session,
+            backend_resources=backend_resources,
         )
 
     @classmethod
@@ -535,6 +544,7 @@ class AutoDevice:
         timeout_override_ms: int | None,
         backend_spec_override: dict[str, Any] | None,
         sim_session: Any | None,
+        backend_resources: Mapping[str, Any] | None,
     ) -> DeviceIO:
         final_simulation_mode = cls._resolve_simulation_mode(simulate)
         actual_address = (
@@ -579,6 +589,7 @@ class AutoDevice:
             profile_path=profile_path,
             debug_mode=debug_mode,
             sim_session=sim_session,
+            backend_resources=backend_resources,
         )
         if backend_spec and backend_spec.get("import_path") and chosen_backend_type != "sim":
             factory = validate_backend(

@@ -26,7 +26,6 @@ def sample_instrument_profile():
                 "description": "Channel 1",
                 "voltage_range": {"min_val": 0, "max_val": 30.0},
                 "current_limit_range": {"min_val": 0, "max_val": 5.0},
-                "accuracy": {"voltage": 0.05, "current": 0.2},
             }
         ],
         "total_power": 90,
@@ -170,7 +169,6 @@ class TestAutoInstrumentBackendOverride:
                     "description": "Channel 1",
                     "voltage_range": {"min_val": 0, "max_val": 30.0},
                     "current_limit_range": {"min_val": 0, "max_val": 5.0},
-                    "accuracy": {"voltage": 0.05, "current": 0.2},
                 }
             ],
             "total_power": 90,

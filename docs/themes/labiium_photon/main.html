@@ -1,6 +1,7 @@
 {% set t = config.extra.t %}
 {% set is_error = page is not defined or page is none or page.meta.is_404|default(false) %}
 {% set is_notebook = not is_error and page.file.src_path.endswith('.ipynb') %}
+{% set is_api_reference = not is_error and page.file.src_path.startswith('api/') and page.file.src_path != 'api/index.md' %}
 {% macro first_url(item) %}{% if item.url %}{{ item.url|url }}{% elif item.children %}{{ first_url(item.children[0]) }}{% else %}{{ nav.homepage.url|url }}{% endif %}{% endmacro %}
 {% macro toc_tree(items) %}
 <ul class="page-outline-list">
@@ -53,7 +54,7 @@
     {% if is_notebook %}<link rel="stylesheet" href="{{ 'stylesheets/notebook-enhancements.css'|url }}">{% endif %}
     {% block extrahead %}{% endblock %}
 </head>
-<body class="docs-shell{% if is_error %} error-page-body{% endif %}">
+<body class="docs-shell{% if is_error %} error-page-body{% endif %}{% if is_api_reference %} api-reference-page{% endif %}">
     <a class="skip-link" href="#main-content">Skip to content</a>
     <div id="background-beams" aria-hidden="true"></div>
 

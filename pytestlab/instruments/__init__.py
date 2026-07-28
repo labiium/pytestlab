@@ -6,6 +6,7 @@ from ..devices import DeviceIO
 from .AutoInstrument import AutoInstrument
 from .DCActiveLoad import DCActiveLoad
 from .instrument import Instrument
+from .Multimeter import DMMFunction
 from .Multimeter import Multimeter
 from .Oscilloscope import Oscilloscope
 from .PowerSupply import PowerSupply
@@ -20,6 +21,7 @@ __all__ = [
     "Device",
     "DeviceIO",
     "Instrument",
+    "DMMFunction",
     "Multimeter",
     "Oscilloscope",
     "PowerSupply",

@@ -74,7 +74,7 @@ def example_1_built_in_sweep():
             time.sleep(0.01)
 
             # Simulate a measurement
-            # In a real scenario, we'd use dmm.measure_current_dc()
+            # In a real scenario, use dmm.measure(DMMFunction.CURRENT_DC)
 
             # Simulate transistor behavior: Ic = β * Ib * (1 - exp(-Vc/Vt))
             beta = 100  # Current gain

@@ -62,6 +62,22 @@ def nonzero_uncertainty_quantity(
         return None
 
     if quantity.u > 0:
+        function = context.function or label
+        quantity.measurement_model = MeasurementModel(
+            output_name=str(context.metadata.get("measurement_type") or function),
+            output_unit=context.unit or "",
+            function=function,
+            method="gum_first_order",
+            assumptions=[f"Uncertainty evaluated from {label}."],
+            dof_method="configured_accuracy_model",
+        )
+        quantity.provenance = ResultProvenance.current(
+            data_origin=DataOrigin.MEASURED,
+            evidence_purpose=EvidencePurpose.MEASUREMENT_RESULT,
+            origin_detail=f"Measured value with uncertainty evaluated from {label}.",
+            provenance_complete=True,
+        )
+        quantity.dof_method = "configured_accuracy_model"
         if logger is not None:
             logger.debug(f"Applied {label}, value: {quantity}")
         return quantity
@@ -136,12 +152,19 @@ def dmm_measurement_context(
     function: Any,
     range_spec: Any,
     measurement_type: str,
+    config: Any | None = None,
     instrument_key: str | None = None,
 ) -> UncertaintyContext | None:
     range_value = dmm_range_value(function, range_spec)
     if range_value is None:
         return None
     function_value = getattr(function, "value", str(function))
+    traceability = resolve_traceability_ref(
+        getattr(config, "calibration_certificates", None),
+        function=function_value,
+        range_value=range_value,
+        unit=unit,
+    )
     return UncertaintyContext(
         reading=reading,
         unit=unit,
@@ -151,6 +174,7 @@ def dmm_measurement_context(
         resolution=getattr(range_spec, "resolution", None),
         source_key=_source_key(instrument_key, function, range_value),
         metadata={"measurement_type": measurement_type},
+        traceability=traceability,
     )
 
 
@@ -165,6 +189,13 @@ def psu_measurement_context(
 ) -> UncertaintyContext:
     channel_spec = config.channels[channel - 1]
     range_spec = channel_spec.voltage_range if unit == "V" else channel_spec.current_limit_range
+    traceability = resolve_traceability_ref(
+        getattr(config, "calibration_certificates", None),
+        function=function,
+        channel=channel,
+        range_value=range_spec.max,
+        unit=unit,
+    )
     return UncertaintyContext(
         reading=reading,
         unit=unit,
@@ -176,6 +207,7 @@ def psu_measurement_context(
         source_key=_source_key(
             f"{instrument_key}:ch{channel}" if instrument_key else None, function, range_spec.max
         ),
+        traceability=traceability,
     )
 
 

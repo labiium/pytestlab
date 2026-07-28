@@ -65,7 +65,9 @@ class RangeSpec(BaseModel):
 class ChannelSpec(BaseModel):
     """Specification for a single power supply channel."""
 
-    model_config = {"arbitrary_types_allowed": True}
+    model_config = {"arbitrary_types_allowed": True, "extra": "forbid"}
+
+    channel_id: int | None = Field(None, ge=1, description="Optional explicit channel number")
 
     description: str = Field(..., description="Channel description")
 

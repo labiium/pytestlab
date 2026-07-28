@@ -520,6 +520,7 @@ class Multimeter(Instrument[MultimeterConfig]):
                             function=function,
                             range_spec=matching_range_spec,
                             measurement_type=measurement_name_val,
+                            config=self.config,
                             instrument_key=self._uncertainty_source_key(),
                         )
                         if context is not None:

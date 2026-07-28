@@ -31,29 +31,21 @@ This abstraction is ideal for automating multi-instrument experiments, batch mea
 
 ```python
 from pytestlab.measurements import MeasurementSession
-from pytestlab import AutoInstrument
+from pytestlab import DMMFunction
 
 def main():
-    # Create instrument instances (simulated for this example).
-    # PyTestLab opens each backend automatically when the first command runs.
-    dmm = AutoInstrument.from_config("keysight/EDU34450A", simulate=True)
-    psu = AutoInstrument.from_config("keysight/EDU36311A", simulate=True)
+    with MeasurementSession("Power Supply Test", compliance=False) as session:
+        dmm = session.instrument("dmm", "keysight/EDU34450A", simulate=True)
+        psu = session.instrument("psu", "keysight/EDU36311A", simulate=True)
+        session.parameter("point", [0])
 
-    # Start a measurement session
-    with MeasurementSession(
-        instruments={"dmm": dmm, "psu": psu},
-        metadata={"operator": "Alice", "experiment": "Power Supply Test"}
-    ) as session:
-        # Configure instruments
-        psu.channel(1).set(voltage=3.3, current_limit=0.5).on()
-        # Perform measurement
-        voltage = dmm.measure_voltage_dc()
-        # Record result in the session
-        session.record("dmm_voltage", voltage)
+        @session.acquire
+        def acquire(dmm, psu):
+            psu.channel(1).set(voltage=3.3, current_limit=0.5).on()
+            return dmm.measure(DMMFunction.VOLTAGE_DC)
 
-        # ... additional steps ...
-
-    # Session automatically logs results and closes instruments
+        experiment = session.run(show_progress=False)
+        print(experiment.data)
 
 main()
 ```
@@ -63,8 +55,8 @@ main()
 ## Key Features
 
 - **Context Management:** Ensures all resources are properly initialized and cleaned up.
-- **Metadata Tracking:** Attach arbitrary metadata to each session for traceability.
-- **Result Recording:** Store and retrieve results by key for later analysis or database storage.
+- **Measurement Metadata:** Preserve uncertainty-aware result metadata alongside numeric columns.
+- **Result Recording:** Build a Polars table and an `Experiment` from registered acquisitions.
 - **Integration:** Works seamlessly with PyTestLab's database and experiment modules.
 
 ---

@@ -62,6 +62,14 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
             f"LambBackend initialized for address='{address}', model='{model_name}', serial='{serial_number}' at URL '{url}'"
         )
 
+    @staticmethod
+    def _request_headers(accept: str = "application/json") -> dict[str, str]:
+        headers = {"Accept": accept, "Accept-Charset": "utf-8"}
+        origin = os.getenv("TIM_LAMB_ORIGIN", "").strip()
+        if origin:
+            headers["X-TIM-Origin"] = origin
+        return headers
+
     def _ensure_connected(self) -> None:
         """
         Ensures that self.instrument_address is set.
@@ -84,7 +92,7 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
                 response = client.post(
                     f"{self.base_url}/add",
                     json=payload,
-                    headers={"Accept": "application/json", "Accept-Charset": "utf-8"},
+                    headers=self._request_headers(),
                 )
                 if response.status_code != 200:
                     raise InstrumentConnectionError(
@@ -149,7 +157,7 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
                 response = client.post(
                     f"{self.base_url}/instrument/write",
                     json=self._instrument_payload(cmd),
-                    headers={"Accept": "application/json", "Accept-Charset": "utf-8"},
+                    headers=self._request_headers(),
                 )
                 response.raise_for_status()
         except httpx.HTTPStatusError as e:
@@ -167,7 +175,7 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
                 response = client.post(
                     f"{self.base_url}/instrument/query",
                     json=self._instrument_payload(cmd),
-                    headers={"Accept": "application/json", "Accept-Charset": "utf-8"},
+                    headers=self._request_headers(),
                 )
                 response.raise_for_status()
                 content: str = response.content.decode("utf-8")
@@ -187,7 +195,7 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
                 response = client.post(
                     f"{self.base_url}/instrument/query_raw",
                     json=self._instrument_payload(cmd),
-                    headers={"Accept": "application/octet-stream"},
+                    headers=self._request_headers("application/octet-stream"),
                 )
                 response.raise_for_status()
                 return response.content

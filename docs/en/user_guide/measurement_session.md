@@ -26,6 +26,7 @@ You can create a session directly (no bench required), or (recommended) inherit 
 ### Without a Bench (standalone instruments)
 
 ```python
+from pytestlab import DMMFunction
 from pytestlab.measurements import MeasurementSession
 
 def main():
@@ -80,18 +81,21 @@ Each helper returns a `StepSpec`, which is resolved just before the sweep starts
 
 ### 3. Register Measurement Functions
 
-Measurement functions are synchronous functions that return a dictionary of results. Use the `@session.acquire` decorator:
+Measurement functions are synchronous functions that return either a dictionary of
+results or one `MeasurementResult`. Use the `@session.acquire` decorator:
 
 ```python
 @session.acquire
 def measure_voltage(psu, dmm, voltage, current):
     psu.channel(1).set(voltage=voltage, current_limit=current).on()
-    result = dmm.measure_voltage_dc()
+    result = dmm.measure(DMMFunction.VOLTAGE_DC)
     return {"measured_voltage": result.values}
 ```
 
 - **Arguments:** Instrument aliases and parameter values as individual arguments.
-- **Return:** A mapping of result names to values.
+- **Return:** A mapping of result names to values, or one `MeasurementResult`.
+  Uncertainty-aware values remain numeric in the main column and receive a
+  `<column>__measurement` JSON metadata column for lossless reconstruction.
 
 ### 4. Run the Session
 
@@ -126,7 +130,7 @@ def main():
         @session.acquire
         def measure(psu, dmm, voltage, current):
             psu.channel(1).set(voltage=voltage, current_limit=current).on()
-            result = dmm.measure_voltage_dc()
+            result = dmm.measure(DMMFunction.VOLTAGE_DC)
             return {"v_measured": result.values}
 
         experiment = session.run()
@@ -144,7 +148,7 @@ session.parameter("current", [0.1, 0.5, 1.0])
 @session.acquire
 def measure(psu, dmm, voltage, current):
     psu.channel(1).set(voltage=voltage, current_limit=current).on()
-    result = dmm.measure_voltage_dc()
+    result = dmm.measure(DMMFunction.VOLTAGE_DC)
     return {"v_measured": result.values}
 
 experiment = session.run()
@@ -178,7 +182,7 @@ def main():
                 for v in [1.0, 2.0, 3.0]:
                     if stop_event.is_set():
                         break
-                    psu.channel(1).set_voltage(v)
+                    psu.channel(1).set(voltage=v)
                     time.sleep(0.5)
 
         # The task will automatically start when session.run() is called
@@ -235,12 +239,12 @@ def main():
                 for v in np.linspace(1.0, 5.0, 10):
                     if stop_event.is_set():
                         break
-                    psu.channel(1).set_voltage(v)
+                    psu.channel(1).set(voltage=v)
                     time.sleep(0.2)
                 for v in np.linspace(5.0, 1.0, 10):
                     if stop_event.is_set():
                         break
-                    psu.channel(1).set_voltage(v)
+                    psu.channel(1).set(voltage=v)
                     time.sleep(0.2)
 
         # Background task: Pulsed load
@@ -293,12 +297,12 @@ def main():
                     for v in np.linspace(1.0, 5.0, 10):
                         if stop_event.is_set():
                             break
-                        psu.channel(1).set_voltage(v)
+                        psu.channel(1).set(voltage=v)
                         time.sleep(0.2)
                     for v in np.linspace(5.0, 1.0, 10):
                         if stop_event.is_set():
                             break
-                        psu.channel(1).set_voltage(v)
+                        psu.channel(1).set(voltage=v)
                         time.sleep(0.2)
 
             # Background task: Pulsed load
@@ -348,7 +352,8 @@ You can also pass a `StepSpec` from `pytestlab.measurements.step.*` helpers for 
 
 ### `@session.acquire`
 
-Decorator for synchronous measurement functions. Functions must return a mapping.
+Decorator for synchronous measurement functions. Functions return a mapping or
+one `MeasurementResult`.
 
 ### `session.run(...)`
 

@@ -475,6 +475,32 @@ def test_backend_factory_internal_type_error_is_not_retried():
         )
 
 
+def test_backend_factory_receives_bench_scoped_resources():
+    resource = object()
+    observed = {}
+
+    def resource_factory(context):
+        observed["resource"] = context.shared_resource("resource_backend")
+        return MemoryBackend()
+
+    register_config_model("resource_backend_widget", WidgetConfig, replace=True)
+    register_device_type("resource_backend_widget", WidgetDevice, replace=True)
+    register_backend("resource_backend", resource_factory, replace=True)
+
+    AutoDevice.from_config(
+        {
+            "device_type": "resource_backend_widget",
+            "role": "fixture",
+            "manufacturer": "PyTestLab",
+            "model": "Widget",
+            "backend": {"type": "resource_backend"},
+        },
+        backend_resources={"resource_backend": resource},
+    )
+
+    assert observed["resource"] is resource
+
+
 def test_backend_factory_kwargs_convention():
     def kwargs_factory(address=None, timeout_ms=None):
         backend = MemoryBackend()

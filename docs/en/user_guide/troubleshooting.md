@@ -59,7 +59,9 @@ Comparison operators answer the ordinary nominal-value question and work in
 conditionals, `pytest.approx(...)` assertions, sorting, and `min()` / `max()`:
 
 ```python
-reading = dmm.measure_voltage_dc().values  # 4.98 +/- 0.05 V
+from pytestlab import DMMFunction
+
+reading = dmm.measure(DMMFunction.VOLTAGE_DC).values  # 4.98 +/- 0.05 V
 
 if reading > 4.75:                        # compares 4.98 > 4.75
     print("nominal reading is above the limit")

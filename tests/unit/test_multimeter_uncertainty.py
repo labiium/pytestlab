@@ -193,6 +193,14 @@ def test_multimeter_accepts_profile_loaded_advanced_uncertainty_model():
                 ]
             )
         ),
+        calibration_certificates=[
+            {
+                "certificate_id": "CAL-DMM-1",
+                "issuing_lab": "Accredited Lab",
+                "accreditation_id": "LAB-1",
+                "entries": [{"function": "VOLT:DC", "range_value": 1.0, "unit": "V"}],
+            }
+        ],
     )
 
     multimeter = Multimeter(config=config, backend=mock_backend)
@@ -203,8 +211,14 @@ def test_multimeter_accepts_profile_loaded_advanced_uncertainty_model():
 
     assert isinstance(measurement.values, MeasurementQuantity)
     assert measurement.values.u == pytest.approx(0.006)
+    assert measurement.values.measurement_model is not None
+    assert measurement.values.measurement_model.function == "VOLT:DC"
+    assert measurement.values.provenance is not None
+    assert measurement.values.provenance.data_origin.value == "measured"
     budget = measurement.values.budget()
     assert any(entry.label == "expression" for entry in budget.entries)
+    assert all(entry.traceability is not None for entry in budget.entries)
+    assert {entry.traceability.certificate_id for entry in budget.entries} == {"CAL-DMM-1"}
 
 
 def test_multimeter_nominal_non_report_grade_quantity_when_no_spec():

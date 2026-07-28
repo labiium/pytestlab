@@ -9,7 +9,7 @@ from ..common.enums import SCPIOnOff  # Added SCPIOnOff
 from ..config import PowerSupplyConfig  # V2 model
 from ..errors import InstrumentConfigurationError
 from ..errors import InstrumentParameterError
-from ..uncertainty import Quantity as MeasurementQuantity
+from ..uncertainty import Quantity
 from ..uncertainty.compat import UFloat
 from .instrument import Instrument
 from .operation_contract import OperationDescriptor
@@ -81,12 +81,17 @@ class PSUChannelFacade:
         self._psu.output(self._channel, False)
         return self
 
-    def get_voltage(self) -> float | UFloat | MeasurementQuantity:
-        """Reads the measured voltage from this channel."""
+    def get_voltage(self) -> Quantity:
+        """Read measured channel voltage.
+
+        The result is a PyTestLab :class:`Quantity`; use ``float(result)`` for
+        its nominal value or ``result.nominal`` when the explicit property is
+        clearer.
+        """
         return self._psu.read_voltage(self._channel)
 
-    def get_current(self) -> float | UFloat | MeasurementQuantity:
-        """Reads the measured current from this channel."""
+    def get_current(self) -> Quantity:
+        """Read measured channel current as a PyTestLab :class:`Quantity`."""
         return self._psu.read_current(self._channel)
 
     def get_output_state(self) -> bool:
@@ -373,14 +378,14 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         self._send_command(cmd)
 
     @validate_call
-    def read_voltage(self, channel: int) -> float | MeasurementQuantity:
+    def read_voltage(self, channel: int) -> Quantity:
         """Reads the measured output voltage from a specific channel.
 
         Args:
             channel: The channel number to measure (1-based).
 
         Returns:
-            The measured voltage as a float.
+            The measured voltage as an uncertainty-aware quantity.
 
         Raises:
             InstrumentParameterError: If the channel number is invalid.
@@ -456,14 +461,14 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         return value_to_return
 
     @validate_call
-    def read_current(self, channel: int) -> float | MeasurementQuantity:
+    def read_current(self, channel: int) -> Quantity:
         """Reads the measured output current from a specific channel.
 
         Args:
             channel: The channel number to measure (1-based).
 
         Returns:
-            The measured current as a float.
+            The measured current as an uncertainty-aware quantity.
 
         Raises:
             InstrumentParameterError: If the channel number is invalid.

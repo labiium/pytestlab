@@ -140,6 +140,7 @@ def test_quantity_array_reductions_emit_measurement_model_and_effective_dof() ->
 
 def test_quantity_array_serialization_database_and_npz_sidecar(tmp_path) -> None:
     arr = QuantityArray.from_samples([1.0, 2.0, 3.0], unit="V", independent_std=0.1)
+    arr.dof_method = "validated_independent"
     manifest = arr.save_npz_sidecar(tmp_path / "waveform_uncertainty.npz")
     assert manifest["format"] == "npz"
     assert manifest["schema_version"] == "1.1"
@@ -168,10 +169,21 @@ def test_quantity_array_serialization_database_and_npz_sidecar(tmp_path) -> None
     assert db_restored.values.u == pytest.approx(np.full(3, 0.1))
 
     result = MeasurementResult(
-        values=arr, instrument="scope", units="V", measurement_type="waveform"
+        values=arr,
+        instrument="scope",
+        units="V",
+        measurement_type="waveform",
+        acquisition_id="ACQ-1",
     )
     result.save(str(tmp_path / "direct_save"))
     assert (tmp_path / "direct_save.npz").exists()
+    direct_restored = MeasurementResult.load(tmp_path / "direct_save.npz")
+    assert direct_restored.instrument == "scope"
+    assert direct_restored.units == "V"
+    assert isinstance(direct_restored.values, QuantityArray)
+    assert direct_restored.values.to_dict() == arr.to_dict()
+    assert direct_restored.values.dof_method == "validated_independent"
+    assert direct_restored.acquisition_id == "ACQ-1"
 
 
 def test_quantity_array_legacy_metadata_missing_loads_incomplete() -> None:

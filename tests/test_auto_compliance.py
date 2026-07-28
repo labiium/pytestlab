@@ -123,6 +123,15 @@ class TestSessionComplianceIntegration:
             assert session._compliance_config.signing is not None
             assert session._compliance_config.audit is None
 
+    def test_disabled_custom_config_does_not_create_wrapper(self):
+        config = ComplianceConfig(enabled=False)
+
+        with Session("test", compliance=config) as session:
+            assert session._compliance_mode == "disabled"
+            assert session._compliance_config is config
+            assert session._compliance_wrapper is None
+            assert session.verify_compliance()["enabled"] is False
+
     def test_verify_compliance_status_disabled(self, isolated_compliance_dir):
         """Test verify_compliance when disabled."""
         with Session("test", compliance=False) as session:
@@ -149,6 +158,41 @@ class TestSessionComplianceIntegration:
             assert "config" in status
             assert "measurements" in status
             assert len(status["measurements"]) == 2
+
+    def test_required_compliance_fails_closed_on_component_initialization_error(
+        self, isolated_compliance_dir, monkeypatch
+    ):
+        monkeypatch.setattr(
+            "pytestlab.compliance.session.ComplianceConfig._initialize_from_configs",
+            lambda self: self._initialization_errors.append("signer unavailable"),
+        )
+
+        with pytest.raises(RuntimeError, match="Required compliance setup failed"):
+            Session("test")
+
+    def test_best_effort_compliance_continues_on_setup_error(
+        self, isolated_compliance_dir, monkeypatch
+    ):
+        monkeypatch.setattr(
+            "pytestlab.compliance.session.ComplianceConfig._initialize_from_configs",
+            lambda self: self._initialization_errors.append("signer unavailable"),
+        )
+
+        session = Session("test", compliance="best_effort")
+
+        assert session._compliance_mode == "best_effort"
+        assert session._compliance_config is not None
+
+    def test_verify_compliance_uses_actual_component_readiness(self):
+        session = Session("test", compliance=False)
+        session._compliance_config = ComplianceConfig(enabled=True)
+        status = session.verify_compliance()
+
+        assert status["config"] == {
+            "signed": False,
+            "audited": False,
+            "timestamped": False,
+        }
 
 
 class TestMeasurementWrapping:

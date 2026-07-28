@@ -4,11 +4,18 @@ Unit tests for the notebook-friendly MeasurementSession.
 
 from __future__ import annotations
 
+import json
+
 import numpy as np
 import polars as pl
+import pytest
 
+from pytestlab.experiments import MeasurementResult
 from pytestlab.measurements import Measurement
 from pytestlab.measurements import step
+from pytestlab.uncertainty import Quantity
+from pytestlab.uncertainty import QuantityArray
+from pytestlab.uncertainty.compat import make_ufloat
 
 
 def test_basic_sweep():
@@ -87,3 +94,34 @@ def test_step_spec_points_with_complex_values():
     df = session.run(show_progress=False).data
     assert df["impedance"].to_list() == values
     assert df["echo"].to_list() == values
+
+
+def test_direct_measurement_result_preserves_uncertainty_metadata(tmp_path):
+    with Measurement("Result", compliance=False) as session:
+        session.parameter("index", [0])
+
+        @session.acquire
+        def voltage():
+            return MeasurementResult(
+                Quantity.constant(1.25, "V"),
+                instrument="dmm",
+                units="V",
+                measurement_type="voltage_dc",
+            )
+
+        @session.acquire
+        def waveform():
+            return {
+                "samples": QuantityArray.from_samples([1.0, 2.0], unit="V", independent_std=0.1),
+                "legacy": make_ufloat(1.2, 0.03),
+            }
+
+    df = session.run(show_progress=False).data
+    assert df["voltage"][0] == pytest.approx(1.25)
+    metadata = json.loads(df["voltage__measurement"][0])
+    assert metadata["result"]["instrument"] == "dmm"
+    assert metadata["uncertainty"]["value_kind"] == "quantity"
+    assert df["samples"].dtype != pl.Object
+    legacy = json.loads(df["legacy__measurement"][0])
+    assert legacy["uncertainty"]["standard_uncertainty"] == pytest.approx(0.03)
+    df.write_ipc(tmp_path / "session.arrow")

@@ -153,7 +153,7 @@ def main():
             bench.psu.channel(1).set(voltage=3.3, current_limit=0.5).on()
 
             # Perform a measurement with the DMM.
-            dc_voltage = bench.dmm.measure_voltage_dc()
+            dc_voltage = bench.dmm.measure(pytestlab.DMMFunction.VOLTAGE_DC)
             print(f"Measured Voltage: {dc_voltage.values:.4f} V")
 
             # Review and execute a declared route/accessory-aware measurement.

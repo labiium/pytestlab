@@ -46,3 +46,15 @@ def test_lamb_backend_http_timeout_exceeds_payload_budget():
     assert backend._instrument_payload("*IDN?")["timeout_ms"] == 30_000
     assert backend._http_timeout_sec() == 35.0
     assert backend._http_timeout_sec() > backend._instrument_payload("*IDN?")["timeout_ms"] / 1000
+
+
+def test_lamb_backend_labels_requests_with_configured_origin(monkeypatch):
+    monkeypatch.setenv("TIM_LAMB_ORIGIN", "agent")
+
+    assert LambBackend._request_headers()["X-TIM-Origin"] == "agent"
+
+
+def test_lamb_backend_omits_empty_origin(monkeypatch):
+    monkeypatch.delenv("TIM_LAMB_ORIGIN", raising=False)
+
+    assert "X-TIM-Origin" not in LambBackend._request_headers()

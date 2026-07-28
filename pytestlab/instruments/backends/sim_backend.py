@@ -53,12 +53,7 @@ from ..instrument import InstrumentIO
 # Logging setup
 ###############################################################################
 
-logger = logging.getLogger("pytestlab.sim.v2")
-if not logger.handlers:
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)-7s [%(name)s] %(message)s"))
-    logger.addHandler(handler)
-    logger.setLevel(logging.INFO)  # move to DEBUG for deep inspection
+logger = logging.getLogger(__name__)
 
 
 ###############################################################################
@@ -186,13 +181,13 @@ def safe_eval(
 
 
 def _load_yaml(path: Path) -> dict[str, Any]:
-    print(f"[DEBUG] Loading YAML profile: {path}")
+    logger.debug("Loading YAML profile: %s", path)
     if not path.exists():
         raise ProfileError(f"Profile file {path} does not exist")
     with path.open("rt", encoding="utf-8") as fh:
         try:
             data = yaml.safe_load(fh) or {}
-            print(f"[DEBUG] YAML loaded from {path}: {data}")
+            logger.debug("Loaded YAML profile: %s", path)
         except yaml.YAMLError as e:
             raise ProfileError(f"Invalid YAML in {path}: {e}") from e
     return data

@@ -242,13 +242,15 @@ The replay system works with all PyTestLab backends:
 Replay mode integrates seamlessly with PyTestLab's bench system:
 
 ```python
+import pytestlab
+
 def measurement_with_bench():
     # Using bench descriptor
     with pytestlab.Bench.open("bench.yaml") as bench:
         # All instruments are automatically wrapped for recording
         psu_voltage = bench.psu.read_voltage(1)
-        osc_measurement = bench.oscilloscope.measure_vpp(1)
-        dmm_reading = bench.dmm.measure_voltage_dc()
+        osc_measurement = bench.oscilloscope.measure_voltage_peak_to_peak(1)
+        dmm_reading = bench.dmm.measure(pytestlab.DMMFunction.VOLTAGE_DC)
 
         return {
             'psu': psu_voltage,

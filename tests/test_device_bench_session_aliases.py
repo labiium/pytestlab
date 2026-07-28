@@ -253,6 +253,76 @@ def test_safety_limits_use_declared_stimulus_role(tmp_path):
         bench.close_all()
 
 
+def test_safety_limited_handles_are_guarded_across_public_lookups(tmp_path):
+    profile = _write_widget_profile(tmp_path, role="stimulus")
+    bench = Bench.open(
+        {
+            "bench_name": "Guarded Lookup Bench",
+            "devices": {
+                "widget": {
+                    "profile": profile,
+                    "safety_limits": {"channels": {1: {"voltage": {"max": 2.0}}}},
+                }
+            },
+        }
+    )
+
+    try:
+        guarded = bench.widget
+        assert bench.devices["widget"] is guarded
+        assert bench.resources["widget"] is guarded
+        assert bench.support_devices["widget"] is guarded
+
+        session = MeasurementSession(bench=bench, compliance=False)
+        assert session.device("widget", "unused") is guarded
+        with pytest.raises(SafetyLimitError, match="Raw write commands are disabled"):
+            guarded.write("VOLT 99")
+        with pytest.raises(SafetyLimitError, match="Raw query commands are disabled"):
+            guarded.query("VOLT 99")
+        with pytest.raises(SafetyLimitError, match="Raw query_raw commands are disabled"):
+            guarded.query_raw("VOLT 99")
+    finally:
+        bench.close_all()
+
+
+def test_safety_limited_instrument_lookup_returns_guarded_handle():
+    bench = Bench.open(
+        {
+            "bench_name": "Guarded Instrument Bench",
+            "simulate": True,
+            "instruments": {
+                "psu": {
+                    "profile": "keysight/EDU36311A",
+                    "safety_limits": {"channels": {1: {"voltage": {"max": 2.0}}}},
+                }
+            },
+        }
+    )
+
+    try:
+        guarded = bench.psu
+        assert bench.instruments["psu"] is guarded
+        session = MeasurementSession(bench=bench, compliance=False)
+        assert session.instrument("psu", "unused") is guarded
+
+        guarded.channel(1).set(voltage=1.5)
+        visible_limits = guarded.safety_limits
+        visible_limits.channels[1].voltage["max"] = 99.0
+        with pytest.raises(SafetyLimitError):
+            guarded.channel(1).set(voltage=3.0)
+        with pytest.raises(SafetyLimitError, match="send_scpi_alias"):
+            guarded.send_scpi_alias("set_voltage", channel=1, voltage=3.0)
+        with pytest.raises(SafetyLimitError, match="query_scpi_alias"):
+            guarded.query_scpi_alias("set_voltage", channel=1, voltage=3.0)
+        for private_name in ("_device", "_backend", "_send_command", "_query", "_query_raw"):
+            with pytest.raises(SafetyLimitError):
+                getattr(guarded, private_name)
+        with pytest.raises(SafetyLimitError):
+            _ = guarded.channel(1)._facade
+    finally:
+        bench.close_all()
+
+
 def test_safety_limits_use_declared_load_role(tmp_path):
     profile = _write_widget_profile(tmp_path, role="load")
 

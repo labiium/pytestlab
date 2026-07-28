@@ -78,8 +78,8 @@ def main():
     scope.channel(1).setup(scale=0.5).enable()
     scope.trigger.setup_edge(source="CH1", level=0.2)
 
-    trace = scope.read_channels(1)      # Polars DataFrame
-    print(trace.head())
+    trace = scope.read_channels(1)      # MeasurementResult containing a Polars DataFrame
+    print(trace.values.head())
 
     scope.close()
 
@@ -192,7 +192,7 @@ import pytestlab
 
 def run():
     with pytestlab.Bench.open("bench.yaml") as bench:
-        v = bench.dmm.measure_voltage_dc()
+        v = bench.dmm.measure(pytestlab.DMMFunction.VOLTAGE_DC)
         print("Measured:", v.values, v.units)
 
 run()
@@ -458,8 +458,8 @@ psu.channel(1).set(voltage=5.0, current_limit=0.1).slew(duration_s=1.0).on()
 psu.channel(2).set(voltage=3.3, current_limit=0.05).on()
 
 # Measurements
-voltage = psu.channel(1).measure_voltage()
-current = psu.channel(1).measure_current()
+voltage = psu.channel(1).get_voltage()
+current = psu.channel(1).get_current()
 
 # Clean shutdown
 psu.channel(1).off()
@@ -480,7 +480,7 @@ scope.trigger.setup_edge(source="CH1", level=0.2, slope="POSITIVE")
 scope.acquisition.set_acquisition_type("NORMAL").set_acquisition_mode("REAL_TIME")
 
 # Capture data
-scope.trigger.single()
+scope.run()
 traces = scope.read_channels([1, 2])
 
 scope.close()
@@ -523,6 +523,7 @@ PyTestLab's `MeasurementSession` provides a powerful framework for parameter swe
 
 ### Basic Parameter Sweep
 ```python
+from pytestlab import DMMFunction
 from pytestlab.measurements import MeasurementSession, step
 import numpy as np
 
@@ -540,10 +541,10 @@ with MeasurementSession("Voltage Response Test") as session:
     # Define measurement function
     @session.acquire
     def measure_response(voltage, delay, psu, dmm):
-        psu.channel(1).set_voltage(voltage).on()
+        psu.channel(1).set(voltage=voltage).on()
         time.sleep(delay)
 
-        result = dmm.measure_voltage_dc()
+        result = dmm.measure(DMMFunction.VOLTAGE_DC)
         psu.channel(1).off()
 
         return {"measured_voltage": result.values}
@@ -567,8 +568,8 @@ with Bench.open("lab_bench.yaml") as bench:
         @session.acquire
         def frequency_response(frequency, psu, scope, fgen):
             fgen.channel(1).setup_sine(frequency=frequency, amplitude=1.0)
-            scope.trigger.single()
-            return {"amplitude": scope.measure_amplitude(1)}
+            scope.run()
+            return {"amplitude": scope.measure_voltage_peak_to_peak(1)}
 
         experiment = session.run()
         # Data automatically saved to bench database
@@ -593,19 +594,19 @@ with MeasurementSession("Power Ramp Analysis") as session:
             # Ramp up 1V to 5V over 4 seconds
             for v in np.linspace(1.0, 5.0, 20):
                 if stop_event.is_set(): break
-                psu.channel(1).set_voltage(v)
+                psu.channel(1).set(voltage=v)
                 time.sleep(0.2)
 
             # Ramp down 5V to 1V over 4 seconds
             for v in np.linspace(5.0, 1.0, 20):
                 if stop_event.is_set(): break
-                psu.channel(1).set_voltage(v)
+                psu.channel(1).set(voltage=v)
                 time.sleep(0.2)
 
     # Acquisition: Monitor voltage every 100ms
     @session.acquire
     def monitor_voltage(dmm):
-        voltage = dmm.measure_voltage_dc()
+        voltage = dmm.measure(DMMFunction.VOLTAGE_DC)
         return {"measured_voltage": voltage.values}
 
     # Run for 30 seconds with 100ms acquisition interval
@@ -627,7 +628,7 @@ with MeasurementSession("Complex Power Analysis") as session:
         while not stop_event.is_set():
             for v in voltages:
                 if stop_event.is_set(): break
-                psu.channel(1).set_voltage(v)
+                psu.channel(1).set(voltage=v)
                 time.sleep(2.0)
 
     # Task 2: Load pulsing
@@ -647,7 +648,7 @@ with MeasurementSession("Complex Power Analysis") as session:
         scope.channel(1).setup(scale=1.0).enable()
         scope.trigger.setup_edge(source="CH1", level=2.5)
         while not stop_event.is_set():
-            scope.trigger.single()
+            scope.run()
             time.sleep(0.5)
 
     # Acquisition: Monitor all parameters
@@ -763,24 +764,24 @@ PyTestLab provides built-in compliance features for regulated environments:
 ### Automatic Measurement Signing
 ```python
 # Compliance features are automatically enabled
-from pytestlab import AutoInstrument
+from pytestlab import AutoInstrument, DMMFunction, MeasurementResult
 
 dmm = AutoInstrument.from_config("keysight/34470A")
 
 # Every measurement is automatically signed
-result = dmm.measure_voltage_dc()
+result = dmm.measure(DMMFunction.VOLTAGE_DC)
 
 # Access compliance envelope
 print("Measurement signature:", result.envelope['signature'])
 print("Measurement hash:", result.envelope['sha'])
 print("Timestamp:", result.envelope['timestamp'])
 
-# Provenance information (PROV-O compatible)
-print("Provenance:", result.prov)
+# Measurement provenance is carried by the uncertainty-aware value
+print("Provenance:", result.values.provenance)
 
-# Save measurement with compliance envelope
-result.save("voltage_measurement.h5")
-# Creates: voltage_measurement.h5 (data) + voltage_measurement.h5.env.json (envelope)
+# Save and restore the complete measurement record
+result.save("voltage_measurement.npz")
+restored = MeasurementResult.load("voltage_measurement.npz")
 ```
 
 ### Audit Trail
@@ -820,7 +821,7 @@ from pytestlab.compliance import Signature
 psu = AutoInstrument.from_config("keysight/E36311A")
 
 # Configure instrument
-psu.channel(1).set_voltage(5.0).set_current_limit(1.0)
+psu.channel(1).set(voltage=5.0, current_limit=1.0)
 
 # Create cryptographic signature of current state
 signature = Signature.create(psu)

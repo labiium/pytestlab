@@ -651,6 +651,7 @@ class QuantityArray:
             "measurement_model": self.measurement_model.model_dump(mode="json")
             if self.measurement_model
             else None,
+            "dof_method": self.dof_method,
             "sidecar": None,
         }
 
@@ -690,6 +691,7 @@ class QuantityArray:
             provenance=ResultProvenance(**data["provenance"])
             if isinstance(data.get("provenance"), dict)
             else ResultProvenance.legacy_incomplete(),
+            dof_method=data.get("dof_method"),
         )
 
     def save_npz_sidecar(self, path: str | Path) -> dict[str, Any]:

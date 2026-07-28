@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable
+from collections.abc import Mapping
 from dataclasses import dataclass
 from importlib import import_module
 from importlib import metadata
@@ -31,6 +32,13 @@ class BackendBuildContext:
     profile_path: str | None = None
     debug_mode: bool = False
     sim_session: Any | None = None
+    backend_resources: Mapping[str, Any] | None = None
+
+    def shared_resource(self, backend_type: str, default: Any = None) -> Any:
+        """Return the bench-scoped resource prepared for ``backend_type``."""
+        if self.backend_resources is None:
+            return default
+        return self.backend_resources.get(backend_type.lower(), default)
 
 
 _device_drivers: dict[str, type[Device[Any]]] = {}

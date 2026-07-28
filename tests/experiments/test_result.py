@@ -3,6 +3,8 @@ import unittest
 import numpy as np
 
 from pytestlab.experiments import MeasurementResult  # Adjust the import path as needed
+from pytestlab.uncertainty import Quantity
+from pytestlab.uncertainty import QuantityArray
 
 
 class TestMeasurementResult(unittest.TestCase):
@@ -33,6 +35,11 @@ class TestMeasurementResult(unittest.TestCase):
             self.values_float64, self.instrument, self.units, self.measurement_type
         )
         self.assertEqual(result.values, self.values_float64)
+
+    def test_numeric_lists_have_consistent_nominal_and_sigma_access(self):
+        result = MeasurementResult([1.0, 2.0], self.instrument, self.units, self.measurement_type)
+        np.testing.assert_array_equal(result.nominal, [1.0, 2.0])
+        self.assertIsNone(result.sigma)
 
     def test_str_with_array(self):
         result = MeasurementResult(
@@ -68,6 +75,34 @@ class TestMeasurementResult(unittest.TestCase):
             self.values_array, self.instrument, self.units, self.measurement_type
         )
         self.assertEqual(len(result), len(self.values_array))
+
+    def test_quantity_array_sequence_contract(self):
+        values = QuantityArray.from_samples(
+            [1.0, 2.0, 3.0], unit="V", independent_std=[0.1, 0.2, 0.3]
+        )
+        result = MeasurementResult(values, self.instrument, self.units, self.measurement_type)
+
+        self.assertEqual(len(result), 3)
+        self.assertTrue(all(isinstance(value, Quantity) for value in result))
+        self.assertEqual([value.nominal for value in result], [1.0, 2.0, 3.0])
+        self.assertEqual(result[-1].nominal, 3.0)
+        sliced = result[1:]
+        self.assertIsInstance(sliced, QuantityArray)
+        np.testing.assert_array_equal(sliced.nominal, [2.0, 3.0])
+        np.testing.assert_allclose(sliced.u, [0.2, 0.3])
+
+        with self.assertRaises(IndexError):
+            _ = result[3]
+
+    def test_empty_quantity_array_sequence_contract(self):
+        values = QuantityArray.from_samples([], unit="V", independent_std=[])
+        result = MeasurementResult(values, self.instrument, self.units, self.measurement_type)
+
+        self.assertEqual(len(result), 0)
+        self.assertEqual(list(result), [])
+        self.assertEqual(len(result[:]), 0)
+        with self.assertRaises(IndexError):
+            _ = result[0]
 
     def test_perform_fft(self):
         time_signal = np.array([np.sin(2 * np.pi * 1 * t) for t in range(100)])

@@ -13,6 +13,7 @@ from __future__ import annotations
 import contextlib
 import inspect
 import itertools
+import json
 import threading
 import time
 from collections.abc import Callable
@@ -32,6 +33,8 @@ from tqdm.auto import tqdm
 
 from .._log import get_logger
 from ..experiments import Experiment
+from ..experiments import MeasurementResult
+from ..experiments.uncertainty_serialization import serialize_uncertain_value
 from .steps import StepSpec
 
 __all__ = ["MeasurementSession", "Measurement"]
@@ -40,12 +43,13 @@ _LOG = get_logger("measurements.session")
 
 if TYPE_CHECKING:
     from ..bench import Bench
+    from ..compliance.session import ComplianceConfig
     from ..plotting import PlotSpec
 
 
 T_Value: TypeAlias = float | int | complex | str | np.ndarray | Sequence[Any]
 T_ParamIterable: TypeAlias = Iterable[T_Value] | Callable[[], Iterable[T_Value]] | StepSpec
-T_MeasFunc: TypeAlias = Callable[..., Mapping[str, Any]]
+T_MeasFunc: TypeAlias = Callable[..., Mapping[str, Any] | MeasurementResult]
 T_TaskFunc: TypeAlias = Callable[..., None]
 
 
@@ -71,10 +75,11 @@ class MeasurementSession(contextlib.AbstractContextManager):
     for design details.
 
     Compliance:
-        By default (compliance=None), sessions automatically enable compliance
-        features including cryptographic signing, audit trails, and timestamps.
-        Keys are auto-generated on first use. To disable, pass compliance=False.
-        To use custom configuration, pass a ComplianceConfig object.
+        By default (compliance=None), sessions require cryptographic signing,
+        audit trails, and timestamps and fail closed if setup is incomplete.
+        Pass False or "disabled" to disable compliance, or "best_effort" to
+        continue with whichever components initialize successfully. A custom
+        ComplianceConfig remains supported.
     """
 
     # Construction ------------------------------------------------------
@@ -101,8 +106,9 @@ class MeasurementSession(contextlib.AbstractContextManager):
         self._bench = bench
 
         # Auto-configure compliance (invisible by default)
-        self._compliance_config: Any | None = None
+        self._compliance_config: ComplianceConfig | None = None
         self._compliance_wrapper: Callable[[Callable], Callable] | None = None
+        self._compliance_mode: Literal["required", "best_effort", "disabled"] = "required"
         self._setup_compliance(compliance)
 
         # Inherit experiment data from bench if available
@@ -141,17 +147,21 @@ class MeasurementSession(contextlib.AbstractContextManager):
         """Set up compliance features for this session.
 
         Args:
-            compliance: None (auto-configure), False (disabled),
-                       True (auto-configure), or ComplianceConfig
+            compliance: None, True, or "required" (fail-closed auto setup);
+                False or "disabled"; "best_effort"; or ComplianceConfig.
         """
-        if compliance is False:
+        if compliance is False or compliance == "disabled":
             # Explicitly disabled
+            self._compliance_mode = "disabled"
             self._compliance_config = None
             self._compliance_wrapper = None
             return
 
-        if compliance is None or compliance is True:
-            # Auto-configure (default behavior)
+        best_effort = compliance == "best_effort"
+        auto_configure = compliance is None or compliance is True or compliance == "required"
+        self._compliance_mode = "best_effort" if best_effort else "required"
+
+        if auto_configure or best_effort:
             try:
                 from ..compliance.auto_config import ComplianceDisabledError
                 from ..compliance.auto_config import ensure_compliance_config
@@ -159,28 +169,57 @@ class MeasurementSession(contextlib.AbstractContextManager):
 
                 config_dict = ensure_compliance_config()
                 self._compliance_config = ComplianceConfig(**config_dict)
+                if not best_effort:
+                    self._validate_compliance_readiness(require_all=True)
                 self._compliance_wrapper = self._compliance_config.create_compliance_wrapper()
 
             except ComplianceDisabledError:
                 # Explicitly disabled via environment variable; silent disable.
                 self._compliance_config = None
                 self._compliance_wrapper = None
-            except ImportError:
-                # cryptography not installed, skip compliance
-                self._compliance_config = None
-                self._compliance_wrapper = None
             except Exception as e:
-                # Auto-config failed; continue without compliance.
+                if not best_effort:
+                    raise RuntimeError("Required compliance setup failed") from e
                 _LOG.warning(
-                    "Compliance auto-configuration failed: %s. Running without compliance features.",
+                    "Best-effort compliance setup failed: %s. Running without compliance features.",
                     e,
                 )
                 self._compliance_config = None
                 self._compliance_wrapper = None
         else:
             # Custom compliance configuration provided
+            from ..compliance.session import ComplianceConfig
+
+            if not isinstance(compliance, ComplianceConfig):
+                raise TypeError(
+                    "compliance must be None, a bool, 'required', 'best_effort', "
+                    "'disabled', or ComplianceConfig"
+                )
             self._compliance_config = compliance
+            if not compliance.enabled:
+                self._compliance_mode = "disabled"
+                self._compliance_wrapper = None
+                return
+            self._validate_compliance_readiness(require_all=False)
             self._compliance_wrapper = compliance.create_compliance_wrapper()
+
+    def _validate_compliance_readiness(self, *, require_all: bool) -> None:
+        """Raise when required or explicitly configured components are unavailable."""
+        config = self._compliance_config
+        if config is None:  # pragma: no cover - internal invariant
+            raise RuntimeError("Compliance configuration is missing")
+        readiness = config.readiness()
+        required = (
+            {"signed", "audited", "timestamped"}
+            if require_all
+            else {name for name, configured in readiness["configured"].items() if configured}
+        )
+        unavailable = sorted(name for name in required if not readiness[name])
+        if readiness["errors"] or unavailable:
+            details = "; ".join(
+                [*readiness["errors"], *(f"{name} unavailable" for name in unavailable)]
+            )
+            raise RuntimeError(f"Compliance components are not ready: {details}")
 
     def verify_compliance(self) -> dict[str, Any]:
         """Verify compliance status of this session.
@@ -208,11 +247,12 @@ class MeasurementSession(contextlib.AbstractContextManager):
             )
 
         return {
-            "enabled": True,
+            "enabled": bool(self._compliance_config.enabled),
+            "mode": self._compliance_mode,
             "config": {
-                "signed": self._compliance_config.signing is not None,
-                "audited": self._compliance_config.audit is not None,
-                "timestamped": self._compliance_config.timestamp is not None,
+                "signed": self._compliance_config.signer is not None,
+                "audited": self._compliance_config.auditor is not None,
+                "timestamped": self._compliance_config.timestamper is not None,
             },
             "measurements": measurements,
         }
@@ -242,7 +282,10 @@ class MeasurementSession(contextlib.AbstractContextManager):
                 raise ValueError(f"Instrument alias '{alias}' already in use.")
             from ..instruments import Instrument as _Instrument
 
-            if not isinstance(record.instance, _Instrument):
+            is_instrument = getattr(
+                record.instance, "is_instrument", isinstance(record.instance, _Instrument)
+            )
+            if not is_instrument:
                 raise TypeError(f"Bench resource '{alias}' is a device, not an Instrument.")
             return record.instance
         if self._bench:
@@ -380,16 +423,12 @@ class MeasurementSession(contextlib.AbstractContextManager):
                         kwargs[alias] = inst_rec.instance
                 if "ctx" in sig.parameters:
                     kwargs["ctx"] = row
-                res = func(**kwargs)
-                if not isinstance(res, Mapping):
-                    raise TypeError(
-                        f"Measurement '{meas_name}' returned {type(res)}, expected Mapping."
-                    )
+                res = self._normalize_measurement_output(meas_name, func(**kwargs))
                 for key, val in res.items():
                     if isinstance(key, str) and key.startswith("__compliance_"):
                         continue
                     col = key if key not in row else f"{meas_name}.{key}"
-                    row[col] = val
+                    self._store_measurement_value(row, col, val)
 
             self._data_rows[idx] = row  # assign Dict[str, Any] to slot
 
@@ -474,13 +513,9 @@ class MeasurementSession(contextlib.AbstractContextManager):
                 }
                 if "ctx" in sig.parameters:
                     kwargs["ctx"] = row
-                res = func(**kwargs)
-                if not isinstance(res, Mapping):
-                    raise TypeError(
-                        f"Measurement '{meas_name}' returned {type(res)}, expected Mapping."
-                    )
+                res = self._normalize_measurement_output(meas_name, func(**kwargs))
                 for key, val in res.items():
-                    row[key] = val
+                    self._store_measurement_value(row, key, val)
             self._data_rows.append(row)
             pbar.update(1)
             time.sleep(interval)
@@ -500,6 +535,58 @@ class MeasurementSession(contextlib.AbstractContextManager):
         return self._experiment
 
     # ─── Helpers / properties ─────────────────────────────────────────
+    @staticmethod
+    def _normalize_measurement_output(
+        measurement_name: str, result: Mapping[str, Any] | MeasurementResult
+    ) -> Mapping[str, Any]:
+        if isinstance(result, MeasurementResult):
+            return {measurement_name: result}
+        if isinstance(result, Mapping):
+            return result
+        raise TypeError(
+            f"Measurement '{measurement_name}' returned {type(result)}, "
+            "expected Mapping or MeasurementResult."
+        )
+
+    @staticmethod
+    def _store_measurement_value(row: dict[str, Any], column: str, value: Any) -> None:
+        """Keep numeric columns usable while retaining full metrology metadata."""
+
+        result_metadata: dict[str, Any] | None = None
+        raw_value = value
+        if isinstance(value, MeasurementResult):
+            raw_value = value.values
+            result_metadata = {
+                "instrument": value.instrument,
+                "units": value.units,
+                "measurement_type": value.measurement_type,
+                "timestamp": value.timestamp,
+                "envelope": value.envelope,
+                "sampling_rate": value.sampling_rate,
+            }
+
+        serialized, uncertainty_metadata = serialize_uncertain_value(raw_value)
+        value_kind = uncertainty_metadata.get("value_kind")
+        if value_kind in {"quantity", "ufloat"}:
+            row[column] = float(np.asarray(serialized).flat[0])
+        elif value_kind in {"ufloat_ndarray", "ufloat_list"}:
+            row[column] = np.asarray(serialized)[..., 0].tolist()
+        elif value_kind == "quantity_array":
+            row[column] = np.asarray(serialized).tolist()
+        else:
+            row[column] = serialized
+
+        if uncertainty_metadata or result_metadata is not None:
+            row[f"{column}__measurement"] = json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "result": result_metadata,
+                    "uncertainty": uncertainty_metadata,
+                },
+                sort_keys=True,
+                default=str,
+            )
+
     @property
     def data(self) -> pl.DataFrame:
         return pl.DataFrame(self._data_rows) if self._data_rows else pl.DataFrame()

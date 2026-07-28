@@ -25,7 +25,6 @@ def psu_config():
                 "description": "Channel 1",
                 "voltage_range": {"min_val": 0, "max_val": 6},
                 "current_limit_range": {"min_val": 0, "max_val": 5},
-                "accuracy": {"voltage": 0.05, "current": 0.2},
             }
         ],
         "scpi": {"queries": {"identify": {"template": "*IDN?", "response": {"type": "str"}}}},

@@ -26,15 +26,27 @@ def serialize_uncertain_value(value: Any) -> tuple[Any, dict[str, Any]]:
     if isinstance(value, UFloat):
         return (
             np.array([value.nominal_value, value.std_dev], dtype=np.float64),
-            {"value_kind": "ufloat"},
+            {
+                "value_kind": "ufloat",
+                "nominal": value.nominal_value,
+                "standard_uncertainty": value.std_dev,
+            },
         )
     if _is_ufloat_array(value):
-        return _ufloats_to_numpy(value), {
+        payload = _ufloats_to_numpy(value)
+        return payload, {
             "value_kind": "ufloat_ndarray",
             "shape": value.shape,
+            "nominal": payload[..., 0].tolist(),
+            "standard_uncertainty": payload[..., 1].tolist(),
         }
     if _is_ufloat_list(value):
-        return _ufloats_to_numpy(value), {"value_kind": "ufloat_list"}
+        payload = _ufloats_to_numpy(value)
+        return payload, {
+            "value_kind": "ufloat_list",
+            "nominal": payload[..., 0].tolist(),
+            "standard_uncertainty": payload[..., 1].tolist(),
+        }
     return value, {}
 
 

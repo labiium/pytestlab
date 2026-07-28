@@ -2,6 +2,43 @@ manufacturer: Keysight
 model: EDU36311A
 device_type: power_supply
 role: stimulus
+measurement_accuracy:
+  read_voltage_ch1:
+    model: linear
+    reading_percent: 0.1
+    offset: 0.005
+    offset_unit: V
+    source: Keysight EDU36311A 12-month readback specification
+  read_current_ch1:
+    model: linear
+    reading_percent: 0.1
+    offset: 0.010
+    offset_unit: A
+    source: Keysight EDU36311A 12-month readback specification
+  read_voltage_ch2:
+    model: linear
+    reading_percent: 0.05
+    offset: 0.010
+    offset_unit: V
+    source: Keysight EDU36311A 12-month readback specification
+  read_current_ch2:
+    model: linear
+    reading_percent: 0.2
+    offset: 0.005
+    offset_unit: A
+    source: Keysight EDU36311A 12-month readback specification
+  read_voltage_ch3:
+    model: linear
+    reading_percent: 0.05
+    offset: 0.010
+    offset_unit: V
+    source: Keysight EDU36311A 12-month readback specification
+  read_current_ch3:
+    model: linear
+    reading_percent: 0.2
+    offset: 0.005
+    offset_unit: A
+    source: Keysight EDU36311A 12-month readback specification
 channels:
   - channel_id: 1
     description: Channel 1
@@ -11,9 +48,6 @@ channels:
     current_limit_range:
       min_val: 0
       max_val: 5
-    accuracy:
-      voltage: 0.05
-      current: 0.2
   - channel_id: 2
     description: Channel 2
     voltage_range:
@@ -22,9 +56,6 @@ channels:
     current_limit_range:
       min_val: 0
       max_val: 1
-    accuracy:
-      voltage: 0.05
-      current: 0.2
   - channel_id: 3
     description: Channel 3
     voltage_range:
@@ -33,9 +64,6 @@ channels:
     current_limit_range:
       min_val: 0
       max_val: 1
-    accuracy:
-      voltage: 0.05
-      current: 0.2
 total_power: 90
 line_regulation: 0.01
 load_regulation: 0.01
@@ -108,16 +136,35 @@ scpi:
         type: str
 
 simulation:
+  initial_state:
+    voltage:
+      "1": 0.0
+      "2": 0.0
+      "3": 0.0
+    current:
+      "1": 0.0
+      "2": 0.0
+      "3": 0.0
+    output:
+      "1": "OFF"
+      "2": "OFF"
+      "3": "OFF"
   scpi:
     "*IDN?": "Simulated,PyTestLab,EDU36311A-SIM,1.0"
     ":SYSTem:ERRor?": '+0,"No error"'
     "SYST:ERR?": '+0,"No error"'
-    "VOLTage *":
+    'VOLT (.*), \(@([1-3])\)':
       set:
-        voltage: "$1"
-    "CURRent *":
+        "voltage.$2": "$1"
+    'CURR (.*), \(@([1-3])\)':
       set:
-        current: "$1"
-    "OUTPut *":
+        "current.$2": "$1"
+    'OUTP:STAT (.*), \(@([1-3])\)':
       set:
-        output: "$1"
+        "output.$2": "$1"
+    'MEAS:VOLT\? \(@([1-3])\)':
+      get: "voltage.$1"
+    'MEAS:CURR\? \(@([1-3])\)':
+      get: "current.$1"
+    'OUTP:STAT\? \(@([1-3])\)':
+      get: "output.$1"

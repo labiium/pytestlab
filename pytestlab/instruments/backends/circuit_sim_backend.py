@@ -43,7 +43,7 @@ class CircuitSimBackend:
 
 def build_circuit_sim_backend(context: BackendBuildContext) -> DeviceIO:
     spec = context.backend_spec or {}
-    session = context.sim_session
+    session = context.shared_resource("circuit_sim", context.sim_session)
     if session is None:
         raise RuntimeError(
             "circuit_sim backend requires a shared Session; use Bench.open() with sim_circuit"

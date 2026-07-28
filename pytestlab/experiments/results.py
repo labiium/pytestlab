@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import Iterator
+from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import Any
 from typing import cast
@@ -14,15 +16,13 @@ from numpy.typing import NDArray
 from ..uncertainty import Quantity as MeasurementQuantity
 from ..uncertainty import QuantityArray as MeasurementQuantityArray
 from ..uncertainty.compat import UFloat
+from .uncertainty_serialization import deserialize_uncertain_value
+from .uncertainty_serialization import serialize_uncertain_value
 
 if TYPE_CHECKING:
     from ..plotting import PlotSpec
 
 
-# NOTE:
-#   The real implementation is *replaced at runtime* by the compliance layer.
-#   The stub class below is kept so that static type-checkers still see a
-#   definition when users import MeasurementResult directly.
 class MeasurementResult:  # noqa: D101
     """A class to represent a collection of measurement values.
 
@@ -82,8 +82,8 @@ class MeasurementResult:  # noqa: D101
         sampling_rate: float | None = None,  # Add sampling_rate for FFT
         **kwargs: Any,
     ) -> None:  # Added **kwargs and type hint
-        if isinstance(values, float) and not isinstance(values, np.floating):
-            # Normalize plain Python float to numpy float64 for internal consistency
+        if isinstance(values, int | float | np.integer | np.floating):
+            # Normalize Python and NumPy numeric scalars for one extraction contract.
             values = np.float64(values)
         self.values: (
             np.ndarray
@@ -204,6 +204,8 @@ class MeasurementResult:  # noqa: D101
 
     def __getitem__(self, key):
         """Allow dictionary-style access or integer indexing into values."""
+        if isinstance(self.values, MeasurementQuantityArray) and isinstance(key, int | slice):
+            return self.values[key]
         if isinstance(key, int):
             if isinstance(self.values, np.ndarray | list):
                 return self.values[key]
@@ -212,7 +214,7 @@ class MeasurementResult:  # noqa: D101
             if (
                 isinstance(
                     self.values,
-                    (np.float64 | UFloat | MeasurementQuantity | MeasurementQuantityArray),
+                    (np.float64 | UFloat | MeasurementQuantity),
                 )
                 and key == 0
             ):
@@ -229,23 +231,58 @@ class MeasurementResult:  # noqa: D101
     def save(self, path: str) -> None:
         """Saves the measurement data to a file.
 
+        Uncertain values use a self-describing NPZ representation that retains
+        the complete uncertainty model, provenance, units, and result metadata.
         If the data is a numpy array, it will be saved as a .npy file.
         If the data is a Polars DataFrame, it will be saved as a .parquet file.
         Other list-like data will be converted to numpy array and saved as .npy.
         np.float64 will be saved as a 0-D numpy array.
-        UFloat objects will be saved as a two-element numpy array [nominal, std_dev] in a .npy file.
         """
-        default_ext = ".npy"
+        serialized_values, uncertainty_metadata = serialize_uncertain_value(self.values)
+        default_ext = ".npz" if uncertainty_metadata else ".npy"
         if isinstance(self.values, pl.DataFrame):
             default_ext = ".parquet"
-        elif isinstance(self.values, MeasurementQuantityArray):
-            default_ext = ".npz"
 
         if not path.endswith((".npy", ".parquet", ".npz")):
             path += default_ext
             print(f"Warning: File extension not specified. Saving as {path}")
 
-        if isinstance(self.values, np.ndarray):
+        if uncertainty_metadata:
+            if not path.endswith(".npz"):
+                raise ValueError(
+                    "Uncertain MeasurementResult values must be saved as .npz "
+                    "so metrology metadata is not discarded."
+                )
+            metadata = {
+                "schema_version": "1.0",
+                "instrument": self.instrument,
+                "units": self.units,
+                "measurement_type": self.measurement_type,
+                "timestamp": self.timestamp,
+                "envelope": self.envelope,
+                "sampling_rate": self.sampling_rate,
+                "uncertainty": uncertainty_metadata,
+                "extra_attributes": {
+                    key: value
+                    for key, value in self.__dict__.items()
+                    if key
+                    not in {
+                        "values",
+                        "instrument",
+                        "units",
+                        "measurement_type",
+                        "timestamp",
+                        "envelope",
+                        "sampling_rate",
+                    }
+                },
+            }
+            np.savez_compressed(
+                path,
+                values=np.asarray(serialized_values),
+                metadata_json=np.asarray(json.dumps(metadata, sort_keys=True)),
+            )
+        elif isinstance(self.values, np.ndarray):
             np.save(path, self.values)
         elif isinstance(self.values, pl.DataFrame):
             if not path.endswith(".parquet"):
@@ -253,22 +290,6 @@ class MeasurementResult:  # noqa: D101
                     f"Warning: Saving Polars DataFrame to non-parquet file '{path}'. Consider using .parquet for DataFrames."
                 )
             self.values.write_parquet(path)
-        elif isinstance(self.values, MeasurementQuantity):
-            if not path.endswith(".npy"):
-                print(
-                    f"Warning: Saving MeasurementQuantity to non-npy file '{path}'. Consider using .npy."
-                )
-            np.save(path, np.array([self.values.nominal, self.values.u]))
-        elif isinstance(self.values, MeasurementQuantityArray):
-            if not path.endswith(".npz"):
-                print(
-                    f"Warning: Saving MeasurementQuantityArray to non-npz file '{path}'. Consider using .npz."
-                )
-            self.values.save_npz_sidecar(path)
-        elif isinstance(self.values, UFloat):
-            if not path.endswith(".npy"):
-                print(f"Warning: Saving UFloat to non-npy file '{path}'. Consider using .npy.")
-            np.save(path, np.array([self.values.nominal_value, self.values.std_dev]))
         elif isinstance(self.values, list | np.float64):  # Convert list or float64 to ndarray
             if not path.endswith(".npy"):
                 print(
@@ -280,6 +301,31 @@ class MeasurementResult:  # noqa: D101
                 f"Unsupported data type for saving: {type(self.values)}. Can save np.ndarray, pl.DataFrame, list, np.float64, UFloat, MeasurementQuantity, or MeasurementQuantityArray."
             )
         print(f"Measurement saved to {path}")
+
+    @classmethod
+    def load(cls, path: str | Path) -> MeasurementResult:
+        """Load a self-describing uncertain result written by :meth:`save`."""
+
+        path = Path(path)
+        if path.suffix != ".npz":
+            raise ValueError("MeasurementResult.load() requires a self-describing .npz file.")
+        with np.load(path, allow_pickle=False) as archive:
+            if "metadata_json" not in archive:
+                raise ValueError("NPZ file does not contain MeasurementResult metadata.")
+            metadata = json.loads(str(archive["metadata_json"].item()))
+            values = deserialize_uncertain_value(
+                np.asarray(archive["values"]), metadata.get("uncertainty", {})
+            )
+        return cls(
+            values=values,
+            instrument=metadata["instrument"],
+            units=metadata["units"],
+            measurement_type=metadata["measurement_type"],
+            timestamp=float(metadata["timestamp"]),
+            envelope=metadata.get("envelope") or {},
+            sampling_rate=metadata.get("sampling_rate"),
+            **metadata.get("extra_attributes", {}),
+        )
 
     @property
     def nominal(
@@ -304,6 +350,11 @@ class MeasurementResult:  # noqa: D101
             return self.values
         if isinstance(self.values, np.float64):
             return float(self.values)
+        if isinstance(self.values, list):
+            if self.values and all(isinstance(value, UFloat) for value in self.values):
+                return np.asarray([value.nominal_value for value in self.values])
+            if all(isinstance(value, int | float | np.number) for value in self.values):
+                return np.asarray(self.values)
         raise TypeError(f"Unsupported type for nominal: {type(self.values)}")
 
     @property
@@ -322,6 +373,12 @@ class MeasurementResult:  # noqa: D101
             and isinstance(self.values.flat[0], UFloat)
         ):
             return np.array([x.std_dev for x in self.values.flat]).reshape(self.values.shape)
+        if (
+            isinstance(self.values, list)
+            and self.values
+            and all(isinstance(value, UFloat) for value in self.values)
+        ):
+            return np.asarray([value.std_dev for value in self.values])
         return None  # Or handle DataFrame case
 
     # Removed duplicate __repr__ (original definition earlier retained)
@@ -384,6 +441,8 @@ class MeasurementResult:  # noqa: D101
 
     def get(self, index: int) -> Any:
         """Gets the MeasurementValue at a specified index. Assumes indexable values."""
+        if isinstance(self.values, MeasurementQuantityArray):
+            return self.values[index]
         if isinstance(self.values, np.ndarray | list):
             return self.values[index]
         elif isinstance(self.values, pl.DataFrame):
@@ -460,7 +519,7 @@ class MeasurementResult:  # noqa: D101
             raise TypeError(f"Cannot convert type {type(self.values)} to NumPy array.")
 
     def __len__(self) -> int:
-        if isinstance(self.values, np.ndarray | list):
+        if isinstance(self.values, np.ndarray | list | MeasurementQuantityArray):
             return len(self.values)
         elif isinstance(self.values, np.float64 | UFloat | MeasurementQuantity):
             return 1
@@ -472,6 +531,8 @@ class MeasurementResult:  # noqa: D101
 
     def __iter__(self) -> Iterator[Any]:
         """Allows iteration over the 'values' attribute."""
+        if isinstance(self.values, MeasurementQuantityArray):
+            return (self.values[index] for index in range(len(self.values)))
         if isinstance(self.values, np.ndarray | list):
             return iter(self.values)
         elif isinstance(self.values, pl.DataFrame):

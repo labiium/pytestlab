@@ -68,23 +68,21 @@ def main(bench):
             # Wait for voltage settling
             time.sleep(0.5)
 
-            # Trigger oscilloscope single shot
-            osc.single()
+            # Start acquisition
+            osc.run()
             time.sleep(0.3)  # Wait for trigger and measurement
 
             # Read PSU measurements
-            actual_voltage = psu.measure_voltage(1)
-            actual_current = psu.measure_current(1)
+            actual_voltage = psu.read_voltage(1)
+            actual_current = psu.read_current(1)
 
             # Read oscilloscope measurements
             try:
-                vpp = osc.measure_vpp(1)
-                vmax = osc.measure_vmax(1)
-                vmin = osc.measure_vmin(1)
-                frequency = osc.measure_frequency(1)
+                vpp = osc.measure_voltage_peak_to_peak(1)
+                rms = osc.measure_rms_voltage(1)
             except Exception as e:
                 print(f"  Warning: OSC measurement error: {e}")
-                vpp = vmax = vmin = frequency = 0.0
+                vpp = rms = 0.0
 
             # Store measurement data
             measurement = {
@@ -93,9 +91,7 @@ def main(bench):
                 "actual_voltage": actual_voltage,
                 "actual_current": actual_current,
                 "osc_vpp": vpp,
-                "osc_vmax": vmax,
-                "osc_vmin": vmin,
-                "osc_frequency": frequency,
+                "osc_rms": rms,
                 "timestamp": time.time(),
             }
             measurements.append(measurement)
@@ -104,9 +100,7 @@ def main(bench):
             print(
                 f"  PSU: Set={voltage}V, Actual={actual_voltage:.3f}V, Current={actual_current:.3f}A"
             )
-            print(
-                f"  OSC: Vpp={vpp:.3f}V, Vmax={vmax:.3f}V, Vmin={vmin:.3f}V, Freq={frequency:.1f}Hz"
-            )
+            print(f"  OSC: Vpp={vpp:.3f}V, RMS={rms:.3f}V")
 
             # Small delay between measurements
             time.sleep(0.2)
@@ -178,7 +172,7 @@ def stress_test_sequence(bench):
         scales = [0.5, 1.0, 2.0, 0.5]
         for scale in scales:
             osc.set_channel_scale(1, scale)
-            osc.single()
+            osc.run()
             time.sleep(0.2)
 
     finally:

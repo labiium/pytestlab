@@ -9,7 +9,7 @@ PyTestLab separates **selecting a device** from **opening communication**. Your 
 Use `pytestlab.AutoInstrument` when you want a single instrument from a packaged preset, a local profile file, or an in-memory config.
 
 !!! note "Automatic backend opening"
-    `AutoInstrument.from_preset()`, `from_file()`, and `from_config()` build a configured Python object. They do not immediately touch hardware. The first operation that needs I/O, such as `id()`, `query()`, `read_channels()`, or `measure_voltage_dc()`, opens the backend automatically.
+    `AutoInstrument.from_preset()`, `from_file()`, and `from_config()` build a configured Python object. They do not immediately touch hardware. The first operation that needs I/O, such as `id()`, `query()`, `read_channels()`, or `measure()`, opens the backend automatically.
 
 ---
 
@@ -29,7 +29,7 @@ def main():
     # id() is the first I/O operation, so PyTestLab opens the backend here.
     print(f"Instrument: {dmm.id()}")
 
-    voltage = dmm.measure_voltage_dc()
+    voltage = dmm.measure(pytestlab.DMMFunction.VOLTAGE_DC)
     print(f"Measured voltage: {voltage}")
 
     dmm.close()
@@ -72,7 +72,7 @@ def main():
         print(f"Bench loaded: {bench.config.bench_name}")
 
         bench.psu.channel(1).set(voltage=3.3, current_limit=0.5).on()
-        voltage = bench.dmm.measure_voltage_dc()
+        voltage = bench.dmm.measure(pytestlab.DMMFunction.VOLTAGE_DC)
         print(f"Measured: {voltage.values:.4f} V")
     # All bench devices are closed automatically here.
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +40,7 @@ class AutoInstrument:
         backend_override: InstrumentIO | None = None,
         backend_spec_override: dict[str, Any] | None = None,
         sim_session: Any | None = None,
+        backend_resources: Mapping[str, Any] | None = None,
         role_override: str | None = None,
     ) -> Instrument[Any]:
         device = AutoDevice.from_config(
@@ -53,6 +55,7 @@ class AutoInstrument:
             backend_override=backend_override,
             backend_spec_override=backend_spec_override,
             sim_session=sim_session,
+            backend_resources=backend_resources,
             role_override=role_override,
         )
         if not isinstance(device, Instrument):
@@ -76,6 +79,7 @@ class AutoInstrument:
         backend_override: InstrumentIO | None = None,
         backend_spec_override: dict[str, Any] | None = None,
         sim_session: Any | None = None,
+        backend_resources: Mapping[str, Any] | None = None,
         role_override: str | None = None,
     ) -> Instrument[Any]:
         """Instantiate an instrument from a packaged pytestlab profile preset."""
@@ -92,6 +96,7 @@ class AutoInstrument:
             backend_override=backend_override,
             backend_spec_override=backend_spec_override,
             sim_session=sim_session,
+            backend_resources=backend_resources,
             role_override=role_override,
         )
         if not isinstance(device, Instrument):
@@ -115,6 +120,7 @@ class AutoInstrument:
         backend_override: InstrumentIO | None = None,
         backend_spec_override: dict[str, Any] | None = None,
         sim_session: Any | None = None,
+        backend_resources: Mapping[str, Any] | None = None,
         role_override: str | None = None,
     ) -> Instrument[Any]:
         """Instantiate an instrument from a local YAML/JSON profile file."""
@@ -131,6 +137,7 @@ class AutoInstrument:
             backend_override=backend_override,
             backend_spec_override=backend_spec_override,
             sim_session=sim_session,
+            backend_resources=backend_resources,
             role_override=role_override,
         )
         if not isinstance(device, Instrument):

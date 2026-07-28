@@ -1,33 +1,14 @@
-from ..uncertainty import Distribution as UncertaintyDistribution
-from ..uncertainty import Quantity as MeasurementQuantity
-from ..uncertainty import UncertaintyBudget
-from ..uncertainty import UnitCompatibilityError
-from ..uncertainty.specs import AccuracyModel
-from ..uncertainty.specs import AccuracySpec
-from ..uncertainty.specs import BandAccuracySpec
-from ..uncertainty.specs import CompositeBudgetSpec
-from ..uncertainty.specs import ExpressionAccuracySpec
-from ..uncertainty.specs import MonteCarloAccuracySpec
-from ..uncertainty.specs import RepeatabilityAccuracySpec
-from ..uncertainty.specs import UncertaintyContext
-from ..uncertainty.specs import evaluate_quantity as evaluate_uncertainty_model
-from . import scpi_schema
-from .base import BaseConfig
-from .config import Config
-from .dc_active_load_config import DCActiveLoadConfig
-from .device_config import DeviceConfig
-from .device_config import DeviceRole
-from .device_config import GenericDeviceConfig
-from .instrument_config import InstrumentConfig
-from .multimeter_config import MultimeterConfig
-from .oscilloscope_config import OscilloscopeConfig
-from .power_meter_config import PowerMeterConfig
-from .power_supply_config import PowerSupplyConfig
-from .spectrum_analyzer_config import SpectrumAnalyzerConfig
-from .switch_matrix_config import SwitchMatrixConfig
-from .virtual_instrument_config import VirtualInstrumentConfig
-from .vna_config import VNAConfig
-from .waveform_generator_config import WaveformGeneratorConfig
+"""Public configuration API with lazy attribute loading.
+
+Importing a narrow configuration module should not initialize every concrete
+instrument model or the uncertainty stack.  The mapping below preserves the
+package-level API while deferring each dependency until that name is used.
+"""
+
+from __future__ import annotations
+
+from importlib import import_module
+from typing import Any
 
 __all__ = [
     "AccuracySpec",
@@ -64,9 +45,66 @@ __all__ = [
 ]
 
 
-def __getattr__(name: str):
-    if name == "ConfigLoader":
-        from .loader import ConfigLoader
+_LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
+    "AccuracySpec": ("pytestlab.uncertainty.specs", "AccuracySpec"),
+    "AccuracyModel": ("pytestlab.uncertainty.specs", "AccuracyModel"),
+    "BandAccuracySpec": ("pytestlab.uncertainty.specs", "BandAccuracySpec"),
+    "BaseConfig": ("pytestlab.config.base", "BaseConfig"),
+    "CompositeBudgetSpec": ("pytestlab.uncertainty.specs", "CompositeBudgetSpec"),
+    "Config": ("pytestlab.config.config", "Config"),
+    "ConfigLoader": ("pytestlab.config.loader", "ConfigLoader"),
+    "DCActiveLoadConfig": ("pytestlab.config.dc_active_load_config", "DCActiveLoadConfig"),
+    "DeviceConfig": ("pytestlab.config.device_config", "DeviceConfig"),
+    "DeviceRole": ("pytestlab.config.device_config", "DeviceRole"),
+    "ExpressionAccuracySpec": ("pytestlab.uncertainty.specs", "ExpressionAccuracySpec"),
+    "GenericDeviceConfig": ("pytestlab.config.device_config", "GenericDeviceConfig"),
+    "InstrumentConfig": ("pytestlab.config.instrument_config", "InstrumentConfig"),
+    "MeasurementQuantity": ("pytestlab.uncertainty", "Quantity"),
+    "MonteCarloAccuracySpec": ("pytestlab.uncertainty.specs", "MonteCarloAccuracySpec"),
+    "MultimeterConfig": ("pytestlab.config.multimeter_config", "MultimeterConfig"),
+    "OscilloscopeConfig": ("pytestlab.config.oscilloscope_config", "OscilloscopeConfig"),
+    "PowerMeterConfig": ("pytestlab.config.power_meter_config", "PowerMeterConfig"),
+    "PowerSupplyConfig": ("pytestlab.config.power_supply_config", "PowerSupplyConfig"),
+    "RepeatabilityAccuracySpec": (
+        "pytestlab.uncertainty.specs",
+        "RepeatabilityAccuracySpec",
+    ),
+    "SpectrumAnalyzerConfig": (
+        "pytestlab.config.spectrum_analyzer_config",
+        "SpectrumAnalyzerConfig",
+    ),
+    "SwitchMatrixConfig": ("pytestlab.config.switch_matrix_config", "SwitchMatrixConfig"),
+    "UncertaintyBudget": ("pytestlab.uncertainty", "UncertaintyBudget"),
+    "UncertaintyContext": ("pytestlab.uncertainty.specs", "UncertaintyContext"),
+    "UncertaintyDistribution": ("pytestlab.uncertainty", "Distribution"),
+    "UnitCompatibilityError": ("pytestlab.uncertainty", "UnitCompatibilityError"),
+    "evaluate_uncertainty_model": ("pytestlab.uncertainty.specs", "evaluate_quantity"),
+    "VirtualInstrumentConfig": (
+        "pytestlab.config.virtual_instrument_config",
+        "VirtualInstrumentConfig",
+    ),
+    "VNAConfig": ("pytestlab.config.vna_config", "VNAConfig"),
+    "WaveformGeneratorConfig": (
+        "pytestlab.config.waveform_generator_config",
+        "WaveformGeneratorConfig",
+    ),
+    "scpi_schema": ("pytestlab.config.scpi_schema", None),
+}
 
-        return ConfigLoader
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+def __getattr__(name: str) -> Any:
+    """Resolve package-level exports without eager transitive imports."""
+    try:
+        module_name, attr_name = _LAZY_ATTRS[name]
+    except KeyError as exc:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
+
+    module = import_module(module_name)
+    value = module if attr_name is None else getattr(module, attr_name)
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    """Include lazy public names in introspection."""
+    return sorted(set(__all__) | set(globals()))

@@ -27,6 +27,7 @@ from __future__ import annotations
 import pathlib
 from collections.abc import Callable
 from dataclasses import dataclass
+from dataclasses import field
 from datetime import UTC
 from typing import TYPE_CHECKING
 from typing import Any
@@ -93,6 +94,7 @@ class ComplianceConfig:
 
     # Regulation preset
     regulation: str | None = None
+    _initialization_errors: list[str] = field(default_factory=list, init=False, repr=False)
 
     def __post_init__(self):
         """Initialize implementations from configs if needed."""
@@ -179,8 +181,11 @@ class ComplianceConfig:
             from .defaults import FileSystemSigner
             from .defaults import LocalTimestamper
             from .defaults import SQLiteAuditor
-        except ImportError:
-            # cryptography not installed, can't create defaults
+        except ImportError as exc:
+            # Record requested components that cannot be constructed so required
+            # sessions can fail closed instead of reporting configured dicts.
+            if self.signing or self.audit or self.timestamp:
+                self._initialization_errors.append(f"Compliance defaults unavailable: {exc}")
             return
 
         # Create Signer from signing config
@@ -190,6 +195,7 @@ class ComplianceConfig:
                 _LOG.debug("Initialized FileSystemSigner from config")
             except Exception as e:
                 _LOG.warning(f"Failed to initialize signer: {e}")
+                self._initialization_errors.append(f"Failed to initialize signer: {e}")
 
         # Create Auditor from audit config
         if self.auditor is None and self.audit:
@@ -198,6 +204,7 @@ class ComplianceConfig:
                 _LOG.debug("Initialized SQLiteAuditor from config")
             except Exception as e:
                 _LOG.warning(f"Failed to initialize auditor: {e}")
+                self._initialization_errors.append(f"Failed to initialize auditor: {e}")
 
         # Create Timestamper from timestamp config
         if self.timestamper is None and self.timestamp:
@@ -206,6 +213,21 @@ class ComplianceConfig:
                 _LOG.debug("Initialized LocalTimestamper from config")
             except Exception as e:
                 _LOG.warning(f"Failed to initialize timestamper: {e}")
+                self._initialization_errors.append(f"Failed to initialize timestamper: {e}")
+
+    def readiness(self) -> dict[str, Any]:
+        """Report actual component readiness separately from requested config."""
+        return {
+            "signed": self.signer is not None,
+            "audited": self.auditor is not None,
+            "timestamped": self.timestamper is not None,
+            "configured": {
+                "signed": self.signer is not None or self.signing is not None,
+                "audited": self.auditor is not None or self.audit is not None,
+                "timestamped": self.timestamper is not None or self.timestamp is not None,
+            },
+            "errors": list(self._initialization_errors),
+        }
 
     def create_compliance_wrapper(
         self, *, transparent: bool = True

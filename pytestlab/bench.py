@@ -1,3 +1,4 @@
+import copy
 import logging
 import shlex
 import subprocess
@@ -16,11 +17,12 @@ from .config.bench_config import InstrumentEntry
 from .config.bench_config import MeasurementPlanEntry
 from .config.bench_loader import build_validation_context
 from .config.bench_loader import load_bench_yaml
-from .config.bench_loader import load_sim_bench_yaml
 from .config.bench_loader import run_custom_validations
 from .devices import AutoDevice
 from .devices import Device
 from .devices import SwitchMatrixDevice
+from .devices.providers import BackendResourceScope
+from .devices.providers import prepare_backend_resources
 from .errors import InstrumentConfigurationError
 from .experiments import Experiment
 from .experiments.database import MeasurementDatabase
@@ -50,6 +52,39 @@ class InstrumentMacroError(Exception):
     pass
 
 
+class _SafeChannelFacade:
+    """Keep fluent channel operations inside the parent safety boundary."""
+
+    __slots__ = ("__safe_device", "__facade", "__channel")
+
+    def __init__(self, safe_device: "SafeDeviceWrapper", facade: Any, channel: int):
+        self.__safe_device = safe_device
+        self.__facade = facade
+        self.__channel = channel
+
+    def set(
+        self, voltage: float | None = None, current_limit: float | None = None
+    ) -> "_SafeChannelFacade":
+        if voltage is not None:
+            self.__safe_device.set_voltage(self.__channel, voltage)
+        if current_limit is not None:
+            self.__safe_device.set_current(self.__channel, current_limit)
+        return self
+
+    def __getattr__(self, name: str) -> Any:
+        if name.startswith("_"):
+            raise SafetyLimitError("Raw channel-facade internals are not publicly accessible.")
+        attribute = getattr(self.__facade, name)
+        if not callable(attribute):
+            return attribute
+
+        def preserve_wrapper(*args: Any, **kwargs: Any) -> Any:
+            result = attribute(*args, **kwargs)
+            return self if result is self.__facade else result
+
+        return preserve_wrapper
+
+
 class SafeDeviceWrapper:
     """Wraps a device to enforce safety limits defined in the bench config.
 
@@ -59,22 +94,57 @@ class SafeDeviceWrapper:
         the call to the actual device. This helps prevent accidental damage to
         equipment or the device under test.
 
-    Attributes:
-        _device: The actual device instance being wrapped.
-        _safety_limits: The safety limit configuration for this device.
-        _device_type: Type of device being wrapped (e.g., 'power_supply', 'waveform_generator').
     """
 
+    __slots__ = ("__device", "__safety_limits", "__role")
+
     def __init__(self, device: Device, safety_limits: Any, role: str):
-        self._device = device
-        self._safety_limits = safety_limits
-        self._role = role
+        self.__device = device
+        self.__safety_limits = copy.deepcopy(safety_limits)
+        self.__role = role
+
+    @property
+    def safety_limits(self) -> Any:
+        """A read-only snapshot of the limits enforced by this handle."""
+        return copy.deepcopy(self.__safety_limits)
+
+    @property
+    def role(self) -> str:
+        """The resolved safety role for this device."""
+        return self.__role
+
+    @property
+    def is_instrument(self) -> bool:
+        """Whether the protected resource is an instrument."""
+        return isinstance(self.__device, Instrument)
 
     def __getattr__(self, name):
         """Dynamically wraps methods to enforce safety checks."""
-        orig = getattr(self._device, name)
+        if name.startswith("_"):
+            raise SafetyLimitError("Raw device internals are not publicly accessible.")
+        if name in {
+            "write",
+            "query",
+            "query_raw",
+            "send_scpi_alias",
+            "query_scpi_alias",
+        }:
+            return self._reject_unvalidated_command(name)
+        orig = getattr(self.__device, name)
 
-        if name in {"set_voltage", "set_current"} and self._role in {
+        if name == "channel" and self.__role in {
+            "stimulus",
+            "source_measure",
+            "conditioning",
+            "load",
+        }:
+
+            def safe_channel(channel: int, *args: Any, **kwargs: Any) -> _SafeChannelFacade:
+                return _SafeChannelFacade(self, orig(channel, *args, **kwargs), channel)
+
+            return safe_channel
+
+        if name in {"set_voltage", "set_current"} and self.__role in {
             "stimulus",
             "source_measure",
             "conditioning",
@@ -85,17 +155,31 @@ class SafeDeviceWrapper:
                 if name == "set_voltage"
                 else self._safe_set_current_wrapper(orig)
             )
-        if name in {"set_amplitude", "set_frequency"} and self._role == "stimulus":
+        if name in {"set_amplitude", "set_frequency"} and self.__role == "stimulus":
             return (
                 self._safe_set_amplitude_wrapper(orig)
                 if name == "set_amplitude"
                 else self._safe_set_frequency_wrapper(orig)
             )
-        if name == "set_load" and self._role == "load":
+        if name == "set_load" and self.__role == "load":
             return self._safe_set_load_wrapper(orig)
 
         # For any other method, return it unwrapped
         return orig
+
+    def _reject_unvalidated_command(self, method_name: str):
+        """Fail closed for raw commands that bypass operation-level limits."""
+
+        def reject(*_args, **_kwargs):
+            command_kind = (
+                "Raw" if method_name in {"write", "query", "query_raw"} else "Unvalidated"
+            )
+            raise SafetyLimitError(
+                f"{command_kind} {method_name} commands are disabled for safety-limited device "
+                f"'{self.__device.config.model}'. Use a validated device operation instead."
+            )
+
+        return reject
 
     def _safe_set_voltage_wrapper(self, orig_method):
         """Wraps set_voltage method with safety checks."""
@@ -103,8 +187,8 @@ class SafeDeviceWrapper:
         def safe_set_voltage(channel, voltage, *a, **k):
             max_v = None
             # Check if channel-specific voltage limits are defined
-            if self._safety_limits and self._safety_limits.channels:
-                ch_limits = self._safety_limits.channels.get(channel)
+            if self.__safety_limits and self.__safety_limits.channels:
+                ch_limits = self.__safety_limits.channels.get(channel)
                 if ch_limits and ch_limits.voltage and "max" in ch_limits.voltage:
                     max_v = ch_limits.voltage["max"]
             # If a limit is found, check if the requested voltage exceeds it
@@ -122,8 +206,8 @@ class SafeDeviceWrapper:
 
         def safe_set_current(channel, current, *a, **k):
             max_c = None
-            if self._safety_limits and self._safety_limits.channels:
-                ch_limits = self._safety_limits.channels.get(channel)
+            if self.__safety_limits and self.__safety_limits.channels:
+                ch_limits = self.__safety_limits.channels.get(channel)
                 if ch_limits and ch_limits.current and "max" in ch_limits.current:
                     max_c = ch_limits.current["max"]
             if max_c is not None and current > max_c:
@@ -139,8 +223,8 @@ class SafeDeviceWrapper:
 
         def safe_set_amplitude(channel, amplitude, *a, **k):
             max_amp = None
-            if self._safety_limits and self._safety_limits.channels:
-                ch_limits = self._safety_limits.channels.get(channel)
+            if self.__safety_limits and self.__safety_limits.channels:
+                ch_limits = self.__safety_limits.channels.get(channel)
                 if ch_limits and ch_limits.amplitude and "max" in ch_limits.amplitude:
                     max_amp = ch_limits.amplitude["max"]
             if max_amp is not None and amplitude > max_amp:
@@ -156,8 +240,8 @@ class SafeDeviceWrapper:
 
         def safe_set_frequency(channel, frequency, *a, **k):
             max_freq = None
-            if self._safety_limits and self._safety_limits.channels:
-                ch_limits = self._safety_limits.channels.get(channel)
+            if self.__safety_limits and self.__safety_limits.channels:
+                ch_limits = self.__safety_limits.channels.get(channel)
                 if ch_limits and ch_limits.frequency and "max" in ch_limits.frequency:
                     max_freq = ch_limits.frequency["max"]
             if max_freq is not None and frequency > max_freq:
@@ -174,11 +258,11 @@ class SafeDeviceWrapper:
         def safe_set_load(value, *a, **k):
             max_load = None
             if (
-                self._safety_limits
-                and self._safety_limits.load
-                and "max" in self._safety_limits.load
+                self.__safety_limits
+                and self.__safety_limits.load
+                and "max" in self.__safety_limits.load
             ):
-                max_load = self._safety_limits.load["max"]
+                max_load = self.__safety_limits.load["max"]
             if max_load is not None and value > max_load:
                 raise SafetyLimitError(
                     f"Refusing to set load to {value}, which is above the safety limit of {max_load}."
@@ -206,11 +290,16 @@ class Bench:
         config: BenchConfigExtended,
         *,
         sim_session: Any | None = None,
+        backend_resources: BackendResourceScope | None = None,
         prepared_measurements: PreparedMeasurementPlan | None = None,
         base_path: Path | None = None,
     ):
         self._config = config
-        self._sim_session = sim_session
+        self._backend_resources = backend_resources
+        provider_sim_session = (
+            backend_resources.get("circuit_sim") if backend_resources is not None else None
+        )
+        self._sim_session = sim_session if sim_session is not None else provider_sim_session
         self._base_path = base_path
         self._device_instances: dict[str, Device] = {}
         self._instrument_instances: dict[str, Instrument[Any]] = {}
@@ -223,6 +312,8 @@ class Bench:
         self._accessories: dict[str, BoundAccessory] = prepared_measurements.bound_accessories
         self._experiment: Experiment | None = None
         self._db: MeasurementDatabase | None = None
+        self._opened_successfully = False
+        self._closed = False
 
     @classmethod
     def open(cls, filepath: str | Path | dict[str, Any]) -> "Bench":
@@ -244,18 +335,13 @@ class Bench:
             InstrumentConfigurationError: If device configuration is invalid.
         """
         logger.info(f"Loading bench configuration from {filepath}")
-        if isinstance(filepath, str | Path):
-            config, sim_session = load_sim_bench_yaml(filepath)
-        else:
-            config = load_bench_yaml(filepath)
-            if config.sim_circuit is not None:
-                raise InstrumentConfigurationError(
-                    "sim_circuit",
-                    "Bench.open() requires a filesystem path for sim_circuit netlists.",
-                )
-            sim_session = None
-
         base_path = Path(filepath).parent if isinstance(filepath, str | Path) else None
+        config = load_bench_yaml(filepath)
+        if base_path is None and config.sim_circuit is not None:
+            raise InstrumentConfigurationError(
+                "sim_circuit",
+                "Bench.open() requires a filesystem path for sim_circuit netlists.",
+            )
 
         # Run custom validations
         logger.debug("Running custom validations on bench configuration")
@@ -264,19 +350,35 @@ class Bench:
         prepared_measurements = prepare_declared_measurements(config, base_path=base_path)
         raise_for_declared_measurement_errors(prepared_measurements.errors)
 
-        bench = cls(
-            config,
-            sim_session=sim_session,
-            prepared_measurements=prepared_measurements,
-            base_path=base_path,
-        )
-        bench._initialize_devices()
-        bench._run_automation_hook("pre_experiment")
-        logger.info(f"Bench '{config.bench_name}' initialized successfully")
+        backend_resources = prepare_backend_resources(config, base_path=base_path)
+        bench: Bench | None = None
+        try:
+            bench = cls(
+                config,
+                backend_resources=backend_resources,
+                prepared_measurements=prepared_measurements,
+                base_path=base_path,
+            )
+            bench._initialize_devices()
+            bench._run_automation_hook("pre_experiment")
 
-        # Initialize the experiment and database
-        bench.initialize_experiment()
-        bench.initialize_database()
+            # Initialize the experiment and database
+            bench.initialize_experiment()
+            bench.initialize_database()
+        except Exception:
+            # A failed open never runs the post-experiment hook. Cleanup errors
+            # are logged so the initialization error remains the one observed.
+            if bench is not None:
+                bench._close_resources(run_post_experiment=False)
+            else:  # pragma: no cover - defensive constructor-failure cleanup
+                try:
+                    backend_resources.close()
+                except Exception as cleanup_error:
+                    logger.error("Backend resource cleanup failed: %s", cleanup_error)
+            raise
+
+        bench._opened_successfully = True
+        logger.info(f"Bench '{config.bench_name}' initialized successfully")
 
         return bench
 
@@ -388,7 +490,19 @@ class Bench:
             self._validate_safety_limits_for_role(alias, entry.safety_limits, role)
 
         logger.debug(f"Connecting device '{alias}' to backend")
-        device.connect_backend()
+        try:
+            device.connect_backend()
+        except Exception:
+            # connect_backend() already attempts a disconnect, but a backend may
+            # have acquired another resource before raising. close() is the
+            # lifecycle backstop for that partially initialized local device.
+            try:
+                device.close()
+            except Exception as close_exc:  # pragma: no cover - defensive logging
+                logger.error(
+                    "Error closing partially initialized device '%s': %s", alias, close_exc
+                )
+            raise
 
         if entry.safety_limits:
             wrapped = SafeDeviceWrapper(device, entry.safety_limits, role)
@@ -427,6 +541,11 @@ class Bench:
                 timeout_override_ms=timeout_override_ms,
                 backend_spec_override=backend_spec_override,
                 sim_session=self._sim_session,
+                backend_resources=(
+                    self._backend_resources.resources
+                    if self._backend_resources is not None
+                    else None
+                ),
                 role_override=role_override,
             )
         return AutoDevice.from_file(
@@ -438,6 +557,9 @@ class Bench:
             timeout_override_ms=timeout_override_ms,
             backend_spec_override=backend_spec_override,
             sim_session=self._sim_session,
+            backend_resources=(
+                self._backend_resources.resources if self._backend_resources is not None else None
+            ),
             role_override=role_override,
         )
 
@@ -464,6 +586,11 @@ class Bench:
                 timeout_override_ms=timeout_override_ms,
                 backend_spec_override=backend_spec_override,
                 sim_session=self._sim_session,
+                backend_resources=(
+                    self._backend_resources.resources
+                    if self._backend_resources is not None
+                    else None
+                ),
                 role_override=role_override,
             )
         return AutoDevice.from_preset(
@@ -475,6 +602,9 @@ class Bench:
             timeout_override_ms=timeout_override_ms,
             backend_spec_override=backend_spec_override,
             sim_session=self._sim_session,
+            backend_resources=(
+                self._backend_resources.resources if self._backend_resources is not None else None
+            ),
             role_override=role_override,
         )
 
@@ -660,12 +790,20 @@ class Bench:
 
     def close_all(self):
         """Runs post-experiment hooks and closes all device connections."""
+        self._close_resources(run_post_experiment=self._opened_successfully)
+
+    def _close_resources(self, *, run_post_experiment: bool) -> None:
+        """Close owned resources once, optionally running the successful-open hook."""
+        if self._closed:
+            return
+        self._closed = True
         logger.info("Closing bench and running post-experiment hooks")
 
-        try:
-            self._run_automation_hook("post_experiment")
-        except Exception as e:
-            logger.error(f"Error in post-experiment hooks: {str(e)}")
+        if run_post_experiment:
+            try:
+                self._run_automation_hook("post_experiment")
+            except Exception as e:
+                logger.error(f"Error in post-experiment hooks: {str(e)}")
 
         logger.debug("Closing device connections")
         errors: list[Exception] = []
@@ -675,10 +813,41 @@ class Bench:
                     device.close()
                 except Exception as exc:  # pragma: no cover - defensive logging
                     errors.append(exc)
+        self._device_instances.clear()
+        self._instrument_instances.clear()
+        self._device_wrappers.clear()
 
         if self._db is not None:
-            self._db.close()
+            try:
+                self._db.close()
+            except Exception as exc:  # pragma: no cover - defensive logging
+                errors.append(exc)
             self._db = None
+
+        provider_sim_session = (
+            self._backend_resources.get("circuit_sim")
+            if self._backend_resources is not None
+            else None
+        )
+        if self._backend_resources is not None:
+            try:
+                self._backend_resources.close()
+            except Exception as exc:  # pragma: no cover - defensive logging
+                errors.append(exc)
+            self._backend_resources = None
+
+        # Direct constructor users may still pass a legacy shared session. Provider-owned
+        # sessions are closed by the scope above and must not be closed twice.
+        if self._sim_session is not None and self._sim_session is not provider_sim_session:
+            close_session = getattr(self._sim_session, "close", None)
+            if not callable(close_session):
+                close_session = getattr(self._sim_session, "disconnect", None)
+            if callable(close_session):
+                try:
+                    close_session()
+                except Exception as exc:  # pragma: no cover - defensive logging
+                    errors.append(exc)
+        self._sim_session = None
 
         if errors:
             logger.error(f"{len(errors)} errors occurred while closing devices")
@@ -746,28 +915,38 @@ class Bench:
         return self._config.version
 
     @property
-    def devices(self) -> dict[str, Device]:
+    def devices(self) -> dict[str, Any]:
         """All bench resources keyed by alias."""
-        return self._device_instances
+        return self._public_resources()
 
     @property
-    def resources(self) -> dict[str, Device]:
+    def resources(self) -> dict[str, Any]:
         """Provides programmatic access to all bench resources."""
-        return self._device_instances
+        return self._public_resources()
+
+    def _public_resources(self) -> dict[str, Any]:
+        """Return the canonical guarded handle for every public resource."""
+        return {
+            alias: self._device_wrappers.get(alias, device)
+            for alias, device in self._device_instances.items()
+        }
 
     @property
-    def support_devices(self) -> dict[str, Device]:
+    def support_devices(self) -> dict[str, Any]:
         """Provides programmatic access to non-instrument device instances."""
         return {
-            alias: device
+            alias: self._device_wrappers.get(alias, device)
             for alias, device in self._device_instances.items()
             if not isinstance(device, Instrument)
         }
 
     @property
-    def instruments(self) -> dict[str, Instrument[Any]]:
+    def instruments(self) -> dict[str, Any]:
         """Provides programmatic access to device instances that are instruments."""
-        return self._instrument_instances
+        return {
+            alias: self._device_wrappers.get(alias, device)
+            for alias, device in self._instrument_instances.items()
+        }
 
     @property
     def experiment(self) -> Experiment | None:
