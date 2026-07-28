@@ -163,6 +163,52 @@ class MeasurementResult:  # noqa: D101
         """
         return self.__str__()
 
+    def _scalar_nominal(self) -> float:
+        """Return one nominal scalar or reject an ambiguous result shape."""
+        nominal = self.nominal
+        if isinstance(nominal, int | float | np.integer | np.floating):
+            return float(nominal)
+        raise TypeError(
+            "numeric conversion of MeasurementResult requires a scalar result; "
+            "use .values or .nominal for non-scalar measurements"
+        )
+
+    def __float__(self) -> float:
+        """Return the nominal value when this result contains one scalar."""
+
+        return self._scalar_nominal()
+
+    def __int__(self) -> int:
+        """Return the scalar nominal value as an integer."""
+
+        return int(self._scalar_nominal())
+
+    def __format__(self, spec: str) -> str:
+        """Format a scalar result without discarding explicit uncertainty formats."""
+
+        if "u" in spec and isinstance(self.values, MeasurementQuantity):
+            return format(self.values, spec)
+        return format(self._scalar_nominal(), spec)
+
+    def __round__(self, ndigits: int | None = None) -> int | float:
+        """Round the scalar nominal value."""
+
+        return round(self._scalar_nominal(), ndigits)
+
+    def __abs__(self) -> float:
+        """Return the absolute scalar nominal value."""
+
+        return abs(self._scalar_nominal())
+
+    def to_json_value(self) -> float:
+        """Return a JSON-compatible scalar nominal value.
+
+        Use :meth:`to_dict` instead when units and uncertainty metadata must be
+        retained.
+        """
+
+        return self._scalar_nominal()
+
     # Add this method to convert MeasurementResult to a dict for Polars DataFrame
     def to_dict(self) -> dict[str, Any]:
         """Convert MeasurementResult to a dict for DataFrame conversion.

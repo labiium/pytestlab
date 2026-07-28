@@ -36,6 +36,49 @@ class TestMeasurementResult(unittest.TestCase):
         )
         self.assertEqual(result.values, self.values_float64)
 
+    def test_float_returns_scalar_nominal_value(self):
+        result = MeasurementResult(
+            self.values_float64, self.instrument, self.units, self.measurement_type
+        )
+
+        self.assertEqual(float(result), 3.14)
+
+    def test_float_rejects_non_scalar_measurements(self):
+        result = MeasurementResult(
+            self.values_array, self.instrument, self.units, self.measurement_type
+        )
+
+        with self.assertRaisesRegex(TypeError, "requires a scalar result"):
+            float(result)
+
+    def test_scalar_numeric_and_json_conversion_contract(self):
+        result = MeasurementResult(
+            np.float64(-3.14159), self.instrument, self.units, self.measurement_type
+        )
+
+        self.assertEqual(int(result), -3)
+        self.assertEqual(f"{result:.3f}", "-3.142")
+        self.assertEqual(round(result, 2), -3.14)
+        self.assertEqual(abs(result), 3.14159)
+        self.assertEqual(result.to_json_value(), -3.14159)
+
+    def test_numeric_conversions_reject_non_scalar_measurements(self):
+        result = MeasurementResult(
+            self.values_array, self.instrument, self.units, self.measurement_type
+        )
+
+        conversions = (
+            lambda: int(result),
+            lambda: f"{result:.3f}",
+            lambda: round(result, 2),
+            lambda: abs(result),
+            result.to_json_value,
+        )
+        for conversion in conversions:
+            with self.subTest(conversion=conversion):
+                with self.assertRaisesRegex(TypeError, "requires a scalar result"):
+                    conversion()
+
     def test_numeric_lists_have_consistent_nominal_and_sigma_access(self):
         result = MeasurementResult([1.0, 2.0], self.instrument, self.units, self.measurement_type)
         np.testing.assert_array_equal(result.nominal, [1.0, 2.0])
