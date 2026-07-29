@@ -1,3 +1,8 @@
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 from pytestlab.instruments.backends.lamb import LambBackend
 
 
@@ -58,3 +63,31 @@ def test_lamb_backend_omits_empty_origin(monkeypatch):
     monkeypatch.delenv("TIM_LAMB_ORIGIN", raising=False)
 
     assert "X-TIM-Origin" not in LambBackend._request_headers()
+
+
+def test_lamb_backend_import_does_not_require_pyvisa():
+    project_root = Path(__file__).resolve().parents[2]
+    code = """
+import builtins
+original_import = builtins.__import__
+def without_pyvisa(name, *args, **kwargs):
+    if name == "pyvisa" or name.startswith("pyvisa."):
+        raise ModuleNotFoundError("blocked optional pyvisa dependency")
+    return original_import(name, *args, **kwargs)
+builtins.__import__ = without_pyvisa
+from pytestlab.instruments.backends.lamb import LambBackend
+assert LambBackend._request_headers()["X-TIM-Origin"] == "agent"
+"""
+    completed = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=project_root,
+        env={
+            **os.environ,
+            "PYTHONPATH": str(project_root),
+            "TIM_LAMB_ORIGIN": "agent",
+        },
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
