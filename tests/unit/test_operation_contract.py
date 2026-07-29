@@ -20,6 +20,17 @@ def test_operation_introspection_reports_profile_support() -> None:
     assert descriptor["support"]["supported"] is True
 
 
+def test_hd304_profile_exposes_direct_voltage_measurements() -> None:
+    scope = AutoInstrument.from_config("keysight/HD304MSO", simulate=True)
+
+    assert scope.scpi_engine.build("measure_vpp", channel=1) == [
+        ":MEASure:VPP? CHANnel1"
+    ]
+    assert scope.scpi_engine.build("measure_vrms", channel=2) == [
+        ":MEASure:VRMS? CYCLe,AC,CHANnel2"
+    ]
+
+
 def test_operation_contract_reports_missing_aliases_without_hardcoding_vendor_logic() -> None:
     scope = AutoInstrument.from_config("keysight/HD304MSO", simulate=True)
 

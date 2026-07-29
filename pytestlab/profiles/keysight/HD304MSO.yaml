@@ -169,6 +169,22 @@ scpi:
       template: '*OPC'
     auto_scale:
       template: :AUToscale
+    measure_vpp:
+      template: :MEASure:VPP? CHANnel{channel}
+      validators:
+        channel:
+          min: 1
+          max: 4
+      response:
+        type: scpi_float
+    measure_vrms:
+      template: :MEASure:VRMS? CYCLe,AC,CHANnel{channel}
+      validators:
+        channel:
+          min: 1
+          max: 4
+      response:
+        type: scpi_float
     set_time_axis:
       sequence:
       - :TIMebase:SCALe {scale}
