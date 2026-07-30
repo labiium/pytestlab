@@ -1,8 +1,11 @@
 import copy
+import json
 import logging
+import os
 import shlex
 import subprocess
 import sys
+import time
 import warnings
 from pathlib import Path
 from typing import Any
@@ -43,7 +46,26 @@ logger = logging.getLogger("pytestlab.bench")
 class SafetyLimitError(Exception):
     """Raised when an operation violates safety limits."""
 
-    pass
+    def __init__(self, *args: object):
+        super().__init__(*args)
+        audit_path = os.getenv("PYTESTLAB_SAFETY_AUDIT_PATH")
+        if not audit_path:
+            return
+        event = {
+            "event": "safety_limit_rejection",
+            "exception": type(self).__name__,
+            "message": str(self),
+            "source": sys._getframe(1).f_code.co_filename,
+            "timestamp_ns": time.time_ns(),
+        }
+        try:
+            with Path(audit_path).open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(event, sort_keys=True) + "\n")
+        except OSError:
+            logger.warning(
+                "Could not append the configured safety audit sink",
+                exc_info=True,
+            )
 
 
 class InstrumentMacroError(Exception):
