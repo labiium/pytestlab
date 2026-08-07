@@ -17,6 +17,7 @@ and the project adheres to Semantic Versioning (https://semver.org/spec/v2.0.0.h
 - Citation metadata and explicit validation claim-boundary documentation.
 
 ### Changed
+- Advanced measurement tutorial notebook now passes Ruff's import-ordering and late-import checks.
 - Scalar `Quantity` equality and ordering now use unit-aware nominal values for ordinary Python control flow. Use `same_representation(...)` for internal scalar-representation identity and the decision helpers for uncertainty-aware, guard-banded decisions.
 - Missing measurement uncertainty metadata now returns an explicit nominal-only, non-report-grade `Quantity` instead of silently falling back to a bare float in normal acquisition paths; decision helpers warn on nominal-only non-report-grade values.
 - Provenance now records data origin, evidence purpose, git SHA, profile/session hashes, and report-grade blockers for non-measured or incompatible evidence claims.
