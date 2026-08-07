@@ -725,7 +725,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
             except json.JSONDecodeError:
                 metadata = {}
             envelope = metadata.pop("measurement_envelope", {}) or {}
-            value_data = deserialize_uncertain_value(value_data, metadata)
+            value_data = deserialize_uncertain_value(value_data, metadata, unit=units or "")
 
         return MeasurementResult(
             values=value_data,

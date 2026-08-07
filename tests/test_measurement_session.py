@@ -15,7 +15,7 @@ from pytestlab.measurements import Measurement
 from pytestlab.measurements import step
 from pytestlab.uncertainty import Quantity
 from pytestlab.uncertainty import QuantityArray
-from pytestlab.uncertainty.compat import make_ufloat
+from pytestlab.uncertainty import uq
 
 
 def test_basic_sweep():
@@ -113,7 +113,8 @@ def test_direct_measurement_result_preserves_uncertainty_metadata(tmp_path):
         def waveform():
             return {
                 "samples": QuantityArray.from_samples([1.0, 2.0], unit="V", independent_std=0.1),
-                "legacy": make_ufloat(1.2, 0.03),
+                "native": uq(1.2, 0.03, "V"),
+                "sequence": [uq(2.0, 0.1, "V"), uq(3.0, 0.2, "V")],
             }
 
     df = session.run(show_progress=False).data
@@ -122,6 +123,9 @@ def test_direct_measurement_result_preserves_uncertainty_metadata(tmp_path):
     assert metadata["result"]["instrument"] == "dmm"
     assert metadata["uncertainty"]["value_kind"] == "quantity"
     assert df["samples"].dtype != pl.Object
-    legacy = json.loads(df["legacy__measurement"][0])
-    assert legacy["uncertainty"]["standard_uncertainty"] == pytest.approx(0.03)
+    native = json.loads(df["native__measurement"][0])
+    assert native["uncertainty"]["quantity"]["standard_uncertainty"] == pytest.approx(0.03)
+    assert df["sequence"][0].to_list() == [2.0, 3.0]
+    sequence = json.loads(df["sequence__measurement"][0])
+    assert sequence["uncertainty"]["value_kind"] == "quantity_list"
     df.write_ipc(tmp_path / "session.arrow")

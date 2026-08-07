@@ -327,7 +327,7 @@ def test_dmm_functionality(bench_config_file):
         assert hasattr(measurement, "values")
         assert hasattr(measurement, "units")
         assert measurement.units == "V"
-        # It returns a UFloat (uncertainties package), not a plain float
+        # It returns a native uncertainty-aware quantity, not a plain float.
         assert hasattr(measurement.values, "nominal_value")
 
 

@@ -142,7 +142,7 @@ class Quantity:
     def std_dev(self) -> float:
         return self.u
 
-    # ufloat-style short accessors
+    # Short uncertainty accessors
     @property
     def n(self) -> float:
         return self.nominal
@@ -825,11 +825,6 @@ class Quantity:
             "coverageProbability": None,
             "distribution": "derived",
         }
-
-    def to_ufloat(self):  # pragma: no cover - optional interop
-        from .compat import make_ufloat
-
-        return make_ufloat(self.nominal, self.u)
 
     # -- serialization ------------------------------------------------------
     def to_dict(self) -> dict:

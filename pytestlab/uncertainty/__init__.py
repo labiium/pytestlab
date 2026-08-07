@@ -80,13 +80,10 @@ from .quick import correlated_values
 from .quick import correlated_values_norm
 from .quick import correlation_matrix
 from .quick import covariance_matrix
-from .quick import from_ufloat
-from .quick import from_ufloats
 from .quick import nominal_value
 from .quick import nominal_values
 from .quick import std_dev
 from .quick import std_devs
-from .quick import to_ufloat_correlated
 from .quick import uq
 from .timing import TimingEstimator
 from .timing import TimingMeasurementError
@@ -201,7 +198,4 @@ __all__ = [
     "correlated_values_norm",
     "covariance_matrix",
     "correlation_matrix",
-    "from_ufloat",
-    "from_ufloats",
-    "to_ufloat_correlated",
 ]

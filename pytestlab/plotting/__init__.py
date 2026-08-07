@@ -22,7 +22,7 @@ Installation:
 Future extension roadmap (Phase 2+):
 - Backend registry (plotly, bokeh)
 - Live streaming (LivePlotSession)
-- Uncertainty bands (UFloats -> error bars / shaded region)
+- Uncertainty bands from native uncertainty-aware measurement values
 - Specialized kinds: bode, spectrogram, waterfall
 - Compliance serialization: attaching PlotSpec JSON to experiment metadata
 

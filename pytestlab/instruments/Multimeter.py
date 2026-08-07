@@ -284,8 +284,8 @@ class Multimeter(Instrument[MultimeterConfig]):
                         provided, "DEF" (default) is used.
 
         Returns:
-            A `MeasurementResult` object containing the measured value (as a float
-            or `UFloat`), units, and other metadata.
+            A `MeasurementResult` object containing the measured value (as a
+            nominal float or native `Quantity`), units, and other metadata.
 
         Raises:
             InstrumentParameterError: If an unsupported `range_val` is provided.

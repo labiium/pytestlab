@@ -2,12 +2,8 @@ from __future__ import annotations
 
 import importlib
 from types import SimpleNamespace
-from typing import cast
 
-import numpy as np
 import pytest
-from uncertainties import ufloat
-from uncertainties.core import UFloat
 
 import pytestlab.uncertainty.budget as budget_mod
 import pytestlab.uncertainty.units as units_mod
@@ -28,6 +24,7 @@ from pytestlab.instruments.uncertainty_adapters import psu_measurement_context
 from pytestlab.uncertainty import AtomRegistry
 from pytestlab.uncertainty import Distribution as UncertaintyDistribution
 from pytestlab.uncertainty import Quantity as MeasurementQuantity
+from pytestlab.uncertainty import QuantityArray
 from pytestlab.uncertainty import UnitCompatibilityError
 from pytestlab.uncertainty.specs import AccuracySpec
 from pytestlab.uncertainty.specs import BandAccuracySpec
@@ -210,34 +207,31 @@ def test_serializer_round_trips_all_uncertain_value_shapes(tmp_path):
     # Atom provenance survives the round trip.
     assert any(atom["source"] == "cal-sheet" for atom in restored.to_dict()["atoms"].values())
 
-    scalar, scalar_meta = serialize_uncertain_value(ufloat(1.2, 0.03))
+    scalar, scalar_meta = serialize_uncertain_value(quantity(0.03, nominal=1.2))
     scalar_restored = deserialize_uncertain_value(scalar, scalar_meta)
-    assert scalar_restored.nominal_value == pytest.approx(1.2)
-    assert scalar_restored.std_dev == pytest.approx(0.03)
+    assert isinstance(scalar_restored, MeasurementQuantity)
+    assert scalar_restored.nominal == pytest.approx(1.2)
+    assert scalar_restored.u == pytest.approx(0.03)
 
-    arr = np.array([[ufloat(1.0, 0.1), ufloat(2.0, 0.2)]], dtype=object)
+    arr = QuantityArray.from_samples([1.0, 2.0], unit="V", independent_std=[0.1, 0.2])
     arr_payload, arr_meta = serialize_uncertain_value(arr)
     arr_restored = deserialize_uncertain_value(arr_payload, arr_meta)
-    assert arr_restored.shape == (1, 2)
-    assert arr_restored[0, 1].std_dev == pytest.approx(0.2)
-
-    values = [ufloat(4.0, 0.4), ufloat(5.0, 0.5)]
-    list_payload, list_meta = serialize_uncertain_value(values)
-    list_restored = deserialize_uncertain_value(list_payload, list_meta)
-    assert [item.nominal_value for item in list_restored] == [4.0, 5.0]
+    assert isinstance(arr_restored, QuantityArray)
+    assert arr_restored.nominal.tolist() == [1.0, 2.0]
+    assert arr_restored.u.tolist() == pytest.approx([0.1, 0.2])
 
     plain_payload, plain_meta = serialize_uncertain_value(12.0)
     assert deserialize_uncertain_value(plain_payload, plain_meta) == 12.0
 
-    with MeasurementDatabase(tmp_path / "ufloat_shapes") as db:
+    with MeasurementDatabase(tmp_path / "quantity_shapes") as db:
         key = db.store_measurement(
             None,
             MeasurementResult(values=arr, instrument="array", units="V", measurement_type="grid"),
         )
         db_restored = db.retrieve_measurement(key)
-    restored_array = cast(np.ndarray, db_restored.values)
-    assert restored_array[0, 0].nominal_value == pytest.approx(1.0)
-    assert restored_array[0, 1].std_dev == pytest.approx(0.2)
+    assert isinstance(db_restored.values, QuantityArray)
+    assert db_restored.values.nominal.tolist() == [1.0, 2.0]
+    assert db_restored.values.u.tolist() == pytest.approx([0.1, 0.2])
 
 
 def test_database_adds_metadata_column_to_existing_measurement_tables(tmp_path):
@@ -266,7 +260,7 @@ def test_database_adds_metadata_column_to_existing_measurement_tables(tmp_path):
         key = db.store_measurement(
             None,
             MeasurementResult(
-                values=ufloat(2.0, 0.2),
+                values=quantity(0.2, "V", 2.0),
                 instrument="legacy",
                 units="V",
                 measurement_type="voltage",
@@ -274,9 +268,9 @@ def test_database_adds_metadata_column_to_existing_measurement_tables(tmp_path):
         )
         restored = db.retrieve_measurement(key)
 
-    restored_value = cast(UFloat, restored.values)
-    assert restored_value.nominal_value == pytest.approx(2.0)
-    assert restored_value.std_dev == pytest.approx(0.2)
+    assert isinstance(restored.values, MeasurementQuantity)
+    assert restored.values.nominal == pytest.approx(2.0)
+    assert restored.values.u == pytest.approx(0.2)
 
 
 def test_scientific_edge_cases_and_provenance_are_preserved():
@@ -374,7 +368,7 @@ def test_quantity_operations_cover_units_scalars_and_zero_nominal(monkeypatch):
 
     assert voltage.relative_u == pytest.approx(0.05)
     assert quantity(0.1, "V", 0.0).relative_u == float("inf")
-    assert voltage.to_ufloat().std_dev == pytest.approx(0.1)
+    assert voltage.u == pytest.approx(0.1)
     assert float(voltage) == pytest.approx(2.0)
     assert int(voltage) == 2
     assert str(voltage).endswith(" V")

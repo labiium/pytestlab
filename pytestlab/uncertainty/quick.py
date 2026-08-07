@@ -13,8 +13,6 @@ from .atoms import Distribution
 from .atoms import Kind
 from .atoms import default_registry
 from .atoms import divisor_for
-from .compat import uncertainties_correlated_values
-from .compat import uncertainties_covariance_matrix
 from .metrology import traceability_ref_from_any
 from .multivariate import QuantityVector
 from .multivariate import _validate_covariance_matrix
@@ -248,7 +246,7 @@ def covariance_matrix(values: Sequence[Any]) -> np.ndarray:
         return QuantityVector(qseq).covariance_matrix()
     raise TypeError(
         "covariance_matrix() expects PyTestLab Quantity objects. "
-        "Use from_ufloats(...) to import external uncertainties objects first."
+        "Create native quantities with uq(...) or correlated_values(...) first."
     )
 
 
@@ -319,37 +317,3 @@ def correlated_values_norm(
     std = values[:, 1]
     cov = corr * np.outer(std, std)
     return correlated_values(values[:, 0], cov, **kwargs)
-
-
-def from_ufloat(
-    value: Any, unit: str = "", *, label: str | None = None, registry: AtomRegistry | None = None
-) -> Quantity:
-    return uq(
-        float(value.nominal_value),
-        float(value.std_dev),
-        unit,
-        label=label or getattr(value, "tag", None),
-        registry=registry,
-    )
-
-
-def from_ufloats(
-    values: Sequence[Any],
-    units: Sequence[str] | str = "",
-    *,
-    labels: Sequence[str] | None = None,
-    registry: AtomRegistry | None = None,
-) -> list[Quantity]:
-    seq = list(values)
-    noms = [float(v.nominal_value) for v in seq]
-    cov = np.asarray(uncertainties_covariance_matrix(seq), dtype=float)
-    return correlated_values(noms, cov, labels=labels, units=units, registry=registry)
-
-
-def to_ufloat_correlated(
-    values: Sequence[Quantity], tags: Sequence[str] | None = None
-) -> list[Any]:
-    seq = list(values)
-    noms = [q.nominal for q in seq]
-    cov = covariance_matrix(seq)
-    return uncertainties_correlated_values(noms, cov, tags=tags)

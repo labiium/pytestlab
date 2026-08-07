@@ -69,7 +69,7 @@ def test_multimeter_uncertainty_calculation():
     # Test the uncertainty calculation
     measurement = multimeter.measure(DMMFunction.VOLTAGE_DC)
 
-    # Verify that the measurement has uncertainty (should be a UFloat)
+    # Verify that the measurement carries native uncertainty metadata.
     assert hasattr(measurement.values, "n")  # nominal value
     assert hasattr(measurement.values, "s")  # standard deviation
     assert measurement.units == "V"

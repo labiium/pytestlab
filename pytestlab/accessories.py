@@ -13,7 +13,6 @@ from pydantic import model_validator
 
 from .experiments.results import MeasurementResult
 from .uncertainty import Quantity as MeasurementQuantity
-from .uncertainty.compat import UFloat
 from .uncertainty.specs import AccuracyModel
 from .uncertainty.specs import UncertaintyContext
 from .uncertainty.specs import evaluate_quantity as evaluate_uncertainty_model
@@ -342,28 +341,13 @@ class MeasurementChain:
     def _quantity_from_value(self, value: Any, *, unit: str) -> tuple[MeasurementQuantity, bool]:
         if isinstance(value, MeasurementQuantity):
             return value, False
-        if isinstance(value, UFloat):
-            from .uncertainty import default_registry
-
-            reg = default_registry()
-            atom = reg.mint(
-                nominal=float(value.nominal_value),
-                std_uncertainty=float(value.std_dev),
-                label="legacy_ufloat",
-                unit=unit,
-                source="legacy_ufloat",
-            )
-            return MeasurementQuantity.from_atom(atom, reg), False
         if isinstance(value, np.ndarray):
             raise TypeError(
                 "MeasurementChain.apply() is scalar-only in v1; arrays are unsupported."
             )
-        try:
-            nominal = float(value)
-        except Exception as exc:
-            raise TypeError(
-                f"MeasurementChain.apply() cannot handle value type {type(value)!r}."
-            ) from exc
+        if not isinstance(value, int | float | np.number):
+            raise TypeError(f"MeasurementChain.apply() cannot handle value type {type(value)!r}.")
+        nominal = float(value)
         return MeasurementQuantity.constant(nominal, unit), True
 
 

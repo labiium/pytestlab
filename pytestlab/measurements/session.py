@@ -567,12 +567,12 @@ class MeasurementSession(contextlib.AbstractContextManager):
 
         serialized, uncertainty_metadata = serialize_uncertain_value(raw_value)
         value_kind = uncertainty_metadata.get("value_kind")
-        if value_kind in {"quantity", "ufloat"}:
+        if value_kind == "quantity":
             row[column] = float(np.asarray(serialized).flat[0])
-        elif value_kind in {"ufloat_ndarray", "ufloat_list"}:
-            row[column] = np.asarray(serialized)[..., 0].tolist()
         elif value_kind == "quantity_array":
             row[column] = np.asarray(serialized).tolist()
+        elif value_kind in {"quantity_ndarray", "quantity_list"}:
+            row[column] = np.asarray(serialized)[..., 0].tolist()
         else:
             row[column] = serialized
 

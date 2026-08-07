@@ -10,7 +10,6 @@ from ..config import PowerSupplyConfig  # V2 model
 from ..errors import InstrumentConfigurationError
 from ..errors import InstrumentParameterError
 from ..uncertainty import Quantity
-from ..uncertainty.compat import UFloat
 from .instrument import Instrument
 from .operation_contract import OperationDescriptor
 from .scpi_engine import SCPIEngine
@@ -128,7 +127,9 @@ class PSUChannelConfig:
         state: The output state of the channel ("ON" or "OFF").
     """
 
-    def __init__(self, voltage: float | UFloat, current: float | UFloat, state: int | str) -> None:
+    def __init__(
+        self, voltage: float | Quantity, current: float | Quantity, state: int | str
+    ) -> None:
         """Initializes the PSUChannelConfig.
 
         Args:
@@ -136,9 +137,9 @@ class PSUChannelConfig:
             current: The current value for the channel.
             state: The state of the channel (e.g., 0, 1, "ON", "OFF").
         """
-        # Allow UFloat or float for channel telemetry
-        self.voltage: float | UFloat = voltage
-        self.current: float | UFloat = current
+        # Allow native quantities or nominal floats for channel telemetry.
+        self.voltage: float | Quantity = voltage
+        self.current: float | Quantity = current
         self.state: str  # Store state as string "ON" or "OFF" for consistency
         if isinstance(state, str):
             # Normalize state from various string inputs like "1", "0", "ON", "OFF"
@@ -567,7 +568,7 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         for channel_num in range(1, num_channels + 1):  # Iterate 1-indexed channel numbers
 
             def _nominal(x: Any) -> float:
-                return x.nominal_value if hasattr(x, "nominal_value") else float(x)
+                return x.nominal if isinstance(x, Quantity) else float(x)
 
             voltage_val = _nominal(self.read_voltage(channel_num))
             current_val = _nominal(self.read_current(channel_num))

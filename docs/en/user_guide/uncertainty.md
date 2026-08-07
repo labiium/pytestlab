@@ -83,11 +83,9 @@ print(quantity.U(k=2))       # expanded uncertainty
 print(quantity.budget())      # component-level provenance
 ```
 
-`MeasurementQuantity` supports basic arithmetic propagation and can be exported
-to the `uncertainties` package with `quantity.to_ufloat()` for explicit interop.
-Arithmetic preserves per-component provenance in the propagated budget metadata,
-so downstream results remain auditable instead of becoming anonymous standard
-deviations.
+`MeasurementQuantity` supports basic arithmetic propagation. Arithmetic preserves
+per-component provenance in the propagated budget metadata, so downstream results
+remain auditable instead of becoming anonymous standard deviations.
 
 ## Oscilloscope Waveform and Timing Uncertainty
 
@@ -390,8 +388,9 @@ print(restored_quantity.u)
 print(restored_quantity.budget().components)
 ```
 
-Legacy `uncertainties.ufloat` values also round-trip, but new uncertainty-aware
-drivers use `MeasurementQuantity` so provenance stays attached.
+Older serialized uncertainty records are migrated to `MeasurementQuantity` values
+on load; new uncertainty-aware drivers use native quantities so provenance stays
+attached.
 
 ### Accessory Chains
 
@@ -551,8 +550,8 @@ conditions, and unit assumptions for production profiles.
 Databases store uncertain scalar values as structured measurement quantities:
 nominal value, unit, standard uncertainty, expanded uncertainty, and the full
 budget JSON. This avoids serializing raw Python objects and preserves the audit
-trail across save/load boundaries. Legacy `uncertainties.ufloat` scalar, list,
-and array values are normalized to nominal/standard-uncertainty pairs so older
+trail across save/load boundaries. Legacy third-party scalar, list, and array
+uncertainty records are migrated to native quantities when loaded so older
 results also round-trip through the database.
 
 ## Validation Lanes
@@ -672,11 +671,10 @@ this repository.  PyTestLab validates its local unsigned evidence XML profile an
 records pinned DCC/D-SI schema hashes as external interoperability targets;
 complete issuing-lab DCC validation and XML signing remain outside the library.
 
-## Scalar uncertainty ergonomics and migration from `uncertainties`
+## Scalar uncertainty ergonomics
 
-PyTestLab now provides a scalar-first API for the common workflows that used to
-require importing `uncertainties` directly.  Use the callable `uq` factory for a
-value with a standard uncertainty:
+PyTestLab provides a scalar-first API for common uncertainty workflows. Use the
+callable `uq` factory for a value with a standard uncertainty:
 
 ```python
 from pytestlab.uncertainty import uq, umath
@@ -688,11 +686,7 @@ result = umath.exp(gain / 10) * voltage
 ```
 
 The scalar constructor is deliberately PyTestLab-native: use `uq(...)` and
-`uq.fromstr(...)` rather than compatibility aliases.  Explicit migration helpers
-`from_ufloat`, `from_ufloats`, and `to_ufloat_correlated` remain available for
-importing or exporting legacy objects when `pytestlab[uncertainties-compat]` is
-installed, but normal PyTestLab code should stay on
-`Quantity`/`QuantityArray`.  The top-level helpers `nominal_value`, `std_dev`,
+`uq.fromstr(...)`. The top-level helpers `nominal_value`, `std_dev`,
 `nominal_values`, `std_devs`, `covariance_matrix`, `correlation_matrix`,
 `correlated_values`, and `correlated_values_norm` operate on PyTestLab quantities.
 

@@ -9,7 +9,7 @@ Goals:
 Future Enhancements (Phase 2+ ideas):
 - Plot registry for custom kinds (bode, waterfall, spectrogram).
 - LivePlotSession for streaming updates during parallel acquisition.
-- Uncertainty visualization (UFloats -> error bars / bands).
+- Uncertainty visualization from native measurement quantities.
 - Interactive backends (plotly, bokeh) via plugin mechanism.
 - PlotSpec serialization (JSON/YAML) tied to compliance/audit layer.
 

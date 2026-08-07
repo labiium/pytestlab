@@ -1,4 +1,4 @@
-"""Uncertainty-aware math namespace compatible with ``uncertainties.umath`` habits."""
+"""Uncertainty-aware mathematical functions for native quantities."""
 
 from __future__ import annotations
 

@@ -6,7 +6,6 @@ from typing import cast
 import pytest
 import yaml
 from typer.testing import CliRunner
-from uncertainties import ufloat
 
 from pytestlab.accessories import AccessoryProfile
 from pytestlab.accessories import BoundAccessory
@@ -23,6 +22,7 @@ from pytestlab.measurement_plan import prepare_declared_measurements
 from pytestlab.uncertainty import AtomRegistry
 from pytestlab.uncertainty import Distribution as UncertaintyDistribution
 from pytestlab.uncertainty import Quantity as MeasurementQuantity
+from pytestlab.uncertainty import uq
 from pytestlab.uncertainty.specs import AccuracySpec
 
 
@@ -193,7 +193,7 @@ def test_measurement_chain_rejects_array_targets_in_v1():
         MeasurementChain([AccessoryProfile.from_config("keysight/N2142A")]).apply(result)
 
 
-def test_measurement_chain_supports_legacy_ufloat_and_rejects_unknown_objects():
+def test_measurement_chain_supports_native_quantity_and_rejects_unknown_objects():
     profile = AccessoryProfile.model_validate(
         {
             "accessory_type": "adapter",
@@ -208,7 +208,7 @@ def test_measurement_chain_supports_legacy_ufloat_and_rejects_unknown_objects():
 
     corrected = MeasurementChain([profile]).apply(
         MeasurementResult(
-            values=ufloat(3.0, 0.2),
+            values=uq(3.0, 0.2, "V"),
             instrument="dmm",
             units="V",
             measurement_type="Voltage",

@@ -50,7 +50,6 @@ docs = [
 # Plotting is included in the default install.
 plot = []
 full = []
-uncertainties-compat = ["uncertainties"]
 # Circuit simulation lane (pytestlab.sim.circuit). Its Python dependencies
 # (numpy/polars/pydantic/pyyaml) are already core requirements, so this extra
 # is a forward-compatible install target. NOTE: the lane also requires an

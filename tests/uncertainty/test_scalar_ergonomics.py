@@ -7,7 +7,6 @@ from typing import cast
 
 import numpy as np
 import pytest
-from uncertainties import ufloat as ext_ufloat
 
 import pytestlab.uncertainty as ptu
 from pytestlab.experiments.uncertainty_serialization import deserialize_uncertain_value
@@ -19,8 +18,6 @@ from pytestlab.uncertainty import correlated_values
 from pytestlab.uncertainty import correlated_values_norm
 from pytestlab.uncertainty import correlation_matrix
 from pytestlab.uncertainty import covariance_matrix
-from pytestlab.uncertainty import from_ufloats
-from pytestlab.uncertainty import to_ufloat_correlated
 from pytestlab.uncertainty import umath
 from pytestlab.uncertainty import uq
 from pytestlab.uncertainty.multivariate import QuantityVector
@@ -45,9 +42,6 @@ def test_public_scalar_exports_are_available():
         "correlated_values_norm",
         "covariance_matrix",
         "correlation_matrix",
-        "from_ufloat",
-        "from_ufloats",
-        "to_ufloat_correlated",
         "umath",
     ]
     for name in names:
@@ -247,7 +241,7 @@ def test_numpy_scalar_left_hand_ufuncs_do_not_recurse():
     assert np.float64(3.0) > q
 
 
-def test_correlated_values_and_uncertainties_migration_round_trip():
+def test_correlated_values_preserve_native_covariance():
     x, y = correlated_values([1.0, 2.0], [[1.0, 0.25], [0.25, 4.0]], labels=["x", "y"])
     assert covariance_matrix([x, y]) == pytest.approx(np.array([[1.0, 0.25], [0.25, 4.0]]))
     corr = correlation_matrix([x, y])
@@ -256,16 +250,10 @@ def test_correlated_values_and_uncertainties_migration_round_trip():
     a, b = correlated_values_norm([(1.0, 1.0), (2.0, 2.0)], [[1.0, -0.5], [-0.5, 1.0]])
     assert covariance_matrix([a, b])[0, 1] == pytest.approx(-1.0)
 
-    ux, uy = to_ufloat_correlated([x, y], tags=["x", "y"])
-    restored = from_ufloats([ux, uy], labels=["x", "y"])
-    assert covariance_matrix(restored) == pytest.approx(covariance_matrix([x, y]))
-
-    ex = ext_ufloat(3.0, 0.2)
-    ey = ex * 2.0
-    restored_external = from_ufloats([ex, ey])
-    assert covariance_matrix(restored_external) == pytest.approx(
-        np.array([[0.04, 0.08], [0.08, 0.16]])
+    restored = correlated_values(
+        [x.nominal, y.nominal], covariance_matrix([x, y]), labels=["x", "y"]
     )
+    assert covariance_matrix(restored) == pytest.approx(covariance_matrix([x, y]))
 
 
 def test_covariance_validation_rejects_invalid_inputs_and_preserves_singular_psd():
@@ -327,17 +315,18 @@ def test_measurement_result_serializes_native_quantity():
     assert restored.unit == "V"
 
 
-def test_expression_parity_against_uncertainties_for_representative_scalar_case():
+def test_expression_propagation_matches_first_order_expectation():
     x = uq(2.0, 0.1)
     y = uq(3.0, 0.2, registry=x.registry)
     ptl_result = umath.exp(x / y) + x * y
 
-    ux = ext_ufloat(2.0, 0.1)
-    uy = ext_ufloat(3.0, 0.2)
-    external = math.e ** (ux / uy) + ux * uy
+    exp_ratio = math.exp(2.0 / 3.0)
+    dx = exp_ratio / 3.0 + 3.0
+    dy = -exp_ratio * 2.0 / 9.0 + 2.0
+    expected_std = math.sqrt((dx * 0.1) ** 2 + (dy * 0.2) ** 2)
 
-    assert ptl_result.n == pytest.approx(external.nominal_value)
-    assert ptl_result.s == pytest.approx(external.std_dev)
+    assert ptl_result.n == pytest.approx(exp_ratio + 6.0)
+    assert ptl_result.s == pytest.approx(expected_std)
 
 
 def test_binary_arithmetic_provenance_is_conservatively_incomplete_for_report_grade():

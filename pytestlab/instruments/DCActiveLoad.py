@@ -21,7 +21,6 @@ from ..errors import InstrumentCommunicationError
 from ..errors import InstrumentParameterError
 from ..experiments import MeasurementResult
 from ..uncertainty import Quantity as MeasurementQuantity
-from ..uncertainty.compat import UFloat
 from .instrument import Instrument
 from .instrument import InstrumentIO
 from .operation_contract import OperationDescriptor
@@ -412,17 +411,7 @@ class DCActiveLoad(Instrument):
                 "nominal-only non-report-grade Quantity."
             )
 
-        # Preserve PyTestLab Quantity results; only normalize legacy uncertainties.Variable values.
-        try:
-            from uncertainties import Variable
-
-            if isinstance(value_to_return, Variable):
-                # If not already a UFloat, cast to float
-                if not isinstance(value_to_return, UFloat):
-                    value_to_return = float(value_to_return.nominal_value)
-        except ImportError:
-            pass
-        if not isinstance(value_to_return, float | UFloat | MeasurementQuantity):
+        if not isinstance(value_to_return, float | MeasurementQuantity):
             value_to_return = float(value_to_return)
 
         return MeasurementResult(

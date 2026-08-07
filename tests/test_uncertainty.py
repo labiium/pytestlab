@@ -3,7 +3,6 @@ from __future__ import annotations
 import pytest
 import yaml
 from pydantic import ValidationError
-from uncertainties import ufloat
 
 from pytestlab.config.instrument_config import InstrumentConfig
 from pytestlab.config.loader import load_device_profile
@@ -110,29 +109,15 @@ def test_driver_returns_measurement_quantity_with_sim():
 
         # Verify the result is a MeasurementQuantity with correct values
         assert isinstance(result, MeasurementQuantity)
-        assert result.nominal_value == pytest.approx(5.0)
+        assert result.nominal == pytest.approx(5.0)
 
         spec = mock_config.measurement_accuracy["voltage_dc_10V"]
         expected_sigma = spec.calculate_std_dev(5.0)
-        assert result.std_dev == pytest.approx(expected_sigma, rel=1e-6)
+        assert result.u == pytest.approx(expected_sigma, rel=1e-6)
 
 
 def test_measurement_result_properties():
     """Test MeasurementResult nominal and sigma properties."""
-    val_ufloat = ufloat(10.5, 0.2)
-    res_ufloat = MeasurementResult(
-        values=val_ufloat, instrument="test_instrument", units="V", measurement_type="voltage"
-    )
-    assert res_ufloat.nominal == 10.5
-    assert res_ufloat.sigma == 0.2
-
-    val_float = 20.0
-    res_float = MeasurementResult(
-        values=val_float, instrument="test_instrument", units="A", measurement_type="current"
-    )
-    assert res_float.nominal == 20.0
-    assert res_float.sigma is None  # Or 0.0, depending on desired behavior for non-ufloats
-
     val_quantity = AccuracySpec(
         offset=0.2,
         distribution=UncertaintyDistribution.STANDARD,
@@ -143,11 +128,12 @@ def test_measurement_result_properties():
     assert res_quantity.nominal == 10.5
     assert res_quantity.sigma == 0.2
 
-    # Test with numpy array of ufloats (if supported by MeasurementResult)
-    # arr_ufloat = np.array([ufloat(1,0.1), ufloat(2,0.2)])
-    # res_arr_ufloat = MeasurementResult(name="test_arr_ufloat", values=arr_ufloat, unit="X")
-    # assert np.array_equal(res_arr_ufloat.nominal, np.array([1,2]))
-    # assert np.array_equal(res_arr_ufloat.sigma, np.array([0.1,0.2]))
+    val_float = 20.0
+    res_float = MeasurementResult(
+        values=val_float, instrument="test_instrument", units="A", measurement_type="current"
+    )
+    assert res_float.nominal == 20.0
+    assert res_float.sigma is None
 
 
 def test_measurement_quantity_propagation_simple():
@@ -577,17 +563,20 @@ def test_db_serializes_measurement_quantity(tmp_path):
     assert restored.values.u == pytest.approx(quantity.u)
 
 
-def test_db_serializes_legacy_ufloat_values(tmp_path):
+def test_db_serializes_native_quantity_values(tmp_path):
     measurement = MeasurementResult(
-        values=ufloat(1.2, 0.03),
+        values=AccuracySpec(offset=0.03, distribution=UncertaintyDistribution.STANDARD).quantity(
+            1.2, unit="V"
+        ),
         instrument="test_instrument",
         units="V",
         measurement_type="voltage",
     )
 
-    with MeasurementDatabase(tmp_path / "ufloat_uncertainty") as db:
+    with MeasurementDatabase(tmp_path / "native_uncertainty") as db:
         key = db.store_measurement(None, measurement)
         restored = db.retrieve_measurement(key)
 
-    assert restored.values.nominal_value == pytest.approx(1.2)
-    assert restored.values.std_dev == pytest.approx(0.03)
+    assert isinstance(restored.values, MeasurementQuantity)
+    assert restored.values.nominal == pytest.approx(1.2)
+    assert restored.values.u == pytest.approx(0.03)
