@@ -251,7 +251,7 @@ class SimbenchScpiBackend:
         raise ValueError(f"Unhandled command {cmd}")
 
     def _handle_dmm(self, cmd: str, expect_response: bool) -> str:
-        twin: DMMTwin = self.twin  # type: ignore[assignment]
+        twin = cast(DMMTwin, self.twin)
         if cmd.startswith("SYSTEM:ERROR"):
             return self._pop_error()
         if cmd.startswith("SENSE:FUNC") or cmd.startswith("SENS:FUNC"):
@@ -353,7 +353,7 @@ class SimbenchScpiBackend:
         return normalize_dmm_function(requested)
 
     def _handle_psu(self, cmd: str, expect_response: bool) -> str:
-        twin: PSUTwin = self.twin  # type: ignore[assignment]
+        twin = cast(PSUTwin, self.twin)
         head, _, tail = cmd.partition(" ")
         is_query = head.endswith("?")
         base = head.rstrip("?")
@@ -409,7 +409,7 @@ class SimbenchScpiBackend:
         raise ValueError(f"Unsupported PSU command: {cmd}")
 
     def _handle_awg(self, cmd: str, expect_response: bool) -> str:
-        twin: AWGTwin = self.twin  # type: ignore[assignment]
+        twin = cast(AWGTwin, self.twin)
         head, _, tail = cmd.partition(" ")
         is_query = head.endswith("?")
         base = head.rstrip("?")
@@ -479,7 +479,7 @@ class SimbenchScpiBackend:
         raise ValueError(f"Unsupported AWG command: {cmd}")
 
     def _handle_scope(self, raw_cmd: str, cmd: str, expect_response: bool) -> str | bytes:
-        twin: ScopeTwin = self.twin  # type: ignore[assignment]
+        twin = cast(ScopeTwin, self.twin)
 
         cmd = cmd.strip()
         head, _, tail = cmd.partition(" ")
@@ -722,7 +722,7 @@ class SimbenchScpiBackend:
                 runtime.setdefault("node_captures", {})[node_hi] = processed_volts
 
     def _sample_dmm(self) -> MeasurementResult:
-        twin: DMMTwin = self.twin  # type: ignore[assignment]
+        twin = cast(DMMTwin, self.twin)
         seed = seed_from_context(
             base_seed=self.session.seed,
             instrument_id=self.instrument_id,

@@ -15,6 +15,7 @@ import numpy as np
 
 from pytestlab.uncertainty import Quantity
 from pytestlab.uncertainty.atoms import AtomRegistry
+from pytestlab.uncertainty.timing import Edge
 from pytestlab.uncertainty.timing import TimingEstimator
 from pytestlab.uncertainty.timing import TimingUncertaintyModel
 
@@ -31,22 +32,22 @@ class WaveformSetTiming:
     def estimator(self) -> TimingEstimator:
         return self._channel._parent._timing_estimator(self._channel.channel)
 
-    def threshold(self, level: float, *, edge: str = "rising", occurrence: int = 0) -> Quantity:
+    def threshold(self, level: float, *, edge: Edge = "rising", occurrence: int = 0) -> Quantity:
         return self.estimator().threshold_crossing_time(
             level,
-            edge=edge,  # type: ignore[arg-type]
+            edge=edge,
             occurrence=occurrence,
         )
 
     def period(
-        self, *, level: float | None = None, edge: str = "rising", cycle: int = 0
+        self, *, level: float | None = None, edge: Edge = "rising", cycle: int = 0
     ) -> Quantity:
-        return self.estimator().period(level=level, edge=edge, cycle=cycle)  # type: ignore[arg-type]
+        return self.estimator().period(level=level, edge=edge, cycle=cycle)
 
     def frequency(
-        self, *, level: float | None = None, edge: str = "rising", cycle: int = 0
+        self, *, level: float | None = None, edge: Edge = "rising", cycle: int = 0
     ) -> Quantity:
-        return self.estimator().frequency(level=level, edge=edge, cycle=cycle)  # type: ignore[arg-type]
+        return self.estimator().frequency(level=level, edge=edge, cycle=cycle)
 
     def rise_time(self, *, low: float = 0.1, high: float = 0.9, occurrence: int = 0) -> Quantity:
         return self.estimator().rise_time(low=low, high=high, occurrence=occurrence)
@@ -62,7 +63,7 @@ class WaveformSetTiming:
         other: WaveformSetChannel,
         *,
         level: float | None = None,
-        edge: str = "rising",
+        edge: Edge = "rising",
     ) -> Quantity:
         if not isinstance(other, WaveformSetChannel) or other._parent is not self._channel._parent:
             raise ValueError(
@@ -244,14 +245,14 @@ class WaveformSetResult:
         ch_b: int,
         *,
         level: float | None = None,
-        edge: str = "rising",
+        edge: Edge = "rising",
     ) -> Quantity:
         """Return ``t(ch_b) - t(ch_a)`` with shared-clock cancellation."""
 
         return self._timing_estimator(ch_a).delay(
             self._timing_estimator(ch_b),
             level=level,
-            edge=edge,  # type: ignore[arg-type]
+            edge=edge,
         )
 
     def skew(self, ch_a: int, ch_b: int, **kwargs: Any) -> Quantity:

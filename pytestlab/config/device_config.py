@@ -8,7 +8,7 @@ from pydantic import ConfigDict
 from pydantic import Field
 
 
-class DeviceRole(str, Enum):
+class DeviceRole(str, Enum):  # noqa: UP042 - keep str(Enum) semantics for compatibility.
     """Declared experiment role for a lab resource."""
 
     MEASUREMENT = "measurement"

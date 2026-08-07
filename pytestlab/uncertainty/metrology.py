@@ -116,7 +116,7 @@ MeasurementMethod = Literal[
 ]
 
 
-class DataOrigin(str, Enum):
+class DataOrigin(str, Enum):  # noqa: UP042 - keep str(Enum) semantics for compatibility.
     """Machine-readable source classification for measurement/evidence data."""
 
     UNKNOWN = "unknown"
@@ -128,7 +128,7 @@ class DataOrigin(str, Enum):
     SYNTHETIC_KNOWN_TRUTH = "synthetic_known_truth"
 
 
-class EvidencePurpose(str, Enum):
+class EvidencePurpose(str, Enum):  # noqa: UP042 - keep str(Enum) semantics for compatibility.
     """Intended claim context for a result or evidence artifact."""
 
     MEASUREMENT_RESULT = "measurement_result"

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from pytestlab.uncertainty.timing import Edge
 from pytestlab.uncertainty.timing import TimingEstimator
 from pytestlab.uncertainty.timing import TimingMeasurementError
 from pytestlab.uncertainty.timing import TimingUncertaintyModel
@@ -34,22 +35,22 @@ class WaveformTiming:
             channel=wave.channel,
         )
 
-    def threshold(self, level: float, *, edge: str = "rising", occurrence: int = 0) -> Quantity:
+    def threshold(self, level: float, *, edge: Edge = "rising", occurrence: int = 0) -> Quantity:
         return self.estimator().threshold_crossing_time(
             level,
-            edge=edge,  # type: ignore[arg-type]
+            edge=edge,
             occurrence=occurrence,
         )
 
     def period(
-        self, *, level: float | None = None, edge: str = "rising", cycle: int = 0
+        self, *, level: float | None = None, edge: Edge = "rising", cycle: int = 0
     ) -> Quantity:
-        return self.estimator().period(level=level, edge=edge, cycle=cycle)  # type: ignore[arg-type]
+        return self.estimator().period(level=level, edge=edge, cycle=cycle)
 
     def frequency(
-        self, *, level: float | None = None, edge: str = "rising", cycle: int = 0
+        self, *, level: float | None = None, edge: Edge = "rising", cycle: int = 0
     ) -> Quantity:
-        return self.estimator().frequency(level=level, edge=edge, cycle=cycle)  # type: ignore[arg-type]
+        return self.estimator().frequency(level=level, edge=edge, cycle=cycle)
 
     def rise_time(self, *, low: float = 0.1, high: float = 0.9, occurrence: int = 0) -> Quantity:
         return self.estimator().rise_time(low=low, high=high, occurrence=occurrence)
@@ -61,8 +62,8 @@ class WaveformTiming:
         return self.estimator().duty_cycle(level=level, cycle=cycle)
 
     def delay(
-        self, other: WaveformResult, *, level: float | None = None, edge: str = "rising"
+        self, other: WaveformResult, *, level: float | None = None, edge: Edge = "rising"
     ) -> Quantity:
         if self._waveform.time is None or other.time is None:
             raise TimingMeasurementError("Delay requires explicit time axes for both waveforms.")
-        return self.estimator().delay(WaveformTiming(other).estimator(), level=level, edge=edge)  # type: ignore[arg-type]
+        return self.estimator().delay(WaveformTiming(other).estimator(), level=level, edge=edge)

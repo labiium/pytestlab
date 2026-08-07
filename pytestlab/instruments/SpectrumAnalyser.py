@@ -17,6 +17,7 @@ class PlaceholderMeasurementResult:
         self.x_label = x_label
         self.y_label = y_label
 
+
 class SpectrumAnalyser(Instrument[SpectrumAnalyzerConfig]):
     OPERATION_CONTRACT: tuple[OperationDescriptor, ...] = (
         OperationDescriptor(

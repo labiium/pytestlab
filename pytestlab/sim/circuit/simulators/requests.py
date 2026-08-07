@@ -6,7 +6,7 @@ from enum import Enum
 from typing import Any
 
 
-class AnalysisKind(str, Enum):
+class AnalysisKind(str, Enum):  # noqa: UP042 - keep str(Enum) semantics for compatibility.
     OP = "op"
     DC = "dc"
     AC = "ac"

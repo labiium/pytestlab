@@ -98,6 +98,8 @@ def test_complex_safety_scenario_two(psu):
 
     with pytest.raises(SafetyLimitError):
         psu.current_limit = -0.5
+
+
 def test_safety_limit_error_appends_configured_audit_event(tmp_path, monkeypatch):
     audit_path = tmp_path / "safety.jsonl"
     monkeypatch.setenv("PYTESTLAB_SAFETY_AUDIT_PATH", str(audit_path))

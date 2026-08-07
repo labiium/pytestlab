@@ -18,6 +18,7 @@ from .atoms import Kind
 from .atoms import default_registry
 from .metrology import CorrectionRecord
 from .metrology import InputQuantityRecord
+from .metrology import MeasurementMethod
 from .metrology import MeasurementModel
 from .metrology import ResultProvenance
 from .metrology import TraceabilityRef
@@ -344,7 +345,7 @@ class QuantityArray:
         *,
         output_name: str,
         function: str,
-        method: str = "analytic_exact",
+        method: MeasurementMethod = "analytic_exact",
         dof_method: str = "validated_independent",
         assumptions: list[str] | None = None,
         linearization_note: str | None = None,
@@ -396,7 +397,7 @@ class QuantityArray:
             corrections=[
                 CorrectionRecord(name="zero_correction", value=0.0, u=0.0, basis="explicit")
             ],
-            method=method,  # type: ignore[arg-type]
+            method=method,
             linearization_note=linearization_note,
             assumptions=assumptions or [],
             dof_method=dof_method,

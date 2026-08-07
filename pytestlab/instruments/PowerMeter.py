@@ -1,3 +1,5 @@
+from typing import Literal
+from typing import cast
 from typing import get_args
 
 from ..config.power_meter_config import PowerMeterConfig
@@ -86,7 +88,7 @@ class PowerMeter(Instrument[PowerMeterConfig]):
 
             if not allowed or units in allowed:
                 self.send_scpi_alias("set_power_units", channel=channel, units=units)
-                self.config.power_units = units  # type: ignore[assignment]
+                self.config.power_units = cast(Literal["dBm", "W", "mW", "uW"], units)
             else:
                 self._logger.warning(
                     f"Invalid power units '{units}' specified. Using config default '{self.config.power_units}'."

@@ -61,9 +61,7 @@ def test_power_meter_read_power_parses_backend_response(monkeypatch):
     meter = PowerMeter(
         PowerMeterConfig(
             **_base_config_kwargs("power_meter"),
-            scpi=SCPISection(
-                queries={"fetch_power": SCPICommandSpec(template="READ{channel}?")}
-            ),
+            scpi=SCPISection(queries={"fetch_power": SCPICommandSpec(template="READ{channel}?")}),
         ),
         NoopBackend(),
     )
@@ -94,11 +92,7 @@ def test_power_meter_read_power_runs_profile_query_sequence(monkeypatch):
         PowerMeterConfig(
             **_base_config_kwargs("power_meter"),
             scpi=SCPISection(
-                queries={
-                    "fetch_power": SCPICommandSpec(
-                        sequence=["CONF:CHAN {channel}", "READ?"]
-                    )
-                },
+                queries={"fetch_power": SCPICommandSpec(sequence=["CONF:CHAN {channel}", "READ?"])},
             ),
         ),
         NoopBackend(),
@@ -125,9 +119,7 @@ def test_spectrum_analyser_get_trace_parses_csv_response(monkeypatch):
             **_base_config_kwargs("spectrum_analyzer"),
             frequency_center=1_000.0,
             frequency_span=100.0,
-            scpi=SCPISection(
-                queries={"trace_data": SCPICommandSpec(template="TRACE? {channel}")}
-            ),
+            scpi=SCPISection(queries={"trace_data": SCPICommandSpec(template="TRACE? {channel}")}),
         ),
         NoopBackend(),
     )
@@ -168,9 +160,7 @@ def test_vector_network_analyser_get_s_parameter_data_parses_complex_pairs(monke
             start_frequency=100.0,
             stop_frequency=200.0,
             num_points=2,
-            scpi=SCPISection(
-                queries={"sparameter_data": SCPICommandSpec(template="DATA?")}
-            ),
+            scpi=SCPISection(queries={"sparameter_data": SCPICommandSpec(template="DATA?")}),
         ),
         NoopBackend(),
     )

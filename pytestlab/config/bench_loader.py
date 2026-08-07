@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import hashlib
 import operator
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -348,7 +349,7 @@ def run_custom_validations(config: BenchConfigExtended, context: dict) -> None:
             raise ValueError(f"Error evaluating custom validation '{expr}': {e}") from e
 
 
-_BIN_OPS = {
+_BIN_OPS: dict[type[ast.operator], Callable[[Any, Any], Any]] = {
     ast.Add: operator.add,
     ast.Sub: operator.sub,
     ast.Mult: operator.mul,
@@ -357,12 +358,12 @@ _BIN_OPS = {
     ast.Mod: operator.mod,
     ast.Pow: operator.pow,
 }
-_UNARY_OPS = {
+_UNARY_OPS: dict[type[ast.unaryop], Callable[[Any], Any]] = {
     ast.UAdd: operator.pos,
     ast.USub: operator.neg,
     ast.Not: operator.not_,
 }
-_CMP_OPS = {
+_CMP_OPS: dict[type[ast.cmpop], Callable[[Any, Any], Any]] = {
     ast.Eq: operator.eq,
     ast.NotEq: operator.ne,
     ast.Lt: operator.lt,

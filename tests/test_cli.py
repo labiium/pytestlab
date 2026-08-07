@@ -213,9 +213,7 @@ scpi:
 
 
 def test_instrument_check_commands_uses_virtual_profile_choices():
-    result = runner.invoke(
-        app, ["instrument", "check-commands", "pytestlab/virtual_instrument"]
-    )
+    result = runner.invoke(app, ["instrument", "check-commands", "pytestlab/virtual_instrument"])
 
     assert result.exit_code == 0
     assert "set_trigger_state" in result.stdout

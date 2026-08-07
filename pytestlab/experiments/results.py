@@ -394,7 +394,7 @@ class MeasurementResult:  # noqa: D101
         if isinstance(self.values, MeasurementQuantityArray):
             return self.values.nominal
         if _is_quantity_array(self.values):
-            values = cast(np.ndarray, self.values)
+            values = self.values
             return np.array([x.nominal for x in values.flat]).reshape(values.shape)
         if isinstance(self.values, pl.DataFrame | np.ndarray):
             return self.values
@@ -416,10 +416,10 @@ class MeasurementResult:  # noqa: D101
         if isinstance(self.values, MeasurementQuantityArray):
             return self.values.u
         if _is_quantity_array(self.values):
-            values = cast(np.ndarray, self.values)
+            values = self.values
             return np.array([x.u for x in values.flat]).reshape(values.shape)
         if _is_quantity_list(self.values):
-            values = cast(list[MeasurementQuantity], self.values)
+            values = self.values
             return np.asarray([value.u for value in values])
         return None  # Or handle DataFrame case
 

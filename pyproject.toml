@@ -59,8 +59,8 @@ full = []
 circuit = []
 dev = [
     "pytestlab[docs]",
-    "ruff",
-    "ty>=0.0.1a29",
+    "ruff==0.16.1",
+    "ty==0.0.69",
     "pytest",
     "pytest-cov",
     "pre-commit",
@@ -137,4 +137,4 @@ quote-style = "double"
 branch = true
 
 [dependency-groups]
-dev = ["ruff>=0.12.9"]
+dev = ["ruff==0.16.1"]

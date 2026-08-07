@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from .metrology import TraceabilityRef
 
 
-class Distribution(str, Enum):
+class Distribution(str, Enum):  # noqa: UP042 - keep str(Enum) semantics for compatibility.
     """Probability distribution assigned to an influence quantity."""
 
     STANDARD = "standard"  # value already expressed as a standard uncertainty
@@ -35,7 +35,7 @@ class Distribution(str, Enum):
     CURVED_TRAPEZOID = "curved_trapezoid"
 
 
-class Kind(str, Enum):
+class Kind(str, Enum):  # noqa: UP042 - keep str(Enum) semantics for compatibility.
     """GUM Type A / Type B classification."""
 
     TYPE_A = "type_a"

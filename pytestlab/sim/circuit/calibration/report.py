@@ -31,7 +31,7 @@ _REQUIRED_TWO_TRANSISTOR_METRICS = {
 }
 
 
-class ValidationStatus(str, Enum):
+class ValidationStatus(str, Enum):  # noqa: UP042 - keep str(Enum) semantics for compatibility.
     PASS = "pass"
     FAIL = "fail"
     SYNTHETIC_ONLY = "synthetic_only"
@@ -174,7 +174,7 @@ def report_from_fit(
     )
 
 
-class HardwareValidationStatus(str, Enum):
+class HardwareValidationStatus(str, Enum):  # noqa: UP042 - keep str(Enum) semantics for compatibility.
     SYNTHETIC_ONLY = "synthetic_only"
     HARDWARE_UNVALIDATED = "hardware_unvalidated"
     HARDWARE_VALIDATED = "hardware_validated"

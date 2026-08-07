@@ -298,9 +298,7 @@ class Instrument(Device[ConfigType], Generic[ConfigType]):
         return list(merged.values())
 
     @staticmethod
-    def _merge_operation_choice(
-        merged: dict[str, dict[str, Any]], choice: dict[str, Any]
-    ) -> None:
+    def _merge_operation_choice(merged: dict[str, dict[str, Any]], choice: dict[str, Any]) -> None:
         token = str(choice.get("token"))
         existing = merged.setdefault(token, dict(choice))
         aliases = set(existing.get("aliases", []) or [])

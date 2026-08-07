@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING
 from typing import Any
 from typing import Literal
 from typing import TypeAlias
+from typing import cast
 
 import numpy as np
 import polars as pl
@@ -308,7 +309,8 @@ class MeasurementSession(contextlib.AbstractContextManager):
         if isinstance(values, StepSpec):
             resolved = values.values()
         elif callable(values) and not isinstance(values, list | tuple | np.ndarray):
-            resolved = list(values())
+            value_factory = cast(Callable[[], Iterable[T_Value]], values)
+            resolved = list(value_factory())
         else:
             resolved = list(values)
         self._parameters[name] = _Parameter(name, resolved, unit, notes)
@@ -331,7 +333,12 @@ class MeasurementSession(contextlib.AbstractContextManager):
             is stored internally if compliance is enabled.
         """
         if func is None:  # decorator usage
-            return lambda f: self.acquire(f, name=name)
+
+            def decorator(f: T_MeasFunc) -> T_MeasFunc:
+                self.acquire(f, name=name)
+                return f
+
+            return decorator
 
         func_name = getattr(func, "__name__", func.__class__.__name__)
         reg_name = name or func_name

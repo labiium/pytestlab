@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from pydantic import ConfigDict
 
 
-class HealthStatus(str, Enum):
+class HealthStatus(str, Enum):  # noqa: UP042 - keep str(Enum) semantics for compatibility.
     OK = "OK"
     WARNING = "WARNING"
     ERROR = "ERROR"

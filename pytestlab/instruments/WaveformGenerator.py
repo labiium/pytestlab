@@ -245,12 +245,15 @@ WAVEFORM_PARAM_COMMANDS: dict[WaveformType, dict[str, Callable[[int, Any], str]]
         "period": lambda ch, v_float: f"SOUR{ch}:FUNC:PULS:PERiod {v_float}",
         "width": lambda ch, v_float: f"SOUR{ch}:FUNC:PULS:WIDTh {v_float}",
         "transition_both": lambda ch, v_float: f"SOUR{ch}:FUNC:PULS:TRANsition:BOTH {v_float}",
-        "transition_leading": lambda ch,
-        v_float: f"SOUR{ch}:FUNC:PULS:TRANsition:LEADing {v_float}",
-        "transition_trailing": lambda ch,
-        v_float: f"SOUR{ch}:FUNC:PULS:TRANsition:TRAiling {v_float}",
-        "hold_mode": lambda ch,
-        v_str_hold: f"SOUR{ch}:FUNC:PULS:HOLD {v_str_hold.upper()}",  # Expects "WIDT" or "DCYC" string
+        "transition_leading": lambda ch, v_float: (
+            f"SOUR{ch}:FUNC:PULS:TRANsition:LEADing {v_float}"
+        ),
+        "transition_trailing": lambda ch, v_float: (
+            f"SOUR{ch}:FUNC:PULS:TRANsition:TRAiling {v_float}"
+        ),
+        "hold_mode": lambda ch, v_str_hold: (
+            f"SOUR{ch}:FUNC:PULS:HOLD {v_str_hold.upper()}"
+        ),  # Expects "WIDT" or "DCYC" string
     },
     WaveformType.SQUARE: {
         "duty_cycle": lambda ch, v_float: f"SOUR{ch}:FUNC:SQUare:DCYCle {v_float}",
@@ -268,10 +271,12 @@ WAVEFORM_PARAM_COMMANDS: dict[WaveformType, dict[str, Callable[[int, Any], str]]
     },
     WaveformType.ARB: {
         "sample_rate": lambda ch, v_float: f"SOUR{ch}:FUNC:ARB:SRATe {v_float}",
-        "filter": lambda ch,
-        arb_filter_enum_val: f"SOUR{ch}:FUNC:ARB:FILTer {arb_filter_enum_val}",  # Expects ArbFilterType.value
-        "advance_mode": lambda ch,
-        arb_adv_enum_val: f"SOUR{ch}:FUNC:ARB:ADVance {arb_adv_enum_val}",  # Expects ArbAdvanceMode.value
+        "filter": lambda ch, arb_filter_enum_val: (
+            f"SOUR{ch}:FUNC:ARB:FILTer {arb_filter_enum_val}"
+        ),  # Expects ArbFilterType.value
+        "advance_mode": lambda ch, arb_adv_enum_val: (
+            f"SOUR{ch}:FUNC:ARB:ADVance {arb_adv_enum_val}"
+        ),  # Expects ArbAdvanceMode.value
         "frequency": lambda ch, v_float: f"SOUR{ch}:FUNC:ARB:FREQ {v_float}",
         "period": lambda ch, v_float: f"SOUR{ch}:FUNC:ARB:PER {v_float}",
         "ptpeak_voltage": lambda ch, v_float: f"SOUR{ch}:FUNC:ARB:PTP {v_float}",

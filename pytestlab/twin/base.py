@@ -18,7 +18,7 @@ from enum import Enum
 from typing import Any
 
 
-class TwinFidelity(str, Enum):
+class TwinFidelity(str, Enum):  # noqa: UP042 - keep str(Enum) semantics for compatibility.
     """Machine-readable fidelity level for twin-origin evidence."""
 
     IDEAL = "ideal"
@@ -27,7 +27,7 @@ class TwinFidelity(str, Enum):
     CHARACTERIZED = "characterized"
 
 
-class TwinValidationStatus(str, Enum):
+class TwinValidationStatus(str, Enum):  # noqa: UP042 - keep str(Enum) semantics for compatibility.
     """Validation decision for a twin evidence artifact."""
 
     PASS = "pass"

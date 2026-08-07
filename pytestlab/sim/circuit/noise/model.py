@@ -6,7 +6,7 @@ from enum import Enum
 import numpy as np
 
 
-class NoisePreset(str, Enum):
+class NoisePreset(str, Enum):  # noqa: UP042 - keep str(Enum) semantics for compatibility.
     NONE = "none"
     IDEAL = "ideal"
     TYPICAL = "typical"

@@ -63,9 +63,7 @@ class VectorNetworkAnalyser(Instrument[VNAConfig]):
         if s_params is not None:
             # SCPI command to select S-parameters might be like: CALC:PAR:DEF "S11"
             for index, s_parameter in enumerate(s_params, start=1):
-                self.send_scpi_alias(
-                    "define_sparameter", index=index, s_parameter=s_parameter
-                )
+                self.send_scpi_alias("define_sparameter", index=index, s_parameter=s_parameter)
             self.config.s_parameters = s_params
             self._logger.info(f"VNA S-parameters set to: {s_params}")
         if start_freq is not None:

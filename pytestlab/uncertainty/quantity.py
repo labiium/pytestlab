@@ -24,6 +24,7 @@ from html import escape
 from types import NotImplementedType
 from typing import TYPE_CHECKING
 from typing import Any
+from typing import cast
 
 from . import units
 from .atoms import AtomRegistry
@@ -483,7 +484,7 @@ class Quantity:
             db = math.log(self.nominal) if self.nominal > 0 else 0.0
             grad = self._combine_grads(power, nominal * da, nominal * db)
             return self._new(nominal, "", grad, power)
-        p = float(power.nominal) if isinstance(power, Quantity) else float(power)  # type: ignore[arg-type]
+        p = float(power.nominal) if isinstance(power, Quantity) else float(cast(Any, power))
         nominal = self.nominal**p
         unit = self._pow_unit(p)
         factor = p * (self.nominal ** (p - 1.0)) if self.nominal != 0 or p >= 1 else 0.0
