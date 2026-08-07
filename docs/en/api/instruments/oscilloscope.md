@@ -8,3 +8,6 @@ description: PyTestLab oscilloscope acquisition, trigger, channel, waveform, and
 Configure channels and triggers, acquire waveform data, and work with measurement uncertainty.
 
 ::: pytestlab.instruments.Oscilloscope
+    options:
+      members:
+        - Oscilloscope

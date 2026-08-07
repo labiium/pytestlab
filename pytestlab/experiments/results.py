@@ -597,7 +597,7 @@ class MeasurementResult:  # noqa: D101
             raise TypeError(f"FFT requires numpy array, got {type(self.values)}")
 
         # Ensure we're working with a 1D array
-        values_arr = cast(NDArray[np.generic], self.values)
+        values_arr = cast(NDArray[np.float64], self.values)
         values = values_arr.flatten() if values_arr.ndim > 1 else values_arr
 
         # Perform FFT
