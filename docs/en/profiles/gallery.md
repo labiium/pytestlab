@@ -95,14 +95,14 @@ These profiles are available out of the box and live in `pytestlab/profiles/`. U
 
 - **Device Type:** `power_supply`
 - **Profile:** [`EDU36311A.yaml`](https://github.com/labiium/pytestlab/blob/master/pytestlab/profiles/keysight/EDU36311A.yaml)
-- **Last Updated:** 2026-05-25
+- **Last Updated:** 2026-07-28
 
 
 ### Keysight EDU36311A
 
 - **Device Type:** `power_supply`
 - **Profile:** [`EDU36311A_recorded.yaml`](https://github.com/labiium/pytestlab/blob/master/pytestlab/profiles/keysight/EDU36311A_recorded.yaml)
-- **Last Updated:** 2026-05-25
+- **Last Updated:** 2026-07-28
 
 
 ### Keysight EL33133A
@@ -116,7 +116,7 @@ These profiles are available out of the box and live in `pytestlab/profiles/`. U
 
 - **Device Type:** `oscilloscope`
 - **Profile:** [`HD304MSO.yaml`](https://github.com/labiium/pytestlab/blob/master/pytestlab/profiles/keysight/HD304MSO.yaml)
-- **Last Updated:** 2026-06-25
+- **Last Updated:** 2026-07-29
 
 
 ### keysight MSOX2024A

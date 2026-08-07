@@ -23,7 +23,7 @@ dependencies = [
     "pyusb",
     "httpx",
     "aiofiles",
-    "typer",
+    "typer==0.16.1",
     "Pillow",
     "pint",
     "scipy",
