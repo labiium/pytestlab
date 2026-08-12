@@ -84,8 +84,8 @@ def test_lamb_scope_checks_record_command_metadata_without_payload(monkeypatch, 
         "fetch_lamb_resources",
         lambda url, timeout_ms=5000: (
             [
-                "USB::2A8D::9007::MXR404A::<redacted>::INSTR",
-                "USB::2A8D::4704::HD304MSO::<redacted>::INSTR",
+                "USB::2A8D::9007::MXR404A::MY12345678::INSTR",
+                "USB::2A8D::4704::HD304MSO::MY87654321::INSTR",
             ],
             [],
         ),
@@ -128,7 +128,11 @@ def test_lamb_scope_checks_record_command_metadata_without_payload(monkeypatch, 
     assert payload["waveform_reductions"][0]["digital_exports"]["reductions"]["mean"][
         "dcc_xml_sha256"
     ]
-    assert "0123456789" not in artifact.read_text(encoding="utf-8")
+    idn_rows = [row for row in payload["rows"] if row["check"] == "idn"]
+    assert {row["response_preview"] for row in idn_rows} == {
+        "KEYSIGHT TECHNOLOGIES,HD304MSO,MY12345678,1.0",
+        "KEYSIGHT TECHNOLOGIES,MXR404A,MY12345678,1.0",
+    }
 
 
 def test_lamb_scope_checks_reduce_ascii_waveform_payloads(monkeypatch, tmp_path):
@@ -136,7 +140,7 @@ def test_lamb_scope_checks_reduce_ascii_waveform_payloads(monkeypatch, tmp_path)
         lamb_scope,
         "fetch_lamb_resources",
         lambda url, timeout_ms=5000: (
-            ["USB::2A8D::9007::MXR404A::<redacted>::INSTR"],
+            ["USB::2A8D::9007::MXR404A::MY12345678::INSTR"],
             [],
         ),
     )

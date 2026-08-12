@@ -13,7 +13,7 @@ and the project adheres to Semantic Versioning (https://semver.org/spec/v2.0.0.h
 - Set-bound `WaveformSetResult.channel(...)` views so natural cross-channel timing code preserves shared-clock covariance.
 - Evidence bundle generation for JCGM/GUM rows, DCC/D-SI schema hashes, claim-boundary scans, and validation artifact indexes.
 - QuantityArray oscilloscope waveform reductions with covariance-aware mean/RMS/Vpp helpers and D-SI / unsigned DCC-subset exports.
-- Remote LAMB oscilloscope verification harness for MXR404A/HD304MSO, deterministic scope-twin known-truth evidence, and redacted HD304MSO replay fixture parity checks.
+- Remote LAMB oscilloscope verification harness for MXR404A/HD304MSO, deterministic scope-twin known-truth evidence, and HD304MSO replay fixture parity checks.
 - Citation metadata and explicit validation claim-boundary documentation.
 
 ### Changed

@@ -262,7 +262,7 @@ def build_evidence_index() -> list[dict[str, str]]:
         ),
         (
             "tests/fixtures/hardware_replay/hd304mso_lamb_capture.json",
-            "Redacted HD304MSO replay fixture for non-hardware CI parity checks.",
+            "HD304MSO replay fixture with full instrument identity for non-hardware CI parity checks.",
         ),
         (
             ".omx/evidence/scope-twin/manifest.json",

@@ -47,12 +47,12 @@ def _refresh_fixture_hash(fixture: dict) -> dict:
     return fixture
 
 
-def test_replay_fixture_carries_redacted_identity_and_transcript_hash() -> None:
+def test_replay_fixture_carries_serial_identity_and_transcript_hash() -> None:
     fixture = _fixture()
 
     assert fixture["instrument_identity"]["model"] == "MXR404A"
-    assert fixture["instrument_identity"]["serial_hash"].startswith("sha256:")
-    assert "MY99999999" not in json.dumps(fixture)
+    assert fixture["instrument_identity"]["serial_number"] == "MY99999999"
+    assert "MY99999999" in json.dumps(fixture)
     assert len(fixture["command_transcript_sha256"]) == 64
 
 
@@ -255,7 +255,7 @@ def test_residual_report_outside_declared_domain_is_not_pass() -> None:
 
 
 def test_characterized_scope_twin_rejects_domain_widening() -> None:
-    identity = TwinIdentity(model="MXR404A", serial_hash="sha256:redacted")
+    identity = TwinIdentity(model="MXR404A", serial_number="MY12345678")
     validated_domain = TwinDomain(quantities=("rms",), amplitude_v=(0.1, 1.0))
     wider_domain = TwinDomain(quantities=("rms",), amplitude_v=(0.0, 100.0))
     report = ResidualReport.build(
@@ -303,7 +303,7 @@ def test_bounded_residual_domain_requires_context() -> None:
 
 
 def test_twin_evidence_check_rejects_characterized_measurement_result_label(tmp_path) -> None:
-    identity = TwinIdentity(model="MXR404A", serial_hash="sha256:redacted")
+    identity = TwinIdentity(model="MXR404A", serial_number="MY12345678")
     domain = TwinDomain(quantities=("rms",), amplitude_v=(0.1, 1.0))
     metric = residual_metric(
         "rms",
@@ -358,7 +358,7 @@ def test_twin_evidence_build_rejects_separated_negation_overclaim() -> None:
 
 
 def test_twin_evidence_check_rejects_separated_negation_overclaim(tmp_path) -> None:
-    identity = TwinIdentity(model="MXR404A", serial_hash="sha256:redacted")
+    identity = TwinIdentity(model="MXR404A", serial_number="MY12345678")
     domain = TwinDomain(quantities=("rms",), amplitude_v=(0.1, 1.0))
     metric = residual_metric(
         "rms",

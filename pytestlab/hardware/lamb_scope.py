@@ -400,7 +400,7 @@ def _query_check_with_response(
             command=command,
             response_len=len(response.encode("utf-8")),
             response_sha256=_sha256_bytes(response.encode("utf-8")),
-            response_preview=_redacted_preview(response),
+            response_preview=_response_preview(response),
         ),
         response if status == "pass" else None,
     )
@@ -654,13 +654,8 @@ def _sha256_bytes(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
-def _redacted_preview(response: str) -> str:
+def _response_preview(response: str) -> str:
     text = response.strip().replace("\n", " ")
-    parts = text.split(",")
-    if len(parts) >= 4 and "IDN" not in parts[0].upper():
-        # SCPI *IDN? shape is manufacturer,model,serial,firmware. Redact serial.
-        parts[2] = "<redacted>"
-        text = ",".join(parts)
     if len(text) > 160:
         return f"{text[:157]}..."
     return text

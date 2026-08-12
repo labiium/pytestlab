@@ -9,7 +9,7 @@ from pytestlab.twin.residuals import ResidualReport
 
 
 def test_twin_registry_keys_characterized_scope_by_identity() -> None:
-    identity = TwinIdentity(model="MXR404A", serial_hash="sha256:redacted")
+    identity = TwinIdentity(model="MXR404A", serial_number="MY12345678")
     domain = TwinDomain(quantities=("rms",), amplitude_v=(0.1, 1.0))
     report = ResidualReport.build(
         twin_identity=identity,

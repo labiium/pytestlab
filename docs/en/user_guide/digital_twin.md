@@ -31,7 +31,7 @@ characterize an MXR404A or HD304MSO unit.
 
 ## Build a Residual Report From a Replay Fixture
 
-Replay fixtures carry redacted instrument identity, command transcript hashes,
+Replay fixtures carry instrument identity, including the serial number, command transcript hashes,
 waveform hashes, expected metrics, fixture classification, and reduction
 metrics. Convert a fixture to residual evidence with:
 

@@ -627,7 +627,7 @@ def visa_list(
         return
 
     table = Table(title="VISA Resources")
-    table.add_column("Resource (redacted)", style="cyan", overflow="fold")
+    table.add_column("Resource", style="cyan", overflow="fold")
     if idn:
         table.add_column("*IDN? Response", style="green", overflow="fold")
 
@@ -705,7 +705,7 @@ def lamb_list(
         return
 
     table = Table(title=f"LAMB Resources — {base_url}")
-    table.add_column("Resource (redacted)", style="cyan", overflow="fold")
+    table.add_column("Resource", style="cyan", overflow="fold")
     table.add_column("Status", style="green")
 
     for resource in active:
@@ -715,9 +715,6 @@ def lamb_list(
 
     rich.print(table)
     rich.print(f"\nTotal: {len(active)} active, {len(inactive)} inactive")
-    rich.print(
-        "[dim]Resource identifiers are redacted by the server; use model/serial auto-connect or a known VISA address for operations.[/]"
-    )
 
 
 @lamb_app.command("verify-scopes")

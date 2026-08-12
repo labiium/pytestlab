@@ -129,9 +129,8 @@ def build_replay_fixture(
     values = decode_keysight_byte_waveform(raw_block, preamble)
     metrics = summarize_waveform(values)
     raw_sha = hashlib.sha256(raw_block).hexdigest()
-    redacted_idn = _redact_idn(idn)
     log = [
-        {"type": "query", "command": "*IDN?", "response": redacted_idn},
+        {"type": "query", "command": "*IDN?", "response": idn.strip()},
         {"type": "query", "command": ":SYSTem:ERRor?", "response": '+0,"No error"'},
         {
             "type": "query",
@@ -343,23 +342,14 @@ def _sample_rate_from_preamble(preamble: str) -> str:
     return f"{1.0 / xinc:.12g}" if xinc > 0 else ""
 
 
-def _redact_idn(idn: str) -> str:
-    parts = idn.strip().split(",")
-    if len(parts) >= 3:
-        parts[2] = "<redacted>"
-        return ",".join(parts)
-    return idn.strip()
-
-
 def _identity_from_idn(idn: str, *, model_hint: str) -> dict[str, str | None]:
     parts = [part.strip() for part in idn.strip().split(",")]
     model = parts[1] if len(parts) > 1 and parts[1] else model_hint
     serial = parts[2] if len(parts) > 2 and parts[2] else None
     firmware = parts[3] if len(parts) > 3 and parts[3] else None
-    serial_digest = hashlib.sha256(serial.encode("utf-8")).hexdigest() if serial else None
     return {
         "model": model,
-        "serial_hash": f"sha256:{serial_digest}" if serial_digest else None,
+        "serial_number": serial,
         "firmware": firmware,
     }
 

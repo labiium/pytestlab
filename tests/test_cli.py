@@ -120,6 +120,7 @@ def test_visa_list_command(monkeypatch):
 
     assert result.exit_code == 0
     assert "VISA Resources" in result.stdout
+    assert "redact" not in result.stdout.lower()
     assert "USB0::0x0957::0x1798::MY12345678::0::INSTR" in result.stdout
     assert "TCPIP0::192.168.0.42::inst0::INSTR" in result.stdout
 
@@ -157,6 +158,47 @@ def test_visa_list_idn_command(monkeypatch):
     assert "TCPIP0::192.168.0.42::inst0::INSTR" in result.stdout
     assert "KEYSIGHT" in result.stdout
     assert "MY12345678,1.0" in result.stdout
+
+
+def test_lamb_list_command_preserves_resource_identifiers(monkeypatch):
+    """LAMB discovery must print the server response without CLI redaction."""
+
+    class FakeResponse:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {
+                "active": ["USB::2A8D::9007::MXR404A::MY12345678::INSTR"],
+                "inactive": ["TCPIP::192.168.0.42::inst0::INSTR"],
+            }
+
+    class FakeClient:
+        def __init__(self, *, timeout):
+            assert timeout == 1.234
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            pass
+
+        def get(self, url):
+            assert url == "http://lamb.example:8000/list_resources"
+            return FakeResponse()
+
+    monkeypatch.setattr("httpx.Client", FakeClient)
+
+    result = runner.invoke(
+        app,
+        ["lamb", "list", "--url", "http://lamb.example:8000/", "--timeout-ms", "1234"],
+    )
+
+    assert result.exit_code == 0
+    assert "LAMB Resources" in result.stdout
+    assert "redact" not in result.stdout.lower()
+    assert "USB::2A8D::9007::MXR404A::MY12345678::INSTR" in result.stdout
+    assert "TCPIP::192.168.0.42::inst0::INSTR" in result.stdout
 
 
 def test_instrument_check_commands_build_only():

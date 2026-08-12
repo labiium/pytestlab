@@ -119,7 +119,7 @@ def test_tracked_hd304mso_fixture_replays_in_non_hardware_ci():
     assert all(row.passed for row in rows)
 
 
-def test_replay_fixture_redacts_three_field_idn() -> None:
+def test_replay_fixture_preserves_three_field_idn() -> None:
     fixture = build_replay_fixture(
         model="WIDGETSCOPE",
         idn="ACME,WIDGETSCOPE,SERIAL123",
@@ -127,5 +127,5 @@ def test_replay_fixture_redacts_three_field_idn() -> None:
         raw_block=_binblock(bytes([120, 124, 128])),
     )
 
-    assert fixture["log"][0]["response"] == "ACME,WIDGETSCOPE,<redacted>"
-    assert "SERIAL123" not in json.dumps(fixture)
+    assert fixture["log"][0]["response"] == "ACME,WIDGETSCOPE,SERIAL123"
+    assert fixture["instrument_identity"]["serial_number"] == "SERIAL123"

@@ -44,7 +44,7 @@ def identity_key(identity: TwinIdentity) -> str:
     return "|".join(
         (
             identity.model,
-            identity.serial_hash or "",
+            identity.serial_number or "",
             identity.profile_sha256 or "",
             identity.twin_id or "",
         )

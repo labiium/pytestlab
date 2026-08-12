@@ -55,7 +55,7 @@ def test_scope_known_truth_report_labels_oracle_origin(tmp_path) -> None:
 
 
 def test_characterized_scope_twin_requires_passing_residual_report() -> None:
-    identity = TwinIdentity(model="MXR404A", serial_hash="sha256:redacted")
+    identity = TwinIdentity(model="MXR404A", serial_number="MY12345678")
     domain = TwinDomain(
         quantities=("rms",),
         sample_rate_sps=(1e6, 2e6),
@@ -82,7 +82,7 @@ def test_characterized_scope_twin_requires_passing_residual_report() -> None:
 
 
 def test_characterized_scope_twin_evidence_is_domain_limited(tmp_path) -> None:
-    identity = TwinIdentity(model="MXR404A", serial_hash="sha256:redacted")
+    identity = TwinIdentity(model="MXR404A", serial_number="MY12345678")
     domain = TwinDomain(quantities=("rms",), amplitude_v=(0.1, 1.0))
     metric = residual_metric(
         "rms",

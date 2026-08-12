@@ -38,10 +38,10 @@ class TwinValidationStatus(str, Enum):  # noqa: UP042 - keep str(Enum) semantics
 
 @dataclass(frozen=True)
 class TwinIdentity:
-    """Identity of a twin or source instrument without exposing raw secrets."""
+    """Identity of a twin or source instrument."""
 
     model: str
-    serial_hash: str | None = None
+    serial_number: str | None = None
     firmware: str | None = None
     profile_sha256: str | None = None
     twin_id: str | None = None

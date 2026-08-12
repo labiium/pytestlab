@@ -458,16 +458,15 @@ def identity_from_idn(
     model_hint: str | None = None,
     profile_sha256: str | None = None,
 ) -> TwinIdentity:
-    """Create a redaction-safe twin identity from a SCPI ``*IDN?`` response."""
+    """Create a twin identity from a SCPI ``*IDN?`` response."""
 
     parts = [part.strip() for part in idn.split(",")]
     model = model_hint or (parts[1] if len(parts) > 1 and parts[1] else "unknown")
-    serial = parts[2] if len(parts) > 2 and parts[2] and parts[2] != "<redacted>" else None
+    serial = parts[2] if len(parts) > 2 and parts[2] else None
     firmware = parts[3] if len(parts) > 3 and parts[3] else None
-    serial_hash = hashlib.sha256(serial.encode("utf-8")).hexdigest() if serial else None
     return TwinIdentity(
         model=model,
-        serial_hash=f"sha256:{serial_hash}" if serial_hash else None,
+        serial_number=serial,
         firmware=firmware,
         profile_sha256=profile_sha256,
     )
@@ -478,9 +477,9 @@ def _identity_from_fixture(payload: dict[str, Any], *, profile_sha256: str | Non
     if identity_payload:
         return TwinIdentity(
             model=str(identity_payload.get("model") or payload.get("model") or "unknown"),
-            serial_hash=(
-                str(identity_payload["serial_hash"])
-                if identity_payload.get("serial_hash") is not None
+            serial_number=(
+                str(identity_payload["serial_number"])
+                if identity_payload.get("serial_number") is not None
                 else None
             ),
             firmware=(

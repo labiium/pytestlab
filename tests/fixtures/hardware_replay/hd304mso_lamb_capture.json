@@ -35,7 +35,7 @@
   "log": [
     {
       "command": "*IDN?",
-      "response": "KEYSIGHT TECHNOLOGIES,HD304MSO,<redacted>,10.00.2024080218",
+      "response": "KEYSIGHT TECHNOLOGIES,HD304MSO,UNKNOWN_LEGACY_CAPTURE,10.00.2024080218",
       "type": "query"
     },
     {
@@ -82,9 +82,9 @@
     }
   },
   "model": "HD304MSO",
-  "payload_sha256": "3671bed601fa1b2b5d1089a5e69bac65de09a3e7d99e5344945ce1518e73987d",
+  "payload_sha256": "ef8d2477f02ba93c51dbe9dbb08bb293d0e54e42894d22a13e788a2e6e38fa92",
   "point_count": 128000,
   "schema": "pytestlab.hardware_replay_fixture.v1",
-  "source": "lamb_server_redacted_2026-06-18",
+  "source": "lamb_server_capture_2026-06-18",
   "waveform_sha256": "4eca41c8c45550d24ec7d6bbbce4e720475c0f03794d39d02026f7644933a63f"
 }

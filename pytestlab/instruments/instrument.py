@@ -102,7 +102,7 @@ class Instrument(Device[ConfigType], Generic[ConfigType]):
         self._uncertainty_instance_key = uuid.uuid4().hex
 
     def _uncertainty_source_key(self) -> str:
-        """Stable, redaction-safe identity prefix for correlated uncertainty atoms."""
+        """Stable identity-derived prefix for correlated uncertainty atoms."""
 
         backend = self._backend
         backend_identity = {
