@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import TYPE_CHECKING
 
 import httpx
@@ -25,7 +26,7 @@ except ImportError:
 class LambBackend(InstrumentIO):  # Implements InstrumentIO
     """
     An backend for communicating with instruments via a Lamb server.
-    Supports both direct visa_string and auto-connect via model/serial_number.
+    Supports direct resource strings and auto-connect via model/serial_number.
     """
 
     def __init__(
@@ -38,14 +39,17 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
     ):
         """
         Args:
-            address: The visa_string or unique instrument address. If not provided, model_name and serial_number must be provided.
+            address: The resource string or unique instrument address. If not provided, model_name and serial_number must be provided.
             url: Lamb server base URL.
             timeout_ms: Communication timeout in ms.
             model_name: Model name for auto-connect.
             serial_number: Serial number for auto-connect.
         """
         self.base_url: str = url.rstrip("/")
-        self.instrument_address: str | None = address  # visa_string
+        self.instrument_address: str | None = address  # resource_string
+        self._register_explicit_gpib = bool(
+            address and re.fullmatch(r"GPIB\d+::\d+(?:::\d+)?::INSTR", address, re.IGNORECASE)
+        )
         self.model_name: str | None = model_name
         self.serial_number: str | None = serial_number
         self._timeout_sec: float = (timeout_ms / 1000.0) if timeout_ms and timeout_ms > 0 else 5.0
@@ -61,18 +65,21 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
         Ensures that self.instrument_address is set.
         If not, and model_name/serial_number are provided, performs auto-connect.
         """
-        if self.instrument_address:
-            return  # Already have visa_string/address
+        if self.instrument_address and not self._register_explicit_gpib:
+            return  # Already have resource_string/address
 
-        if not self.model_name:
+        model_name = (
+            self.instrument_address if self._register_explicit_gpib else self.model_name
+        )
+        if not model_name:
             raise InstrumentConnectionError(
-                "LambBackend requires either a visa_string/address or at least model_name for auto-connect."
+                "LambBackend requires either a resource_string/address or at least model_name for auto-connect."
             )
 
         # Perform auto-connect via /add endpoint
         try:
-            payload = {"model_name": self.model_name}
-            if self.serial_number:
+            payload = {"model_name": model_name}
+            if self.serial_number and not self._register_explicit_gpib:
                 payload["serial_number"] = self.serial_number
             with httpx.Client(timeout=self._timeout_sec) as client:
                 response = client.post(
@@ -84,16 +91,17 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
                     raise InstrumentConnectionError(
                         f"Lamb server /add failed: {response.status_code} - {response.text}"
                     )
-                # The response should be the visa_string
-                visa_string = response.text.strip()
-                if not visa_string:
+                # The response should be the resource_string
+                resource_string = response.text.strip()
+                if not resource_string:
                     raise InstrumentConnectionError(
-                        f"Lamb server /add returned empty visa_string for model={self.model_name}, serial={self.serial_number}"
+                        f"Lamb server /add returned empty resource_string for model={self.model_name}, serial={self.serial_number}"
                     )
-                self.instrument_address = visa_string
+                self.instrument_address = resource_string
+                self._register_explicit_gpib = False
                 self._auto_connect_performed = True
                 lamb_logger.info(
-                    f"LambBackend auto-connected: model={self.model_name}, serial={self.serial_number} -> visa_string={visa_string}"
+                    f"LambBackend auto-connected: model={self.model_name}, serial={self.serial_number} -> resource_string={resource_string}"
                 )
         except httpx.RequestError as e:
             raise InstrumentConnectionError(f"Network error during Lamb auto-connect: {e}") from e
@@ -119,7 +127,7 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
             with httpx.Client(timeout=self._timeout_sec) as client:
                 response = client.post(
                     f"{self.base_url}/instrument/write",
-                    json={"visa_string": self.instrument_address, "command": cmd},
+                    json={"resource_string": self.instrument_address, "command": cmd},
                     headers={"Accept": "application/json", "Accept-Charset": "utf-8"},
                 )
                 response.raise_for_status()
@@ -137,7 +145,7 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
             with httpx.Client(timeout=self._timeout_sec) as client:
                 response = client.post(
                     f"{self.base_url}/instrument/query",
-                    json={"visa_string": self.instrument_address, "command": cmd},
+                    json={"resource_string": self.instrument_address, "command": cmd},
                     headers={"Accept": "application/json", "Accept-Charset": "utf-8"},
                 )
                 response.raise_for_status()
@@ -157,7 +165,7 @@ class LambBackend(InstrumentIO):  # Implements InstrumentIO
             with httpx.Client(timeout=self._timeout_sec) as client:
                 response = client.post(
                     f"{self.base_url}/instrument/query_raw",
-                    json={"visa_string": self.instrument_address, "command": cmd},
+                    json={"resource_string": self.instrument_address, "command": cmd},
                     headers={"Accept": "application/octet-stream"},
                 )
                 response.raise_for_status()
