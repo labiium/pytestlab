@@ -1,4 +1,6 @@
 test/
+.DS_Store
+*.old
 __pycache__/
 pytestlab.json
 pytestlab.egg-info/
@@ -9,6 +11,14 @@ pytestlab.json
 *.out
 cache
 .venv
+*.log
+
+# Local distributions and raw bench acquisition output
+/build/
+/dist/
+/.cache/
+/.pytestlab_sim/
+/tests/instruments/acquisition_test_results/
 
 # Coverage reports
 htmlcov/
@@ -24,6 +34,11 @@ site
 
 node_modules
 schemas
+!schemas/
+!schemas/metrology/
+!schemas/metrology/**
+!schemas/uncertainty/
+!schemas/uncertainty/**
 .mypy_cache
 .ropeproject
 .ruff_cache

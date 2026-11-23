@@ -19,18 +19,18 @@ Run with:
 
 Requires:
     pytest
-    uncertainties
     pytestlab
 """
 
+import os
+
 import pytest
-from uncertainties.core import UFloat
 
 from pytestlab import AutoInstrument
-from pytestlab.config.multimeter_config import DMMFunction
+from pytestlab.uncertainty import Quantity as MeasurementQuantity
 
 # ------------------- CONFIGURE THESE FOR YOUR LAB -------------------
-MM_CONFIG_KEY = "keysight/EDU34450A"
+MM_CONFIG_KEY = os.getenv("PYTESTLAB_INSTRUMENT_TEST_PROFILE", "keysight/EDU34450A")
 # --------------------------------------------------------------------
 
 
@@ -71,8 +71,8 @@ def test_multimeter_instrument_identification():
     try:
         idn = mm.id()
         print(f"Instrument ID: {idn}")
-        assert "KEYSIGHT" in idn.upper()
-        assert "EDU34450A" in idn.upper()
+        assert mm.config.manufacturer.upper() in idn.upper()
+        assert mm.config.model.upper() in idn.upper()
         print("IDN Check: PASS")
     finally:
         mm.close()
@@ -101,9 +101,9 @@ def test_multimeter_dc_voltage_measurement():
         except Exception as e:
             pytest.fail(f"Instrument not responsive after clearing errors: {e}")
 
-        measurement = mm.measure(DMMFunction.VOLTAGE_DC)
+        measurement = mm.measure("dc_voltage")
         print(f"Measured DC Voltage: {measurement.values} {measurement.units}")
-        assert isinstance(measurement.values, UFloat)
+        assert isinstance(measurement.values, MeasurementQuantity)
         assert measurement.units == "V"
         print("DC Voltage Measurement: PASS")
     finally:
@@ -133,9 +133,9 @@ def test_multimeter_ac_voltage_measurement():
         except Exception as e:
             pytest.fail(f"Instrument not responsive after clearing errors: {e}")
 
-        measurement = mm.measure(DMMFunction.VOLTAGE_AC, range_val="1")
+        measurement = mm.measure("ac_voltage", range_val="1")
         print(f"Measured AC Voltage: {measurement.values} {measurement.units}")
-        assert isinstance(measurement.values, UFloat)
+        assert isinstance(measurement.values, MeasurementQuantity)
         assert measurement.units == "V"
         assert abs(measurement.values.n) <= 1.0
         print("AC Voltage Measurement: PASS")
@@ -166,9 +166,9 @@ def test_multimeter_resistance_measurement():
         except Exception as e:
             pytest.fail(f"Instrument not responsive after clearing errors: {e}")
 
-        measurement = mm.measure(DMMFunction.FRESISTANCE)
+        measurement = mm.measure("resistance_4wire")
         print(f"Measured Resistance: {measurement.values} {measurement.units}")
-        assert isinstance(measurement.values, UFloat)
+        assert isinstance(measurement.values, MeasurementQuantity)
         assert measurement.units == "Ω"
         print("Resistance Measurement: PASS")
     finally:
@@ -186,8 +186,13 @@ def test_multimeter_configuration_retrieval():
     mm.connect_backend()
 
     try:
-        # Set a known state first
-        mm.configure_measurement(DMMFunction.CURRENT_DC, range_val="0.1", resolution="MAX")
+        # Select the function, range, and resolution as part of the measurement.
+        mm.measure(
+            "dc_current",
+            range_val="0.1",
+            resolution="MAX",
+            uncertainty=False,
+        )
         config = mm.get_config()
         print(config)
         assert config.measurement_mode == "Current"
@@ -251,22 +256,22 @@ def test_multimeter_full_workflow():
         measurements = []
 
         # DC Voltage
-        dc_v = mm.measure(DMMFunction.VOLTAGE_DC)
+        dc_v = mm.measure("dc_voltage")
         measurements.append(("DC Voltage", dc_v))
 
         # AC Voltage
-        ac_v = mm.measure(DMMFunction.VOLTAGE_AC, range_val="10")
+        ac_v = mm.measure("ac_voltage", range_val="10")
         measurements.append(("AC Voltage", ac_v))
 
         # Resistance
-        res = mm.measure(DMMFunction.RESISTANCE)
+        res = mm.measure("resistance")
         measurements.append(("Resistance", res))
 
         # Verify all measurements
         for name, measurement in measurements:
             print(f"{name}: {measurement.values} {measurement.units}")
-            # Handle both UFloat and float (for overload/open circuit conditions)
-            assert isinstance(measurement.values, UFloat | float)
+            # Handle both MeasurementQuantity and float (for overload/open circuit conditions)
+            assert isinstance(measurement.values, MeasurementQuantity | float)
             assert measurement.units in ["V", "Ω", "A"]
 
         # Check no errors accumulated

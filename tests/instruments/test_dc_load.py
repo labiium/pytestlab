@@ -24,19 +24,20 @@ Run with:
 Requires:
     pytest
     numpy
-    uncertainties
     pytestlab
 """
 
+import os
+
 import pytest
-from uncertainties import UFloat
 
 from pytestlab import AutoInstrument
 from pytestlab.errors import InstrumentParameterError
 from pytestlab.instruments import DCActiveLoad
+from pytestlab.uncertainty import Quantity as MeasurementQuantity
 
 # ------------------- CONFIGURE THIS FOR YOUR LAB -------------------
-DC_LOAD_CONFIG_KEY = "keysight/EL33133A"  # <-- Set your profile key or path here
+DC_LOAD_CONFIG_KEY = os.getenv("PYTESTLAB_INSTRUMENT_TEST_PROFILE", "keysight/EL33133A")
 # --------------------------------------------------------------------
 
 
@@ -69,7 +70,8 @@ def test_dc_load_full_real():
     idn = dcl.id()
     print(f"IDN: {idn}")
     assert isinstance(idn, str)
-    assert "Keysight".upper() in idn.upper()
+    assert dcl.config.manufacturer.upper() in idn.upper()
+    assert dcl.config.model.upper() in idn.upper()
 
     # --- Mode and Load Setting ---
     test_modes = {"CC": 2.5, "CV": 5.0, "CR": 10.0, "CP": 20.0}
@@ -106,17 +108,17 @@ def test_dc_load_full_real():
 
     current_meas = dcl.measure_current()
     print(f"Measured Current: {current_meas.values}")
-    assert isinstance(current_meas.values, UFloat)
+    assert isinstance(current_meas.values, MeasurementQuantity)
     assert current_meas.units == "A"
 
     voltage_meas = dcl.measure_voltage()
     print(f"Measured Voltage: {voltage_meas.values}")
-    assert isinstance(voltage_meas.values, UFloat)
+    assert isinstance(voltage_meas.values, MeasurementQuantity)
     assert voltage_meas.units == "V"
 
     power_meas = dcl.measure_power()
     print(f"Measured Power: {power_meas.values}")
-    assert isinstance(power_meas.values, UFloat)
+    assert isinstance(power_meas.values, MeasurementQuantity)
     assert power_meas.units == "W"
 
     dcl.enable_input(False)

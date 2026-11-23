@@ -1,0 +1,214 @@
+# Source-checkout teaching fixture. Synthetic trace; not a physical instrument model.
+manufacturer: pytestlab
+model: SyntheticScope
+backend:
+  type: sim
+device_type: oscilloscope
+role: measurement
+trigger:
+  types:
+  - EDGE
+  modes:
+  - EDGE
+  slopes:
+  - POS
+  - NEG
+channels:
+- description: Analog Channel 1
+  channel_range:
+    min_val: -5
+    max_val: 5
+  input_coupling:
+  - DC
+  - AC
+  input_impedance: 1000000.0
+  probe_attenuation:
+  - 1
+  - 10
+  timebase:
+    range:
+      min_val: 5.0e-09
+      max_val: 50
+    horizontal_resolution: 1.0e-12
+bandwidth: 70000000.0
+sampling_rate: 2000000000.0
+memory: 2000000.0
+waveform_update_rate: 200000.0
+identification: PyTestLab,SyntheticScope,EXAMPLE,1.0
+operation_options:
+  waveform_readout:
+    transport:
+      source: set_wave_source
+      points_max: set_wave_points_max
+      format_byte: set_wave_format_byte
+      points_raw: set_wave_points_mode_raw
+    parameters:
+      channel:
+        kind: enum
+        options:
+        - value: channel_1
+          label: Channel 1
+          aliases:
+          - ch1
+          - chan1
+          transport:
+            value: CHANnel1
+        bindings:
+        - alias: source
+          parameter: source
+      mode:
+        kind: enum
+        required: false
+        default: controlled
+        transport_parameter: false
+        options:
+        - value: controlled
+        - value: read_only
+      format:
+        kind: enum
+        required: false
+        default: byte
+        transport_parameter: false
+        options:
+        - value: byte
+        - value: word
+        - value: auto
+      points:
+        kind: range
+        required: false
+        min: 1
+        transport_parameter: false
+      uncertainty:
+        kind: bool
+        required: false
+        default: true
+        transport_parameter: false
+        options:
+        - value: true
+        - value: false
+      restore_state:
+        kind: bool
+        required: false
+        default: false
+        transport_parameter: false
+        options:
+        - value: true
+        - value: false
+      timeout_ms:
+        kind: range
+        required: false
+        min: 1
+        transport_parameter: false
+  measure_vpp:
+    transport:
+      read: measure_vpp
+    parameters:
+      channel:
+        kind: range
+        min: 1
+        max: 1
+        bindings:
+        - alias: read
+          parameter: channel
+      uncertainty:
+        kind: bool
+        strict: false
+        default: true
+        transport_parameter: false
+  digitize:
+    transport:
+      write: digitize
+    parameters:
+      channels:
+        kind: enum
+        transport_parameter: false
+        options:
+        - value:
+          - 1
+          label: Channel 1
+      run_after:
+        kind: bool
+        required: false
+        default: true
+        transport_parameter: false
+        options:
+        - value: true
+        - value: false
+      timebase:
+        kind: range
+        required: false
+        min: 0
+        transport_parameter: false
+      timeout_ms:
+        kind: range
+        required: false
+        min: 1
+        transport_parameter: false
+      waveform_format:
+        kind: enum
+        required: false
+        default: byte
+        transport_parameter: false
+        options:
+        - value: byte
+        - value: word
+        - value: auto
+  run:
+    transport:
+      write: run
+scpi:
+  commands:
+    set_wave_source:
+      template: :WAVeform:SOURce {source}
+    set_wave_points_max:
+      template: :WAVeform:POINts MAX
+    set_wave_format_byte:
+      template: :WAVeform:FORMat BYTE
+    set_wave_points_mode_raw:
+      template: :WAVeform:POINts:MODE RAW
+    digitize:
+      template: DIGitize {sources}
+  queries:
+    identify:
+      template: '*IDN?'
+      response:
+        type: str
+    opc_query:
+      template: '*OPC?'
+      response:
+        type: str
+    get_error:
+      template: :SYSTem:ERRor?
+      response:
+        type: str
+    wave_preamble:
+      template: :WAVeform:PREamble?
+      response:
+        type: csv
+    wave_data:
+      template: :WAVeform:DATA?
+      response:
+        type: binblock
+    measure_vpp:
+      template: MEAS:VPP? CHAN{channel}
+      validators:
+        channel:
+          min: 1
+          max: 1
+      response:
+        type: float
+    acquire_sample_rate:
+      template: :ACQuire:SRATe?
+      response:
+        type: float
+simulation:
+  scpi:
+    '*IDN?': PyTestLab,SyntheticScope,EXAMPLE,1.0
+    '*OPC?': '1'
+    :SYSTem:ERRor?: 0,"No error"
+    RUN: {}
+    :ACQuire:SRATe?: '8000'
+    :WAVeform:PREamble?: 0,0,8,1,0.000125,0,0,0.01,0,128
+    :WAVeform:DATA?:
+      response: py:b'#18\x80\x90\x96\x90\x80\x70\x6a\x70'
+    MEAS:VPP\? CHAN1: '0.44'

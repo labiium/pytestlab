@@ -13,13 +13,22 @@ Options:
   --help      Show this message and exit.
 
 Commands:
+  bench
+  motion
+  camera
+  prober
   run
   list
   replay
   profile
   instrument
-  bench
   sim-profile
+  device
+  visa
+  lamb
+  sim
+  evidence
+  twin
 """
 
 
@@ -89,7 +98,7 @@ def _profile_show(profile_key_or_path: str) -> int:
 def _profile_schema(instrument_type: str) -> int:
     from pytestlab.config.schema_validator import SchemaValidator
 
-    schema = SchemaValidator().get_instrument_schema(instrument_type, format_output=True)
+    schema = SchemaValidator().get_device_schema(instrument_type, format_output=True)
     print(f"Schema for {instrument_type}:")
     print(schema)
     return 0
@@ -98,27 +107,6 @@ def _profile_schema(instrument_type: str) -> int:
 def _list_profiles() -> int:
     print("Available instrument profiles:")
     return _profile_list()
-
-
-def _bench_validate(bench_yaml_path: str) -> int:
-    from pathlib import Path
-
-    import yaml
-
-    from pytestlab.config.bench_config import BenchConfigExtended
-    from pytestlab.config.loader import load_profile
-
-    bench_path = Path(bench_yaml_path)
-    with bench_path.open() as handle:
-        data = yaml.safe_load(handle)
-
-    config = BenchConfigExtended.model_validate(data)
-    print(f"Bench configuration '{bench_yaml_path}' is valid.")
-    print("Validating individual instrument profiles...")
-    for alias, entry in config.instruments.items():
-        load_profile(entry.profile)
-        print(f"  OK Profile '{entry.profile}' for alias '{alias}' loaded successfully.")
-    return 0
 
 
 def _fallback_main() -> int:
@@ -154,8 +142,6 @@ def main() -> int:
         return _profile_schema(argv[2])
     if argv == ["list", "profiles"]:
         return _list_profiles()
-    if len(argv) == 3 and argv[:2] == ["bench", "validate"] and not _is_option_like(argv[2]):
-        return _bench_validate(argv[2])
 
     return _fallback_main()
 

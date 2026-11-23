@@ -1,0 +1,43 @@
+# Synthetic replies, not measurements from physical equipment.
+impedance:
+  profile: keysight/E4990A
+  log:
+  - type: query
+    command: ':SENS1:CORR2:OPEN?'
+    response: '1'
+  - type: query
+    command: ':SENS1:CORR2:SHOR?'
+    response: '1'
+  - type: query
+    command: ':SENS1:CORR2:LOAD?'
+    response: '0'
+  - type: query
+    command: ':FORM:DATA?'
+    response: 'ASC'
+  - type: query
+    command: ':SENS1:SWE:TYPE?'
+    response: 'LOG'
+  - type: query
+    command: ':INIT1:CONT?'
+    response: '0'
+  - type: query
+    command: ':CALC1:FORM:TWOD?'
+    response: 'COMP'
+  - type: query
+    command: ':CALC1:MATH:FUNC?'
+    response: 'NORM'
+  - type: query
+    command: ':SERV:CHAN1:ATR:ACT?'
+    response: '2'
+  - type: query
+    command: ':CALC1:PAR2:DEF?'
+    response: 'IMP'
+  - type: query
+    command: ':SENS1:SWE:POIN?'
+    response: '3'
+  - type: query
+    command: ':SENS1:FREQ:DATA?'
+    response: '1000,15600,49000'
+  - type: query
+    command: ':CALC1:DATA:FDAT?'
+    response: '2,-3,1,0,2,3'

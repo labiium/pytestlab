@@ -1,4 +1,6 @@
 # pytestlab/instruments/backends/replay_backend.py
+import base64
+import hashlib
 import logging
 from pathlib import Path
 from typing import Any
@@ -57,6 +59,8 @@ class ReplayBackend(InstrumentIO):
 
         self._log_index = 0
         self._model_name = profile_key
+        self._read_termination: str | None = None
+        self._write_termination: str | None = None
 
     @property
     def _step(self) -> int:
@@ -72,6 +76,14 @@ class ReplayBackend(InstrumentIO):
     def from_session_file(cls, session_file: str | Path, profile_key: str) -> "ReplayBackend":
         """Create a ReplayBackend from a session file."""
         return cls(session_file, profile_key)
+
+    def set_read_termination(self, value: str | None) -> None:
+        """Remember profile settings; replay responses are already message payloads."""
+        self._read_termination = value
+
+    def set_write_termination(self, value: str | None) -> None:
+        """Remember profile settings without appending bytes to recorded commands."""
+        self._write_termination = value
 
     def connect(self) -> None:
         LOGGER.debug("ReplayBackend for '%s': Connected.", self._model_name)
@@ -144,7 +156,29 @@ class ReplayBackend(InstrumentIO):
     def query_raw(self, cmd: str, delay: float | None = None) -> bytes:
         """Execute a raw query command and return bytes response."""
         entry = self._get_next_log_entry("query_raw", cmd)
-        # Assuming the response is stored as a string that needs encoding
+        if entry.get("response_encoding") == "base64":
+            encoded = entry.get("response_base64", "")
+            if not isinstance(encoded, str):
+                raise ReplayMismatchError(
+                    message="Replay raw response_base64 must be a string",
+                    instrument=self._model_name,
+                    command=cmd,
+                )
+            response = base64.b64decode(encoded.encode("ascii"), validate=True)
+            expected_sha = entry.get("response_sha256")
+            if isinstance(expected_sha, str):
+                actual_sha = hashlib.sha256(response).hexdigest()
+                if actual_sha != expected_sha:
+                    raise ReplayMismatchError(
+                        message=(
+                            "Replay raw response SHA-256 mismatch: "
+                            f"expected {expected_sha}, got {actual_sha}"
+                        ),
+                        instrument=self._model_name,
+                        command=cmd,
+                    )
+            return response
+        # Legacy fixtures stored raw responses as strings.
         return str(entry.get("response", "")).encode("utf-8")
 
     def close(self) -> None:

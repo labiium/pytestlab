@@ -80,18 +80,64 @@ Each helper returns a `StepSpec`, which is resolved just before the sweep starts
 
 ### 3. Register Measurement Functions
 
-Measurement functions are synchronous functions that return a dictionary of results. Use the `@session.acquire` decorator:
+Measurement functions are synchronous functions that return either a dictionary of
+results or one `MeasurementResult`. Use the `@session.acquire` decorator:
 
 ```python
 @session.acquire
 def measure_voltage(psu, dmm, voltage, current):
     psu.channel(1).set(voltage=voltage, current_limit=current).on()
-    result = dmm.measure_voltage_dc()
-    return {"measured_voltage": result.values}
+    try:
+        result = dmm.measure("dc_voltage")
+        return {"measured_voltage": result.values}
+    finally:
+        psu.channel(1).off()
 ```
 
 - **Arguments:** Instrument aliases and parameter values as individual arguments.
-- **Return:** A mapping of result names to values.
+- **Return:** A mapping of result names to values, or one `MeasurementResult`.
+  Uncertainty-aware values remain numeric in the main column and receive a
+  `<column>__measurement` JSON metadata column for lossless reconstruction.
+
+### Store a waveform or sweep with each trial
+
+In an ordinary non-compliance session, keep the entire table attached to its sweep
+parameters by returning a table-valued `MeasurementResult`. For example, if
+`bench.yaml` defines the alias `scope`:
+
+```python
+from pytestlab import Bench, MeasurementSession
+
+with Bench.open("bench.yaml") as bench, MeasurementSession(bench=bench, compliance=False) as session:
+    session.parameter("repeat", [1, 2])
+
+    @session.acquire
+    def waveform(scope):
+        return {"waveform": scope.read_channels(1, 2)}
+
+    experiment = session.run()
+
+first_waveform = experiment.measurements["waveform"][0].values
+```
+
+One row per trial retains sample order and types. Use consistent columns
+and types across trials. `waveform__measurement` retains instrument, units,
+timestamp, sampling rate, and envelope. Parquet and the configured bench
+database keep both columns. One-dimensional NumPy booleans, standard-width
+integers, `float32`, and `float64` are typed lists. A missing capture is `None` at its original trial index. Use Polars nulls for masked samples. This does not sign each sample.
+
+Return a VNA sweep, spectrum capture, RF power reading, or impedance sweep
+directly. In a session opened with `compliance=False`, for example:
+
+```python
+@session.acquire
+def s_parameters(vna):
+    return vna.get_s_parameter_data()
+```
+
+Read captured samples and metadata with `experiment.measurements["s_parameters"][0]`. Native RF
+results work in ordinary sessions, not active signed, audited, or timestamped
+sessions. Storing them does not evaluate measurement uncertainty.
 
 ### 4. Run the Session
 
@@ -126,8 +172,11 @@ def main():
         @session.acquire
         def measure(psu, dmm, voltage, current):
             psu.channel(1).set(voltage=voltage, current_limit=current).on()
-            result = dmm.measure_voltage_dc()
-            return {"v_measured": result.values}
+            try:
+                result = dmm.measure("dc_voltage")
+                return {"v_measured": result.values}
+            finally:
+                psu.channel(1).off()
 
         experiment = session.run()
         print(experiment.data)
@@ -137,6 +186,10 @@ main()
 
 #### With a Bench
 
+The standalone PSU and DMM above have independent returns, not a connected circuit.
+For a configured bench with aliases `psu` and `dmm`, place the following inside
+a `MeasurementSession(bench=bench)` context.
+
 ```python
 session.parameter("voltage", [1.0, 2.0, 3.0])
 session.parameter("current", [0.1, 0.5, 1.0])
@@ -144,8 +197,11 @@ session.parameter("current", [0.1, 0.5, 1.0])
 @session.acquire
 def measure(psu, dmm, voltage, current):
     psu.channel(1).set(voltage=voltage, current_limit=current).on()
-    result = dmm.measure_voltage_dc()
-    return {"v_measured": result.values}
+    try:
+        result = dmm.measure("dc_voltage")
+        return {"v_measured": result.values}
+    finally:
+        psu.channel(1).off()
 
 experiment = session.run()
 print(experiment.data)
@@ -178,7 +234,7 @@ def main():
                 for v in [1.0, 2.0, 3.0]:
                     if stop_event.is_set():
                         break
-                    psu.channel(1).set_voltage(v)
+                    psu.channel(1).set(voltage=v)
                     time.sleep(0.5)
 
         # The task will automatically start when session.run() is called
@@ -191,11 +247,8 @@ Register at least one `@session.acquire` function for data collection:
 
 ```python
 @session.acquire
-def measure(scope):
-    scope._send_command(":SINGle")
-    time.sleep(0.05)
-    result = scope.read_channels(1)
-    return {"vpp": result.values}
+def measure(psu):
+    return {"psu_voltage": psu.channel(1).get_voltage()}
 ```
 
 ### Running in Parallel Mode
@@ -215,125 +268,16 @@ All background tasks run concurrently with the acquisition loop. When the durati
 
 ## Complete Example: Parallel Measurement
 
-### Without a Bench
+The source checkout includes a complete offline example with two simulated
+power supplies, background tasks, and synthetic ripple data:
 
-```python
-import time
-import numpy as np
-from pytestlab.measurements import MeasurementSession
-
-def main():
-    with MeasurementSession() as session:
-        psu = session.instrument("psu", "keysight/EDU36311A", simulate=True)
-        load = session.instrument("load", "keysight/EL33133A", simulate=True)
-        scope = session.instrument("scope", "keysight/DSOX1204G", simulate=True)
-
-        # Background task: PSU voltage ramp
-        @session.task
-        def psu_ramp(psu, stop_event):
-            while not stop_event.is_set():
-                for v in np.linspace(1.0, 5.0, 10):
-                    if stop_event.is_set():
-                        break
-                    psu.channel(1).set_voltage(v)
-                    time.sleep(0.2)
-                for v in np.linspace(5.0, 1.0, 10):
-                    if stop_event.is_set():
-                        break
-                    psu.channel(1).set_voltage(v)
-                    time.sleep(0.2)
-
-        # Background task: Pulsed load
-        @session.task
-        def load_pulse(load, stop_event):
-            load.set_mode("CC")
-            load.enable_input(True)
-            try:
-                while not stop_event.is_set():
-                    load.set_load(1.0)
-                    time.sleep(0.5)
-                    if stop_event.is_set():
-                        break
-                    load.set_load(0.1)
-                    time.sleep(0.5)
-            finally:
-                load.enable_input(False)
-
-        # Acquisition: Oscilloscope measurement
-        @session.acquire
-        def measure_ripple(scope):
-            scope._send_command(":SINGle")
-            time.sleep(0.05)
-            vpp = scope.measure_voltage_peak_to_peak(1)
-            return {"vpp_ripple": vpp.values}
-
-        # Run for 5 seconds, acquire every 250 ms
-        # Background tasks start automatically and stop when duration expires
-        experiment = session.run(duration=5.0, interval=0.25)
-        print(experiment.data)
-
-main()
+```bash
+python examples/parallel/parallel_sweep_example.py
 ```
 
-### With a Bench
-
-```python
-import time
-import numpy as np
-from pytestlab import Bench
-from pytestlab.measurements import MeasurementSession
-
-def main():
-    with Bench.open("bench_parallel.yaml") as bench:
-        with MeasurementSession(bench=bench) as session:
-            # Background task: PSU voltage ramp
-            @session.task
-            def psu_ramp(psu, stop_event):
-                while not stop_event.is_set():
-                    for v in np.linspace(1.0, 5.0, 10):
-                        if stop_event.is_set():
-                            break
-                        psu.channel(1).set_voltage(v)
-                        time.sleep(0.2)
-                    for v in np.linspace(5.0, 1.0, 10):
-                        if stop_event.is_set():
-                            break
-                        psu.channel(1).set_voltage(v)
-                        time.sleep(0.2)
-
-            # Background task: Pulsed load
-            @session.task
-            def load_pulse(load, stop_event):
-                load.set_mode("CC")
-                load.enable_input(True)
-                try:
-                    while not stop_event.is_set():
-                        load.set_load(1.0)
-                        time.sleep(0.5)
-                        if stop_event.is_set():
-                            break
-                        load.set_load(0.1)
-                        time.sleep(0.5)
-                finally:
-                    load.enable_input(False)
-
-            # Acquisition: Oscilloscope measurement
-            @session.acquire
-            def measure_ripple(scope):
-                scope._send_command(":SINGle")
-                time.sleep(0.05)
-                vpp = scope.measure_voltage_peak_to_peak(1)
-                return {"vpp_ripple": vpp.values}
-
-            # Run for 5 seconds, acquire every 250 ms
-            # Background tasks start automatically and stop when duration expires
-            experiment = session.run(duration=5.0, interval=0.25)
-            print(experiment.data)
-
-main()
-```
-
----
+It reads `examples/parallel/bench_parallel.yaml`. The generated ripple
+values demonstrate the acquisition schedule; they are not scope data or
+the output of a circuit simulator.
 
 ## API Reference
 
@@ -348,7 +292,8 @@ You can also pass a `StepSpec` from `pytestlab.measurements.step.*` helpers for 
 
 ### `@session.acquire`
 
-Decorator for synchronous measurement functions. Functions must return a mapping.
+Decorator for synchronous measurement functions. Functions return a mapping or
+one `MeasurementResult`.
 
 ### `session.run(...)`
 

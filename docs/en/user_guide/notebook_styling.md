@@ -340,14 +340,15 @@ Configure instruments for high-precision measurements.
 ### Code Cell with Documentation
 
 ```python
-# Configure oscilloscope for precise timing measurements
-# This example shows best practices for instrument setup
+from pytestlab import AutoInstrument
 
-osc = AutoInstrument.from_config("keysight/DSOX1204G")
-
-# Set high-resolution mode for better accuracy
-osc.set_acquisition_mode("HIRes")
-print(f"✅ Oscilloscope configured: {osc.id()}")
+# Verify a local simulation before trying notebook controls.
+dmm = AutoInstrument.from_preset("keysight/34470A", simulate=True)
+try:
+    reading = dmm.measure("dc_voltage", uncertainty=False)
+    print(f"Simulated reading: {float(reading):.3f} V")
+finally:
+    dmm.close()
 ```
 
 **Readability Features:**

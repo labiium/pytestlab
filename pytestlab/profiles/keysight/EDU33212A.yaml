@@ -1,33 +1,50 @@
 manufacturer: Keysight
 model: EDU33212A
 device_type: waveform_generator
+role: stimulus
 channels:
     - description: Channel 1
+      offset_range:
+          min_val: -10
+          max_val: 10
+          special_values: [MIN, MAX, DEF]
+      amplitude_range:
+          min_val: 1.e-3
+          max_val: 20
+          special_values: [MIN, MAX, DEF]
+          accuracy:
+              model: linear
+              reading_percent: 2.0
+              source: Keysight EDU33212A specifications
       frequency_range:
           min_val: 1.e-6
           max_val: 20.e+6
-      amplitude_range:
-          min_val: 1.e-3
-          max_val: 500
-      offset_range:
-          min_val: -1.e-3
-          max_val: 10
-      accuracy:
-          amplitude: 0.02
-          frequency: 1.e-6
+          special_values: [MIN, MAX, DEF]
+          accuracy:
+              model: linear
+              reading_ppm: 1.0
+              source: Keysight EDU33212A specifications
     - description: Channel 2
+      offset_range:
+          min_val: -10
+          max_val: 10
+          special_values: [MIN, MAX, DEF]
+      amplitude_range:
+          min_val: 1.e-3
+          max_val: 20
+          special_values: [MIN, MAX, DEF]
+          accuracy:
+              model: linear
+              reading_percent: 2.0
+              source: Keysight EDU33212A specifications
       frequency_range:
           min_val: 1.e-6
           max_val: 20.e+6
-      amplitude_range:
-          min_val: 1.e-3
-          max_val: 10
-      offset_range:
-          min_val: -1.e-3
-          max_val: 10
-      accuracy:
-          amplitude: 0.02
-          frequency: 1.e-6
+          special_values: [MIN, MAX, DEF]
+          accuracy:
+              model: linear
+              reading_ppm: 1.0
+              source: Keysight EDU33212A specifications
 waveforms:
     built_in:
         - SIN
@@ -54,47 +71,396 @@ waveforms:
 
 scpi:
     commands:
+        identify:
+            template: "*IDN?"
+        reset:
+            template: "*RST"
+        clear:
+            template: "*CLS"
+        opc:
+            template: "*OPC"
+        panel_lock:
+            template: "SYSTem:LOCK"
+        panel_local:
+            template: "SYSTem:LOCal"
         set_function:
             template: "SOUR{channel}:FUNC {function}"
             defaults: { channel: 1 }
             validators:
                 channel: { min: 1, max: 2 }
 
+            parameters:
+                function:
+                    kind: enum
+                    strict: true
+                    description: Built-in waveform function SCPI token.
+                    choices:
+                      - value: sine
+                        token: SIN
+                        label: Sine
+                        aliases: [sin, sinusoid]
+                      - value: square
+                        token: SQU
+                        label: Square
+                        aliases: [squ]
+                      - value: ramp
+                        token: RAMP
+                        label: Ramp
+                        aliases: []
+                      - value: pulse
+                        token: PULS
+                        label: Pulse
+                        aliases: [puls]
+                      - value: noise
+                        token: NOIS
+                        label: Noise
+                        aliases: [nois]
+                      - value: prbs
+                        token: PRBS
+                        label: PRBS
+                        aliases: []
+                      - value: dc
+                        token: DC
+                        label: DC
+                        aliases: []
+                      - value: arbitrary
+                        token: ARB
+                        label: Arbitrary
+                        aliases: [arb]
         set_frequency:
             template: "SOUR{channel}:FREQ {frequency}"
             defaults: { channel: 1 }
             validators:
                 channel: { min: 1, max: 2 }
 
+            parameters:
+                frequency:
+                    kind: raw
+                    allow_raw: true
+                    description: Output frequency numeric value in Hz.
+                    examples: [1000]
         set_amplitude:
             template: "SOUR{channel}:VOLTage {amplitude}"
             defaults: { channel: 1 }
             validators:
                 channel: { min: 1, max: 2 }
 
+            parameters:
+                amplitude:
+                    kind: raw
+                    allow_raw: true
+                    description: Output amplitude numeric value.
+                    examples: [1.0]
         set_offset:
             template: "SOUR{channel}:VOLTage:OFFSet {offset}"
             defaults: { channel: 1 }
             validators:
                 channel: { min: 1, max: 2 }
 
+            parameters:
+                offset:
+                    kind: raw
+                    allow_raw: true
+                    description: Output DC offset numeric value.
+                    examples: [0]
+        apply_waveform_settings:
+            template: "SOUR{channel}:APPLy:{function} {frequency},{amplitude},{offset}"
+            defaults: { channel: 1 }
+            validators:
+                channel: { min: 1, max: 2 }
+            parameters:
+                function:
+                    kind: enum
+                    strict: true
+                    description: Applied waveform function selected by the profile.
+                    choices:
+                      - { value: sine, token: SINusoid, label: Sine, aliases: [sin, sinusoid] }
+                      - { value: square, token: SQUare, label: Square, aliases: [squ] }
+                      - { value: ramp, token: RAMP, label: Ramp, aliases: [] }
+                      - { value: pulse, token: PULSe, label: Pulse, aliases: [puls] }
+                      - { value: noise, token: NOISe, label: Noise, aliases: [nois] }
+                      - { value: arbitrary, token: ARBitrary, label: Arbitrary, aliases: [arb] }
+                      - { value: dc, token: DC, label: DC, aliases: [] }
+                frequency:
+                    kind: raw
+                    allow_raw: true
+                    examples: [1000]
+                amplitude:
+                    kind: raw
+                    allow_raw: true
+                    examples: [1]
+                offset:
+                    kind: raw
+                    allow_raw: true
+                    examples: [0]
+        set_square_duty_cycle:
+            template: "SOUR{channel}:FUNC:SQUare:DCYCle {duty_cycle}"
+            defaults: {channel: 1}
+            validators: {channel: {min: 1, max: 2}}
+            parameters: {duty_cycle: {kind: raw, allow_raw: true, description: "Numeric percent; vendor-specific limits are not specified here.", examples: [50]}}
+        set_ramp_symmetry:
+            template: "SOUR{channel}:FUNC:RAMP:SYMMetry {symmetry}"
+            defaults: {channel: 1}
+            validators: {channel: {min: 1, max: 2}}
+            parameters: {symmetry: {kind: raw, allow_raw: true, description: "Numeric percent; vendor-specific limits are not specified here.", examples: [50]}}
+        set_pulse_period:
+            template: "SOUR{channel}:FUNC:PULS:PERiod {period}"
+            defaults: {channel: 1}
+            validators: {channel: {min: 1, max: 2}}
+            parameters: {period: {kind: raw, allow_raw: true, description: "Numeric seconds; vendor-specific limits are not specified here.", examples: [0.001]}}
+        set_pulse_width:
+            template: "SOUR{channel}:FUNC:PULS:WIDTh {width}"
+            defaults: {channel: 1}
+            validators: {channel: {min: 1, max: 2}}
+            parameters: {width: {kind: raw, allow_raw: true, description: "Numeric seconds; vendor-specific limits are not specified here.", examples: [0.0001]}}
+        set_pulse_duty_cycle:
+            template: "SOUR{channel}:FUNC:PULS:DCYCle {duty_cycle}"
+            defaults: {channel: 1}
+            validators: {channel: {min: 1, max: 2}}
+            parameters: {duty_cycle: {kind: raw, allow_raw: true, description: "Numeric percent; vendor-specific limits are not specified here.", examples: [50]}}
+        set_pulse_transition_both:
+            template: "SOUR{channel}:FUNC:PULS:TRANsition:BOTH {transition_both}"
+            defaults: {channel: 1}
+            validators: {channel: {min: 1, max: 2}}
+            parameters: {transition_both: {kind: raw, allow_raw: true, description: "Numeric seconds; vendor-specific limits are not specified here.", examples: [0.000001]}}
+        set_phase:
+            template: "SOUR{channel}:PHASe {phase}"
+            defaults: {channel: 1}
+            validators: {channel: {min: 1, max: 2}}
+            parameters: {phase: {kind: raw, allow_raw: true, description: "Numeric phase in the current instrument angle unit; vendor-specific limits are not specified here.", examples: [0]}}
         set_output_state:
             template: "OUTPut{channel}:STATe {state}"
             defaults: { channel: 1 }
-            enums:
-                state:
-                    {
-                        on: "ON",
-                        off: "OFF",
-                        true: "ON",
-                        false: "OFF",
-                        "1": "ON",
-                        "0": "OFF",
-                    }
             validators:
                 channel: { min: 1, max: 2 }
+            parameters:
+                state:
+                    kind: enum
+                    strict: true
+                    choices:
+                      - {value: "on", token: "ON", label: "On", aliases: ["true", "1"]}
+                      - {value: "off", token: "OFF", label: "Off", aliases: ["false", "0"]}
+        set_output_load_impedance:
+            template: "OUTPut{channel}:LOAD {impedance}"
+            defaults: { channel: 1 }
+            validators:
+                channel: { min: 1, max: 2 }
+            parameters:
+                impedance:
+                    kind: raw
+                    allow_raw: true
+                    examples: [50]
+
+        set_phase_reference:
+            template: "SOUR{channel}:PHASe:REFerence"
+            defaults: { channel: 1 }
+        synchronize_phase_all_channels:
+            template: "PHASe:SYNChronize"
+        set_phase_unlock_error_state:
+            template: "SOUR{channel}:PHASe:UNLock:ERRor:STATe {state}"
+            defaults: { channel: 1, state: ON }
+        set_output_polarity:
+            template: "OUTPut{channel}:POLarity {polarity}"
+            defaults: { channel: 1, polarity: NORM }
+            parameters:
+                polarity:
+                    kind: enum
+                    choices:
+                      - {value: normal, token: NORMal, label: Normal, aliases: [norm]}
+                      - {value: inverted, token: INVerted, label: Inverted, aliases: [inv]}
+        set_voltage_unit:
+            template: "SOUR{channel}:VOLTage:UNIT {unit}"
+            defaults: { channel: 1, unit: VPP }
+            parameters:
+                unit:
+                    kind: enum
+                    choices:
+                      - {value: vpp, token: VPP, label: Vpp, aliases: [peak_to_peak]}
+                      - {value: vrms, token: VRMS, label: Vrms, aliases: [rms]}
+                      - {value: dbm, token: DBM, label: dBm, aliases: []}
+        set_voltage_limits_state:
+            template: "SOUR{channel}:VOLTage:LIMit:STATe {state}"
+            defaults: { channel: 1, state: ON }
+        set_voltage_limit_high:
+            template: "SOUR{channel}:VOLTage:LIMit:HIGH {voltage}"
+            defaults: { channel: 1, voltage: 1.0 }
+        set_voltage_limit_low:
+            template: "SOUR{channel}:VOLTage:LIMit:LOW {voltage}"
+            defaults: { channel: 1, voltage: 0.0 }
+        set_voltage_autorange_state:
+            template: "SOUR{channel}:VOLTage:RANGe:AUTO {state}"
+            defaults: { channel: 1, state: ON }
+        set_sync_output_state:
+            template: "OUTPut:SYNC:STATe {state}"
+            defaults: { state: ON }
+        set_sync_output_mode:
+            template: "OUTPut{channel}:SYNC:MODE {mode}"
+            defaults: { channel: 1, mode: NORM }
+            parameters:
+                mode:
+                    kind: enum
+                    choices:
+                      - {value: normal, token: NORMal, label: Normal, aliases: [norm]}
+                      - {value: carrier, token: CARRier, label: Carrier, aliases: [carr]}
+                      - {value: marker, token: MARKer, label: Marker, aliases: [mark]}
+        set_sync_output_polarity:
+            template: "OUTPut{channel}:SYNC:POLarity {polarity}"
+            defaults: { channel: 1, polarity: NORM }
+            parameters:
+                polarity:
+                    kind: enum
+                    choices:
+                      - {value: normal, token: NORMal, label: Normal, aliases: [norm]}
+                      - {value: inverted, token: INVerted, label: Inverted, aliases: [inv]}
+        set_sync_output_source:
+            template: "OUTPut:SYNC:SOURce CH{channel}"
+            defaults: { channel: 1 }
+        select_arbitrary_waveform:
+            template: "SOUR{channel}:FUNC:ARBitrary {arb_name}"
+            defaults: { channel: 1, arb_name: TEST }
+        set_arbitrary_waveform_sample_rate:
+            template: "SOUR{channel}:FUNC:ARB:SRATe {sample_rate}"
+            defaults: { channel: 1, sample_rate: 1000 }
+        clear_volatile_arbitrary_waveforms:
+            template: "SOUR{channel}:DATA:VOLatile:CLEar"
+            defaults: { channel: 1 }
+        enable_modulation:
+            template: "SOUR{channel}:{mod_type}:STATe {state}"
+            defaults: { channel: 1, mod_type: AM, state: ON }
+        set_am_depth:
+            template: "SOUR{channel}:AM:DEPTh {depth}"
+            defaults: { channel: 1, depth: 50 }
+        set_am_source:
+            template: "SOUR{channel}:AM:SOURce {source}"
+            defaults: { channel: 1, source: INT }
+        set_fm_deviation:
+            template: "SOUR{channel}:FM:DEViation {deviation}"
+            defaults: { channel: 1, deviation: 1000 }
+        enable_sweep:
+            template: "SOUR{channel}:SWEep:STATe {state}"
+            defaults: { channel: 1, state: ON }
+        set_sweep_time:
+            template: "SOUR{channel}:SWEep:TIME {time}"
+            defaults: { channel: 1, time: 1.0 }
+        set_sweep_start_frequency:
+            template: "SOUR{channel}:FREQuency:STARt {frequency}"
+            defaults: { channel: 1, frequency: 1000 }
+        set_sweep_stop_frequency:
+            template: "SOUR{channel}:FREQuency:STOP {frequency}"
+            defaults: { channel: 1, frequency: 2000 }
+        set_sweep_spacing:
+            template: "SOUR{channel}:SWEep:SPACing {spacing}"
+            defaults: { channel: 1, spacing: LIN }
+            parameters:
+                spacing:
+                    kind: enum
+                    choices:
+                      - {value: linear, token: LINear, label: Linear, aliases: [lin]}
+                      - {value: logarithmic, token: LOGarithmic, label: Logarithmic, aliases: [log]}
+        enable_burst:
+            template: "SOUR{channel}:BURSt:STATe {state}"
+            defaults: { channel: 1, state: ON }
+        set_burst_mode:
+            template: "SOUR{channel}:BURSt:MODE {mode}"
+            defaults: { channel: 1, mode: TRIG }
+            parameters:
+                mode:
+                    kind: enum
+                    choices:
+                      - {value: triggered, token: TRIGgered, label: Triggered, aliases: [trig]}
+                      - {value: gated, token: GATed, label: Gated, aliases: [gate]}
+        set_burst_cycles:
+            template: "SOUR{channel}:BURSt:NCYCles {cycles}"
+            defaults: { channel: 1, cycles: 1 }
+        set_burst_period:
+            template: "SOUR{channel}:BURSt:INTernal:PERiod {period}"
+            defaults: { channel: 1, period: 1.0 }
+        set_trigger_source:
+            template: "TRIGger{channel}:SOURce {source}"
+            defaults: { channel: 1 }
+            parameters:
+                source:
+                    kind: enum
+                    choices:
+                      - {value: immediate, token: IMMediate, label: Immediate, aliases: [imm]}
+                      - {value: external, token: EXTernal, label: External, aliases: [ext]}
+                      - {value: timer, token: TIMer, label: Timer, aliases: [tim]}
+                      - {value: bus, token: BUS, label: Bus, aliases: []}
+        set_trigger_slope:
+            template: "TRIGger{channel}:SLOPe {slope}"
+            defaults: { channel: 1 }
+            parameters:
+                slope:
+                    kind: enum
+                    choices:
+                      - {value: positive, token: POSitive, label: Positive, aliases: [pos]}
+                      - {value: negative, token: NEGative, label: Negative, aliases: [neg]}
+                      - {value: either, token: EITHer, label: Either, aliases: [eith]}
+                      - {value: alternating, token: ALTernating, label: Alternating, aliases: [alt]}
+        trigger_now:
+            template: "TRIGger{channel}"
+            defaults: { channel: 1 }
+        trigger_now_global:
+            template: "*TRG"
+        set_angle_unit:
+            template: "UNIT:ANGLe {unit}"
+            defaults: { unit: DEGREE }
+        set_dual_arbitrary_format:
+            template: "SOUR{channel}:DATA:{node}:FORMat {format}"
+            defaults: { channel: 1, node: ARBitrary2, format: AABB }
+        binary_arbitrary_prefix:
+            template: "SOUR{channel}:DATA:{node}{suffix} {arb_name},"
+            defaults: { channel: 1, node: ARBitrary, suffix: ":DAC", arb_name: TEST }
+        download_arbitrary_waveform_data_csv:
+            template: "SOUR{channel}:DATA:ARBitrary{data_type} {arb_name},{formatted_data}"
+            defaults: { channel: 1 }
+            validators:
+                channel: { min: 1, max: 2 }
+            parameters:
+                data_type:
+                    kind: enum
+                    strict: true
+                    choices:
+                      - { value: dac, token: ":DAC", label: DAC, aliases: [DAC] }
+                      - { value: norm, token: "", label: Normalized, aliases: [NORM, normalized] }
+                arb_name:
+                    kind: raw
+                    allow_raw: true
+                    examples: [ARB1]
+                formatted_data:
+                    kind: raw
+                    allow_raw: true
+                    examples: ["0,0"]
+        list_directory:
+            template: "MMEMory:CATalog:ALL?{path}"
+            defaults: { path: "INT:" }
+        delete_file_or_folder:
+            template: "MMEMory:DELete {path}"
+            defaults: { path: "INT:/TEST" }
 
     queries:
+        opc_query:
+            template: "*OPC?"
+        esr_query:
+            template: "*ESR?"
+        get_error:
+            template: "SYSTem:ERRor?"
+        self_test:
+            template: "*TST?"
+            response:
+                type: int
+        get_angle_unit:
+            template: "UNIT:ANGLe?"
+            response:
+                type: str
+        get_function:
+            template: "SOUR{channel}:FUNC?"
+            defaults: { channel: 1 }
+            validators:
+                channel: { min: 1, max: 2 }
+            response:
+                type: str
+
         get_frequency:
             template: "SOUR{channel}:FREQ?"
             defaults: { channel: 1 }
@@ -126,37 +492,169 @@ scpi:
                 channel: { min: 1, max: 2 }
             response:
                 type: str
+        get_output_load_impedance:
+            template: "OUTPut{channel}:LOAD?"
+            defaults: { channel: 1 }
+            validators:
+                channel: { min: 1, max: 2 }
+            response:
+                type: str
+
+        get_phase:
+            template: "SOUR{channel}:PHASe?"
+            defaults: { channel: 1 }
+        get_phase_unlock_error_state:
+            template: "SOUR{channel}:PHASe:UNLock:ERRor:STATe?"
+            defaults: { channel: 1 }
+        get_output_polarity:
+            template: "OUTPut{channel}:POLarity?"
+            defaults: { channel: 1 }
+        get_voltage_unit:
+            template: "SOUR{channel}:VOLTage:UNIT?"
+            defaults: { channel: 1 }
+        get_voltage_limits_state:
+            template: "SOUR{channel}:VOLTage:LIMit:STATe?"
+            defaults: { channel: 1 }
+        get_voltage_limit_high:
+            template: "SOUR{channel}:VOLTage:LIMit:HIGH?"
+            defaults: { channel: 1 }
+        get_voltage_limit_low:
+            template: "SOUR{channel}:VOLTage:LIMit:LOW?"
+            defaults: { channel: 1 }
+        get_voltage_autorange_state:
+            template: "SOUR{channel}:VOLTage:RANGe:AUTO?"
+            defaults: { channel: 1 }
+        get_sync_output_state:
+            template: "OUTPut:SYNC:STATe?"
+        get_sync_output_mode:
+            template: "OUTPut{channel}:SYNC:MODE?"
+            defaults: { channel: 1 }
+        get_sync_output_polarity:
+            template: "OUTPut{channel}:SYNC:POLarity?"
+            defaults: { channel: 1 }
+        get_sync_output_source:
+            template: "OUTPut:SYNC:SOURce?"
+        get_selected_arbitrary_waveform_name:
+            template: "SOUR{channel}:FUNC:ARBitrary?"
+            defaults: { channel: 1 }
+        get_arbitrary_waveform_points:
+            template: "SOUR{channel}:FUNC:ARB:POINts?"
+            defaults: { channel: 1 }
+            validators:
+                channel: { min: 1, max: 2 }
+            response:
+                type: int
+        get_arbitrary_waveform_sample_rate:
+            template: "SOUR{channel}:FUNC:ARB:SRATe?"
+            defaults: { channel: 1 }
+        get_free_volatile_arbitrary_memory:
+            template: "SOUR{channel}:DATA:VOLatile:FREE?"
+            defaults: { channel: 1 }
+        get_channel_configuration_summary:
+            template: "SOUR{channel}:APPLy?"
+            defaults: { channel: 1 }
+            validators:
+                channel: { min: 1, max: 2 }
+            response:
+                type: str
+        get_pulse_duty_cycle:
+            template: "SOUR{channel}:FUNC:PULS:DCYCle?"
+            defaults: { channel: 1 }
+        get_pulse_period:
+            template: "SOUR{channel}:FUNC:PULS:PERiod?"
+            defaults: { channel: 1 }
+        get_pulse_width:
+            template: "SOUR{channel}:FUNC:PULS:WIDTh?"
+            defaults: { channel: 1 }
+        get_pulse_transition_leading:
+            template: "SOUR{channel}:FUNC:PULS:TRANsition:LEADing?"
+            defaults: { channel: 1 }
+        get_pulse_transition_trailing:
+            template: "SOUR{channel}:FUNC:PULS:TRANsition:TRAiling?"
+            defaults: { channel: 1 }
+        get_pulse_hold_mode:
+            template: "SOUR{channel}:FUNC:PULS:HOLD?"
+            defaults: { channel: 1 }
+        get_square_duty_cycle:
+            template: "SOUR{channel}:FUNC:SQUare:DCYCle?"
+            defaults: { channel: 1 }
+        get_square_period:
+            template: "SOUR{channel}:FUNC:SQUare:PERiod?"
+            defaults: { channel: 1 }
+        get_ramp_symmetry:
+            template: "SOUR{channel}:FUNC:RAMP:SYMMetry?"
+            defaults: { channel: 1 }
 
 simulation:
+    initial_state:
+        function_ch1: SIN
+        function_ch2: SIN
+        frequency_ch1: 1000.0
+        frequency_ch2: 1000.0
+        amplitude_ch1: 1.0
+        amplitude_ch2: 1.0
+        offset_ch1: 0.0
+        offset_ch2: 0.0
+        load_ch1: 50
+        load_ch2: 50
+        voltage_limits_state_ch1: OFF
+        voltage_limits_state_ch2: OFF
+        voltage_limit_high_ch1: 10.0
+        voltage_limit_high_ch2: 10.0
+        voltage_limit_low_ch1: -10.0
+        voltage_limit_low_ch2: -10.0
+        output_ch1: OFF
+        output_ch2: OFF
+        polarity_ch1: NORM
+        polarity_ch2: NORM
+        sample_rate_ch1: 1000.0
+        sample_rate_ch2: 1000.0
+        waveform_ch1: { name: "", format: DAC, values: [], points: 0, csv: "" }
+        waveform_ch2: { name: "", format: DAC, values: [], points: 0, csv: "" }
     scpi:
         "*IDN?": "Simulated,PyTestLab,EDU33212A-SIM,1.0"
-        ":SYSTem:ERRor?": '+0,"No error"'
-        "SYST:ERR?": '+0,"No error"'
-        "*RST": ""
+        "*RST":
+            set: { "": "" }
         "*CLS": ""
         "*OPC?": "1"
         "SOUR1:FUNC *":
             set:
-                function: "$1"
+                function_ch1: "$1"
         "SOUR2:FUNC *":
             set:
-                function: "$1"
+                function_ch2: "$1"
+        "SOUR1:FUNC?":
+            get: function_ch1
+        "SOUR2:FUNC?":
+            get: function_ch2
         "SOUR1:FREQ *":
             set:
                 frequency_ch1: "$1"
         "SOUR2:FREQ *":
             set:
                 frequency_ch2: "$1"
-        "SOUR1:FREQ?": "1000.0"
-        "SOUR2:FREQ?": "1000.0"
+        "SOUR1:FREQ?":
+            get: frequency_ch1
+        "SOUR2:FREQ?":
+            get: frequency_ch2
+        'SOUR1:FREQ\? MINimum': "1.0e-6"
+        'SOUR1:FREQ\? MAXimum': "2.0e7"
+        'SOUR2:FREQ\? MINimum': "1.0e-6"
+        'SOUR2:FREQ\? MAXimum': "2.0e7"
         "SOUR1:VOLTage *":
             set:
                 amplitude_ch1: "$1"
         "SOUR2:VOLTage *":
             set:
                 amplitude_ch2: "$1"
-        "SOUR1:VOLTage?": "1.0"
-        "SOUR2:VOLTage?": "1.0"
+        "SOUR1:VOLTage?":
+            get: amplitude_ch1
+        "SOUR2:VOLTage?":
+            get: amplitude_ch2
+        'SOUR1:VOLTage\? MINimum': "-65.879"
+        'SOUR1:VOLTage\? MAXimum': "26.99"
+        'SOUR2:VOLTage\? MINimum': "-65.879"
+        'SOUR2:VOLTage\? MAXimum': "26.99"
         "SOUR1:VOLTage:UNIT?": "VPP"
         "SOUR2:VOLTage:UNIT?": "VPP"
         "SOUR1:VOLTage:UNIT *":
@@ -165,22 +663,70 @@ simulation:
         "SOUR2:VOLTage:UNIT *":
             set:
                 unit_ch2: "$1"
+        "SOUR1:VOLTage:LIMit:STATe *":
+            set:
+                voltage_limits_state_ch1: "$1"
+        "SOUR2:VOLTage:LIMit:STATe *":
+            set:
+                voltage_limits_state_ch2: "$1"
+        "SOUR1:VOLTage:LIMit:STATe?":
+            get: voltage_limits_state_ch1
+        "SOUR2:VOLTage:LIMit:STATe?":
+            get: voltage_limits_state_ch2
+        "SOUR1:VOLTage:LIMit:HIGH *":
+            set:
+                voltage_limit_high_ch1: "$1"
+        "SOUR2:VOLTage:LIMit:HIGH *":
+            set:
+                voltage_limit_high_ch2: "$1"
+        "SOUR1:VOLTage:LIMit:HIGH?":
+            get: voltage_limit_high_ch1
+        "SOUR2:VOLTage:LIMit:HIGH?":
+            get: voltage_limit_high_ch2
+        "SOUR1:VOLTage:LIMit:LOW *":
+            set:
+                voltage_limit_low_ch1: "$1"
+        "SOUR2:VOLTage:LIMit:LOW *":
+            set:
+                voltage_limit_low_ch2: "$1"
+        "SOUR1:VOLTage:LIMit:LOW?":
+            get: voltage_limit_low_ch1
+        "SOUR2:VOLTage:LIMit:LOW?":
+            get: voltage_limit_low_ch2
         "SOUR1:VOLTage:OFFSet *":
             set:
                 offset_ch1: "$1"
         "SOUR2:VOLTage:OFFSet *":
             set:
                 offset_ch2: "$1"
-        "SOUR1:VOLTage:OFFSet?": "0.0"
-        "SOUR2:VOLTage:OFFSet?": "0.0"
+        "SOUR1:VOLTage:OFFSet?":
+            get: offset_ch1
+        "SOUR2:VOLTage:OFFSet?":
+            get: offset_ch2
+        'SOUR1:VOLTage:OFFSet\? MINimum': "-10"
+        'SOUR1:VOLTage:OFFSet\? MAXimum': "10"
+        'SOUR2:VOLTage:OFFSet\? MINimum': "-10"
+        'SOUR2:VOLTage:OFFSet\? MAXimum': "10"
+        "OUTPut1:LOAD *":
+            set:
+                load_ch1: "$1"
+        "OUTPut2:LOAD *":
+            set:
+                load_ch2: "$1"
+        "OUTPut1:LOAD?":
+            get: load_ch1
+        "OUTPut2:LOAD?":
+            get: load_ch2
         "OUTPut1:STATe *":
             set:
                 output_ch1: "$1"
         "OUTPut2:STATe *":
             set:
                 output_ch2: "$1"
-        "OUTPut1:STATe?": "OFF"
-        "OUTPut2:STATe?": "OFF"
+        "OUTPut1:STATe?":
+            get: output_ch1
+        "OUTPut2:STATe?":
+            get: output_ch2
         "SOUR1:PHASe *":
             set:
                 phase_ch1: "$1"
@@ -195,3 +741,1731 @@ simulation:
         "SOUR2:FUNCtion:SQUare:DCYCle *":
             set:
                 duty_ch2: "$1"
+        ':?SOUR(?:CE)?([12]):DATA:ARB(?:ITRARY)?:DAC\s+([^,]+),(.*)':
+            store_waveform: { channel: "$1", name: "$2", format: DAC, data: "$3", max_points: 1000000 }
+        ':?SOUR(?:CE)?([12]):DATA:ARB(?:ITRARY)?\s+([^,]+),(.*)':
+            store_waveform: { channel: "$1", name: "$2", format: NORM, data: "$3", max_points: 1000000 }
+        ':?OUTP(?:UT)?([12]):POL(?:ARITY)?\s+(NORM(?:AL)?|INV(?:ERTED)?)$':
+            set:
+                polarity_ch$1: 'py: g2[:4].upper() if g2.upper().startswith("NORM") else "INV"'
+        ':?OUTP(?:UT)?([12]):POL(?:ARITY)?\?$':
+            get: polarity_ch$1
+        ':?SOUR(?:CE)?([12]):FUNC(?:TION)?:ARB(?:ITRARY)?\s+"([A-Za-z0-9_]{1,12})"$':
+            select_waveform: { channel: "$1", name: "$2" }
+        ':?SOUR(?:CE)?([12]):FUNC(?:TION)?:ARB(?:ITRARY)?:SRAT(?:E)?\s+([0-9.eE+\-]+)$':
+            set:
+                sample_rate_ch$1: "$2"
+        ':?SOUR(?:CE)?([12]):FUNC(?:TION)?:ARB(?:ITRARY)?:SRAT(?:E)?\?$':
+            get: sample_rate_ch$1
+        ':?SOUR(?:CE)?([12]):FUNC(?:TION)?:ARB(?:ITRARY)?\?$':
+            get: waveform_ch$1.name
+        ':?SOUR(?:CE)?([12]):FUNC(?:TION)?:ARB(?:ITRARY)?:POIN(?:TS)?\?$':
+            get: waveform_ch$1.points
+
+operation_options:
+  special_values:
+    value:
+      kind: enum
+      options: &id001
+      - value: minimum
+        aliases:
+        - min
+        transport:
+          value: MINimum
+      - value: maximum
+        aliases:
+        - max
+        transport:
+          value: MAXimum
+      - value: default
+        aliases:
+        - def
+        transport:
+          value: DEFault
+      - value: infinity
+        aliases:
+        - inf
+        transport:
+          value: INFinity
+  load_sentinel:
+    value:
+      kind: range
+      default: 9.9e37
+  set_function:
+    transport:
+      set_function: set_function
+      set_frequency: set_frequency
+      set_amplitude: set_amplitude
+      set_offset: set_offset
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_function
+          parameter: channel
+        min: 1
+        max: 2
+      function_type:
+        kind: enum
+        constraints: &awg_native_limits
+          source: "Physical EDU33212A native MIN/MAX queries, firmware K-01.03.04-01.00-01.04-01.00-01.00; outputs OFF; tim/artifacts/experiments/pytestlab-native-limits-20261030/sources-observations.json"
+          frequency_min: 1.0e-6
+          source_impedance_ohm: 50.0
+          max_output_vpp_infinity: 20.0
+          defaults:
+            frequency_hz: 1000.0
+            amplitude_vpp_at_50_ohm: 0.1
+            offset_v: 0.0
+            voltage_limit_high_v: 5.0
+            voltage_limit_low_v: -5.0
+          load_contexts:
+            "50": {output_peak_v: 5.0}
+            infinity: {output_peak_v: 10.0}
+          functions:
+            sine:
+              frequency_max: 20000000
+              rms_peak_factor: 1.4142135623730951
+              units:
+                VPP: {min_50: 0.001, min_infinity: 0.002, max_50: 10.0, max_infinity: 20.0, peak_factor: 0.5}
+                VRMS: {min_50: 0.000354, max_50: 3.5355, min_infinity: 0.000707, max_infinity: 7.0711}
+                DBM: {min: -56.021, max: 23.979, requires_finite_load: true}
+            square:
+              frequency_max: 10000000
+              rms_peak_factor: 1.0
+              units:
+                VPP: {min_50: 0.001, min_infinity: 0.002, max_50: 10.0, max_infinity: 20.0, peak_factor: 0.5}
+                VRMS: {min_50: 0.0005, max_50: 5.0, min_infinity: 0.001, max_infinity: 10.0}
+                DBM: {min: -53.01, max: 26.99, requires_finite_load: true}
+            ramp:
+              frequency_max: 200000
+              rms_peak_factor: 1.7320508075688772
+              units:
+                VPP: {min_50: 0.001, min_infinity: 0.002, max_50: 10.0, max_infinity: 20.0, peak_factor: 0.5}
+                VRMS: {min_50: 0.000289, max_50: 2.8868, min_infinity: 0.000577, max_infinity: 5.7735}
+                DBM: {min: -57.782, max: 22.218, requires_finite_load: true}
+            pulse:
+              frequency_max: 10000000
+              rms_peak_factor: 1.0
+              units:
+                VPP: {min_50: 0.001, min_infinity: 0.002, max_50: 10.0, max_infinity: 20.0, peak_factor: 0.5}
+                VRMS: {min_50: 0.0005, max_50: 5.0, min_infinity: 0.001, max_infinity: 10.0}
+                DBM: {min: -53.01, max: 26.99, requires_finite_load: true}
+            noise:
+              frequency_max: 20000000
+              rms_peak_factor: 4.4
+              rms_peak_factor_50: 4.4
+              rms_peak_factor_infinity: 4.4
+              units:
+                VPP: {min_50: 0.001, min_infinity: 0.002, max_50: 10.0, max_infinity: 20.0, peak_factor: 0.5}
+                VRMS: {min_50: 0.000114, max_50: 1.1364, min_infinity: 0.000227, max_infinity: 2.2727}
+                DBM: {min: -65.879, max: 14.121, requires_finite_load: true}
+            dc:
+              frequency_max: 20000000
+              rms_peak_factor: 1.0
+              units:
+                VPP: {min_50: 0.001, min_infinity: 0.002, max_50: 10.0, max_infinity: 20.0, peak_factor: 0.5}
+                VRMS: {min_50: 0.0005, max_50: 5.0, min_infinity: 0.001, max_infinity: 10.0}
+                DBM: {min: -53.01, max: 26.99, requires_finite_load: true}
+        options:
+        - value: sine
+          aliases:
+          - sin
+          - sinusoid
+          transport:
+            value: SIN
+        - value: square
+          aliases:
+          - squ
+          transport:
+            value: SQU
+        - value: ramp
+          transport:
+            value: RAMP
+        - value: pulse
+          aliases:
+          - puls
+          transport:
+            value: PULS
+        - value: noise
+          aliases:
+          - nois
+          transport:
+            value: NOIS
+        - value: arbitrary
+          aliases:
+          - arb
+          transport:
+            value: ARB
+        - value: dc
+          transport:
+            value: DC
+        bindings:
+        - alias: set_function
+          parameter: function
+      frequency:
+        kind: range
+        required: false
+        positive: true
+        options: &awg_min_max_def
+        - value: minimum
+          aliases: [min]
+          transport: {value: MINimum}
+        - value: maximum
+          aliases: [max]
+          transport: {value: MAXimum}
+        - value: default
+          aliases: [def]
+          transport: {value: DEFault}
+        bindings:
+        - alias: set_frequency
+          parameter: frequency
+      amplitude:
+        kind: range
+        required: false
+        options: *awg_min_max_def
+        bindings:
+        - alias: set_amplitude
+          parameter: amplitude
+      offset:
+        kind: range
+        required: false
+        options: *awg_min_max_def
+        bindings:
+        - alias: set_offset
+          parameter: offset
+  apply_waveform_settings:
+    transport:
+      apply_waveform_settings: apply_waveform_settings
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: apply_waveform_settings
+          parameter: channel
+        min: 1
+        max: 2
+      function_type:
+        kind: enum
+        required: true
+        constraints: *awg_native_limits
+        options:
+        - value: sine
+          aliases: [sin, sinusoid]
+          transport: {value: SIN}
+        - value: square
+          aliases: [squ]
+          transport: {value: SQU}
+        - value: ramp
+          transport: {value: RAMP}
+        - value: pulse
+          aliases: [puls]
+          transport: {value: PULS}
+        - value: noise
+          aliases: [nois]
+          transport: {value: NOIS}
+        - value: arbitrary
+          aliases: [arb]
+          transport: {value: ARB}
+        - value: dc
+          transport: {value: DC}
+        bindings:
+        - alias: apply_waveform_settings
+          parameter: function
+      frequency:
+        kind: range
+        required: false
+        positive: true
+        options: *awg_min_max_def
+        bindings:
+        - alias: apply_waveform_settings
+          parameter: frequency
+      amplitude:
+        kind: range
+        required: false
+        options: *awg_min_max_def
+        bindings:
+        - alias: apply_waveform_settings
+          parameter: amplitude
+      offset:
+        kind: range
+        required: false
+        options: *awg_min_max_def
+        bindings:
+        - alias: apply_waveform_settings
+          parameter: offset
+  get_function:
+    transport:
+      get_function: get_function
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: get_function
+          parameter: channel
+        min: 1
+        max: 2
+  set_frequency:
+    context_queries:
+      native_minimum: get_frequency
+      native_maximum: get_frequency
+    transport:
+      set_frequency: set_frequency
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_frequency
+          parameter: channel
+        min: 1
+        max: 2
+      frequency:
+        kind: range
+        required: true
+        positive: true
+        options: *awg_min_max_def
+        bindings:
+        - alias: set_frequency
+          parameter: frequency
+  get_frequency:
+    transport:
+      get_frequency: get_frequency
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: get_frequency
+          parameter: channel
+        min: 1
+        max: 2
+      query_type:
+        kind: enum
+        required: false
+        transport_parameter: false
+        options: &awg_native_bounds
+        - value: minimum
+          aliases: [min]
+          transport: {value: MINimum}
+        - value: maximum
+          aliases: [max]
+          transport: {value: MAXimum}
+  set_amplitude:
+    context_queries:
+      native_minimum: get_amplitude
+      native_maximum: get_amplitude
+    transport:
+      set_amplitude: set_amplitude
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_amplitude
+          parameter: channel
+        min: 1
+        max: 2
+      amplitude:
+        kind: range
+        required: true
+        options: *awg_min_max_def
+        bindings:
+        - alias: set_amplitude
+          parameter: amplitude
+  get_amplitude:
+    transport:
+      get_amplitude: get_amplitude
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: get_amplitude
+          parameter: channel
+        min: 1
+        max: 2
+      query_type:
+        kind: enum
+        required: false
+        transport_parameter: false
+        options: *awg_native_bounds
+  set_offset:
+    context_queries:
+      native_minimum: get_offset
+      native_maximum: get_offset
+    transport:
+      set_offset: set_offset
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_offset
+          parameter: channel
+        min: 1
+        max: 2
+      offset:
+        kind: range
+        required: true
+        options: *awg_min_max_def
+        bindings:
+        - alias: set_offset
+          parameter: offset
+  get_offset:
+    transport:
+      get_offset: get_offset
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: get_offset
+          parameter: channel
+        min: 1
+        max: 2
+      query_type:
+        kind: enum
+        required: false
+        transport_parameter: false
+        options: *awg_native_bounds
+  set_output_state:
+    transport:
+      set_output_state: set_output_state
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_output_state
+          parameter: channel
+        min: 1
+        max: 2
+      state:
+        kind: open_string
+        required: true
+        bindings:
+        - alias: set_output_state
+          parameter: state
+  get_output_state:
+    transport:
+      get_output_state: get_output_state
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: get_output_state
+          parameter: channel
+        min: 1
+        max: 2
+  reset:
+    transport:
+      reset: reset
+    parameters: {}
+  get_angle_unit:
+    transport:
+      get_angle_unit: get_angle_unit
+    parameters: {}
+  set_phase:
+    transport:
+      set_phase: set_phase
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_phase
+          parameter: channel
+        min: 1
+        max: 2
+      phase:
+        kind: open_string
+        required: true
+        bindings:
+        - alias: set_phase
+          parameter: phase
+  set_square_duty_cycle:
+    transport:
+      set_square_duty_cycle: set_square_duty_cycle
+    parameters: {}
+  set_ramp_symmetry:
+    transport:
+      set_ramp_symmetry: set_ramp_symmetry
+    parameters: {}
+  set_pulse_period:
+    transport:
+      set_pulse_period: set_pulse_period
+    parameters: {}
+  set_pulse_width:
+    transport:
+      set_pulse_width: set_pulse_width
+    parameters: {}
+  set_pulse_duty_cycle:
+    transport:
+      set_pulse_duty_cycle: set_pulse_duty_cycle
+    parameters: {}
+  set_pulse_transition_both:
+    transport:
+      set_pulse_transition_both: set_pulse_transition_both
+    parameters: {}
+  set_phase_reference:
+    transport:
+      set_phase_reference: set_phase_reference
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_phase_reference
+          parameter: channel
+        min: 1
+        max: 2
+  synchronize_phase_all_channels:
+    transport:
+      synchronize_phase_all_channels: synchronize_phase_all_channels
+    parameters: {}
+  set_phase_unlock_error_state:
+    transport:
+      set_phase_unlock_error_state: set_phase_unlock_error_state
+    parameters:
+      state:
+        kind: open_string
+        required: true
+        bindings:
+        - alias: set_phase_unlock_error_state
+          parameter: state
+  set_output_load_impedance:
+    transport:
+      set_output_load_impedance: set_output_load_impedance
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_output_load_impedance
+          parameter: channel
+        min: 1
+        max: 2
+      impedance:
+        kind: range
+        required: true
+        min: 1
+        max: 10000
+        unit: ohm
+        options: *id001
+        bindings:
+        - alias: set_output_load_impedance
+          parameter: impedance
+  set_output_polarity:
+    transport:
+      set_output_polarity: set_output_polarity
+    parameters:
+      polarity:
+        kind: open_string
+        required: true
+        bindings:
+        - alias: set_output_polarity
+          parameter: polarity
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_output_polarity
+          parameter: channel
+        min: 1
+        max: 2
+  set_voltage_unit:
+    transport:
+      set_voltage_unit: set_voltage_unit
+    parameters:
+      unit:
+        kind: enum
+        required: true
+        options:
+        - value: VPP
+          aliases: [VPP, Vpp, peak-to-peak]
+          transport: {value: VPP}
+        - value: VRMS
+          aliases: [VRMS, Vrms, RMS]
+          transport: {value: VRMS}
+        - value: DBM
+          aliases: [DBM, dBm]
+          transport: {value: DBM}
+          constraints: {requires_finite_load: true}
+        bindings:
+        - alias: set_voltage_unit
+          parameter: unit
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_voltage_unit
+          parameter: channel
+        min: 1
+        max: 2
+  set_voltage_limits_state:
+    transport:
+      set_voltage_limits_state: set_voltage_limits_state
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_voltage_limits_state
+          parameter: channel
+        min: 1
+        max: 2
+      state:
+        kind: open_string
+        required: true
+        bindings:
+        - alias: set_voltage_limits_state
+          parameter: state
+  set_voltage_limit_high:
+    context_queries:
+      native_minimum: get_voltage_limit_high
+      native_maximum: get_voltage_limit_high
+    transport:
+      set_voltage_limit_high: set_voltage_limit_high
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_voltage_limit_high
+          parameter: channel
+        min: 1
+        max: 2
+      voltage:
+        kind: range
+        required: true
+        options: *id001
+        bindings:
+        - alias: set_voltage_limit_high
+          parameter: voltage
+  set_voltage_limit_low:
+    context_queries:
+      native_minimum: get_voltage_limit_low
+      native_maximum: get_voltage_limit_low
+    transport:
+      set_voltage_limit_low: set_voltage_limit_low
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_voltage_limit_low
+          parameter: channel
+        min: 1
+        max: 2
+      voltage:
+        kind: range
+        required: true
+        options: *id001
+        bindings:
+        - alias: set_voltage_limit_low
+          parameter: voltage
+  set_voltage_autorange_state:
+    transport:
+      set_voltage_autorange_state: set_voltage_autorange_state
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_voltage_autorange_state
+          parameter: channel
+        min: 1
+        max: 2
+      state:
+        kind: open_string
+        required: true
+        bindings:
+        - alias: set_voltage_autorange_state
+          parameter: state
+  set_sync_output_state:
+    transport:
+      set_sync_output_state: set_sync_output_state
+    parameters:
+      state:
+        kind: open_string
+        required: true
+        bindings:
+        - alias: set_sync_output_state
+          parameter: state
+  set_sync_output_mode:
+    transport:
+      set_sync_output_mode: set_sync_output_mode
+    parameters:
+      mode:
+        kind: open_string
+        required: true
+        bindings:
+        - alias: set_sync_output_mode
+          parameter: mode
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_sync_output_mode
+          parameter: channel
+        min: 1
+        max: 2
+  set_sync_output_polarity:
+    transport:
+      set_sync_output_polarity: set_sync_output_polarity
+    parameters:
+      polarity:
+        kind: open_string
+        required: true
+        bindings:
+        - alias: set_sync_output_polarity
+          parameter: polarity
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_sync_output_polarity
+          parameter: channel
+        min: 1
+        max: 2
+  set_sync_output_source:
+    transport:
+      set_sync_output_source: set_sync_output_source
+    parameters:
+      source_channel:
+        kind: enum
+        required: true
+        options:
+        - value: 1
+          label: Channel 1
+          constraints:
+            response_tokens:
+            - CH1
+            - CHANNEL1
+          transport:
+            value: 1
+        - value: 2
+          label: Channel 2
+          constraints:
+            response_tokens:
+            - CH2
+            - CHANNEL2
+          transport:
+            value: 2
+        bindings:
+        - alias: set_sync_output_source
+          parameter: channel
+  select_arbitrary_waveform:
+    transport:
+      select_arbitrary_waveform: select_arbitrary_waveform
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: select_arbitrary_waveform
+          parameter: channel
+        min: 1
+        max: 2
+      arb_name:
+        kind: open_string
+        required: true
+        bindings:
+        - alias: select_arbitrary_waveform
+          parameter: arb_name
+  set_arbitrary_waveform_sample_rate:
+    transport:
+      set_arbitrary_waveform_sample_rate: set_arbitrary_waveform_sample_rate
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_arbitrary_waveform_sample_rate
+          parameter: channel
+        min: 1
+        max: 2
+      sample_rate:
+        kind: open_string
+        required: true
+        bindings:
+        - alias: set_arbitrary_waveform_sample_rate
+          parameter: sample_rate
+  clear_volatile_arbitrary_waveforms:
+    transport:
+      clear_volatile_arbitrary_waveforms: clear_volatile_arbitrary_waveforms
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: clear_volatile_arbitrary_waveforms
+          parameter: channel
+        min: 1
+        max: 2
+  enable_modulation:
+    transport:
+      enable_modulation: enable_modulation
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: enable_modulation
+          parameter: channel
+        min: 1
+        max: 2
+      mod_type:
+        kind: enum
+        required: true
+        bindings:
+        - alias: enable_modulation
+          parameter: mod_type
+        options:
+        - value: am
+          transport:
+            value: AM
+        - value: fm
+          transport:
+            value: FM
+        - value: pm
+          transport:
+            value: PM
+        - value: pwm
+          transport:
+            value: PWM
+        - value: fsk
+          transport:
+            value: FSK
+        - value: bpsk
+          transport:
+            value: BPSK
+        - value: sum
+          transport:
+            value: SUM
+      state:
+        kind: bool
+        required: true
+        bindings:
+        - alias: enable_modulation
+          parameter: state
+        options:
+        - value: true
+          transport:
+            value: 'ON'
+        - value: false
+          transport:
+            value: 'OFF'
+  set_am_depth:
+    transport:
+      set_am_depth: set_am_depth
+    parameters:
+      depth_percent:
+        kind: open_string
+        required: true
+        bindings:
+        - alias: set_am_depth
+          parameter: depth
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_am_depth
+          parameter: channel
+        min: 1
+        max: 2
+  set_am_source:
+    transport:
+      set_am_source: set_am_source
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_am_source
+          parameter: channel
+        min: 1
+        max: 2
+      source:
+        kind: enum
+        required: true
+        options:
+        - value: internal
+          aliases:
+          - int
+          transport:
+            value: INTernal
+        - value: external
+          aliases:
+          - ext
+          transport:
+            value: EXTernal
+        - value: channel_1
+          aliases:
+          - ch1
+          transport:
+            value: CH1
+        - value: channel_2
+          aliases:
+          - ch2
+          transport:
+            value: CH2
+        bindings:
+        - alias: set_am_source
+          parameter: source
+  set_fm_deviation:
+    transport:
+      set_fm_deviation: set_fm_deviation
+    parameters:
+      deviation_hz:
+        kind: open_string
+        required: true
+        bindings:
+        - alias: set_fm_deviation
+          parameter: deviation
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_fm_deviation
+          parameter: channel
+        min: 1
+        max: 2
+  enable_sweep:
+    transport:
+      enable_sweep: enable_sweep
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: enable_sweep
+          parameter: channel
+        min: 1
+        max: 2
+      state:
+        kind: bool
+        required: true
+        bindings:
+        - alias: enable_sweep
+          parameter: state
+        options:
+        - value: true
+          transport:
+            value: 'ON'
+        - value: false
+          transport:
+            value: 'OFF'
+  set_sweep_time:
+    transport:
+      set_sweep_time: set_sweep_time
+    parameters:
+      sweep_time_sec:
+        kind: open_string
+        required: true
+        bindings:
+        - alias: set_sweep_time
+          parameter: time
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_sweep_time
+          parameter: channel
+        min: 1
+        max: 2
+  set_sweep_start_frequency:
+    transport:
+      set_sweep_start_frequency: set_sweep_start_frequency
+    parameters:
+      freq_hz:
+        kind: open_string
+        required: true
+        bindings:
+        - alias: set_sweep_start_frequency
+          parameter: frequency
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_sweep_start_frequency
+          parameter: channel
+        min: 1
+        max: 2
+  set_sweep_stop_frequency:
+    transport:
+      set_sweep_stop_frequency: set_sweep_stop_frequency
+    parameters:
+      freq_hz:
+        kind: open_string
+        required: true
+        bindings:
+        - alias: set_sweep_stop_frequency
+          parameter: frequency
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_sweep_stop_frequency
+          parameter: channel
+        min: 1
+        max: 2
+  set_sweep_spacing:
+    transport:
+      set_sweep_spacing: set_sweep_spacing
+    parameters:
+      spacing:
+        kind: enum
+        required: true
+        bindings:
+        - alias: set_sweep_spacing
+          parameter: spacing
+        options:
+        - value: linear
+          transport:
+            value: LINear
+        - value: logarithmic
+          transport:
+            value: LOGarithmic
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_sweep_spacing
+          parameter: channel
+        min: 1
+        max: 2
+  enable_burst:
+    transport:
+      enable_burst: enable_burst
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: enable_burst
+          parameter: channel
+        min: 1
+        max: 2
+      state:
+        kind: bool
+        required: true
+        bindings:
+        - alias: enable_burst
+          parameter: state
+        options:
+        - value: true
+          transport:
+            value: 'ON'
+        - value: false
+          transport:
+            value: 'OFF'
+  set_burst_mode:
+    transport:
+      set_burst_mode: set_burst_mode
+    parameters:
+      mode:
+        kind: enum
+        required: true
+        bindings:
+        - alias: set_burst_mode
+          parameter: mode
+        options:
+        - value: triggered
+          transport:
+            value: TRIGger
+        - value: gated
+          transport:
+            value: GATed
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_burst_mode
+          parameter: channel
+        min: 1
+        max: 2
+  set_burst_cycles:
+    transport:
+      set_burst_cycles: set_burst_cycles
+    parameters:
+      n_cycles:
+        kind: open_string
+        required: true
+        bindings:
+        - alias: set_burst_cycles
+          parameter: cycles
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_burst_cycles
+          parameter: channel
+        min: 1
+        max: 2
+  set_burst_period:
+    transport:
+      set_burst_period: set_burst_period
+    parameters:
+      period_sec:
+        kind: open_string
+        required: true
+        bindings:
+        - alias: set_burst_period
+          parameter: period
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_burst_period
+          parameter: channel
+        min: 1
+        max: 2
+  set_trigger_source:
+    transport:
+      set_trigger_source: set_trigger_source
+    parameters:
+      source:
+        kind: enum
+        required: true
+        bindings:
+        - alias: set_trigger_source
+          parameter: source
+        options:
+        - value: immediate
+          transport:
+            value: IMMediate
+        - value: external
+          transport:
+            value: EXTernal
+        - value: timer
+          transport:
+            value: TIMer
+        - value: bus
+          transport:
+            value: BUS
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_trigger_source
+          parameter: channel
+        min: 1
+        max: 2
+  set_trigger_slope:
+    transport:
+      set_trigger_slope: set_trigger_slope
+    parameters:
+      slope:
+        kind: enum
+        required: true
+        bindings:
+        - alias: set_trigger_slope
+          parameter: slope
+        options:
+        - value: positive
+          transport:
+            value: POSitive
+        - value: negative
+          transport:
+            value: NEGative
+        - value: either
+          transport:
+            value: EITHer
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: set_trigger_slope
+          parameter: channel
+        min: 1
+        max: 2
+  trigger_now:
+    transport:
+      trigger_now: trigger_now
+    parameters:
+      channel:
+        kind: range
+        required: false
+        min: 1
+        max: 2
+        transport_parameter: false
+  set_angle_unit:
+    transport:
+      set_angle_unit: set_angle_unit
+    parameters:
+      unit:
+        kind: enum
+        required: true
+        bindings:
+        - alias: set_angle_unit
+          parameter: unit
+        options:
+        - value: degrees
+          transport:
+            value: DEGREE
+          aliases:
+          - deg
+        - value: radians
+          transport:
+            value: RADIAN
+          aliases:
+          - rad
+        - value: seconds
+          transport:
+            value: SECOND
+          aliases:
+          - sec
+  set_dual_arbitrary_format:
+    transport:
+      set_dual_arbitrary_format: set_dual_arbitrary_format
+    parameters: {}
+  download_arbitrary_waveform_data_csv:
+    transport:
+      download_arbitrary_waveform_data_csv: download_arbitrary_waveform_data_csv
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: download_arbitrary_waveform_data_csv
+          parameter: channel
+        min: 1
+        max: 2
+      arb_name:
+        kind: open_string
+        required: true
+        bindings:
+        - alias: download_arbitrary_waveform_data_csv
+          parameter: arb_name
+      data_type:
+        kind: open_string
+        required: false
+        bindings:
+        - alias: download_arbitrary_waveform_data_csv
+          parameter: data_type
+      data_points:
+        kind: open_string
+        required: true
+        bindings:
+        - alias: download_arbitrary_waveform_data_csv
+          parameter: formatted_data
+  list_directory:
+    transport:
+      list_directory: list_directory
+    parameters:
+      path:
+        kind: open_string
+        required: false
+        default: INT:\
+        bindings:
+        - alias: list_directory
+          parameter: path
+  delete_file_or_folder:
+    transport:
+      delete_file_or_folder: delete_file_or_folder
+    parameters:
+      path:
+        kind: open_string
+        required: true
+        bindings:
+        - alias: delete_file_or_folder
+          parameter: path
+  get_phase:
+    transport:
+      get_phase: get_phase
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: get_phase
+          parameter: channel
+        min: 1
+        max: 2
+      query_type:
+        kind: enum
+        required: false
+        transport_parameter: false
+        options: *id001
+  get_phase_unlock_error_state:
+    transport:
+      get_phase_unlock_error_state: get_phase_unlock_error_state
+    parameters: {}
+  get_output_polarity:
+    transport:
+      get_output_polarity: get_output_polarity
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: get_output_polarity
+          parameter: channel
+        min: 1
+        max: 2
+  get_voltage_unit:
+    transport:
+      get_voltage_unit: get_voltage_unit
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: get_voltage_unit
+          parameter: channel
+        min: 1
+        max: 2
+  get_voltage_limits_state:
+    transport:
+      get_voltage_limits_state: get_voltage_limits_state
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: get_voltage_limits_state
+          parameter: channel
+        min: 1
+        max: 2
+  get_voltage_limit_high:
+    transport:
+      get_voltage_limit_high: get_voltage_limit_high
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: get_voltage_limit_high
+          parameter: channel
+        min: 1
+        max: 2
+      query_type:
+        kind: enum
+        required: false
+        transport_parameter: false
+        options: *awg_native_bounds
+  get_voltage_limit_low:
+    transport:
+      get_voltage_limit_low: get_voltage_limit_low
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: get_voltage_limit_low
+          parameter: channel
+        min: 1
+        max: 2
+      query_type:
+        kind: enum
+        required: false
+        transport_parameter: false
+        options: *awg_native_bounds
+  get_voltage_autorange_state:
+    transport:
+      get_voltage_autorange_state: get_voltage_autorange_state
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: get_voltage_autorange_state
+          parameter: channel
+        min: 1
+        max: 2
+  get_sync_output_state:
+    transport:
+      get_sync_output_state: get_sync_output_state
+    parameters: {}
+  get_sync_output_mode:
+    transport:
+      get_sync_output_mode: get_sync_output_mode
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: get_sync_output_mode
+          parameter: channel
+        min: 1
+        max: 2
+  get_sync_output_polarity:
+    transport:
+      get_sync_output_polarity: get_sync_output_polarity
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: get_sync_output_polarity
+          parameter: channel
+        min: 1
+        max: 2
+  get_sync_output_source:
+    transport:
+      get_sync_output_source: get_sync_output_source
+    parameters: {}
+  get_selected_arbitrary_waveform_name:
+    transport:
+      get_selected_arbitrary_waveform_name: get_selected_arbitrary_waveform_name
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: get_selected_arbitrary_waveform_name
+          parameter: channel
+        min: 1
+        max: 2
+  get_arbitrary_waveform_sample_rate:
+    transport:
+      get_arbitrary_waveform_sample_rate: get_arbitrary_waveform_sample_rate
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: get_arbitrary_waveform_sample_rate
+          parameter: channel
+        min: 1
+        max: 2
+      query_type:
+        kind: enum
+        required: false
+        transport_parameter: false
+        options: *id001
+  get_free_volatile_arbitrary_memory:
+    transport:
+      get_free_volatile_arbitrary_memory: get_free_volatile_arbitrary_memory
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: get_free_volatile_arbitrary_memory
+          parameter: channel
+        min: 1
+        max: 2
+  get_pulse_duty_cycle:
+    transport:
+      get_pulse_duty_cycle: get_pulse_duty_cycle
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: get_pulse_duty_cycle
+          parameter: channel
+        min: 1
+        max: 2
+  get_pulse_period:
+    transport:
+      get_pulse_period: get_pulse_period
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: get_pulse_period
+          parameter: channel
+        min: 1
+        max: 2
+  get_pulse_width:
+    transport:
+      get_pulse_width: get_pulse_width
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: get_pulse_width
+          parameter: channel
+        min: 1
+        max: 2
+  get_pulse_transition_leading:
+    transport:
+      get_pulse_transition_leading: get_pulse_transition_leading
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: get_pulse_transition_leading
+          parameter: channel
+        min: 1
+        max: 2
+  get_pulse_transition_trailing:
+    transport:
+      get_pulse_transition_trailing: get_pulse_transition_trailing
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: get_pulse_transition_trailing
+          parameter: channel
+        min: 1
+        max: 2
+  get_pulse_hold_mode:
+    transport:
+      get_pulse_hold_mode: get_pulse_hold_mode
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: get_pulse_hold_mode
+          parameter: channel
+        min: 1
+        max: 2
+  get_square_duty_cycle:
+    transport:
+      get_square_duty_cycle: get_square_duty_cycle
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: get_square_duty_cycle
+          parameter: channel
+        min: 1
+        max: 2
+  get_square_period:
+    transport:
+      get_square_period: get_square_period
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: get_square_period
+          parameter: channel
+        min: 1
+        max: 2
+  get_ramp_symmetry:
+    transport:
+      get_ramp_symmetry: get_ramp_symmetry
+    parameters:
+      channel:
+        kind: range
+        required: true
+        bindings:
+        - alias: get_ramp_symmetry
+          parameter: channel
+        min: 1
+        max: 2
+  identify:
+    transport:
+      identify: identify
+  clear:
+    transport:
+      clear: clear
+  opc:
+    transport:
+      opc: opc
+  panel_lock:
+    transport:
+      panel_lock: panel_lock
+  panel_local:
+    transport:
+      panel_local: panel_local
+  trigger_now_global:
+    transport:
+      trigger_now_global: trigger_now_global
+  binary_arbitrary_prefix:
+    transport:
+      binary_arbitrary_prefix: binary_arbitrary_prefix
+  opc_query:
+    transport:
+      opc_query: opc_query
+  esr_query:
+    transport:
+      esr_query: esr_query
+  get_error:
+    transport:
+      get_error: get_error
+  self_test:
+    transport:
+      self_test: self_test
+  get_output_load_impedance:
+    transport:
+      read: get_output_load_impedance
+    parameters:
+      channel:
+        kind: range
+        required: true
+        min: 1
+        max: 2
+        transport_parameter: true
+        bindings:
+        - alias: read
+          parameter: channel
+      query_type:
+        kind: open_string
+        required: false
+        transport_parameter: false
+  get_arbitrary_waveform_points:
+    transport:
+      read: get_arbitrary_waveform_points
+    parameters:
+      channel:
+        kind: range
+        required: true
+        min: 1
+        max: 2
+        transport_parameter: true
+        bindings:
+        - alias: read
+          parameter: channel
+  get_pulse_transition_both:
+    transport: {}
+    parameters:
+      channel:
+        kind: range
+        required: true
+        min: 1
+        max: 2
+        transport_parameter: false
+  get_channel_configuration_summary:
+    transport:
+      read: get_channel_configuration_summary
+    parameters:
+      channel:
+        kind: range
+        required: true
+        min: 1
+        max: 2
+        transport_parameter: true
+        bindings:
+        - alias: read
+          parameter: channel
+  get_complete_config:
+    transport: {}
+    parameters:
+      channel:
+        kind: range
+        required: true
+        min: 1
+        max: 2
+        transport_parameter: false
+  download_arbitrary_waveform_data:
+    transport: {}
+    parameters:
+      channel:
+        kind: range
+        required: true
+        min: 1
+        max: 2
+        transport_parameter: false
+      arb_name:
+        kind: open_string
+        required: true
+        transport_parameter: false
+        default: TEST
+      data_points:
+        kind: enum
+        transport_parameter: false
+        options:
+        - value:
+          - 0
+      data_type:
+        kind: enum
+        required: false
+        default: dac
+        transport_parameter: false
+        options:
+        - value: dac
+        - value: normalized
+          aliases:
+          - norm
+      is_dual_channel_data:
+        kind: bool
+        required: false
+        default: false
+        transport_parameter: false
+        options:
+        - value: true
+        - value: false
+      dual_data_format:
+        kind: open_string
+        required: false
+        transport_parameter: false
+      use_binary:
+        kind: bool
+        required: false
+        default: true
+        transport_parameter: false
+        options:
+        - value: true
+        - value: false
+  download_arbitrary_waveform_data_binary:
+    transport:
+      prefix: binary_arbitrary_prefix
+      dual_format: set_dual_arbitrary_format
+    parameters:
+      channel:
+        kind: range
+        min: 1
+        max: 2
+        bindings:
+        - alias: prefix
+          parameter: channel
+      arb_name:
+        kind: open_string
+        bindings:
+        - alias: prefix
+          parameter: arb_name
+      data_points:
+        kind: enum
+        transport_parameter: false
+        options:
+        - value:
+          - 0
+      data_type:
+        kind: enum
+        required: false
+        default: dac
+        options:
+        - value: dac
+          transport:
+            value: :DAC
+        - value: normalized
+          aliases:
+          - norm
+          transport:
+            value: ''
+        bindings:
+        - alias: prefix
+          parameter: suffix
+      is_dual_channel_data:
+        kind: bool
+        required: false
+        default: false
+        options:
+        - value: false
+          transport:
+            value: ARBitrary
+        - value: true
+          transport:
+            value: ARBitrary2
+        bindings:
+        - alias: prefix
+          parameter: node
+      dual_data_format:
+        kind: enum
+        required: false
+        options:
+        - value: aabb
+          transport:
+            value: AABB
+        - value: abab
+          transport:
+            value: ABAB
+        bindings:
+        - alias: dual_format
+          parameter: format

@@ -1,6 +1,7 @@
 manufacturer: rohdeschwarz
 model: NGE102B
 device_type: power_supply
+role: stimulus
 channels:
   - channel_id: 1
     description: Channel 1
@@ -10,6 +11,10 @@ channels:
     current_limit_range:
       min_val: 0
       max_val: 3
+    slew_rate_range:
+      min_val: 0.01
+      max_val: 10
+      units: s
   - channel_id: 2
     description: Channel 2
     voltage_range:
@@ -18,6 +23,10 @@ channels:
     current_limit_range:
       min_val: 0
       max_val: 3
+    slew_rate_range:
+      min_val: 0.01
+      max_val: 10
+      units: s
 total_power: 66
 scpi:
   commands:
@@ -46,7 +55,7 @@ scpi:
       defaults: { channel: 1 }
       enums:
         state:
-          { on: "ON", off: "OFF", true: "ON", false: "OFF", "1": "ON", "0": "OFF" }
+          { "on": "ON", "off": "OFF", "true": "ON", "false": "OFF", "1": "ON", "0": "OFF" }
       validators:
         channel: { min: 1, max: 2 }
 
@@ -77,8 +86,18 @@ scpi:
 
     reset:
       template: "*RST"
+    clear:
+      template: "*CLS"
+    opc:
+      template: "*OPC"
 
   queries:
+    opc_query:
+      template: "*OPC?"
+      response: {type: str}
+    esr_query:
+      template: "*ESR?"
+      response: {type: str}
     identify:
       template: "*IDN?"
       response:
@@ -114,7 +133,7 @@ scpi:
       response:
         type: str
 
-    system_error:
+    get_error:
       template: "SYST:ERR?"
       response:
         type: str
@@ -142,3 +161,136 @@ simulation:
     "VOLT:RAMP:STAT *":
       set:
         state: "$1"
+# Semantic operation metadata.  Transport aliases remain private profile data.
+operation_options:
+  operations:
+    identify:
+      transport: {main: identify}
+    reset:
+      transport: {main: reset}
+    set_voltage:
+      transport: {main: set_voltage}
+      parameters:
+        channel:
+          kind: enum
+          transport_identity: true
+          options:
+            - {value: 1, label: Channel 1}
+            - {value: 2, label: Channel 2}
+          bindings: [{alias: main, parameter: channel}]
+        voltage:
+          kind: range
+          min: 0
+          max: 32
+          unit: V
+          dependencies: [channel]
+          bindings: [{alias: main, parameter: voltage}]
+    set_current:
+      transport: {main: set_current}
+      parameters:
+        channel:
+          kind: enum
+          transport_identity: true
+          options:
+            - {value: 1, label: Channel 1}
+            - {value: 2, label: Channel 2}
+          bindings: [{alias: main, parameter: channel}]
+        current:
+          kind: range
+          min: 0
+          max: 3
+          unit: A
+          dependencies: [channel]
+          bindings: [{alias: main, parameter: current}]
+    set_slew_rate:
+      transport: {main: set_slew_rate}
+      parameters:
+        channel:
+          kind: enum
+          transport_identity: true
+          options:
+            - {value: 1, label: Channel 1}
+            - {value: 2, label: Channel 2}
+          bindings: [{alias: main, parameter: channel}]
+        duration_s:
+          kind: range
+          min: 0.01
+          max: 10
+          unit: s
+          dependencies: [channel]
+          bindings: [{alias: main, parameter: duration_ms}]
+    set_output:
+      transport: {main: set_output}
+      parameters:
+        channel:
+          kind: enum
+          transport_identity: true
+          options:
+            - {value: 1, label: Channel 1}
+            - {value: 2, label: Channel 2}
+          bindings: [{alias: main, parameter: channel}]
+        state:
+          kind: bool
+          options:
+            - {value: true, label: "On", aliases: ["on"] , transport: {value: ON}}
+            - {value: false, label: "Off", aliases: ["off"], transport: {value: OFF}}
+          bindings: [{alias: main, parameter: state}]
+    set_display:
+      transport: {main: set_display}
+      parameters:
+        state:
+          kind: bool
+          options:
+            - {value: true, label: "On", aliases: ["on"], transport: {value: ON}}
+            - {value: false, label: "Off", aliases: ["off"], transport: {value: OFF}}
+          bindings: [{alias: main, parameter: state}]
+    measure_voltage:
+      transport: {main: measure_voltage}
+      parameters:
+        channel:
+          kind: enum
+          transport_identity: true
+          options:
+            - {value: 1, label: Channel 1}
+            - {value: 2, label: Channel 2}
+          bindings: [{alias: main, parameter: channel}]
+    measure_current:
+      transport: {main: measure_current}
+      parameters:
+        channel:
+          kind: enum
+          transport_identity: true
+          options:
+            - {value: 1, label: Channel 1}
+            - {value: 2, label: Channel 2}
+          bindings: [{alias: main, parameter: channel}]
+    get_output_state:
+      transport: {main: get_output_state}
+      parameters:
+        channel:
+          kind: enum
+          transport_identity: true
+          options:
+            - {value: 1, label: Channel 1}
+            - {value: 2, label: Channel 2}
+          bindings: [{alias: main, parameter: channel}]
+    enable_slew_rate:
+      transport:
+        enable: enable_slew_rate
+        disable: disable_slew_rate
+      parameters:
+        channel:
+          kind: enum
+          transport_identity: true
+          options:
+            - {value: 1, label: Channel 1}
+            - {value: 2, label: Channel 2}
+          bindings: [{alias: enable, parameter: channel}]
+        state:
+          kind: bool
+          transport_parameter: false
+          options:
+            - {value: true, label: "Enabled", transport: {value: ON}}
+            - {value: false, label: "Disabled", transport: {value: OFF}}
+    get_configuration:
+      transport: {}

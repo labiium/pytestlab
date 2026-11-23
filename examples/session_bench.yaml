@@ -20,7 +20,7 @@ backend_defaults:
   type: "lamb"
   timeout_ms: 5000
 
-instruments:
+devices:
   # Power supply for transistor biasing
   psu:
     profile: "keysight/EDU36311A"

@@ -1,0 +1,937 @@
+# Programming reference: https://www.rohde-schwarz.com/in/manual/fsw/
+# Measurement specifications: https://www.rohde-schwarz.com/us/brochure-datasheet/fsw/
+# Standard Spectrum channel, normal spectrum display. Replay-tested only.
+manufacturer: Rohde & Schwarz
+model: FSW26
+device_type: spectrum_analyzer
+role: measurement
+trace_readback:
+  layout: split_xy
+  mode_values: [SAN, SANALYZER]
+  max_points: 32001
+
+single_sweep:
+  sweep_guard: sweep_count
+
+rf_input:
+  preamp_options: [B22, B24]
+  external_frontend_option: K553
+sweep_control: fsw
+trace_setup: true
+markers: fsw
+
+scpi:
+  commands:
+    reset:
+      template: "*RST"
+    clear:
+      template: "*CLS"
+    opc:
+      template: "*OPC"
+    set_center_frequency:
+      template: "FREQ:CENT {frequency}"
+      validators:
+        frequency: {min: 1000, max: 26.5e9}
+    set_span:
+      template: "FREQ:SPAN {span}"
+      validators:
+        span: {min: 0, max: 26.5e9}
+    set_rbw:
+      template: "BAND {bandwidth}"
+      validators:
+        bandwidth: {min: 1, max: 1e6}
+    set_vbw:
+      template: "BAND:VID {bandwidth}"
+      validators:
+        bandwidth: {min: 1, max: 1e6}
+    set_sweep_points:
+      template: "SWE:POIN {points}"
+      validators:
+        points: {min: 101, max: 32001}
+    initiate_single:
+      template: "INIT:IMM"
+    set_reference_level: {template: "DISP:TRAC:Y:RLEV {value}DBM"}
+    set_attenuation: {template: "INP:ATT {value}"}
+    set_attenuation_auto: {template: "INP:ATT:AUTO {value}"}
+    set_preamp: {template: "INP:GAIN:STAT {value}"}
+    set_sweep_time: {template: "SWE:TIME {value}"}
+    set_sweep_time_auto: {template: "SWE:TIME:AUTO {value}"}
+    set_trigger_source: {template: "TRIG:SOUR {value}"}
+    set_continuous: {template: "INIT:CONT {value}"}
+    set_trace_mode: {template: "DISP:TRAC{channel}:MODE {value}"}
+    set_detector: {template: "DET{channel} {value}"}
+    set_detector_auto: {template: "DET{channel}:AUTO {value}"}
+    set_accumulation_count: {template: "SWE:COUN {value}"}
+    activate_marker: {template: "CALC:MARK{marker} ON"}
+    assign_marker: {template: "CALC:MARK{marker}:TRAC {channel}"}
+    position_marker: {template: "CALC:MARK{marker}:X {frequency}HZ"}
+    peak_marker: {template: "CALC:MARK{marker}:MAX"}
+    next_marker: {template: "CALC:MARK{marker}:MAX:NEXT"}
+    set_channel_power_setting: {template: "POW:ACH:BAND:CHAN1 {value}"}
+    select_channel_power: {template: "CALC:MARK:FUNC:POW:SEL CPOW"}
+    select_power_trace_one: {template: "POW:TRAC 1"}
+    set_occupied_bandwidth_setting: {template: "POW:BWID {value}PCT"}
+    select_occupied_bandwidth: {template: "CALC:MARK:FUNC:POW:SEL OBW"}
+    select_obw_trace_one: {template: "CALC:MARK1:TRAC 1"}
+    stop_power_measurement: {template: "CALC:MARK:FUNC:POW:STAT OFF"}
+    set_external_level: {template: "TRIG:LEV:EXT{port} {value}"}
+    set_external_edge: {template: "TRIG:SLOP {value}"}
+    prepare_single_sweep: {template: "INIT:CONT OFF"}
+    prepare_ascii_trace: {template: "FORM:DATA ASC"}
+  queries:
+    get_center:
+      template: "FREQ:CENT?"
+      response: {type: float}
+    get_rbw:
+      template: "BAND?"
+      response: {type: float}
+    get_vbw:
+      template: "BAND:VID?"
+      response: {type: float}
+    source_options:
+      template: "*OPT?"
+      response: {type: str}
+    source_mode:
+      template: "SOUR:EXT:STAT?"
+      response: {type: str}
+    sequencer:
+      template: "SYST:SEQ?"
+      response: {type: str}
+    sweep_count:
+      template: "SWE:COUN?"
+      response: {type: int}
+    trace_math:
+      template: "CALC:MATH:STAT?"
+      response: {type: str}
+    get_trace_type:
+      template: "DISP:TRAC{channel}:MODE?"
+      validators:
+        channel: {min: 1, max: 6}
+      response: {type: str}
+    identify:
+      template: "*IDN?"
+      response: {type: str}
+    get_error:
+      template: "SYST:ERR?"
+      response: {type: str}
+    esr_query:
+      template: "*ESR?"
+      response: {type: str}
+    trace_mode:
+      template: "INST:SEL?"
+      response: {type: str}
+    trace_continuous:
+      template: "INIT:CONT?"
+      response: {type: str}
+    opc_query:
+      template: "*OPC?"
+      response: {type: str}
+    trace_format:
+      template: "FORM:DATA?"
+      response: {type: str}
+    trace_span:
+      template: "FREQ:SPAN?"
+      response: {type: float}
+    trace_points:
+      template: "SWE:POIN?"
+      response: {type: int}
+    trace_unit:
+      template: "UNIT:POW?"
+      response: {type: str}
+    trace_data:
+      template: "TRAC:DATA? TRACE{channel}"
+      validators:
+        channel: {min: 1, max: 6}
+      response: {type: csv_float}
+    trace_axis:
+      template: "TRAC:DATA:X? TRACE{channel}"
+      validators:
+        channel: {min: 1, max: 6}
+      response: {type: csv_float}
+    get_reference_level: {template: "DISP:TRAC:Y:RLEV?", response: {type: str}}
+    get_attenuation: {template: "INP:ATT?", response: {type: str}}
+    get_attenuation_auto: {template: "INP:ATT:AUTO?", response: {type: str}}
+    get_preamp: {template: "INP:GAIN:STAT?", response: {type: str}}
+    installed_options: {template: "*OPT?", response: {type: str}}
+    get_sweep_time: {template: "SWE:TIME?", response: {type: str}}
+    get_sweep_time_auto: {template: "SWE:TIME:AUTO?", response: {type: str}}
+    get_sweep_type: {template: "SWE:TYPE?", response: {type: str}}
+    get_trigger_source: {template: "TRIG:SOUR?", response: {type: str}}
+    get_detector: {template: "DET{channel}?", response: {type: str}}
+    get_detector_auto: {template: "DET{channel}:AUTO?", response: {type: str}}
+    trace_update: {template: "DISP:TRAC{channel}:STAT?", response: {type: str}}
+    get_marker_frequency: {template: "CALC:MARK{marker}:X?", response: {type: str}}
+    get_marker_amplitude: {template: "CALC:MARK{marker}:Y?", response: {type: str}}
+    native_trace_one: {template: "DISP:TRAC1:MODE?", response: {type: str}}
+    native_trace_one_active: {template: "DISP:TRAC1:STAT?", response: {type: str}}
+    get_channel_power_setting: {template: "POW:ACH:BAND:CHAN1?", response: {type: str}}
+    get_channel_power_result: {template: "CALC:MARK:FUNC:POW:RES? CPOW", response: {type: str}}
+    power_scale: {template: "DISP:TRAC:Y:SPAC?", response: {type: str}}
+    tx_channel_count: {template: "POW:ACH:TXCH:COUN?", response: {type: str}}
+    power_trace_mode: {template: "CALC:MARK:FUNC:POW:MODE?", response: {type: str}}
+    power_density: {template: "CALC:MARK:FUNC:POW:RES:PHZ?", response: {type: str}}
+    get_occupied_bandwidth_setting: {template: "POW:BWID?", response: {type: str}}
+    get_occupied_bandwidth_result: {template: "CALC:MARK:FUNC:POW:RES? OBW", response: {type: str}}
+    external_frontend: {template: "EFR?", response: {type: str}}
+    get_external_level: {template: "TRIG:LEV:EXT{port}?", response: {type: str}}
+    get_external_edge: {template: "TRIG:SLOP?", response: {type: str}}
+    get_external_direction: {template: "OUTP:TRIG{port}:DIR?", response: {type: str}}
+    spectrum_operating_mode: {template: "INST:MODE?", response: {type: str}}
+    spectrum_window_catalog: {template: "LAY:CAT?", response: {type: str}}
+    spectrum_window_type: {template: "LAY:WIND1:TYPE?", response: {type: str}}
+    prepare_operation_condition: {template: "STAT:OPER:COND?", response: {type: str}}
+
+operation_options:
+  operations:
+    configure_measurement:
+      transport:
+        set_center_frequency: set_center_frequency
+        set_span: set_span
+        set_rbw: set_rbw
+        set_vbw: set_vbw
+        set_sweep_points: set_sweep_points
+      parameters:
+        span:
+          kind: range
+          unit: Hz
+          min: 0
+          max: 26.5e9
+          bindings:
+          - alias: set_span
+            parameter: span
+        rbw:
+          kind: range
+          unit: Hz
+          min: 1
+          max: 1e6
+          bindings:
+          - alias: set_rbw
+            parameter: bandwidth
+        center_freq:
+          kind: range
+          unit: Hz
+          min: 1000
+          max: 26.5e9
+          bindings:
+          - alias: set_center_frequency
+            parameter: frequency
+        vbw:
+          kind: range
+          min: 1
+          max: 1e6
+          unit: Hz
+          bindings:
+          - alias: set_vbw
+            parameter: bandwidth
+        sweep_points:
+          kind: range
+          integer: true
+          min: 101
+          max: 32001
+          bindings:
+          - alias: set_sweep_points
+            parameter: points
+    get_sweep_settings:
+      transport:
+        trace_mode: trace_mode
+        center: get_center
+        trace_span: trace_span
+        rbw: get_rbw
+        vbw: get_vbw
+        trace_points: trace_points
+        trace_unit: trace_unit
+    acquire_trace:
+      transport:
+        accumulation_count: sweep_count
+        initiate: initiate_single
+        trace_mode: trace_mode
+        error_queue: get_error
+        trace_type: get_trace_type
+        source_mode: source_mode
+        source_options: source_options
+        sweep_count: sweep_count
+        sequencer: sequencer
+        trace_math: trace_math
+      parameters:
+        accumulation_count:
+          kind: range
+          min: 2
+          max: 200000
+          integer: true
+          required: false
+          transport_parameter: false
+        timeout_ms:
+          kind: range
+          min: 1
+          max: 3600000
+          integer: true
+          unit: ms
+          required: false
+          default: 10000
+          transport_parameter: false
+        channel:
+          kind: range
+          integer: true
+          min: 1
+          max: 6
+          bindings:
+          - alias: trace_type
+            parameter: channel
+    get_trace:
+      transport:
+        trace_mode: trace_mode
+        trace_continuous: trace_continuous
+        trace_complete: opc_query
+        trace_format: trace_format
+        trace_span: trace_span
+        trace_points: trace_points
+        trace_unit: trace_unit
+        trace_data: trace_data
+        trace_axis: trace_axis
+      parameters:
+        channel:
+          kind: range
+          integer: true
+          min: 1
+          max: 6
+          bindings:
+          - alias: trace_data
+            parameter: channel
+          - alias: trace_axis
+            parameter: channel
+    configure_rf_input:
+      transport:
+        set_reference_level: set_reference_level
+        set_attenuation: set_attenuation
+        set_attenuation_auto: set_attenuation_auto
+        set_preamp: set_preamp
+        unit: trace_unit
+        preamp_options: installed_options
+        frontend: external_frontend
+      parameters:
+        reference_level_dbm:
+          kind: range
+          required: false
+          min: -100
+          max: 30
+          unit: dBm
+          bindings:
+          - alias: set_reference_level
+            parameter: value
+        attenuation_db:
+          kind: range
+          required: false
+          min: 0
+          max: 60
+          unit: dB
+          bindings:
+          - alias: set_attenuation
+            parameter: value
+        attenuation_auto:
+          kind: bool
+          required: false
+          options:
+          - value: true
+            transport:
+              value: 'ON'
+          - value: false
+            transport:
+              value: 'OFF'
+          bindings:
+          - alias: set_attenuation_auto
+            parameter: value
+        preamp:
+          kind: bool
+          required: false
+          options:
+          - value: true
+            transport:
+              value: 'ON'
+          - value: false
+            transport:
+              value: 'OFF'
+          bindings:
+          - alias: set_preamp
+            parameter: value
+    get_rf_input:
+      transport:
+        trace_mode: trace_mode
+        error_queue: get_error
+        unit: trace_unit
+        reference_level: get_reference_level
+        attenuation: get_attenuation
+        attenuation_auto: get_attenuation_auto
+        preamp_options: installed_options
+        frontend: external_frontend
+        preamp: get_preamp
+    configure_sweep_control:
+      transport:
+        span: trace_span
+        sweep_type: get_sweep_type
+        set_sweep_time: set_sweep_time
+        set_sweep_time_auto: set_sweep_time_auto
+        set_trigger_source: set_trigger_source
+        set_continuous: set_continuous
+      parameters:
+        sweep_time_s:
+          kind: range
+          required: false
+          min: 1.0e-06
+          max: 1000
+          unit: s
+          bindings:
+          - alias: set_sweep_time
+            parameter: value
+        sweep_time_auto:
+          kind: bool
+          required: false
+          options:
+          - value: true
+            transport:
+              value: 'ON'
+          - value: false
+            transport:
+              value: 'OFF'
+          bindings:
+          - alias: set_sweep_time_auto
+            parameter: value
+        trigger_source:
+          kind: enum
+          required: false
+          options:
+          - value: free_run
+            transport:
+              value: IMM
+            aliases:
+            - IMMEDIATE
+          - value: external_1
+            transport:
+              value: EXT
+            aliases:
+            - EXT1
+            - EXTERNAL
+          - value: external_2
+            transport:
+              value: EXT2
+            aliases:
+            - EXTERNAL2
+          - value: external_3
+            transport: {value: EXT3}
+            aliases: [EXTERNAL3]
+          - value: rf_power
+            transport:
+              value: RFP
+            aliases:
+            - RFPOWER
+          - value: if_power
+            transport:
+              value: IFP
+            aliases:
+            - IFPOWER
+          bindings:
+          - alias: set_trigger_source
+            parameter: value
+        continuous:
+          kind: bool
+          required: false
+          options:
+          - value: true
+            transport:
+              value: 'ON'
+          - value: false
+            transport:
+              value: 'OFF'
+          bindings:
+          - alias: set_continuous
+            parameter: value
+    get_sweep_control:
+      transport:
+        trace_mode: trace_mode
+        error_queue: get_error
+        span: trace_span
+        sweep_type: get_sweep_type
+        sweep_time: get_sweep_time
+        sweep_time_auto: get_sweep_time_auto
+        trigger_source: get_trigger_source
+        continuous: trace_continuous
+    configure_trace:
+      transport:
+        set_trace_mode: set_trace_mode
+        set_detector: set_detector
+        set_detector_auto: set_detector_auto
+        set_accumulation_count: set_accumulation_count
+      parameters:
+        channel:
+          kind: range
+          integer: true
+          min: 1
+          max: 6
+          bindings:
+          - alias: set_trace_mode
+            parameter: channel
+          - alias: set_detector
+            parameter: channel
+          - alias: set_detector_auto
+            parameter: channel
+        mode:
+          kind: enum
+          required: false
+          options:
+          - value: clear_write
+            transport:
+              value: WRIT
+            aliases:
+            - WRITE
+          - value: average
+            transport:
+              value: AVER
+            aliases:
+            - AVERAGE
+          - value: max_hold
+            transport:
+              value: MAXH
+            aliases:
+            - MAXHOLD
+          - value: min_hold
+            transport:
+              value: MINH
+            aliases:
+            - MINHOLD
+          - value: view
+            transport:
+              value: VIEW
+            aliases: []
+          - value: blank
+            transport:
+              value: BLAN
+            aliases:
+            - BLANK
+          bindings:
+          - alias: set_trace_mode
+            parameter: value
+        detector:
+          kind: enum
+          required: false
+          options:
+          - value: auto_peak
+            transport:
+              value: APE
+            aliases:
+            - APEAK
+          - value: positive_peak
+            transport:
+              value: POS
+            aliases:
+            - POSITIVE
+          - value: negative_peak
+            transport:
+              value: NEG
+            aliases:
+            - NEGATIVE
+          - value: sample
+            transport:
+              value: SAMP
+            aliases:
+            - SAMPLE
+          - value: average
+            transport:
+              value: AVER
+            aliases:
+            - AVERAGE
+          - value: rms
+            transport:
+              value: RMS
+            aliases: []
+          bindings:
+          - alias: set_detector
+            parameter: value
+        detector_auto:
+          kind: bool
+          required: false
+          options:
+          - value: true
+            transport:
+              value: 'ON'
+          - value: false
+            transport:
+              value: 'OFF'
+          bindings:
+          - alias: set_detector_auto
+            parameter: value
+        accumulation_count:
+          kind: range
+          required: false
+          min: 0
+          max: 200000
+          integer: true
+          bindings:
+          - alias: set_accumulation_count
+            parameter: value
+    get_trace_settings:
+      transport:
+        trace_mode: trace_mode
+        error_queue: get_error
+        trace_type: get_trace_type
+        detector: get_detector
+        detector_auto: get_detector_auto
+        count: sweep_count
+        updating: trace_update
+      parameters:
+        channel:
+          kind: range
+          integer: true
+          min: 1
+          max: 6
+          bindings:
+          - alias: trace_type
+            parameter: channel
+          - alias: detector
+            parameter: channel
+          - alias: detector_auto
+            parameter: channel
+          - alias: updating
+            parameter: channel
+    set_marker:
+      transport:
+        trace_mode: trace_mode
+        continuous: trace_continuous
+        complete: opc_query
+        span: trace_span
+        unit: trace_unit
+        error_queue: get_error
+        scale: power_scale
+        activate: activate_marker
+        assign: assign_marker
+        frequency: get_marker_frequency
+        amplitude: get_marker_amplitude
+        position: position_marker
+      parameters:
+        marker:
+          kind: range
+          min: 1
+          max: 8
+          integer: true
+          bindings:
+          - alias: activate
+            parameter: marker
+          - alias: assign
+            parameter: marker
+          - alias: frequency
+            parameter: marker
+          - alias: amplitude
+            parameter: marker
+          - alias: position
+            parameter: marker
+        channel:
+          kind: range
+          min: 1
+          max: 6
+          integer: true
+          bindings:
+          - alias: assign
+            parameter: channel
+        frequency_hz:
+          kind: range
+          min: 0
+          max: 26500000000.0
+          unit: Hz
+          bindings:
+          - alias: position
+            parameter: frequency
+    find_marker_peak:
+      transport:
+        trace_mode: trace_mode
+        continuous: trace_continuous
+        complete: opc_query
+        span: trace_span
+        unit: trace_unit
+        error_queue: get_error
+        scale: power_scale
+        activate: activate_marker
+        assign: assign_marker
+        frequency: get_marker_frequency
+        amplitude: get_marker_amplitude
+        peak: peak_marker
+        next: next_marker
+      parameters:
+        marker:
+          kind: range
+          min: 1
+          max: 8
+          integer: true
+          bindings:
+          - alias: activate
+            parameter: marker
+          - alias: assign
+            parameter: marker
+          - alias: frequency
+            parameter: marker
+          - alias: amplitude
+            parameter: marker
+          - alias: peak
+            parameter: marker
+          - alias: next
+            parameter: marker
+        channel:
+          kind: range
+          min: 1
+          max: 6
+          integer: true
+          bindings:
+          - alias: assign
+            parameter: channel
+    measure_marker_delta:
+      transport:
+        trace_mode: trace_mode
+        continuous: trace_continuous
+        complete: opc_query
+        span: trace_span
+        unit: trace_unit
+        error_queue: get_error
+        scale: power_scale
+      parameters:
+        reference_marker:
+          kind: range
+          integer: true
+          min: 1
+          max: 8
+          transport_parameter: false
+        marker:
+          kind: range
+          integer: true
+          min: 1
+          max: 8
+          transport_parameter: false
+        channel:
+          kind: range
+          integer: true
+          min: 1
+          max: 6
+          transport_parameter: false
+        reference_hz:
+          kind: range
+          min: 0
+          max: 26500000000.0
+          unit: Hz
+          transport_parameter: false
+        target_hz:
+          kind: range
+          min: 0
+          max: 26500000000.0
+          unit: Hz
+          transport_parameter: false
+    measure_channel_power:
+      transport:
+        trace_mode: trace_mode
+        continuous: trace_continuous
+        complete: opc_query
+        error_queue: get_error
+        source_mode: source_mode
+        source_options: source_options
+        sequencer: sequencer
+        span: trace_span
+        count: sweep_count
+        trace_type: native_trace_one
+        trace_active: native_trace_one_active
+        trace_math: trace_math
+        setting: get_channel_power_setting
+        result: get_channel_power_result
+        set_setting: set_channel_power_setting
+        initiate: initiate_single
+        select: select_channel_power
+        stop_power: stop_power_measurement
+        unit: trace_unit
+        scale: power_scale
+        tx_channels: tx_channel_count
+        power_trace_mode: power_trace_mode
+        power_density: power_density
+        trace_one: select_power_trace_one
+      parameters:
+        bandwidth_hz:
+          kind: range
+          min: 100
+          max: 100000000.0
+          unit: Hz
+          required: false
+          bindings:
+          - alias: set_setting
+            parameter: value
+        timeout_ms:
+          kind: range
+          min: 1
+          max: 3600000
+          unit: ms
+          integer: true
+          required: false
+          default: 10000
+          transport_parameter: false
+    measure_occupied_bandwidth:
+      transport:
+        trace_mode: trace_mode
+        continuous: trace_continuous
+        complete: opc_query
+        error_queue: get_error
+        source_mode: source_mode
+        source_options: source_options
+        sequencer: sequencer
+        span: trace_span
+        count: sweep_count
+        trace_type: native_trace_one
+        trace_active: native_trace_one_active
+        trace_math: trace_math
+        setting: get_occupied_bandwidth_setting
+        result: get_occupied_bandwidth_result
+        set_setting: set_occupied_bandwidth_setting
+        initiate: initiate_single
+        select: select_occupied_bandwidth
+        trace_one: select_obw_trace_one
+        stop_power: stop_power_measurement
+      parameters:
+        power_percent:
+          kind: range
+          min: 10
+          max: 99.9
+          unit: '%'
+          required: false
+          bindings:
+          - alias: set_setting
+            parameter: value
+        timeout_ms:
+          kind: range
+          min: 1
+          max: 3600000
+          unit: ms
+          integer: true
+          required: false
+          default: 10000
+          transport_parameter: false
+    configure_external_trigger:
+      transport:
+        continuous: trace_continuous
+        level: set_external_level
+        edge: set_external_edge
+        direction: get_external_direction
+      parameters:
+        source:
+          kind: enum
+          default: external_1
+          required: false
+          options:
+          - value: external_1
+            transport:
+              value: 1
+          - value: external_2
+            transport:
+              value: 2
+          - value: external_3
+            transport:
+              value: 3
+          bindings:
+          - alias: level
+            parameter: port
+          - alias: direction
+            parameter: port
+        level_v:
+          kind: range
+          min: 0.5
+          max: 3.5
+          unit: V
+          required: false
+          bindings:
+          - alias: level
+            parameter: value
+        slope:
+          kind: enum
+          required: false
+          bindings:
+          - alias: edge
+            parameter: value
+          options:
+          - value: rising
+            transport:
+              value: POS
+            aliases:
+            - POSITIVE
+          - value: falling
+            transport:
+              value: NEG
+            aliases:
+            - NEGATIVE
+    get_external_trigger_settings:
+      transport:
+        trace_mode: trace_mode
+        source: get_trigger_source
+        level: get_external_level
+        edge: get_external_edge
+        error_queue: get_error
+        direction: get_external_direction
+      parameters:
+        source:
+          kind: enum
+          default: external_1
+          required: false
+          options:
+          - value: external_1
+            transport:
+              value: 1
+          - value: external_2
+            transport:
+              value: 2
+          - value: external_3
+            transport:
+              value: 3
+          bindings:
+          - alias: level
+            parameter: port
+          - alias: direction
+            parameter: port
+    acquire_traces:
+      transport:
+        initiate: initiate_single
+        operating_mode: spectrum_operating_mode
+        window_catalog: spectrum_window_catalog
+        window_type: spectrum_window_type
+      parameters:
+        timeout_ms:
+          kind: range
+          integer: true
+          min: 1
+          max: 3600000
+          unit: ms
+          required: false
+          default: 10000
+          transport_parameter: false
+    prepare_sweep:
+      transport:
+        set_single: prepare_single_sweep
+        set_ascii: prepare_ascii_trace
+        operation_condition: prepare_operation_condition
+        operating_mode: spectrum_operating_mode
+        window_catalog: spectrum_window_catalog
+        window_type: spectrum_window_type
+      parameters:
+        channel:
+          kind: range
+          integer: true
+          min: 1
+          max: 6
+          required: false
+          default: 1
+          transport_parameter: false
+        stop_continuous:
+          kind: bool
+          required: false
+          default: false
+          options:
+          - {value: false}
+          - {value: true}
+          transport_parameter: false
+        timeout_ms:
+          kind: range
+          integer: true
+          min: 1
+          max: 3600000
+          required: false
+          default: 10000
+          unit: ms
+          transport_parameter: false

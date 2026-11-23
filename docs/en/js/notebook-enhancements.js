@@ -542,6 +542,10 @@
     try {
       // Only initialize responsive behavior, skip copy button enhancements
       responsiveEnhancements.init();
+      // Only numbered prompts carry execution history in static tutorials.
+      document.querySelectorAll(".jp-CodeCell .jp-InputPrompt, .jp-CodeCell .jp-OutputPrompt").forEach((prompt) => {
+        if (/^(?:(?:In|Out)\s*\[\s*\]:?)?$/.test(prompt.textContent.trim())) prompt.hidden = true;
+      });
 
       utils.debug("PyTestLab notebook basic enhancements initialized");
     } catch (error) {

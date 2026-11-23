@@ -1,10 +1,665 @@
-# pytestlab/profiles/keysight/U2000A_PM.yaml
 manufacturer: Keysight
-model: U2000A # Example USB Power Sensor
+model: U2000A
 device_type: power_meter
-address: "USB0::0x0957::0x2B18::MY55120007::INSTR" # Example USB address for simulation, can also be TCPIP for some PMs
+role: measurement
+power_condition_bits:
+  1: input overload
+calibration_condition_bits:
+  1: calibration questionable
 
-# Optional fields from PowerMeterConfig with example values
-frequency_compensation_value: 2.4e9 # 2.4 GHz
-averaging_count: 16
-power_units: "dBm"
+scpi:
+  commands:
+    reset: {template: "*RST"}
+    clear: {template: "*CLS"}
+    opc: {template: "*OPC"}
+    set_sensor_frequency:
+      template: "SENS{channel}:FREQ {frequency}"
+      validators:
+        channel: {min: 1, max: 1}
+        frequency: {min: 10000000, max: 18000000000}
+    set_averaging_count:
+      template: "SENS{channel}:AVER:COUN {count}"
+      validators:
+        channel: {min: 1, max: 1}
+        count: {min: 1, max: 1024}
+    set_power_units:
+      template: "UNIT{channel}:POW {units}"
+      validators:
+        channel: {min: 1, max: 1}
+      enums:
+        units: {dBm: DBM, W: W}
+    setup_average:
+      sequence:
+        - 'SENS{channel}:DET:FUNC AVER'
+        - 'INIT{channel}:CONT OFF'
+        - 'ABOR'
+        - 'FORM:DATA ASC'
+        - 'UNIT{channel}:POW DBM'
+        - 'TRIG:SOUR IMM'
+        - 'CALC:FEED "POW:AVER"'
+        - 'SENS{channel}:MRAT NORM'
+        - 'SENS{channel}:CORR:DCYC:STAT OFF'
+    configure_manual_averaging:
+      sequence:
+        - 'SENS{channel}:AVER:COUN:AUTO OFF'
+        - 'SENS{channel}:AVER:COUN {count}'
+        - 'SENS{channel}:AVER:STAT ON'
+    setup_gated_average:
+      sequence:
+        - 'SENS{channel}:DET:FUNC NORM'
+        - 'INIT{channel}:CONT OFF'
+        - 'ABOR'
+        - 'FORM:DATA ASC'
+        - 'UNIT{channel}:POW DBM'
+        - 'SENS{channel}:MRAT NORM'
+        - 'SENS{channel}:CORR:DCYC:STAT OFF'
+        - 'TRIG:SOUR EXT'
+        - 'TRIG:SLOP POS'
+        - 'TRIG:DEL:AUTO OFF'
+        - 'TRIG:DEL 0'
+        - 'SENS{channel}:SWE:OFFS:TIME {gate_offset_s}'
+        - 'SENS{channel}:SWE:TIME {gate_duration_s}'
+        - 'CALC:FEED "POW:AVER ON SWEEP"'
+    configure_automatic_averaging:
+      sequence:
+        - 'SENS{channel}:AVER:COUN:AUTO ON'
+        - 'SENS{channel}:AVER:STAT ON'
+    configure_disabled_averaging:
+      sequence:
+        - 'SENS{channel}:AVER:COUN:AUTO OFF'
+        - 'SENS{channel}:AVER:STAT OFF'
+    set_trigger_edge: {template: "TRIG:SLOP {edge}"}
+    set_zero_type: {template: "CAL{channel}:ZERO:TYPE {mode}"}
+    zero_once: {template: "CAL{channel}:ZERO:AUTO ONCE"}
+    set_duty_cycle:
+      sequence:
+        - 'SENS{channel}:CORR:DCYC {duty_cycle_percent}PCT'
+        - 'SENS{channel}:CORR:DCYC:STAT ON'
+    setup_power_trace:
+      sequence:
+        - 'INIT{channel}:CONT OFF'
+        - 'ABOR'
+        - 'SENS{channel}:MRAT NORM'
+        - 'SENS{channel}:DET:FUNC NORM'
+        - 'SENS{channel}:AVER:STAT OFF'
+        - 'TRIG:SOUR {source}'
+        - 'TRIG:SLOP {edge}'
+        - 'TRIG:DEL:AUTO OFF'
+        - 'TRIG:DEL 0'
+        - 'TRIG:COUN 1'
+        - 'SENS{channel}:TRAC:UNIT {units}'
+        - 'SENS{channel}:TRAC:OFFS:TIME {offset_s}'
+        - 'SENS{channel}:TRAC:TIME {duration_s}'
+        - 'TRAC{channel}:STAT ON'
+    set_trace_trigger_level: {template: "TRIG:LEV {trigger_level_dbm}"}
+    start_power_trace: {sequence: ["ABOR", "INIT{channel}"]}
+    set_internal_gate_trigger: {template: "TRIG:SOUR {source}"}
+    set_fixed_offset: {template: "SENS{channel}:CORR:GAIN2 {offset_db}"}
+    set_fixed_offset_enabled: {template: "SENS{channel}:CORR:GAIN2:STAT {state}"}
+    set_delay_s:
+      sequence:
+        - 'TRIG:DEL:AUTO OFF'
+        - 'TRIG:DEL {delay_s}'
+    set_holdoff_s: {template: "TRIG:SEQ:HOLD {holdoff_s}"}
+    set_hysteresis_db: {template: "TRIG:SEQ:HYST {hysteresis_db}"}
+  queries:
+    identify: {template: "*IDN?", response: {type: str}}
+    native_power_self_test: {template: "*TST?", response: {type: int}}
+    get_error: {template: "SYST:ERR?", response: {type: str}}
+    opc_query: {template: "*OPC?", response: {type: str}}
+    esr_query: {template: "*ESR?", response: {type: str}}
+    fetch_power:
+      template: "FETC{channel}:POW:AC?"
+      validators:
+        channel: {min: 1, max: 1}
+      response: {type: float}
+    acquire_power:
+      template: "READ{channel}:POW:AC?"
+      validators:
+        channel: {min: 1, max: 1}
+      response: {type: float}
+    read_unit: {template: "UNIT{channel}:POW?", response: {type: str}}
+    read_correction_frequency: {template: "SENS{channel}:FREQ?", response: {type: float}}
+    read_format: {template: "FORM:DATA?", response: {type: str}}
+    read_continuous: {template: "INIT{channel}:CONT?", response: {type: str}}
+    read_quality: {template: "STAT:QUES:POW:COND?", response: {type: int}}
+
+    read_configured_power:
+      sequence: ["ABOR", "READ{channel}?"]
+      response: {type: float}
+    read_duty_cycle_percent: {template: "SENS{channel}:CORR:DCYC?", response: {type: float}}
+    read_detector: {template: "SENS{channel}:DET:FUNC?", response: {type: str}}
+    read_feed: {template: "CALC:FEED?", response: {type: str}}
+    read_trigger_source: {template: "TRIG:SOUR?", response: {type: str}}
+    read_averaging_enabled: {template: "SENS{channel}:AVER:STAT?", response: {type: str}}
+    read_auto_average: {template: "SENS{channel}:AVER:COUN:AUTO?", response: {type: str}}
+    read_averaging_count: {template: "SENS{channel}:AVER:COUN?", response: {type: str}}
+    read_gate_offset: {template: "SENS{channel}:SWE:OFFS:TIME?", response: {type: str}}
+    read_gate_duration: {template: "SENS{channel}:SWE:TIME?", response: {type: str}}
+    read_gate_edge: {template: "TRIG:SLOP?", response: {type: str}}
+    read_gate_delay: {template: "TRIG:DEL?", response: {type: str}}
+    read_gate_auto_delay: {template: "TRIG:DEL:AUTO?", response: {type: str}}
+    read_duty_cycle: {template: "SENS{channel}:CORR:DCYC:STAT?", response: {type: str}}
+    read_rate: {template: "SENS{channel}:MRAT?", response: {type: str}}
+    read_trigger_count: {template: "TRIG:COUN?", response: {type: str}}
+    read_calibration_condition: {template: "STAT:QUES:CAL:COND?", response: {type: int}}
+    read_calibrating: {template: "STAT:OPER:CAL:COND?", response: {type: int}}
+    read_measuring: {template: "STAT:OPER:MEAS:COND?", response: {type: int}}
+    read_triggering: {template: "STAT:OPER:TRIG:COND?", response: {type: int}}
+    read_zero_type: {template: "CAL{channel}:ZERO:TYPE?", response: {type: str}}
+    read_trigger_level: {template: "TRIG:LEV?", response: {type: float}}
+    read_trace_offset: {template: "SENS{channel}:TRAC:OFFS:TIME?", response: {type: float}}
+    read_trace_duration: {template: "SENS{channel}:TRAC:TIME?", response: {type: float}}
+    read_trace_unit: {template: "SENS{channel}:TRAC:UNIT?", response: {type: str}}
+    read_trace_enabled: {template: "TRAC{channel}:STAT?", response: {type: str}}
+    read_frequency_steps: {template: "SENS{channel}:FREQ:STEP?", response: {type: int}}
+    read_trace_buffer_count: {template: "SENS{channel}:BUFF:COUN?", response: {type: int}}
+    fetch_power_trace: {template: "TRAC{channel}:DATA? {resolution}", response: {type: str}}
+    read_fixed_offset: {template: "SENS{channel}:CORR:GAIN2?", response: {type: str}}
+    read_fixed_offset_enabled: {template: "SENS{channel}:CORR:GAIN2:STAT?", response: {type: str}}
+    read_frequency_table_enabled: {template: "SENS{channel}:CORR:CSET2:STAT?", response: {type: str}}
+    read_frequency_table_name: {template: "SENS{channel}:CORR:CSET2:SEL?", response: {type: str}}
+    read_trigger_holdoff: {template: "TRIG:SEQ:HOLD?", response: {type: float}}
+    read_trigger_hysteresis: {template: "TRIG:SEQ:HYST?", response: {type: float}}
+
+operation_options:
+  operations:
+    read_power:
+      transport: {fetch_power: fetch_power}
+      parameters:
+        channel:
+          kind: range
+          min: 1
+          max: 1
+          bindings: [{alias: fetch_power, parameter: channel}]
+    measure_power:
+      transport:
+        acquire_power: acquire_power
+        read_unit: read_unit
+        read_correction_frequency: read_correction_frequency
+        read_format: read_format
+        read_continuous: read_continuous
+        read_quality: read_quality
+      parameters:
+        channel:
+          kind: range
+          min: 1
+          max: 1
+          bindings: [{alias: acquire_power, parameter: channel}]
+        unit:
+          kind: enum
+          options:
+            - {value: dBm, transport: {value: dBm}}
+            - {value: W, transport: {value: W}}
+            - {value: mW, transport: {value: mW}}
+            - {value: uW, transport: {value: uW}}
+    configure_sensor:
+      transport:
+        set_sensor_frequency: set_sensor_frequency
+        set_averaging_count: set_averaging_count
+        set_power_units: set_power_units
+      parameters:
+        channel:
+          kind: range
+          min: 1
+          max: 1
+          bindings:
+            - {alias: set_sensor_frequency, parameter: channel}
+            - {alias: set_averaging_count, parameter: channel}
+        units:
+          kind: enum
+          options:
+            - {value: dBm, transport: {value: DBM}}
+            - {value: W, transport: {value: W}}
+          bindings: [{alias: set_power_units, parameter: units}]
+        freq:
+          kind: range
+          min: 10000000
+          max: 18000000000
+          bindings: [{alias: set_sensor_frequency, parameter: frequency}]
+        averaging_count:
+          kind: range
+          min: 1
+          max: 1024
+          bindings: [{alias: set_averaging_count, parameter: count}]
+    configure_power:
+      transport:
+        set_internal_gate_trigger: set_internal_gate_trigger
+        set_trigger_level: set_trace_trigger_level
+        read_trigger_level: read_trigger_level
+        read_duty_cycle_percent: read_duty_cycle_percent
+        get_error: get_error
+        read_format: read_format
+        read_continuous: read_continuous
+        read_unit: read_unit
+        read_correction_frequency: read_correction_frequency
+        read_detector: read_detector
+        read_feed: read_feed
+        read_trigger_source: read_trigger_source
+        read_averaging_enabled: read_averaging_enabled
+        read_auto_average: read_auto_average
+        read_averaging_count: read_averaging_count
+        read_gate_offset: read_gate_offset
+        read_gate_duration: read_gate_duration
+        read_gate_edge: read_gate_edge
+        read_gate_delay: read_gate_delay
+        read_gate_auto_delay: read_gate_auto_delay
+        read_duty_cycle: read_duty_cycle
+        read_rate: read_rate
+        read_trigger_count: read_trigger_count
+        setup_average: setup_average
+        setup_pulse_average: setup_average
+        set_duty_cycle: set_duty_cycle
+        configure_manual_averaging: configure_manual_averaging
+        set_sensor_frequency: set_sensor_frequency
+        setup_gated_average: setup_gated_average
+        configure_automatic_averaging: configure_automatic_averaging
+        configure_disabled_averaging: configure_disabled_averaging
+        set_power_units: set_power_units
+        set_trigger_edge: set_trigger_edge
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, required: false, transport_parameter: false}
+        mode:
+          kind: enum
+          default: average
+          required: false
+          transport_parameter: false
+          options:
+            - {value: pulse_average, description: Average power corrected using a known RF duty cycle.}
+            - {value: peak, supported: false, reason: U2000A provides an envelope trace rather than a scalar peak feed.}
+            - {value: random_sample, supported: false, reason: U2000A has no native random-sample feed.}
+            - {value: average, description: Immediate-triggered absolute average power.}
+            - {value: gated_average, description: Average inside an externally triggered window.}
+            - {value: buffered_average, supported: false, reason: U2000A fast burst is not this buffered-average workflow.}
+        averaging_mode:
+          kind: enum
+          default: manual
+          required: false
+          transport_parameter: false
+          options:
+            - {value: manual}
+            - {value: automatic}
+            - {value: disabled}
+        native_unit:
+          kind: enum
+          default: dBm
+          required: false
+          transport_parameter: false
+          options:
+            - {value: dBm, transport: {value: DBM}}
+            - {value: W, transport: {value: W}}
+        trigger_source:
+          kind: enum
+          required: false
+          transport_parameter: false
+          options:
+            - {value: immediate, transport: {value: IMM}}
+            - {value: internal, transport: {value: INT}, description: RF envelope trigger only in gated_average mode.}
+            - {value: external, transport: {value: EXT}, description: Only in gated_average mode.}
+            - {value: external_1, supported: false, reason: U2000A has one external trigger input.}
+            - {value: external_2, supported: false, reason: U2000A has one external trigger input.}
+        trigger_level_dbm: {kind: range, unit: dBm, min: -50, max: 20, required: false, dependencies: [mode, trigger_source], transport_parameter: false}
+        trigger_edge:
+          kind: enum
+          required: false
+          transport_parameter: false
+          options:
+            - {value: rising, transport: {value: POS}}
+            - {value: falling, transport: {value: NEG}}
+        duty_cycle_percent: {kind: range, unit: percent, min: 0.001, max: 99.999, required: false, dependencies: [mode], transport_parameter: false}
+        frequency_hz: {kind: range, unit: Hz, min: 10000000, max: 18000000000, transport_parameter: false}
+        averaging_count: {kind: range, integer: true, min: 1, max: 1024, default: 8, required: false, transport_parameter: false}
+        gate_offset_s:
+          kind: range
+          unit: s
+          min: -0.15
+          max: 0.15
+          required: false
+          dependencies: [mode]
+          transport_parameter: false
+        gate_duration_s:
+          kind: range
+          unit: s
+          min: 0.0001
+          max: 0.15
+          required: false
+          dependencies: [mode]
+          transport_parameter: false
+        aperture_s:
+          kind: range
+          unit: s
+          required: false
+          supported: false
+          reason: U2000A has no programmable integration aperture in this workflow.
+          transport_parameter: false
+        sample_count:
+          kind: range
+          integer: true
+          required: false
+          supported: false
+          reason: U2000A fast burst is not this buffered-average workflow.
+          transport_parameter: false
+        timeout_ms: {kind: range, unit: ms, integer: true, min: 1, max: 2147483647, default: 5000, required: false, transport_parameter: false}
+
+    acquire_power:
+      transport:
+        read_trigger_level: read_trigger_level
+        read_duty_cycle_percent: read_duty_cycle_percent
+        get_error: get_error
+        read_format: read_format
+        read_continuous: read_continuous
+        read_unit: read_unit
+        read_correction_frequency: read_correction_frequency
+        read_detector: read_detector
+        read_feed: read_feed
+        read_trigger_source: read_trigger_source
+        read_averaging_enabled: read_averaging_enabled
+        read_auto_average: read_auto_average
+        read_averaging_count: read_averaging_count
+        read_gate_offset: read_gate_offset
+        read_gate_duration: read_gate_duration
+        read_gate_edge: read_gate_edge
+        read_gate_delay: read_gate_delay
+        read_gate_auto_delay: read_gate_auto_delay
+        read_duty_cycle: read_duty_cycle
+        read_rate: read_rate
+        read_trigger_count: read_trigger_count
+        read_quality: read_quality
+        fetch_pulse_average: read_configured_power
+        fetch_average: acquire_power
+        fetch_gated_average: read_configured_power
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, required: false, transport_parameter: false}
+        mode:
+          kind: enum
+          default: average
+          required: false
+          transport_parameter: false
+          options:
+            - {value: pulse_average, description: Average power corrected using a known RF duty cycle.}
+            - {value: peak, supported: false, reason: U2000A provides an envelope trace rather than a scalar peak feed.}
+            - {value: random_sample, supported: false, reason: U2000A has no native random-sample feed.}
+            - {value: average, description: Immediate-triggered absolute average power.}
+            - {value: gated_average, description: Average inside an externally triggered window.}
+            - {value: buffered_average, supported: false, reason: U2000A fast burst is not this buffered-average workflow.}
+        unit:
+          kind: enum
+          default: dBm
+          required: false
+          transport_parameter: false
+          options:
+            - {value: dBm}
+            - {value: W}
+            - {value: mW}
+            - {value: uW}
+        timeout_ms: {kind: range, unit: ms, integer: true, min: 1, max: 2147483647, default: 10000, required: false, transport_parameter: false}
+
+    sensor_status:
+      transport:
+        identify: identify
+        read_quality: read_quality
+        read_calibration_condition: read_calibration_condition
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, required: false, transport_parameter: false}
+        timeout_ms: {kind: range, unit: ms, integer: true, min: 1, max: 2147483647, default: 2000, required: false, transport_parameter: false}
+
+    zero_sensor:
+      transport:
+        identify: identify
+        read_continuous: read_continuous
+        read_calibrating: read_calibrating
+        read_measuring: read_measuring
+        read_triggering: read_triggering
+        get_error: get_error
+        perform_zero: zero_once
+        opc_query: opc_query
+        set_zero_type: set_zero_type
+        read_zero_type: read_zero_type
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, required: false, transport_parameter: false}
+        mode:
+          kind: enum
+          default: external
+          required: false
+          transport_parameter: false
+          options:
+            - {value: external, transport: {value: EXT}}
+            - {value: internal, transport: {value: INT}}
+        timeout_ms: {kind: range, unit: ms, integer: true, min: 1, max: 2147483647, default: 30000, required: false, transport_parameter: false}
+
+    read_power_settings:
+      transport:
+        read_trigger_level: read_trigger_level
+        read_duty_cycle_percent: read_duty_cycle_percent
+        read_format: read_format
+        read_continuous: read_continuous
+        read_unit: read_unit
+        read_correction_frequency: read_correction_frequency
+        read_detector: read_detector
+        read_feed: read_feed
+        read_trigger_source: read_trigger_source
+        read_averaging_enabled: read_averaging_enabled
+        read_auto_average: read_auto_average
+        read_averaging_count: read_averaging_count
+        read_trigger_count: read_trigger_count
+        read_gate_offset: read_gate_offset
+        read_gate_duration: read_gate_duration
+        read_gate_edge: read_gate_edge
+        read_gate_delay: read_gate_delay
+        read_gate_auto_delay: read_gate_auto_delay
+        read_duty_cycle: read_duty_cycle
+        read_rate: read_rate
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, required: false, transport_parameter: false}
+        mode:
+          kind: enum
+          default: average
+          required: false
+          transport_parameter: false
+          options:
+            - {value: pulse_average, description: Average power corrected using a known RF duty cycle.}
+            - {value: peak, supported: false, reason: U2000A provides an envelope trace rather than a scalar peak feed.}
+            - {value: random_sample, supported: false, reason: U2000A has no native random-sample feed.}
+            - {value: average, description: Immediate-triggered absolute average power.}
+            - {value: gated_average, description: Average inside an externally triggered window.}
+            - {value: buffered_average, supported: false, reason: U2000A fast burst is not this buffered-average workflow.}
+        timeout_ms: {kind: range, unit: ms, integer: true, min: 1, max: 2147483647, default: 2000, required: false, transport_parameter: false}
+
+    configure_power_trace:
+      transport:
+        setup_trace: setup_power_trace
+        set_trigger_level: set_trace_trigger_level
+        set_sensor_frequency: set_sensor_frequency
+        read_continuous: read_continuous
+        read_detector: read_detector
+        read_rate: read_rate
+        read_trigger_source: read_trigger_source
+        read_gate_edge: read_gate_edge
+        read_gate_delay: read_gate_delay
+        read_gate_auto_delay: read_gate_auto_delay
+        read_trigger_count: read_trigger_count
+        read_trigger_level: read_trigger_level
+        read_trace_offset: read_trace_offset
+        read_trace_duration: read_trace_duration
+        read_trace_unit: read_trace_unit
+        read_trace_enabled: read_trace_enabled
+        read_correction_frequency: read_correction_frequency
+        read_frequency_steps: read_frequency_steps
+        read_trace_buffer_count: read_trace_buffer_count
+        read_averaging_enabled: read_averaging_enabled
+        get_error: get_error
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, required: false, transport_parameter: false}
+        frequency_hz: {kind: range, unit: Hz, min: 10000000, max: 18000000000, transport_parameter: false}
+        duration_s: {kind: range, unit: s, min: 0.0001, max: 0.15, transport_parameter: false}
+        offset_s: {kind: range, unit: s, min: -0.15, max: 0.15, default: 0, required: false, transport_parameter: false}
+        trigger_source:
+          kind: enum
+          required: false
+          default: external
+          transport_parameter: false
+          options:
+            - {value: external, transport: {value: EXT}}
+            - {value: internal, transport: {value: INT}}
+        trigger_edge:
+          kind: enum
+          required: false
+          default: rising
+          transport_parameter: false
+          options:
+            - {value: rising, transport: {value: POS}}
+            - {value: falling, transport: {value: NEG}}
+        trigger_level_dbm: {kind: range, unit: dBm, min: -50, max: 20, required: false, dependencies: [trigger_source], transport_parameter: false}
+        native_unit:
+          kind: enum
+          required: false
+          default: dBm
+          transport_parameter: false
+          options:
+            - {value: dBm, transport: {value: DBM}}
+            - {value: W, transport: {value: W}}
+        timeout_ms: {kind: range, unit: ms, integer: true, min: 1, max: 2147483647, default: 5000, required: false, transport_parameter: false}
+
+    acquire_power_trace:
+      transport:
+        start: start_power_trace
+        fetch_trace: fetch_power_trace
+        opc_query: opc_query
+        read_quality: read_quality
+        read_continuous: read_continuous
+        read_detector: read_detector
+        read_rate: read_rate
+        read_trigger_source: read_trigger_source
+        read_gate_edge: read_gate_edge
+        read_gate_delay: read_gate_delay
+        read_gate_auto_delay: read_gate_auto_delay
+        read_trigger_count: read_trigger_count
+        read_trigger_level: read_trigger_level
+        read_trace_offset: read_trace_offset
+        read_trace_duration: read_trace_duration
+        read_trace_unit: read_trace_unit
+        read_trace_enabled: read_trace_enabled
+        read_correction_frequency: read_correction_frequency
+        read_frequency_steps: read_frequency_steps
+        read_trace_buffer_count: read_trace_buffer_count
+        read_averaging_enabled: read_averaging_enabled
+        get_error: get_error
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, required: false, transport_parameter: false}
+        resolution:
+          kind: enum
+          required: false
+          default: high
+          transport_parameter: false
+          options:
+            - {value: high, description: Full capture buffer; no sample timestamps returned., transport: {value: HRES}}
+            - {value: medium, description: 1000 decimated samples., transport: {value: MRES}}
+            - {value: low, description: 230 decimated samples., transport: {value: LRES}}
+        unit:
+          kind: enum
+          required: false
+          default: dBm
+          transport_parameter: false
+          options:
+            - {value: dBm}
+            - {value: W}
+            - {value: mW}
+            - {value: uW}
+        timeout_ms: {kind: range, unit: ms, integer: true, min: 1, max: 2147483647, default: 10000, required: false, transport_parameter: false}
+
+    read_power_corrections:
+      transport:
+        read_correction_frequency: read_correction_frequency
+        read_duty_cycle: read_duty_cycle
+        read_duty_cycle_percent: read_duty_cycle_percent
+        read_fixed_offset: read_fixed_offset
+        read_fixed_offset_enabled: read_fixed_offset_enabled
+        read_frequency_table_enabled: read_frequency_table_enabled
+        read_frequency_table_name: read_frequency_table_name
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, required: false, transport_parameter: false}
+        timeout_ms: {kind: range, unit: ms, integer: true, min: 1, max: 2147483647, default: 2000, required: false, transport_parameter: false}
+
+    read_power_trigger_state:
+      transport:
+        read_continuous: read_continuous
+        read_triggering: read_triggering
+        read_measuring: read_measuring
+        read_calibrating: read_calibrating
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, required: false, transport_parameter: false}
+        timeout_ms: {kind: range, unit: ms, integer: true, min: 1, max: 2147483647, default: 2000, required: false, transport_parameter: false}
+
+    run_self_test:
+      transport:
+        identify: identify
+        read_continuous: read_continuous
+        read_calibrating: read_calibrating
+        read_measuring: read_measuring
+        read_triggering: read_triggering
+        self_test: native_power_self_test
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, required: false, transport_parameter: false}
+        timeout_ms: {kind: range, unit: ms, integer: true, min: 1, max: 2147483647, default: 60000, required: false, transport_parameter: false}
+
+    configure_power_offset:
+      transport:
+        read_rate: read_rate
+        identify: identify
+        read_continuous: read_continuous
+        read_calibrating: read_calibrating
+        read_measuring: read_measuring
+        read_triggering: read_triggering
+        get_error: get_error
+        set_fixed_offset_enabled: set_fixed_offset_enabled
+        set_fixed_offset: set_fixed_offset
+        read_fixed_offset_enabled: read_fixed_offset_enabled
+        read_fixed_offset: read_fixed_offset
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, required: false, transport_parameter: false}
+        enabled:
+          kind: bool
+          required: true
+          transport_parameter: false
+          options:
+            - {value: true, transport: {value: 'ON'}}
+            - {value: false, transport: {value: 'OFF'}}
+        offset_db: {kind: range, unit: dB, description: Negative for loss in the native Keysight GAIN2 setting., min: -100, max: 100, required: false, dependencies: [enabled], transport_parameter: false}
+        timeout_ms: {kind: range, unit: ms, integer: true, min: 1, max: 2147483647, default: 5000, required: false, transport_parameter: false}
+
+    configure_power_trigger_timing:
+      transport:
+        identify: identify
+        read_continuous: read_continuous
+        read_calibrating: read_calibrating
+        read_measuring: read_measuring
+        read_triggering: read_triggering
+        get_error: get_error
+        read_trigger_source: read_trigger_source
+        read_gate_edge: read_gate_edge
+        read_gate_delay: read_gate_delay
+        read_gate_auto_delay: read_gate_auto_delay
+        read_trigger_holdoff: read_trigger_holdoff
+        read_trigger_hysteresis: read_trigger_hysteresis
+        set_delay_s: set_delay_s
+        set_holdoff_s: set_holdoff_s
+        set_hysteresis_db: set_hysteresis_db
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, required: false, transport_parameter: false}
+        delay_s: {kind: range, unit: s, min: -0.15, max: 0.15, constraints: {resolution: 0.000001}, required: false, transport_parameter: false}
+        holdoff_s: {kind: range, unit: s, min: 0.000001, max: 0.4, constraints: {resolution: 0.000001}, required: false, transport_parameter: false}
+        hysteresis_db: {kind: range, unit: dB, min: 0, max: 3, constraints: {resolution: 0.1}, required: false, transport_parameter: false}
+        dropout_s: {kind: range, unit: s, required: false, supported: false, reason: U2000A has no native dropout-time control., transport_parameter: false}
+        timeout_ms: {kind: range, unit: ms, integer: true, min: 1, max: 2147483647, default: 5000, required: false, transport_parameter: false}
+
+    read_power_trigger_timing:
+      transport:
+        read_trigger_source: read_trigger_source
+        read_gate_edge: read_gate_edge
+        read_gate_delay: read_gate_delay
+        read_gate_auto_delay: read_gate_auto_delay
+        read_trigger_holdoff: read_trigger_holdoff
+        read_trigger_hysteresis: read_trigger_hysteresis
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, required: false, transport_parameter: false}
+        timeout_ms: {kind: range, unit: ms, integer: true, min: 1, max: 2147483647, default: 2000, required: false, transport_parameter: false}

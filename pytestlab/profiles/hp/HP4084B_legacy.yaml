@@ -1,0 +1,150 @@
+manufacturer: hewlett-packard
+model: HP4084B
+device_type: instrument
+driver: pytestlab.instruments.profile_instrument:ProfileInstrument
+role: switching
+protocol: HP 4084 legacy text over HPIB
+
+capabilities:
+  identity:
+    enabled: true
+    required: false
+    example_response: HP 4084B REV. 3.0
+  controller_family: [HP4084A, HP4084B]
+  attached_matrix_family: [HP4085A, HP4085B]
+  attached_matrix_model: HP4085B
+  error_queue: false
+  message_io:
+    read_termination: "\n"
+  status_byte:
+    enabled: true
+    flags:
+      sdn: {mask: 128, severity: error, description: Switching_matrix_Down.}
+      rqs: {mask: 64, severity: warning, description: Request_Service., clears_on_read: true}
+      rtf: {mask: 32, severity: error, description: Relay_Test_Fail., clears_on_read: true}
+      npb: {mask: 16, severity: error, description: No_Pin_Board., clears_on_read: true}
+      matrix_open: {mask: 8, severity: warning, description: Switching_matrix_Open.}
+      rte: {mask: 4, severity: error, description: Relay_Test_End., clears_on_read: true}
+      syntax_error: {mask: 2, severity: warning, description: Syntax_Error., clears_on_read: true}
+      rrd: {mask: 1, severity: info, description: Relay_ReaDy.}
+
+scpi:
+  commands:
+    connect:
+      template: PC{port}ON{pin}
+      parameters:
+        port:
+          kind: enum
+          strict: true
+          choices:
+          - {token: 1}
+          - {token: 2}
+          - {token: 3}
+          - {token: 4}
+          - {token: 5}
+          - {token: 6}
+          - {token: 8}
+          - {token: 9}
+          - {token: 10}
+        pin: {kind: range, min: 1, max: 48}
+    disconnect:
+      template: PC0ON{pin}
+      parameters: {pin: {kind: range, min: 1, max: 48}}
+    guard:
+      template: PC1GD{pin}
+      parameters: {pin: {kind: range, min: 1, max: 48}}
+    clear: {template: CL}
+  queries:
+    identify: {template: ID, response: {type: str}}
+    identify_extended: {template: IDEX, response: {type: str}}
+    pin_status:
+      template: PN{pin}
+      parameters: {pin: {kind: range, min: 1, max: 48}}
+      response: {type: str}
+
+    port_status:
+      template: PT{port}
+      parameters:
+        port:
+          kind: enum
+          strict: true
+          choices:
+          - {token: 1}
+          - {token: 2}
+          - {token: 3}
+          - {token: 4}
+          - {token: 5}
+          - {token: 6}
+          - {token: 8}
+          - {token: 9}
+          - {token: 10}
+      response: {type: str}
+
+simulation:
+  identification: HP 4084B REV. 3.0
+  scpi:
+    ID: HP 4084B REV. 3.0
+    IDEX: HP 4084B REV. 3.0
+    PN*: ready
+    PT*: ready
+
+operation_options:
+  operations:
+    identify: {mode: query, transport: {query: identify}}
+    identify_extended: {mode: query, transport: {query: identify_extended}}
+    status_byte: {mode: native, backend_method: read_status_byte}
+    connect:
+      mode: write
+      transport: {write: connect}
+      parameters:
+        port:
+          kind: enum
+          transport_identity: true
+          options:
+          - {value: 1, label: Port 1}
+          - {value: 2, label: Port 2}
+          - {value: 3, label: Port 3}
+          - {value: 4, label: Port 4}
+          - {value: 5, label: Port 5}
+          - {value: 6, label: Port 6}
+          - {value: 8, label: Port 8}
+          - {value: 9, label: Port 9}
+          - {value: 10, label: Port 10}
+          bindings: [{alias: write, parameter: port}]
+        pin: {kind: range, min: 1, max: 48, integer: true, bindings: [{alias: write, parameter: pin}]}
+    disconnect:
+      mode: write
+      transport: {write: disconnect}
+      parameters:
+        pin: {kind: range, min: 1, max: 48, integer: true, bindings: [{alias: write, parameter: pin}]}
+    guard:
+      mode: write
+      transport: {write: guard}
+      parameters:
+        pin: {kind: range, min: 1, max: 48, integer: true, bindings: [{alias: write, parameter: pin}]}
+    clear:
+      mode: write
+      transport: {write: clear}
+    pin_status:
+      mode: query
+      transport: {query: pin_status}
+      parameters:
+        pin: {kind: range, min: 1, max: 48, integer: true, bindings: [{alias: query, parameter: pin}]}
+    port_status:
+      mode: query
+      transport: {query: port_status}
+      parameters:
+        port:
+          kind: enum
+          transport_identity: true
+          options:
+          - {value: 1, label: Port 1}
+          - {value: 2, label: Port 2}
+          - {value: 3, label: Port 3}
+          - {value: 4, label: Port 4}
+          - {value: 5, label: Port 5}
+          - {value: 6, label: Port 6}
+          - {value: 8, label: Port 8}
+          - {value: 9, label: Port 9}
+          - {value: 10, label: Port 10}
+          bindings: [{alias: query, parameter: port}]

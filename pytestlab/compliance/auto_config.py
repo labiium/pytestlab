@@ -12,8 +12,8 @@ configure anything - it just works out of the box.
 
 from __future__ import annotations
 
+import importlib.util
 import os
-from importlib.util import find_spec
 from pathlib import Path
 from typing import Any
 
@@ -239,7 +239,8 @@ def is_compliance_available() -> bool:
     if os.getenv(ENV_COMPLIANCE_DISABLED, "").lower() in ("true", "1", "yes"):
         return False
 
-    return find_spec("cryptography") is not None
+    # Check if cryptography available
+    return importlib.util.find_spec("cryptography") is not None
 
 
 def show_compliance_status() -> None:
@@ -254,7 +255,8 @@ def show_compliance_status() -> None:
         print(f"  {ENV_COMPLIANCE_DISABLED}=true")
         return
 
-    if find_spec("cryptography") is not None:
+    # Check cryptography
+    if importlib.util.find_spec("cryptography") is not None:
         print("Status: AVAILABLE")
     else:
         print("Status: UNAVAILABLE")

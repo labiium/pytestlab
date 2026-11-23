@@ -73,7 +73,7 @@ def run_grid_sweep():
     print("=" * 50)
 
     # Define parameter ranges
-    param_ranges = [(0, 4), (0, 4)]  # (x_min, x_max), (y_min, y_max)
+    param_ranges = {"x": (0, 4), "y": (0, 4)}
 
     # Number of points in each dimension
     points_per_dim = 20
@@ -95,7 +95,7 @@ def run_grid_sweep():
 
     # Run the grid sweep
     print("Running grid_sweep...")
-    results = grid_sweep(wrapper_func, param_ranges, points_per_dim)
+    results = grid_sweep(param_ranges, points=points_per_dim)(wrapper_func)()
 
     # Format results for comparison
     result_array = np.array([[x, y, z] for ([x, y], z) in results])
@@ -109,7 +109,7 @@ def run_gwass_sweep():
     print("=" * 50)
 
     # Define parameter ranges
-    param_ranges = [(0, 4), (0, 4)]  # (x_min, x_max), (y_min, y_max)
+    param_ranges = {"x": (0, 4), "y": (0, 4)}
 
     # Total number of sample points
     total_points = 400  # 20x20
@@ -127,7 +127,7 @@ def run_gwass_sweep():
 
     # Run the gwass sweep
     print("Running gwass sweep...")
-    results = gwass(wrapper_func, param_ranges, total_points)
+    results = gwass(param_ranges, budget=total_points)(wrapper_func)()
 
     # Format results for comparison
     result_array = np.array([[x, y, z] for ([x, y], z) in results])

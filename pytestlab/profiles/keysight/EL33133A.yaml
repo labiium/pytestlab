@@ -1,12 +1,20 @@
 manufacturer: Keysight
 model: EL33133A
 device_type: dc_active_load
+role: load
 
 general_specifications:
   max_power_W: 250.0
   max_current_A: 40.0
   max_voltage_V: 150.0
+  max_resistance_ohm: 4000.0
   number_of_channels: 1
+
+mode_load_aliases:
+  CC: set_current_level
+  CV: set_voltage_level
+  CP: set_power_level
+  CR: set_resistance_level
 
 features:
   - name: "Transient Operation"
@@ -18,6 +26,10 @@ features:
 
 operating_modes:
   constant_current_CC:
+    slew_rate_range:
+      min: 0.0
+      max: 9.9e37
+      units: A/s
     ranges:
       - name: "low"
         max_current_A: 8.0
@@ -36,6 +48,10 @@ operating_modes:
           percent_of_reading: 0.04
           offset_A: 0.01
   constant_voltage_CV:
+    slew_rate_range:
+      min: 0.0
+      max: 9.9e37
+      units: V/s
     ranges:
       - name: "low"
         max_voltage_V: 30.0
@@ -54,6 +70,10 @@ operating_modes:
           percent_of_reading: 0.02
           offset_V: 0.015
   constant_power_CP:
+    slew_rate_range:
+      min: 0.0
+      max: 9.9e37
+      units: W/s
     ranges:
       - name: "low"
         range_W: "50W"
@@ -80,6 +100,10 @@ operating_modes:
           percent_of_reading: 0.08
           offset_W: 1.2
   constant_resistance_CR:
+    slew_rate_range:
+      min: 0.0
+      max: 9.9e37
+      units: ohm/s
     ranges:
       - name: "low"
         range_ohm: "1.8S"
@@ -99,6 +123,44 @@ operating_modes:
           percent_of_setting: 0.1
         readback_accuracy:
           percent_of_reading: 0.1
+
+transient:
+  supported_modes: [CONTinuous, PULSe, TOGGle, LIST]
+  required_scpi_commands:
+    - transient_set_mode
+    - transient_set_level
+    - transient_start
+    - transient_abort
+
+battery_test:
+  voltage_cutoff_range:
+    min: 0.02
+    max: 153.0
+    units: V
+  capacity_cutoff_range:
+    min: 0.0
+    max: 100000.0
+    units: Ah
+  timer_cutoff_range:
+    min: 0.0
+    max: 100000.0
+    units: s
+  required_scpi_commands:
+    - battery_enable
+    - battery_cutoff_voltage_state
+    - battery_cutoff_voltage
+    - battery_cutoff_capacity_state
+    - battery_cutoff_capacity
+    - battery_cutoff_timer_state
+    - battery_cutoff_timer
+    - battery_measure
+
+data_acquisition:
+  scope_points: 2440
+  datalogger_points: 65536
+  required_scpi_commands:
+    - fetch_array
+    - fetch_datalogger
 
 protection:
   over_current:
@@ -127,50 +189,56 @@ environmental:
 
 scpi:
   commands:
+    reset:
+      template: "*RST"
+    clear:
+      template: "*CLS"
+    opc:
+      template: "*OPC"
     set_mode:
       template: 'FUNC {mode}'
       enums:
         mode: { CC: 'CURR', CV: 'VOLTage', CP: 'POWer', CR: 'RESistance' }
     set_current_level:
       template: 'CURRent:LEVel:IMMediate:AMPLitude {value}'
+      defaults: { value: 1 }
     set_voltage_level:
       template: 'VOLTage:LEVel:IMMediate:AMPLitude {value}'
+      defaults: { value: 1 }
     set_power_level:
       template: 'POWer:LEVel:IMMediate:AMPLitude {value}'
+      defaults: { value: 1 }
     set_resistance_level:
       template: 'RESistance:LEVel:IMMediate:AMPLitude {value}'
+      defaults: { value: 1 }
     set_input_state:
       template: 'INPut:STATe {state}, (@{channel})'
       defaults: { channel: 1 }
       enums:
-        state: { on: 'ON', off: 'OFF', true: 'ON', false: 'OFF', '1': 'ON', '0': 'OFF' }
+        state: { 'on': 'ON', 'off': 'OFF', 'true': 'ON', 'false': 'OFF', '1': 'ON', '0': 'OFF' }
     input_short_state:
       template: 'INPut:SHORt:STATe {state}, (@{channel})'
       defaults: { channel: 1 }
       enums:
-        state: { on: 'ON', off: 'OFF', true: 'ON', false: 'OFF', '1': 'ON', '0': 'OFF' }
+        state: { 'on': 'ON', 'off': 'OFF', 'true': 'ON', 'false': 'OFF', '1': 'ON', '0': 'OFF' }
     mode_set_slew:
-      template: '{sub}:{cmd} {rate}, (@{channel})'
-      defaults: { channel: 1 }
+      template: '{mode}:SLEW {rate}, (@{channel})'
+      defaults: { channel: 1, mode: 'CURRent', rate: 1 }
       enums:
         mode: { CC: 'CURRent', CV: 'VOLTage', CP: 'POWer', CR: 'RESistance' }
-      # derive sub and cmd via placeholders mapping
-      sequence:
-        - '{mode}:{slew} {rate}, (@{channel})'
-      # backward-compat: accept either direct mapping through mode
     mode_set_range:
       sequence:
         - '{mode}:RANGe {value}, (@{channel})'
-      defaults: { channel: 1 }
+      defaults: { channel: 1, mode: 'CURRent', value: 1 }
       enums:
         mode: { CC: 'CURRent', CV: 'VOLTage', CP: 'POWer', CR: 'RESistance' }
     transient_set_mode:
       template: 'TRANsient:MODE {mode}, (@{channel})'
-      defaults: { channel: 1 }
+      defaults: { channel: 1, mode: 'CONTinuous' }
     transient_set_level:
       sequence:
         - '{mode}:TLEVel {value}, (@{channel})'
-      defaults: { channel: 1 }
+      defaults: { channel: 1, mode: 'CURRent', value: 1 }
       enums:
         mode: { CC: 'CURRent', CV: 'VOLTage', CP: 'POWer', CR: 'RESistance' }
     transient_start:
@@ -179,7 +247,7 @@ scpi:
         - 'INITiate:TRANsient (@{channel})'
       defaults: { channel: 1 }
       enums:
-        state: { on: 'ON', off: 'OFF', true: 'ON', false: 'OFF' }
+        state: { 'on': 'ON', 'off': 'OFF', 'true': 'ON', 'false': 'OFF' }
     transient_abort:
       template: 'ABORt:TRANsient (@{channel})'
       defaults: { channel: 1 }
@@ -187,32 +255,44 @@ scpi:
       template: 'BATTery:ENABle {state}, (@{channel})'
       defaults: { channel: 1 }
       enums:
-        state: { on: 'ON', off: 'OFF', true: 'ON', false: 'OFF', '1': 'ON', '0': 'OFF' }
+        state: { 'on': 'ON', 'off': 'OFF', 'true': 'ON', 'false': 'OFF', '1': 'ON', '0': 'OFF' }
     battery_cutoff_voltage_state:
       template: 'BATTery:CUTOff:VOLTage:STATe {state}, (@{channel})'
       defaults: { channel: 1 }
       enums:
-        state: { on: 'ON', off: 'OFF', true: 'ON', false: 'OFF', '1': 'ON', '0': 'OFF' }
+        state: { 'on': 'ON', 'off': 'OFF', 'true': 'ON', 'false': 'OFF', '1': 'ON', '0': 'OFF' }
     battery_cutoff_voltage:
       template: 'BATTery:CUTOff:VOLTage {voltage}, (@{channel})'
-      defaults: { channel: 1 }
+      defaults: { channel: 1, voltage: 1 }
     battery_cutoff_capacity_state:
       template: 'BATTery:CUTOff:CAPacity:STATe {state}, (@{channel})'
       defaults: { channel: 1 }
       enums:
-        state: { on: 'ON', off: 'OFF', true: 'ON', false: 'OFF', '1': 'ON', '0': 'OFF' }
+        state: { 'on': 'ON', 'off': 'OFF', 'true': 'ON', 'false': 'OFF', '1': 'ON', '0': 'OFF' }
     battery_cutoff_capacity:
       template: 'BATTery:CUTOff:CAPacity {capacity}, (@{channel})'
-      defaults: { channel: 1 }
+      defaults: { channel: 1, capacity: 1 }
     battery_cutoff_timer_state:
       template: 'BATTery:CUTOff:TIMer:STATe {state}, (@{channel})'
       defaults: { channel: 1 }
       enums:
-        state: { on: 'ON', off: 'OFF', true: 'ON', false: 'OFF', '1': 'ON', '0': 'OFF' }
+        state: { 'on': 'ON', 'off': 'OFF', 'true': 'ON', 'false': 'OFF', '1': 'ON', '0': 'OFF' }
     battery_cutoff_timer:
       template: 'BATTery:CUTOff:TIMer {time_s}, (@{channel})'
-      defaults: { channel: 1 }
+      defaults: { channel: 1, time_s: 1 }
   queries:
+    identify:
+      template: "*IDN?"
+      response: {type: str}
+    get_error:
+      template: "SYST:ERR?"
+      response: {type: str}
+    opc_query:
+      template: "*OPC?"
+      response: {type: str}
+    esr_query:
+      template: "*ESR?"
+      response: {type: str}
     get_input_state:
       template: 'INPut:STATe? (@{channel})'
       defaults: { channel: 1 }
@@ -245,5 +325,517 @@ scpi:
     fetch_datalogger:
       template: 'FETCh:SCALar:DLOG? {points}, (@{channel})'
       defaults: { channel: 1 }
+      parameters:
+        points:
+          kind: range
+          min: 1
+          max: 65536
+        channel:
+          kind: range
+          min: 1
+          max: 1
       response:
         type: csv_float
+    battery_measure:
+      template: 'BATTery:MEASure:{metric}? (@{channel})'
+      parameters:
+        metric:
+          kind: enum
+          strict: true
+          choices:
+            - { value: capacity, token: CAPacity, label: capacity }
+            - { value: power, token: POWer, label: power }
+            - { value: time, token: TIMe, label: time }
+        channel:
+          kind: range
+          min: 1
+          max: 1
+      response:
+        type: float
+
+operation_options:
+  operations:
+    set_mode:
+      transport:
+        set_mode: set_mode
+      parameters:
+        mode:
+          kind: enum
+          options: &id001
+          - value: CC
+            label: CC
+            constraints:
+              value:
+                min: 0.0
+                max: 40.0
+                unit: A
+              rate:
+                min: 0.0
+                max: 9.9e+37
+                unit: A/s
+            transport:
+              value: CC
+          - value: CV
+            label: CV
+            constraints:
+              value:
+                min: 0.0
+                max: 150.0
+                unit: V
+              rate:
+                min: 0.0
+                max: 9.9e+37
+                unit: V/s
+            transport:
+              value: CV
+          - value: CP
+            label: CP
+            constraints:
+              value:
+                min: 0.0
+                max: 250.0
+                unit: W
+              rate:
+                min: 0.0
+                max: 9.9e+37
+                unit: W/s
+            transport:
+              value: CP
+          - value: CR
+            label: CR
+            constraints:
+              value:
+                min: 0.0
+                max: 4000.0
+                unit: ohm
+              rate:
+                min: 0.0
+                max: 9.9e+37
+                unit: ohm/s
+            transport:
+              value: CR
+          bindings:
+          - alias: set_mode
+            parameter: mode
+    set_load:
+      transport:
+        set_current_level: set_current_level
+        set_voltage_level: set_voltage_level
+        set_power_level: set_power_level
+        set_resistance_level: set_resistance_level
+      parameters:
+        mode:
+          kind: enum
+          transport_parameter: false
+          options: *id001
+        value:
+          kind: range
+          min: 0.0
+          dependencies:
+          - mode
+          bindings:
+          - alias: set_current_level
+            parameter: value
+    enable_input:
+      transport:
+        set_input_state: set_input_state
+      parameters:
+        state:
+          kind: bool
+          options: &id002
+          - value: true
+            label: 'On'
+            transport:
+              value: 'ON'
+          - value: false
+            label: 'Off'
+            transport:
+              value: 'OFF'
+          bindings:
+          - alias: set_input_state
+            parameter: state
+        channel:
+          kind: range
+          min: 1
+          max: 1
+          bindings:
+          - alias: set_input_state
+            parameter: channel
+    is_input_enabled:
+      transport:
+        get_input_state: get_input_state
+      parameters:
+        channel:
+          kind: range
+          min: 1
+          max: 1
+          bindings:
+          - alias: get_input_state
+            parameter: channel
+    short_input:
+      transport:
+        input_short_state: input_short_state
+      parameters:
+        state:
+          kind: bool
+          options: *id002
+          bindings:
+          - alias: input_short_state
+            parameter: state
+        channel:
+          kind: range
+          min: 1
+          max: 1
+          bindings:
+          - alias: input_short_state
+            parameter: channel
+    measure_current:
+      transport:
+        measure: measure
+      parameters:
+        quantity:
+          kind: enum
+          options:
+          - value: current
+            label: current
+            unit: A
+            transport:
+              value: CURRent
+          bindings:
+          - alias: measure
+            parameter: quantity
+    measure_voltage:
+      transport:
+        measure: measure
+      parameters:
+        quantity:
+          kind: enum
+          options:
+          - value: voltage
+            label: voltage
+            unit: V
+            transport:
+              value: VOLTage
+          bindings:
+          - alias: measure
+            parameter: quantity
+    measure_power:
+      transport:
+        measure: measure
+      parameters:
+        quantity:
+          kind: enum
+          options:
+          - value: power
+            label: power
+            unit: W
+            transport:
+              value: POWer
+          bindings:
+          - alias: measure
+            parameter: quantity
+    set_range:
+      transport:
+        mode_set_range: mode_set_range
+      parameters:
+        mode:
+          kind: enum
+          options: *id001
+          bindings:
+          - alias: mode_set_range
+            parameter: mode
+        value:
+          kind: range
+          min: 0.0
+          bindings:
+          - alias: mode_set_range
+            parameter: value
+        channel:
+          kind: range
+          min: 1
+          max: 1
+          bindings:
+          - alias: mode_set_range
+            parameter: channel
+    set_slew_rate:
+      transport:
+        mode_set_slew: mode_set_slew
+      parameters:
+        mode:
+          kind: enum
+          options: *id001
+          bindings:
+          - alias: mode_set_slew
+            parameter: mode
+        rate:
+          kind: range
+          min: 0.0
+          dependencies:
+          - mode
+          bindings:
+          - alias: mode_set_slew
+            parameter: rate
+        channel:
+          kind: range
+          min: 1
+          max: 1
+          bindings:
+          - alias: mode_set_slew
+            parameter: channel
+    configure_transient_mode:
+      transport:
+        transient_set_mode: transient_set_mode
+      parameters:
+        mode:
+          kind: enum
+          options:
+          - value: continuous
+            label: CONTinuous
+            transport:
+              value: CONTinuous
+            aliases:
+            - continuous
+          - value: pulse
+            label: PULSe
+            transport:
+              value: PULSe
+            aliases:
+            - pulse
+          - value: toggle
+            label: TOGGle
+            transport:
+              value: TOGGle
+            aliases:
+            - toggle
+          - value: list
+            label: LIST
+            transport:
+              value: LIST
+            aliases:
+            - list
+          bindings:
+          - alias: transient_set_mode
+            parameter: mode
+        channel:
+          kind: range
+          min: 1
+          max: 1
+          bindings:
+          - alias: transient_set_mode
+            parameter: channel
+    set_transient_level:
+      transport:
+        transient_set_level: transient_set_level
+      parameters:
+        mode:
+          kind: enum
+          transport_parameter: false
+          options: *id001
+        value:
+          kind: range
+          min: 0.0
+          dependencies:
+          - mode
+          bindings:
+          - alias: transient_set_level
+            parameter: value
+        channel:
+          kind: range
+          min: 1
+          max: 1
+          bindings:
+          - alias: transient_set_level
+            parameter: channel
+    start_transient:
+      transport:
+        transient_start: transient_start
+      parameters:
+        continuous:
+          kind: bool
+          options: *id002
+          bindings:
+          - alias: transient_start
+            parameter: state
+        channel:
+          kind: range
+          min: 1
+          max: 1
+          bindings:
+          - alias: transient_start
+            parameter: channel
+    stop_transient:
+      transport:
+        transient_abort: transient_abort
+      parameters:
+        channel:
+          kind: range
+          min: 1
+          max: 1
+          bindings:
+          - alias: transient_abort
+            parameter: channel
+    enable_battery_test:
+      transport:
+        battery_enable: battery_enable
+      parameters:
+        state:
+          kind: bool
+          options: *id002
+          bindings:
+          - alias: battery_enable
+            parameter: state
+        channel:
+          kind: range
+          min: 1
+          max: 1
+          bindings:
+          - alias: battery_enable
+            parameter: channel
+    get_battery_test_measurement:
+      transport:
+        battery_measure: battery_measure
+      parameters:
+        metric:
+          kind: enum
+          options:
+          - value: capacity
+            label: capacity
+            transport:
+              value: CAPacity
+          - value: power
+            label: power
+            transport:
+              value: POWer
+          - value: time
+            label: time
+            transport:
+              value: TIMe
+          bindings:
+          - alias: battery_measure
+            parameter: metric
+        channel:
+          kind: range
+          min: 1
+          max: 1
+          bindings:
+          - alias: battery_measure
+            parameter: channel
+    fetch_scope_data:
+      transport:
+        fetch_array: fetch_array
+      parameters:
+        measurement:
+          kind: enum
+          options:
+          - value: current
+            label: current
+            transport:
+              value: CURRent
+          - value: voltage
+            label: voltage
+            transport:
+              value: VOLTage
+          - value: power
+            label: power
+            transport:
+              value: POWer
+          bindings:
+          - alias: fetch_array
+            parameter: quantity
+        channel:
+          kind: range
+          min: 1
+          max: 1
+          bindings:
+          - alias: fetch_array
+            parameter: channel
+    fetch_datalogger_data:
+      transport:
+        fetch_datalogger: fetch_datalogger
+      parameters:
+        num_points:
+          kind: range
+          min: 1
+          max: 65536
+          bindings:
+          - alias: fetch_datalogger
+            parameter: points
+        channel:
+          kind: range
+          min: 1
+          max: 1
+          bindings:
+          - alias: fetch_datalogger
+            parameter: channel
+    set_battery_cutoff_voltage:
+      transport:
+        battery_cutoff_voltage: battery_cutoff_voltage
+        battery_cutoff_voltage_state: battery_cutoff_voltage_state
+      parameters:
+        voltage:
+          kind: range
+          min: 0.0
+          bindings:
+          - alias: battery_cutoff_voltage
+            parameter: voltage
+        state:
+          kind: bool
+          options: *id002
+          bindings:
+          - alias: battery_cutoff_voltage_state
+            parameter: state
+        channel:
+          kind: range
+          min: 1
+          max: 1
+          bindings:
+          - alias: battery_cutoff_voltage
+            parameter: channel
+    set_battery_cutoff_capacity:
+      transport:
+        battery_cutoff_capacity: battery_cutoff_capacity
+        battery_cutoff_capacity_state: battery_cutoff_capacity_state
+      parameters:
+        capacity:
+          kind: range
+          min: 0.0
+          bindings:
+          - alias: battery_cutoff_capacity
+            parameter: capacity
+        state:
+          kind: bool
+          options: *id002
+          bindings:
+          - alias: battery_cutoff_capacity_state
+            parameter: state
+        channel:
+          kind: range
+          min: 1
+          max: 1
+          bindings:
+          - alias: battery_cutoff_capacity
+            parameter: channel
+    set_battery_cutoff_timer:
+      transport:
+        battery_cutoff_timer: battery_cutoff_timer
+        battery_cutoff_timer_state: battery_cutoff_timer_state
+      parameters:
+        time_s:
+          kind: range
+          min: 0.0
+          bindings:
+          - alias: battery_cutoff_timer
+            parameter: time_s
+        state:
+          kind: bool
+          options: *id002
+          bindings:
+          - alias: battery_cutoff_timer_state
+            parameter: state
+        channel:
+          kind: range
+          min: 1
+          max: 1
+          bindings:
+          - alias: battery_cutoff_timer
+            parameter: channel

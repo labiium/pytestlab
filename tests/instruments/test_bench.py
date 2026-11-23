@@ -22,7 +22,6 @@ import pytest
 
 from pytestlab.bench import Bench
 from pytestlab.bench import SafetyLimitError
-from pytestlab.instruments.Multimeter import DMMFunction
 
 # Test bench YAML configuration for testing with real instruments
 TEST_BENCH_CONFIG = """
@@ -43,15 +42,15 @@ experiment:
 # Set to false to use real instruments with LAMB backend
 simulate: false
 
-# Continue operation even if some instruments fail to connect
-continue_on_instrument_error: true
+# Continue operation even if some devices fail to connect
+continue_on_device_error: true
 continue_on_automation_error: true
 
 backend_defaults:
   type: "lamb"
   timeout_ms: 10000
 
-instruments:
+devices:
   psu:
     profile: "keysight/EDU36311A"
     backend:
@@ -99,7 +98,7 @@ traceability:
 
 measurement_plan:
   - name: "Voltage Measurement"
-    instrument: "dmm"
+    device: "dmm"
     probe_location: "DUT input"
     settings:
       function: "DC_VOLTAGE"
@@ -173,9 +172,9 @@ def test_bench_initialization(bench_config_file):
         assert bench.version == "1.0.0"
         assert bench._config.experiment.title == "Bench End-to-End Test"
 
-        # Verify instruments were created
-        assert "psu" in bench._instrument_instances
-        assert "dmm" in bench._instrument_instances
+        # Verify devices were created
+        assert "psu" in bench.devices
+        assert "dmm" in bench.devices
     finally:
         # Clean up
         bench.close_all()
@@ -191,8 +190,8 @@ def test_bench_context_manager(bench_config_file):
 
     with Bench.open(bench_config_file) as bench:
         assert bench.name == "Test Bench for End-to-End Testing"
-        assert "psu" in bench._instrument_instances
-        assert "dmm" in bench._instrument_instances
+        assert "psu" in bench.devices
+        assert "dmm" in bench.devices
 
     # The bench should be closed after exiting the context manager
     # We can't directly test this without accessing private attributes,
@@ -219,11 +218,11 @@ def test_bench_instrument_access(bench_config_file):
         dmm_id = bench.dmm.id()
         assert isinstance(dmm_id, str)
 
-        # Test bench.instruments dictionary
-        assert "psu" in bench.instruments
-        assert "dmm" in bench.instruments
-        assert bench.instruments["psu"] == bench._instrument_instances["psu"]
-        assert bench.instruments["dmm"] == bench._instrument_instances["dmm"]
+        # Test bench.devices dictionary
+        assert "psu" in bench.devices
+        assert "dmm" in bench.devices
+        assert bench.devices["psu"] is bench.psu
+        assert bench.devices["dmm"] is bench.dmm
 
 
 @pytest.mark.requires_real_hw
@@ -309,10 +308,10 @@ def test_dmm_functionality(bench_config_file):
         pytest.skip(f"Hardware not available: {error_msg}")
 
     with Bench.open(bench_config_file) as bench:
-        # Configure DMM for voltage measurement
-        bench.dmm.set_measurement_function(DMMFunction.VOLTAGE_DC)
+        # Select the function as part of the measurement operation.
+        measurement = bench.dmm.measure(function="dc_voltage")
 
-        # Get configuration
+        # Get configuration after the measurement selected the mode.
         config = bench.dmm.get_config()
         assert hasattr(config, "measurement_mode")
         assert (
@@ -320,14 +319,11 @@ def test_dmm_functionality(bench_config_file):
             or "volt" in config.measurement_mode.lower()
         )
 
-        # Take a measurement
-        measurement = bench.dmm.measure(function=DMMFunction.VOLTAGE_DC)
-
         # Check measurement result
         assert hasattr(measurement, "values")
         assert hasattr(measurement, "units")
         assert measurement.units == "V"
-        # It returns a UFloat (uncertainties package), not a plain float
+        # It returns a native uncertainty-aware quantity, not a plain float.
         assert hasattr(measurement.values, "nominal_value")
 
 
@@ -354,7 +350,7 @@ def test_metadata_access(bench_config_file):
         # Test measurement plan access - these are pydantic models, not dicts
         assert len(bench.measurement_plan) >= 1
         assert bench.measurement_plan[0].name == "Voltage Measurement"
-        assert bench.measurement_plan[0].instrument == "dmm"
+        assert bench.measurement_plan[0].device == "dmm"
 
         # Test experiment notes access
         assert bench.experiment_notes is not None
@@ -391,42 +387,34 @@ def test_psu_dmm_integration(bench_config_file):
 
     with Bench.open(bench_config_file) as bench:
         # Only run this test if both PSU and DMM are available and not simulated
-        try:
-            psu_id = bench.psu.id()
-            dmm_id = bench.dmm.id()
+        psu_id = bench.psu.id()
+        dmm_id = bench.dmm.id()
 
-            if "SIM" in psu_id or "SIM" in dmm_id:
-                pytest.skip("Skipping PSU-DMM integration test in simulation mode")
+        if "SIM" in psu_id or "SIM" in dmm_id:
+            pytest.skip("Skipping PSU-DMM integration test in simulation mode")
 
-            # Configure DMM for voltage measurement
-            bench.dmm.set_measurement_function(DMMFunction.VOLTAGE_DC)
+        # Set PSU to 3.3V and enable output
+        bench.psu.set_voltage(1, 3.3)
+        bench.psu.set_current(1, 0.1)
+        bench.psu.output(1, True)
 
-            # Set PSU to 3.3V and enable output
-            bench.psu.set_voltage(1, 3.3)
-            bench.psu.set_current(1, 0.1)
-            bench.psu.output(1, True)
+        # Wait for voltage to stabilize
+        time.sleep(1)
 
-            # Wait for voltage to stabilize
-            time.sleep(1)
+        # Measure voltage with DMM
+        measurement = bench.dmm.measure(function="dc_voltage")
 
-            # Measure voltage with DMM
-            measurement = bench.dmm.measure(function=DMMFunction.VOLTAGE_DC)
+        # Check if measured voltage is close to set voltage
+        # We use a wide tolerance since we don't know how DMM is connected
+        voltage = float(measurement.values.nominal_value)
 
-            # Check if measured voltage is close to set voltage
-            # We use a wide tolerance since we don't know how DMM is connected
-            voltage = float(measurement.values.nominal_value)
+        # If DMM is connected to PSU, voltage should be around 3.3V
+        # If not connected, it might read close to 0V
+        # We accept both cases since we can't guarantee physical connections
+        assert voltage < 10.0, "Measured voltage is too high"
 
-            # If DMM is connected to PSU, voltage should be around 3.3V
-            # If not connected, it might read close to 0V
-            # We accept both cases since we can't guarantee physical connections
-            assert voltage < 10.0, "Measured voltage is too high"
-
-            # Turn off PSU output
-            bench.psu.output(1, False)
-        except Exception as e:
-            # Log the exception before skipping
-            print(f"Integration test exception: {e}")
-            pytest.skip("Skipping PSU-DMM integration test due to connection issues")
+        # Turn off PSU output
+        bench.psu.output(1, False)
 
 
 def test_invalid_bench_config():
@@ -456,8 +444,8 @@ def test_getattr_error_handling(bench_config_file):
 
     with Bench.open(bench_config_file) as bench:
         with pytest.raises(AttributeError):
-            # This instrument doesn't exist in the config
-            _ = bench.non_existent_instrument
+            # This device doesn't exist in the config
+            _ = bench.non_existent_device
 
 
 @pytest.mark.requires_real_hw
@@ -483,7 +471,7 @@ def test_health_check(bench_config_file):
         pytest.skip(f"Hardware not available: {error_msg}")
 
     with Bench.open(bench_config_file) as bench:
-        # Run health checks on all instruments
+        # Run health checks on all devices
         health_reports = bench.health_check()
 
         # Verify we got health reports
@@ -497,19 +485,19 @@ def test_health_check(bench_config_file):
 
 
 @pytest.mark.requires_real_hw
-def test_instrument_type_detection(bench_config_file):
-    """Test instrument type detection."""
+def test_device_type_detection(bench_config_file):
+    """Test device type detection."""
     # Check if hardware is available
     is_available, error_msg = check_hardware_available()
     if not is_available:
         pytest.skip(f"Hardware not available: {error_msg}")
 
     with Bench.open(bench_config_file) as bench:
-        # Check if the bench correctly identifies instrument types
-        psu_type = bench._detect_instrument_type(bench._instrument_instances["psu"])
+        # Check if the bench correctly identifies device types
+        psu_type = bench._detect_device_type(bench.devices["psu"])
         assert psu_type == "power_supply"
 
-        dmm_type = bench._detect_instrument_type(bench._instrument_instances["dmm"])
+        dmm_type = bench._detect_device_type(bench.devices["dmm"])
         assert dmm_type in ["multimeter", "unknown"]
 
 
@@ -564,9 +552,9 @@ def test_bench_simulation_mode(simulation_bench_config_file):
         assert bench.version == "1.0.0"
         assert bench._config.experiment.title == "Bench End-to-End Test"
 
-        # Verify instruments were created (simulated)
-        assert "psu" in bench._instrument_instances
-        assert "dmm" in bench._instrument_instances
+        # Verify devices were created (simulated)
+        assert "psu" in bench.devices
+        assert "dmm" in bench.devices
 
         # Test accessing instruments by attribute
         assert bench.psu is not None
@@ -580,8 +568,7 @@ def test_bench_simulation_mode(simulation_bench_config_file):
 
             dmm_id = bench.dmm.id()
             assert isinstance(dmm_id, str)
-        except Exception as e:
-            # If simulation mode isn't fully implemented, skip the test
+        except NotImplementedError as e:
             pytest.skip(f"Simulation mode not fully implemented: {str(e)}")
 
 

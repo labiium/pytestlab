@@ -3,9 +3,9 @@ docs_dir: en
 site_dir: ../site
 site_description: "Scientific test & measurement toolbox for Python."
 site_author: "LABIIUM"
-copyright: "Copyright &copy; 2023-2024 LABIIUM"
+copyright: "Copyright &copy; 2023-2026 LABIIUM"
 repo_url: https://github.com/labiium/pytestlab
-edit_uri: edit/master/docs/
+edit_uri: edit/master/docs/en/
 site_url: https://pytestlab.org/
 use_directory_urls: true
 
@@ -42,13 +42,13 @@ extra:
     code_showcase_title: An API Designed for Flow
     code_showcase_subtitle: Follow the journey from a single command to a complete, automated experiment.
     step_1_title: 1. Hello, Instrument
-    step_1_desc: Start simple. Connect to any instrument with one line. PyTestLab's `AutoInstrument` handles the backend, even providing a full simulation for development and CI.
+    step_1_desc: Start with a simulated multimeter. For hardware, use an instrument profile and the connection details for your station.
     step_2_title: 2. Define Your Bench
-    step_2_desc: Describe your entire lab bench in a simple, readable YAML file. Specify instruments, connection details, and even safety limits to prevent accidents.
+    step_2_desc: Describe your entire lab bench in a simple, readable YAML file. Specify instruments, connection details, and software limits for supported settings.
     step_3_title: 3. Run Your Bench
     step_3_desc: Bring your bench to life. The `Bench` context manager handles all connections and provides access to your instruments by the aliases you defined. Safety limits are enforced automatically.
     step_4_title: 4. Design Experiments
-    step_4_desc: Go beyond simple commands. Use the declarative `MeasurementSession` to design complex experiments, sweep multiple parameters, and automatically collect structured data, ready for analysis.
+    step_4_desc: Go beyond simple commands. Use MeasurementSession to design complex experiments, sweep multiple parameters, and automatically collect structured data, ready for analysis.
     cta_title: Ready to Accelerate Your Research?
     cta_subtitle: PyTestLab is ready for your lab. Get started today and transform how you measure, test, and analyze.
     get_started_button: Get Started
@@ -94,16 +94,13 @@ theme:
   custom_dir: themes/labiium_photon
   logo: img/pytestlab_logo.png
   favicon: img/favicon.ico
-  features:
-    - navigation.instant
-    - navigation.top
-    - search.suggest
-    - content.code.copy
-  palette:
-    primary: custom
+  search_index_only: true
+  static_templates:
+    - 404.html
 
 plugins:
-  - search
+  - search:
+      indexing: full
   - mkdocstrings:
       handlers:
         python:
@@ -113,10 +110,16 @@ plugins:
             show_category_heading: true
             docstring_section_style: "spacy"
             merge_init_into_class: true
-            show_if_no_docstring: true
+            show_if_no_docstring: false
+            show_source: false
+            separate_signature: true
+            members_order: source
+            filters:
+              - "!^_"
   - mkdocs-jupyter
-  - awesome-pages
-  - git-revision-date-localized
+
+hooks:
+  - hooks.py
 
 markdown_extensions:
   - admonition
@@ -128,36 +131,45 @@ markdown_extensions:
       anchor_linenums: true
       line_spans: __span
       pygments_lang_class: true
-      use_pygments: false
+      use_pygments: true
   - pymdownx.inlinehilite
   - pymdownx.snippets
   - attr_list
   - md_in_html
+  - toc:
+      permalink: "#"
+      permalink_title: Copy link to this section
 
 extra_css:
-  - stylesheets/extra.css
-  - stylesheets/notebook-enhancements.css
-
-extra_javascript:
-  - https://polyfill.io/v3/polyfill.min.js?features=es6
-  - js/notebook-enhancements.js
+  - stylesheets/docs-redesign.css
+  - stylesheets/syntax-highlighting.css
 
 nav:
   - Home: index.md
   - Docs:
-      - Installation: installation.md
-      - "Getting Started": user_guide/getting_started.md
-
-      - "Connecting to Instruments": user_guide/connecting.md
-      - "Measurement Sessions": user_guide/measurement_session.md
-      - "Simulation Mode": user_guide/simulation.md
-      - "Record & Replay Mode": user_guide/replay_mode.md
-      - "Bench Descriptors": user_guide/bench_descriptors.md
-      - "Error Handling": user_guide/errors.md
-      - "Handling Uncertainty": user_guide/uncertainty.md
-      - "Notebook Styling Guide": user_guide/notebook_styling.md
-      - "Command-Line Interface": user_guide/cli.md
-      - "Documentation Scripts": scripts/index.md
+      - Get started:
+          - Installation: installation.md
+          - "Getting Started": user_guide/getting_started.md
+          - Troubleshooting: user_guide/troubleshooting.md
+      - CLI: cli.md
+      - "bench.yaml": bench-yaml.md
+      - "Using a prober": user_guide/using_prober.md
+      - "Using a camera or microscope": user_guide/using_camera_microscope.md
+      - User guide:
+          - "Connecting to Instruments": user_guide/connecting.md
+          - "Measurement Sessions": user_guide/measurement_session.md
+          - "Simulation Mode": user_guide/simulation.md
+          - "Circuit Simulation": user_guide/circuit_simulation.md
+          - "Replay Mode Guide": user_guide/replay_mode.md
+          - "Bench Descriptors": user_guide/bench_descriptors.md
+          - "Profiles and Architecture": user_guide/architecture_and_boundaries.md
+          - "Error Handling": user_guide/errors.md
+          - "Handling Uncertainty": user_guide/uncertainty.md
+          - "Digital Twins and Evidence": user_guide/digital_twin.md
+          - "Notebook Styling Guide": user_guide/notebook_styling.md
+          - "CLI command reference": user_guide/cli.md
+          - "Cameras, Motion & Robots": user_guide/camera-motion.md
+          - "LAMB Commissioning": user_guide/lamb-commissioning.md
   - Tutorials:
       - "10 Minute Tour": tutorials/10_minute_tour.ipynb
       - "Record & Replay Mode": tutorials/replay_mode.ipynb
@@ -165,20 +177,56 @@ nav:
       - "Custom Validations": tutorials/custom_validations.ipynb
       - "Profile Creation": tutorials/profile_creation.ipynb
       - "SmartBench Example": tutorials/smartbench.ipynb
-      - "Example Tutorial": tutorials/example.ipynb
+      - "Instrument Control Workflow": tutorials/example.ipynb
       - "Advanced Measurements": tutorials/advanced_measurements.ipynb
   - API:
-      - "Instruments": api/instruments.md
+      - "API Overview": api/index.md
+      - "Camera LAMB Backend": api/camera-lamb.md
+      - "Prober": api/prober.md
+      - "Source Measure": api/source-measure.md
+      - "Native Multimeters": api/multimeter-native-profiles.md
+      - "Instrument drivers":
+          - "Overview": api/instruments/index.md
+          - "AutoInstrument": api/instruments/autoinstrument.md
+          - "Instrument": api/instruments/instrument.md
+          - "Oscilloscope": api/instruments/oscilloscope.md
+          - "Power Supply": api/instruments/power-supply.md
+          - "Waveform Generator": api/instruments/waveform-generator.md
+          - "Multimeter": api/instruments/multimeter.md
+          - "DC Active Load": api/instruments/dc-active-load.md
+          - "Spectrum Analyzer": api/instruments/spectrum-analyzer.md
+          - "Vector Network Analyzer": api/instruments/vector-network-analyzer.md
+          - "Power Meter": api/instruments/power-meter.md
+          - "Impedance Analyzer": api/instruments/impedance-analyzer.md
+          - "Operation discovery": api/instruments/operation_contract.md
       - "Measurements": api/measurements.md
-      - "Experiments & Database": api/experiments.md
+      - "Devices, Benches & Accessories": api/devices-accessories.md
+      - "Camera & Motion APIs": api/camera-motion-devices.md
+      - "Experiments & Results": api/experiments.md
+      - "Measurement Database": api/database.md
+      - "Sweep Strategies": api/sweeps.md
       - "Backends": api/backends.md
       - "Configuration": api/config.md
+      - "Uncertainty Quantities": api/uncertainty-quantities.md
+      - "Uncertainty & Metrology": api/uncertainty-metrology.md
+      - "Digital Twins": api/twins.md
+      - "Compliance": api/compliance.md
+      - "Optional Notebook GUI": api/gui.md
+      - "Circuit Simulation":
+          - "Sessions & Telemetry": api/circuit/core.md
+          - "Packages & Wiring": api/circuit/modeling.md
+          - "Results & Capabilities": api/circuit/results.md
+          - "Calibration": api/circuit/calibration.md
+          - "Twins & Extensions": api/circuit/extensions.md
       - "Errors": api/errors.md
       - "Common Utilities": api/common.md
   - Instruments:
       - "Profile Gallery": profiles/gallery.md
       - "Creating Profiles": profiles/creating.md
+      - "Generic Profile Instruments": profiles/profile_instruments.md
+      - "Native Switch Profiles": switch-profile-native.md
   - Community:
       - "Contributing": contributing.md
+      - "Documentation Tooling": scripts/index.md
       - "Code of Conduct": CODE_OF_CONDUCT.md
       - "Changelog": changelog.md

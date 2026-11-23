@@ -97,6 +97,8 @@ class _ControlBase:
 # --------------------------------------------------------------------------- #
 @dataclass
 class Slider(_ControlBase):
+    """Float slider bound to synchronous instrument getter and setter callbacks."""
+
     getter: Getter
     setter: Setter
     min: float
@@ -129,6 +131,8 @@ class Slider(_ControlBase):
 
 @dataclass
 class Toggle(_ControlBase):
+    """Boolean toggle bound to instrument state getter and setter callbacks."""
+
     getter: Getter
     setter: Setter
     on_desc: str | None = "ON"
@@ -156,6 +160,8 @@ class Toggle(_ControlBase):
 
 @dataclass
 class Button(_ControlBase):
+    """Push button that invokes an instrument-and-panel action callback."""
+
     action: Action  # action(inst, panel) – may mutate panel widgets
 
     style: str = "primary"
@@ -175,6 +181,8 @@ class Button(_ControlBase):
 # --------------------------------------------------------------------------- #
 @dataclass
 class InstrumentPanel:
+    """Render declarative instrument controls as an ipywidgets vertical panel."""
+
     inst: T_Inst
     controls: Sequence[_ControlBase]
     title: str | None = None

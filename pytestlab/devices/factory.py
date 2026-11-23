@@ -1,0 +1,856 @@
+from __future__ import annotations
+
+import inspect
+import math
+import os
+import tempfile
+from collections.abc import Mapping
+from copy import deepcopy
+from functools import lru_cache
+from functools import partial
+from pathlib import Path
+from typing import Any
+
+import httpx
+import yaml
+
+from ..config.device_config import DeviceConfig
+from ..config.device_config import DeviceRole
+from ..config.device_config import GenericDeviceConfig
+from ..errors import InstrumentConfigurationError
+from .base import Device
+from .base import DeviceBackend
+from .base import _BackendFactory
+from .registry import BackendBuildContext
+from .registry import builtin_simulation_only
+from .registry import get_backend_factory
+from .registry import get_builtin_sim_backend_factory
+from .registry import get_device_driver
+from .registry import load_import_path
+from .registry import validate_backend
+from .registry import validate_driver
+
+
+@lru_cache(maxsize=128)
+def _cached_config_data_file(path: str, source: str, mtime_ns: int, size: int) -> dict[str, Any]:
+    """Parse an unchanged profile once and retain an immutable cache source.
+
+    The stat fields are part of the key so edits naturally invalidate the
+    entry. Callers receive a deep copy and therefore cannot mutate the cached
+    profile shared by later Bench instances.
+    """
+
+    del mtime_ns, size
+    try:
+        loaded_config = yaml.safe_load(Path(path).read_text())
+    except yaml.YAMLError as exc:
+        raise InstrumentConfigurationError(
+            source, f"Error parsing YAML from local file '{path}': {exc}"
+        ) from exc
+    if not isinstance(loaded_config, dict):
+        raise InstrumentConfigurationError(
+            source, f"Local config file '{path}' did not load as a dictionary."
+        )
+    return loaded_config
+
+
+def _merge_transport_override(config: DeviceConfig, override: Mapping[str, Any]) -> dict[str, Any]:
+    """Bench timing can increase profile requirements, never lower them."""
+    numeric = {"min_command_interval_s", "query_delay_s"}
+    allowed = numeric | {"read_termination"}
+    unknown = set(override) - allowed
+    if unknown:
+        raise ValueError(f"Unsupported bench transport settings: {sorted(unknown)}")
+    result = dict(config.transport)
+    capabilities = getattr(config, "capabilities", {})
+    legacy_io = capabilities.get("message_io", {}) if isinstance(capabilities, Mapping) else {}
+    groups = []
+    for source in (legacy_io, getattr(config, "motion", {}), getattr(config, "switch", {}), result):
+        if not isinstance(source, Mapping):
+            continue
+        message_io = source.get("message_io")
+        if isinstance(message_io, Mapping):
+            groups.append(message_io)
+        groups.append(source)
+    for key, value in override.items():
+        if key in numeric:
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ValueError(f"{key} must be a finite non-negative number")
+            if not math.isfinite(value) or value < 0:
+                raise ValueError(f"{key} must be a finite non-negative number")
+            floors = [
+                group[key]
+                for group in groups
+                if isinstance(group, Mapping) and group.get(key) is not None
+            ]
+            result[key] = max([value, *floors])
+        else:
+            undeclared = object()
+            declared = next(
+                (group[key] for group in reversed(groups) if key in group),
+                undeclared,
+            )
+            if declared is not undeclared and value != declared:
+                raise ValueError(
+                    "Bench transport cannot replace the profile's required termination"
+                )
+            result[key] = value
+    return result
+
+
+class AutoDevice:
+    """Factory for arbitrary automatable lab devices."""
+
+    @classmethod
+    def from_type(cls, device_type: str, *args: Any, **kwargs: Any) -> Device[Any]:
+        driver_class = get_device_driver(device_type)
+        if driver_class is None:
+            raise InstrumentConfigurationError(device_type, f"Unknown device type: {device_type}")
+        return driver_class(*args, **kwargs)
+
+    @classmethod
+    def get_config_from_cdn(cls, identifier: str) -> dict[str, Any]:
+        import pytestlab as ptl
+
+        pkg_file = getattr(ptl, "__file__", None)
+        if pkg_file is None:
+            raise InstrumentConfigurationError(
+                identifier, "Cannot locate pytestlab package file for cache directory."
+            )
+        cache_dir = Path(pkg_file).resolve().parent / "cache" / "configs"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        cache_file = cache_dir / f"{identifier}.yaml"
+        if cache_file.exists():
+            try:
+                loaded_config = yaml.safe_load(cache_file.read_text())
+                if not isinstance(loaded_config, dict):
+                    cache_file.unlink(missing_ok=True)
+                    raise InstrumentConfigurationError(
+                        identifier, "Cached config is not a valid dictionary."
+                    )
+                return loaded_config
+            except Exception:
+                cache_file.unlink(missing_ok=True)
+        url = f"https://cdn.pytestlab.org/config/{identifier}.yaml"
+        with httpx.Client() as client:
+            try:
+                response = client.get(url, timeout=10)
+                response.raise_for_status()
+                loaded_config = yaml.safe_load(response.text)
+                if not isinstance(loaded_config, dict):
+                    raise InstrumentConfigurationError(
+                        identifier, f"CDN config for {identifier} is not a valid dictionary."
+                    )
+                cache_file.write_text(response.text)
+                return loaded_config
+            except httpx.HTTPStatusError as http_err:
+                if http_err.response.status_code == 404:
+                    raise FileNotFoundError(f"Configuration file not found at {url}") from http_err
+                raise FileNotFoundError(
+                    f"Failed to fetch configuration from CDN ({url}): "
+                    f"HTTP {http_err.response.status_code}"
+                ) from http_err
+            except httpx.RequestError as exc:
+                raise FileNotFoundError(
+                    f"Failed to fetch configuration from CDN ({url}): {exc}"
+                ) from exc
+            except yaml.YAMLError as exc:
+                raise InstrumentConfigurationError(
+                    identifier, f"Error parsing YAML from CDN for {identifier}: {exc}"
+                ) from exc
+
+    @classmethod
+    def get_config_from_local(
+        cls, identifier: str, normalized_identifier: str | None = None
+    ) -> dict[str, Any]:
+        import pytestlab as ptl
+
+        norm_id = (
+            normalized_identifier
+            if normalized_identifier is not None
+            else os.path.normpath(identifier)
+        )
+        pkg_file = getattr(ptl, "__file__", None)
+        pkg_dir = (
+            Path(pkg_file).resolve().parent
+            if pkg_file is not None
+            else Path(__file__).resolve().parent
+        )
+        preset_path = pkg_dir / "profiles" / f"{norm_id}.yaml"
+        path_to_try: str | None = None
+        if preset_path.exists():
+            path_to_try = str(preset_path)
+        elif os.path.exists(identifier) and identifier.endswith((".yaml", ".yml", ".json")):
+            path_to_try = identifier
+        if path_to_try:
+            try:
+                with open(path_to_try) as file:
+                    loaded_config = yaml.safe_load(file.read())
+                if not isinstance(loaded_config, dict):
+                    raise InstrumentConfigurationError(
+                        identifier,
+                        f"Local config file '{path_to_try}' did not load as a dictionary.",
+                    )
+                return loaded_config
+            except yaml.YAMLError as exc:
+                raise InstrumentConfigurationError(
+                    identifier, f"Error parsing YAML from local file '{path_to_try}': {exc}"
+                ) from exc
+        raise FileNotFoundError(f"No configuration found for identifier '{identifier}'.")
+
+    @classmethod
+    def get_config_from_preset(cls, preset_key: str) -> dict[str, Any]:
+        """Load a packaged pytestlab profile preset by key, never a local path."""
+
+        if not isinstance(preset_key, str):
+            raise TypeError("preset_key must be a string.")
+        candidate = Path(preset_key)
+        if candidate.is_absolute() or candidate.suffix in {".yaml", ".yml", ".json"}:
+            raise ValueError(
+                "from_preset() accepts packaged preset keys only; use from_file() for local files."
+            )
+        import pytestlab as ptl
+
+        pkg_file = getattr(ptl, "__file__", None)
+        pkg_dir = (
+            Path(pkg_file).resolve().parent
+            if pkg_file is not None
+            else Path(__file__).resolve().parent
+        )
+        profiles_dir = (pkg_dir / "profiles").resolve()
+        path = (profiles_dir / os.path.normpath(preset_key)).with_suffix(".yaml").resolve()
+        try:
+            path.relative_to(profiles_dir)
+        except ValueError as exc:
+            raise ValueError("from_preset() preset keys cannot escape packaged presets.") from exc
+        if not path.is_file():
+            raise FileNotFoundError(f"Device preset '{preset_key}' not found at '{path}'.")
+        return cls._load_config_data_file(path, str(preset_key))
+
+    @classmethod
+    def get_config_from_file(cls, path: str | Path) -> dict[str, Any]:
+        """Load a local YAML/JSON device profile file, never a packaged preset key."""
+
+        profile_path = Path(path)
+        if profile_path.suffix not in {".yaml", ".yml", ".json"}:
+            raise ValueError("from_file() requires a YAML or JSON file path.")
+        if not profile_path.is_file():
+            raise FileNotFoundError(f"Device profile file '{profile_path}' not found.")
+        return cls._load_config_data_file(profile_path, str(profile_path))
+
+    @staticmethod
+    def _load_config_data_file(path: Path, source: str) -> dict[str, Any]:
+        stat = path.stat()
+        return deepcopy(
+            _cached_config_data_file(str(path.resolve()), source, stat.st_mtime_ns, stat.st_size)
+        )
+
+    @classmethod
+    def from_config(
+        cls,
+        config_source: str | Path | dict[str, Any] | DeviceConfig,
+        *args: Any,
+        serial_number: str | None = None,
+        debug_mode: bool = False,
+        simulate: bool | None = None,
+        backend_type_hint: str | None = None,
+        address_override: str | None = None,
+        timeout_override_ms: int | None = None,
+        transport_override: Mapping[str, Any] | None = None,
+        backend_override: DeviceBackend | None = None,
+        backend_spec_override: dict[str, Any] | None = None,
+        sim_session: Any | None = None,
+        backend_resources: Mapping[str, Any] | None = None,
+        role_override: str | None = None,
+    ) -> Device[Any]:
+        if args and isinstance(args[0], str):
+            serial_number = args[0]
+
+        config_model, config_data, profile_key = cls._load_config_model(
+            config_source, role_override=role_override
+        )
+        return cls._instantiate_loaded_config(
+            config_model=config_model,
+            config_data=config_data,
+            config_source=config_source,
+            profile_key=profile_key,
+            serial_number=serial_number,
+            debug_mode=debug_mode,
+            simulate=simulate,
+            backend_type_hint=backend_type_hint,
+            address_override=address_override,
+            timeout_override_ms=timeout_override_ms,
+            transport_override=transport_override,
+            backend_override=backend_override,
+            backend_spec_override=backend_spec_override,
+            sim_session=sim_session,
+            backend_resources=backend_resources,
+        )
+
+    @classmethod
+    def _instantiate_loaded_config(
+        cls,
+        *,
+        config_model: DeviceConfig,
+        config_data: dict[str, Any],
+        config_source: Any,
+        profile_key: str | None,
+        serial_number: str | None,
+        debug_mode: bool,
+        simulate: bool | None,
+        backend_type_hint: str | None,
+        address_override: str | None,
+        timeout_override_ms: int | None,
+        transport_override: Mapping[str, Any] | None = None,
+        backend_override: DeviceBackend | None,
+        backend_spec_override: dict[str, Any] | None,
+        sim_session: Any | None,
+        backend_resources: Mapping[str, Any] | None,
+    ) -> Device[Any]:
+        if serial_number is not None and hasattr(config_model, "serial_number"):
+            config_model = config_model.model_copy()
+            config_model.serial_number = serial_number
+
+        if transport_override is not None:
+            config_model = config_model.model_copy(deep=True)
+            config_model.transport = _merge_transport_override(config_model, transport_override)
+            config_data = {**config_data, "transport": dict(config_model.transport)}
+
+        driver_class = cls._resolve_driver(config_model, config_data, config_source)
+        backend_instance = backend_override
+        if backend_instance is None:
+            backend_instance = _BackendFactory(
+                partial(
+                    cls._build_backend,
+                    config_model=config_model.model_copy(deep=True),
+                    config_data=deepcopy(config_data),
+                    config_source=config_source,
+                    profile_key=profile_key,
+                    debug_mode=debug_mode,
+                    simulate=cls._resolve_simulation_mode(simulate),
+                    backend_type_hint=backend_type_hint,
+                    address_override=address_override,
+                    timeout_override_ms=timeout_override_ms,
+                    backend_spec_override=deepcopy(backend_spec_override),
+                    sim_session=sim_session,
+                    backend_resources=backend_resources,
+                    force_builtin_sim=builtin_simulation_only(),
+                )
+            )
+        device = driver_class(config=config_model, backend=backend_instance)
+        if debug_mode:
+            print(f"Instantiated {driver_class.__name__}.")
+            print("Backend allocation and connection occur on first use.")
+        return device
+
+    @classmethod
+    def from_preset(
+        cls,
+        preset_key: str,
+        *args: Any,
+        serial_number: str | None = None,
+        debug_mode: bool = False,
+        simulate: bool | None = None,
+        backend_type_hint: str | None = None,
+        address_override: str | None = None,
+        timeout_override_ms: int | None = None,
+        transport_override: Mapping[str, Any] | None = None,
+        backend_override: DeviceBackend | None = None,
+        backend_spec_override: dict[str, Any] | None = None,
+        sim_session: Any | None = None,
+        backend_resources: Mapping[str, Any] | None = None,
+        role_override: str | None = None,
+    ) -> Device[Any]:
+        """Instantiate a device from a packaged pytestlab profile preset."""
+
+        if args and isinstance(args[0], str):
+            serial_number = args[0]
+        config_data = cls.get_config_from_preset(preset_key)
+        config_model, config_data, _ = cls._load_config_model(
+            config_data, role_override=role_override
+        )
+        return cls._instantiate_loaded_config(
+            config_model=config_model,
+            config_data=config_data,
+            config_source=preset_key,
+            profile_key=preset_key,
+            serial_number=serial_number,
+            debug_mode=debug_mode,
+            simulate=simulate,
+            backend_type_hint=backend_type_hint,
+            address_override=address_override,
+            timeout_override_ms=timeout_override_ms,
+            transport_override=transport_override,
+            backend_override=backend_override,
+            backend_spec_override=backend_spec_override,
+            sim_session=sim_session,
+            backend_resources=backend_resources,
+        )
+
+    @classmethod
+    def from_file(
+        cls,
+        path: str | Path,
+        *args: Any,
+        serial_number: str | None = None,
+        debug_mode: bool = False,
+        simulate: bool | None = None,
+        backend_type_hint: str | None = None,
+        address_override: str | None = None,
+        timeout_override_ms: int | None = None,
+        transport_override: Mapping[str, Any] | None = None,
+        backend_override: DeviceBackend | None = None,
+        backend_spec_override: dict[str, Any] | None = None,
+        sim_session: Any | None = None,
+        backend_resources: Mapping[str, Any] | None = None,
+        role_override: str | None = None,
+    ) -> Device[Any]:
+        """Instantiate a device from a local YAML/JSON profile file."""
+
+        if args and isinstance(args[0], str):
+            serial_number = args[0]
+        config_data = cls.get_config_from_file(path)
+        config_model, config_data, _ = cls._load_config_model(
+            config_data, role_override=role_override
+        )
+        return cls._instantiate_loaded_config(
+            config_model=config_model,
+            config_data=config_data,
+            config_source=str(path),
+            profile_key=str(path),
+            serial_number=serial_number,
+            debug_mode=debug_mode,
+            simulate=simulate,
+            backend_type_hint=backend_type_hint,
+            address_override=address_override,
+            timeout_override_ms=timeout_override_ms,
+            transport_override=transport_override,
+            backend_override=backend_override,
+            backend_spec_override=backend_spec_override,
+            sim_session=sim_session,
+            backend_resources=backend_resources,
+        )
+
+    @classmethod
+    def from_dict(
+        cls,
+        config_data: dict[str, Any],
+        *args: Any,
+        serial_number: str | None = None,
+        debug_mode: bool = False,
+        simulate: bool | None = None,
+        backend_type_hint: str | None = None,
+        address_override: str | None = None,
+        timeout_override_ms: int | None = None,
+        transport_override: Mapping[str, Any] | None = None,
+        backend_override: DeviceBackend | None = None,
+        backend_spec_override: dict[str, Any] | None = None,
+        sim_session: Any | None = None,
+        role_override: str | None = None,
+    ) -> Device[Any]:
+        """Instantiate a device from an in-memory configuration mapping."""
+
+        if not isinstance(config_data, dict):
+            raise TypeError("from_dict() expects a configuration mapping.")
+        return cls.from_config(
+            config_data,
+            *args,
+            serial_number=serial_number,
+            debug_mode=debug_mode,
+            simulate=simulate,
+            backend_type_hint=backend_type_hint,
+            address_override=address_override,
+            timeout_override_ms=timeout_override_ms,
+            transport_override=transport_override,
+            backend_override=backend_override,
+            backend_spec_override=backend_spec_override,
+            sim_session=sim_session,
+            role_override=role_override,
+        )
+
+    @classmethod
+    def from_model(
+        cls,
+        config: DeviceConfig,
+        *args: Any,
+        serial_number: str | None = None,
+        debug_mode: bool = False,
+        simulate: bool | None = None,
+        backend_type_hint: str | None = None,
+        address_override: str | None = None,
+        timeout_override_ms: int | None = None,
+        transport_override: Mapping[str, Any] | None = None,
+        backend_override: DeviceBackend | None = None,
+        backend_spec_override: dict[str, Any] | None = None,
+        sim_session: Any | None = None,
+        role_override: str | None = None,
+    ) -> Device[Any]:
+        """Instantiate a device from a DeviceConfig model object."""
+
+        if not isinstance(config, DeviceConfig):
+            raise TypeError("from_model() expects a DeviceConfig object.")
+        return cls.from_config(
+            config,
+            *args,
+            serial_number=serial_number,
+            debug_mode=debug_mode,
+            simulate=simulate,
+            backend_type_hint=backend_type_hint,
+            address_override=address_override,
+            timeout_override_ms=timeout_override_ms,
+            transport_override=transport_override,
+            backend_override=backend_override,
+            backend_spec_override=backend_spec_override,
+            sim_session=sim_session,
+            role_override=role_override,
+        )
+
+    @classmethod
+    def from_profile(
+        cls,
+        profile_key_or_path: str | Path,
+        *args: Any,
+        serial_number: str | None = None,
+        debug_mode: bool = False,
+        simulate: bool | None = None,
+        backend_type_hint: str | None = None,
+        address_override: str | None = None,
+        timeout_override_ms: int | None = None,
+        transport_override: Mapping[str, Any] | None = None,
+        backend_override: DeviceBackend | None = None,
+        backend_spec_override: dict[str, Any] | None = None,
+        sim_session: Any | None = None,
+        role_override: str | None = None,
+    ) -> Device[Any]:
+        if not isinstance(profile_key_or_path, str | Path):
+            raise TypeError("from_profile expects a profile key or path, not raw config data.")
+        return cls.from_config(
+            str(profile_key_or_path),
+            *args,
+            serial_number=serial_number,
+            debug_mode=debug_mode,
+            simulate=simulate,
+            backend_type_hint=backend_type_hint,
+            address_override=address_override,
+            timeout_override_ms=timeout_override_ms,
+            transport_override=transport_override,
+            backend_override=backend_override,
+            backend_spec_override=backend_spec_override,
+            sim_session=sim_session,
+            role_override=role_override,
+        )
+
+    @classmethod
+    def _load_config_model(
+        cls,
+        config_source: str | Path | dict[str, Any] | DeviceConfig,
+        role_override: str | None = None,
+    ) -> tuple[DeviceConfig, dict[str, Any], str | None]:
+        from ..config.loader import load_device_profile
+
+        if isinstance(config_source, Path):
+            config_source = str(config_source)
+        if isinstance(config_source, DeviceConfig):
+            if role_override is not None:
+                config_source = config_source.model_copy()
+                config_source.role = (
+                    role_override
+                    if isinstance(role_override, DeviceRole)
+                    else DeviceRole(role_override)
+                )
+            return config_source, config_source.model_dump(mode="json"), None
+        if isinstance(config_source, dict) and "profile" in config_source:
+            profile_source = config_source["profile"]
+            config_data = cls._load_config_data_from_string(str(profile_source))
+            for key, value in config_source.items():
+                if key != "profile":
+                    config_data[key] = cls._role_value(value) if key == "role" else value
+            if role_override is not None:
+                config_data["role"] = cls._role_value(role_override)
+            config_model = load_device_profile(config_data)
+            for key, value in config_source.items():
+                if key != "profile":
+                    if hasattr(config_model, key):
+                        setattr(config_model, key, value)
+            return config_model, config_data, str(profile_source)
+        if isinstance(config_source, dict):
+            config_data = {
+                key: cls._role_value(value) if key == "role" else value
+                for key, value in config_source.items()
+            }
+            if role_override is not None:
+                config_data["role"] = cls._role_value(role_override)
+            config_model = load_device_profile(config_data)
+            return config_model, config_data, None
+        if isinstance(config_source, str):
+            config_data = cls._load_config_data_from_string(config_source)
+            if role_override is not None:
+                config_data["role"] = cls._role_value(role_override)
+            config_model = load_device_profile(config_data)
+            return config_model, config_data, config_source
+        raise TypeError(
+            "config_source must be a file path, profile key, dict, or DeviceConfig object."
+        )
+
+    @staticmethod
+    def _role_value(role: str | DeviceRole) -> str:
+        return role.value if isinstance(role, DeviceRole) else role
+
+    @classmethod
+    def _load_config_data_from_string(cls, config_source: str) -> dict[str, Any]:
+        if builtin_simulation_only():
+            if Path(config_source).is_absolute():
+                return cls.get_config_from_file(config_source)
+            return cls.get_config_from_preset(config_source)
+        try:
+            return cls.get_config_from_local(config_source)
+        except FileNotFoundError:
+            try:
+                return cls.get_config_from_cdn(config_source)
+            except FileNotFoundError:
+                raise FileNotFoundError(
+                    f"Configuration '{config_source}' not found in local paths or CDN."
+                ) from None
+
+    @classmethod
+    def _build_backend(
+        cls,
+        *,
+        config_model: DeviceConfig,
+        config_data: dict[str, Any],
+        config_source: Any,
+        profile_key: str | None,
+        debug_mode: bool,
+        simulate: bool | None,
+        backend_type_hint: str | None,
+        address_override: str | None,
+        timeout_override_ms: int | None,
+        backend_spec_override: dict[str, Any] | None,
+        sim_session: Any | None,
+        backend_resources: Mapping[str, Any] | None,
+        force_builtin_sim: bool = False,
+    ) -> DeviceBackend:
+        final_simulation_mode = cls._resolve_simulation_mode(simulate)
+        actual_address = (
+            address_override
+            if address_override is not None
+            else getattr(config_model, "address", None)
+        )
+        actual_timeout = cls._resolve_timeout(config_model, timeout_override_ms)
+        backend_spec = cls._resolve_backend_spec(
+            config_model,
+            config_data,
+            backend_spec_override=backend_spec_override,
+        )
+
+        chosen_backend_type = cls._select_backend_type(
+            backend_spec=backend_spec,
+            backend_type_hint=backend_type_hint,
+            simulate=final_simulation_mode,
+            address=actual_address,
+        )
+
+        profile_path = None
+        if force_builtin_sim:
+            if not final_simulation_mode or backend_type_hint not in {"sim", "circuit_sim"}:
+                raise InstrumentConfigurationError(
+                    config_source, "No explicit built-in simulator selected."
+                )
+            chosen_backend_type = backend_type_hint
+            backend_spec = dict(backend_spec_override or {})
+        if chosen_backend_type == "sim":
+            if force_builtin_sim:
+                if not profile_key or not Path(profile_key).is_absolute():
+                    raise InstrumentConfigurationError(
+                        config_source, "Simulation-only profiles require a local path."
+                    )
+                profile_path = profile_key
+            else:
+                profile_path = cls._resolve_sim_profile_path(profile_key, config_data)
+
+        context = BackendBuildContext(
+            config=config_model,
+            config_source=config_source,
+            address=actual_address,
+            timeout_ms=actual_timeout,
+            simulate=final_simulation_mode,
+            backend_type=chosen_backend_type,
+            backend_spec=backend_spec,
+            profile_path=profile_path,
+            debug_mode=debug_mode,
+            sim_session=sim_session,
+            backend_resources=backend_resources,
+            force_builtin_sim=force_builtin_sim,
+        )
+        if force_builtin_sim:
+            return cls._call_backend_factory(
+                get_builtin_sim_backend_factory(chosen_backend_type), context
+            )
+        if backend_spec and backend_spec.get("import_path") and chosen_backend_type != "sim":
+            factory = validate_backend(
+                load_import_path(str(backend_spec["import_path"])), str(backend_spec["import_path"])
+            )
+            return cls._call_backend_factory(factory, context)
+        factory = get_backend_factory(chosen_backend_type)
+        if factory is None:
+            raise InstrumentConfigurationError(
+                config_source, f"Unsupported backend_type '{chosen_backend_type}'."
+            )
+        return cls._call_backend_factory(factory, context)
+
+    @staticmethod
+    def _select_backend_type(
+        *,
+        backend_spec: Mapping[str, Any] | None,
+        backend_type_hint: str | None,
+        simulate: bool,
+        address: str | None,
+    ) -> str:
+        """Choose a backend type using the same precedence as backend construction."""
+        if backend_spec and backend_spec.get("import_path"):
+            return str(backend_spec.get("type") or "custom")
+        if backend_type_hint:
+            return backend_type_hint.lower()
+        if backend_spec and backend_spec.get("type"):
+            return str(backend_spec["type"]).lower()
+        if simulate:
+            return "sim"
+        if address and "LAMB::" in address.upper():
+            return "lamb"
+        if address:
+            return "visa"
+        return "lamb"
+
+    @staticmethod
+    def _call_backend_factory(factory: Any, context: BackendBuildContext) -> DeviceBackend:
+        try:
+            signature = inspect.signature(factory)
+        except (TypeError, ValueError):
+            return factory(context)
+
+        params = list(signature.parameters.values())
+        positional = [
+            param
+            for param in params
+            if param.kind
+            in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+        ]
+        has_var_positional = any(param.kind == inspect.Parameter.VAR_POSITIONAL for param in params)
+        has_var_keyword = any(param.kind == inspect.Parameter.VAR_KEYWORD for param in params)
+        accepts_context = (
+            len(positional) == 1
+            and not has_var_positional
+            and not has_var_keyword
+            and positional[0].default is inspect.Parameter.empty
+        )
+
+        if accepts_context:
+            return factory(context)
+
+        kwargs = dict(context.backend_spec or {})
+        kwargs.pop("type", None)
+        kwargs.pop("import_path", None)
+        kwargs.setdefault("address", context.address)
+        kwargs.setdefault("timeout_ms", context.timeout_ms)
+        return factory(**kwargs)
+
+    @staticmethod
+    def _resolve_simulation_mode(simulate: bool | None) -> bool:
+        if simulate is not None:
+            return simulate
+        env_simulate = os.getenv("PYTESTLAB_SIMULATE")
+        if env_simulate is not None:
+            return env_simulate.lower() in ("true", "1", "yes")
+        return False
+
+    @staticmethod
+    def _resolve_timeout(config_model: DeviceConfig, timeout_override_ms: int | None) -> int:
+        if timeout_override_ms is not None and timeout_override_ms > 0:
+            return timeout_override_ms
+        timeout_from_config = getattr(config_model, "communication_timeout_ms", None)
+        comm = getattr(config_model, "communication", None)
+        if comm is not None:
+            timeout_from_config = getattr(comm, "timeout_ms", timeout_from_config)
+        if isinstance(timeout_from_config, int) and timeout_from_config > 0:
+            return timeout_from_config
+        return 30000
+
+    @staticmethod
+    def _resolve_backend_spec(
+        config_model: DeviceConfig,
+        config_data: dict[str, Any],
+        *,
+        backend_spec_override: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
+        spec = config_data.get("backend")
+        if isinstance(spec, dict):
+            merged = dict(spec)
+        else:
+            model_spec = getattr(config_model, "backend", None)
+            merged = dict(model_spec) if isinstance(model_spec, dict) else {}
+        if backend_spec_override:
+            merged.update(backend_spec_override)
+        if merged:
+            return merged
+        if isinstance(spec, dict):
+            return spec
+        model_spec = getattr(config_model, "backend", None)
+        return model_spec if isinstance(model_spec, dict) else None
+
+    @classmethod
+    def _resolve_sim_profile_path(cls, profile_key: str | None, config_data: dict[str, Any]) -> str:
+        if profile_key is not None:
+            key = profile_key
+            user_profile = Path("~/.pytestlab/profiles").expanduser() / f"{key}.yaml"
+            if user_profile.exists():
+                return str(user_profile)
+            user_sim_profile = Path("~/.pytestlab/sim_profiles").expanduser() / f"{key}.yaml"
+            if user_sim_profile.exists():
+                return str(user_sim_profile)
+            try:
+                return str(Path(cls.get_config_from_local_path(key)).resolve())
+            except FileNotFoundError:
+                if os.path.exists(key):
+                    return os.path.abspath(key)
+        with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as tf:
+            yaml.safe_dump(config_data, tf)
+            return os.path.abspath(tf.name)
+
+    @classmethod
+    def get_config_from_local_path(cls, identifier: str) -> Path:
+        import pytestlab as ptl
+
+        pkg_file = getattr(ptl, "__file__", None)
+        pkg_dir = (
+            Path(pkg_file).resolve().parent
+            if pkg_file is not None
+            else Path(__file__).resolve().parent
+        )
+        path = pkg_dir / "profiles" / f"{os.path.normpath(identifier)}.yaml"
+        if path.exists():
+            return path
+        candidate = Path(identifier)
+        if candidate.exists():
+            return candidate
+        raise FileNotFoundError(identifier)
+
+    @staticmethod
+    def _resolve_driver(
+        config_model: DeviceConfig, config_data: dict[str, Any], config_source: Any
+    ) -> type[Device[Any]]:
+        driver_path = config_data.get("driver") or getattr(config_model, "driver", None)
+        if driver_path:
+            return validate_driver(load_import_path(str(driver_path)), str(driver_path))
+        driver_class = get_device_driver(config_model.device_type)
+        if driver_class is None:
+            if isinstance(config_model, GenericDeviceConfig):
+                raise InstrumentConfigurationError(
+                    config_source,
+                    f"Unknown device_type '{config_model.device_type}'. Provide a driver import path "
+                    "or register the device type.",
+                )
+            raise InstrumentConfigurationError(
+                config_source,
+                f"Unknown device_type: '{config_model.device_type}'. No registered device class.",
+            )
+        return driver_class

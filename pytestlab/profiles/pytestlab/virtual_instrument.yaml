@@ -1,7 +1,142 @@
 manufacturer: PyTestLab
 model: Virtual-Instrument-1
 device_type: virtual_instrument
+role: custom
 address: "VIRTUAL::INSTRUMENT"
+
+scpi:
+    commands:
+        reset:
+            template: "*RST"
+        set_voltage:
+            template: "SET:VOLT {voltage}"
+            validators:
+                voltage: {min: -1000, max: 1000}
+        set_current:
+            template: "SET:CURR {current}"
+            validators:
+                current: {min: -1000, max: 1000}
+        set_trigger_state:
+            template: "TRIG:STATE {state}"
+            parameters:
+                state:
+                    kind: enum
+                    strict: true
+                    choices:
+                        - {value: armed, token: "ARMED", label: "Armed", aliases: ["armed"]}
+                        - {value: triggered, token: "TRIGGERED", label: "Triggered", aliases: ["triggered"]}
+                        - {value: idle, token: "IDLE", label: "Idle", aliases: ["idle"]}
+        increment_counter:
+            template: "COUNT:INC"
+        decrement_counter:
+            template: "COUNT:DEC"
+        set_status_message:
+            template: "STATUS:MSG {message}"
+            parameters:
+                message:
+                    kind: open_string
+                    strict: false
+        dynamic_add:
+            template: "DYNAMIC:ADD {value}"
+            validators:
+                value: {min: -1000000, max: 1000000}
+        push_error:
+            template: "ERROR:PUSH"
+    queries:
+        get_error:
+            template: "SYSTem:ERRor?"
+            response: {type: raw}
+        identify:
+            template: "*IDN?"
+            response: {type: str}
+        measure_voltage:
+            template: "MEAS:VOLT?"
+            response: {type: float}
+        measure_current:
+            template: "MEAS:CURR?"
+            response: {type: float}
+        get_trigger_state:
+            template: "TRIG:STATE?"
+            response: {type: str}
+        get_counter:
+            template: "COUNT?"
+            response: {type: int}
+        get_status_message:
+            template: "STATUS:MSG?"
+            response: {type: str}
+        dynamic_random:
+            template: "DYNAMIC:RAND?"
+            response: {type: int}
+        check_error:
+            template: "ERROR:CHECK?"
+            response: {type: raw}
+        fetch_waveform:
+            template: "FETCH:WAV?"
+            response: {type: binblock}
+
+operation_options:
+    reset:
+        transport: {reset: reset}
+    voltage_control:
+        transport: {set_voltage: set_voltage}
+        voltage:
+            kind: range
+            min: -1000
+            max: 1000
+            unit: V
+            bindings: [{alias: set_voltage, parameter: voltage}]
+    measure_voltage:
+        transport: {measure_voltage: measure_voltage}
+    current_control:
+        transport: {set_current: set_current}
+        current:
+            kind: range
+            min: -1000
+            max: 1000
+            unit: A
+            bindings: [{alias: set_current, parameter: current}]
+    measure_current:
+        transport: {measure_current: measure_current}
+    trigger_state:
+        transport: {set_trigger_state: set_trigger_state}
+        state:
+            kind: enum
+            bindings: [{alias: set_trigger_state, parameter: state}]
+            options:
+              - {value: armed, label: Armed, aliases: [ARMED], transport: {value: ARMED}}
+              - {value: triggered, label: Triggered, aliases: [TRIGGERED], transport: {value: TRIGGERED}}
+              - {value: idle, label: Idle, aliases: [IDLE], transport: {value: IDLE}}
+    get_trigger_state:
+        transport: {get_trigger_state: get_trigger_state}
+    counter:
+        transport: {increment: increment_counter}
+    decrement_counter:
+        transport: {decrement: decrement_counter}
+    get_counter:
+        transport: {read: get_counter}
+    status_message:
+        transport: {set: set_status_message}
+        message:
+            kind: open_string
+            strict: false
+            bindings: [{alias: set, parameter: message}]
+    get_status_message:
+        transport: {get: get_status_message}
+    waveform_fetch:
+        transport: {fetch: fetch_waveform}
+    dynamic_add:
+        transport: {add: dynamic_add}
+        value:
+            kind: range
+            min: -1000000
+            max: 1000000
+            bindings: [{alias: add, parameter: value}]
+    dynamic_random:
+        transport: {read: dynamic_random}
+    push_error:
+        transport: {push: push_error}
+    check_error:
+        transport: {read: check_error}
 
 simulation:
     initial_state:

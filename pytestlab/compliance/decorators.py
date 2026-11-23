@@ -25,6 +25,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Callable
+from contextlib import closing
 from dataclasses import dataclass
 from datetime import UTC
 from datetime import datetime
@@ -35,6 +36,7 @@ from typing import Any
 from .._log import get_logger
 from .interfaces import AuditEntry as AuditRecord
 from .interfaces import Signature
+from .interfaces import TimestampError
 from .interfaces import TimestampToken
 
 _LOG = get_logger("compliance.decorators")
@@ -96,8 +98,9 @@ def _utc_now() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def _callable_name(func: Callable) -> str:
-    return getattr(func, "__name__", func.__class__.__name__)
+def _callable_name(func: Callable[..., Any]) -> str:
+    """Return a stable display name for a callable."""
+    return str(getattr(func, "__name__", func.__class__.__name__))
 
 
 # ============================================================================
@@ -236,8 +239,7 @@ def audited(
                 if isinstance(result, CompliantResult):
                     result.audit_record = entry
                     return result
-                else:
-                    return CompliantResult(data=result_data, audit_record=entry)
+                return CompliantResult(data=result_data, audit_record=entry)
 
             except Exception as e:
                 # Log failure
@@ -268,7 +270,7 @@ def timestamped(
 
     Args:
         authority: TSA URL (e.g., "https://freetsa.org/tsr")
-        local_fallback: Whether to use local timestamp if TSA fails
+        local_fallback: Whether to use a local timestamp when no authority is configured
         hash_algorithm: Hash algorithm for TSA request
 
     Returns:
@@ -295,32 +297,21 @@ def timestamped(
             else:
                 result_data = result if isinstance(result, dict) else {"value": result}
 
-            # Get timestamp from TSA
-            try:
-                token_value = tsa_client.timestamp(_hash_result(result_data))
-                token = TimestampToken(
-                    value=token_value,
-                    authority=authority or "local",
-                    algorithm=hash_algorithm,
-                )
-                _LOG.debug(f"Timestamped result from {_callable_name(func)} via {token.authority}")
-            except Exception as e:
-                if local_fallback:
-                    _LOG.warning(f"TSA failed, using local timestamp: {e}")
-                    token = TimestampToken(
-                        value=_utc_now(),
-                        authority="local",
-                        algorithm="LOCAL_TIMESTAMP",
-                    )
-                else:
-                    raise
+            data_hash = _hash_result(result_data)
+
+            token_value = tsa_client.timestamp(data_hash)
+            token = TimestampToken(
+                value=token_value,
+                authority=authority or "local",
+                algorithm=hash_algorithm,
+            )
+            _LOG.debug(f"Timestamped result from {_callable_name(func)} via {token.authority}")
 
             # Return enhanced result
             if isinstance(result, CompliantResult):
                 result.timestamp_token = token
                 return result
-            else:
-                return CompliantResult(data=result_data, timestamp_token=token)
+            return CompliantResult(data=result_data, timestamp_token=token)
 
         return wrapper
 
@@ -449,43 +440,43 @@ class _AuditTrail:
         """Initialize audit database."""
         import sqlite3
 
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute(
+        with closing(sqlite3.connect(self.db_path)) as conn:
+            with conn:
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS audit_log (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        event_type TEXT NOT NULL,
+                        function_name TEXT NOT NULL,
+                        timestamp TEXT NOT NULL,
+                        result_hash TEXT NOT NULL,
+                        success INTEGER NOT NULL,
+                        error_message TEXT
+                    )
                 """
-                CREATE TABLE IF NOT EXISTS audit_log (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    event_type TEXT NOT NULL,
-                    function_name TEXT NOT NULL,
-                    timestamp TEXT NOT NULL,
-                    result_hash TEXT NOT NULL,
-                    success INTEGER NOT NULL,
-                    error_message TEXT
                 )
-            """
-            )
-            conn.commit()
 
     def append(self, record: AuditRecord):
         """Append record to audit trail."""
         import sqlite3
 
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute(
-                """
-                INSERT INTO audit_log
-                (event_type, function_name, timestamp, result_hash, success, error_message)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """,
-                (
-                    record.event_type,
-                    record.function_name,
-                    record.timestamp,
-                    record.result_hash,
-                    1 if record.success else 0,
-                    record.error_message,
-                ),
-            )
-            conn.commit()
+        with closing(sqlite3.connect(self.db_path)) as conn:
+            with conn:
+                conn.execute(
+                    """
+                    INSERT INTO audit_log
+                    (event_type, function_name, timestamp, result_hash, success, error_message)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                    (
+                        record.event_type,
+                        record.function_name,
+                        record.timestamp,
+                        record.result_hash,
+                        1 if record.success else 0,
+                        record.error_message,
+                    ),
+                )
 
 
 class _TSAClient:
@@ -498,12 +489,10 @@ class _TSAClient:
     def timestamp(self, data_hash: str) -> str:
         """Get timestamp token for data hash."""
         if self.authority:
-            # TODO: Implement RFC 3161 TSA request
-            # For now, return mock token
-            return f"tsa:{self.authority}:{data_hash[:16]}:{_utc_now()}"
-        else:
-            # Local timestamp
-            return f"local:{data_hash[:16]}:{_utc_now()}"
+            raise TimestampError("RFC 3161 timestamping is not implemented")
+        if not self.local_fallback:
+            raise TimestampError("local timestamp fallback is disabled")
+        return f"local:{data_hash[:16]}:{_utc_now()}"
 
 
 # ============================================================================

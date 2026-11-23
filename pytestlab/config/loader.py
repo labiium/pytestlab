@@ -1,65 +1,56 @@
 from __future__ import annotations
 
-from importlib import import_module
 from pathlib import Path
 from typing import Any
 
 import yaml
 from pydantic import ValidationError
 
-from .instrument_config import InstrumentConfig
+from ..devices.registry import builtin_simulation_only
+from ..devices.registry import get_config_model
+from ..devices.registry import get_config_registry
+from ..devices.registry import is_builtin_profile_import
+from ..devices.registry import load_import_path
+from ..devices.registry import register_config_model
+from ..devices.registry import validate_config_model
+from .device_config import DeviceConfig
+from .device_config import GenericDeviceConfig
 
 
-# --- DUMMY ConfigLoader for mkdocstrings compatibility ---
 class ConfigLoader:
-    """
-    Dummy ConfigLoader class for documentation compatibility.
-    This is not used in runtime code, but allows mkdocstrings to resolve
-    'pytestlab.config.ConfigLoader' for API docs.
+    """Class-oriented facade over the canonical profile loader functions.
+
+    This facade holds no independent registry or cache; every method delegates
+    to the same module-level implementation used by drivers and the CLI.
     """
 
-    pass
+    @staticmethod
+    def resolve(key: str) -> Path:
+        """Resolve a packaged ``vendor/model`` profile key to its YAML path."""
+        return resolve_profile_key_to_path(key)
+
+    @staticmethod
+    def load(source: str | Path | dict[str, Any]) -> DeviceConfig:
+        """Validate a packaged key, YAML path, or mapping as a device profile."""
+        return load_device_profile(source)
+
+    @staticmethod
+    def models() -> dict[str, type[DeviceConfig]]:
+        """Return the discovered ``device_type`` to Pydantic-model registry."""
+        return get_model_registry()
 
 
 # Global cache for discovered models to avoid re-discovering on every call
-_MODEL_REGISTRY_CACHE: dict[str, type[InstrumentConfig]] | None = None
-
-_MODEL_SPECS: dict[str, tuple[str, str]] = {
-    "oscilloscope": ("pytestlab.config.oscilloscope_config", "OscilloscopeConfig"),
-    "waveform_generator": (
-        "pytestlab.config.waveform_generator_config",
-        "WaveformGeneratorConfig",
-    ),
-    "power_supply": ("pytestlab.config.power_supply_config", "PowerSupplyConfig"),
-    "dc_active_load": ("pytestlab.config.dc_active_load_config", "DCActiveLoadConfig"),
-    "multimeter": ("pytestlab.config.multimeter_config", "MultimeterConfig"),
-    "vna": ("pytestlab.config.vna_config", "VNAConfig"),
-    "spectrum_analyzer": (
-        "pytestlab.config.spectrum_analyzer_config",
-        "SpectrumAnalyzerConfig",
-    ),
-    "power_meter": ("pytestlab.config.power_meter_config", "PowerMeterConfig"),
-    "virtual_instrument": (
-        "pytestlab.config.virtual_instrument_config",
-        "VirtualInstrumentConfig",
-    ),
-}
+_MODEL_REGISTRY_CACHE: dict[str, type[DeviceConfig]] | None = None
 
 
-def _discover_models() -> dict[str, type[InstrumentConfig]]:
-    registry: dict[str, type[InstrumentConfig]] = {}
-    for device_type, (module_name, attr_name) in _MODEL_SPECS.items():
-        module = import_module(module_name)
-        model_cls = getattr(module, attr_name)
-        registry[device_type] = model_cls
-    return registry
+def _discover_models() -> dict[str, type[DeviceConfig]]:
+    """Resolve registered model specs without inspecting every public config export."""
+    return get_config_registry()
 
 
-def get_model_registry() -> dict[str, type[InstrumentConfig]]:
-    global _MODEL_REGISTRY_CACHE
-    if _MODEL_REGISTRY_CACHE is None:
-        _MODEL_REGISTRY_CACHE = _discover_models()
-    return _MODEL_REGISTRY_CACHE
+def get_model_registry() -> dict[str, type[DeviceConfig]]:
+    return _discover_models()
 
 
 def resolve_profile_key_to_path(key: str) -> Path:
@@ -82,14 +73,14 @@ def resolve_profile_key_to_path(key: str) -> Path:
     profile_path = (profiles_dir / key).with_suffix(".yaml")
 
     if not profile_path.is_file():
-        raise FileNotFoundError(
-            f"Profile with key '{key}' not found. " f"Looked for '{profile_path}'."
-        )
+        raise FileNotFoundError(f"Profile with key '{key}' not found. Looked for '{profile_path}'.")
     return profile_path
 
 
-def load_profile(key_or_path_or_dict: str | Path | dict[str, Any]) -> InstrumentConfig:
-    """Loads an instrument profile from a key, file path, or dictionary.
+def load_device_profile(
+    key_or_path_or_dict: str | Path | dict[str, Any],
+) -> DeviceConfig:
+    """Loads a device profile from a key, file path, or dictionary.
 
     This is the single entry-point for loading profiles. Drivers should never
     read YAML themselves.
@@ -99,7 +90,7 @@ def load_profile(key_or_path_or_dict: str | Path | dict[str, Any]) -> Instrument
             dictionary containing profile data.
 
     Returns:
-        An ``InstrumentConfig`` object.
+        A ``DeviceConfig`` object.
 
     Raises:
         TypeError: If the input is not a string, Path, or dictionary.
@@ -133,14 +124,36 @@ def load_profile(key_or_path_or_dict: str | Path | dict[str, Any]) -> Instrument
     if not device_type:
         raise ValueError("Profile data must contain a 'device_type' field.")
 
-    model_registry = get_model_registry()
-    model_cls = model_registry.get(device_type)
+    if builtin_simulation_only():
+        for key in ("driver", "config_model"):
+            value = data.get(key)
+            if value is not None and (
+                not isinstance(value, str)
+                or not is_builtin_profile_import(value, device_type, config=key == "config_model")
+            ):
+                raise ValueError(
+                    f"Custom {key} imports are not supported in built-in-only profile validation."
+                )
+
+    model_cls = None
+    config_model_path = data.get("config_model")
+    if isinstance(config_model_path, str):
+        model_cls = validate_config_model(load_import_path(config_model_path), config_model_path)
+        if not builtin_simulation_only():
+            register_config_model(device_type, model_cls, replace=True)
+    if model_cls is None:
+        model_cls = get_config_model(device_type) or get_model_registry().get(device_type)
 
     if model_cls is None:
-        raise ValueError(
-            f"No Pydantic model found for device_type '{device_type}'. "
-            f"Discovered models: {list(model_registry.keys())}"
-        )
+        if data.get("driver"):
+            model_cls = GenericDeviceConfig
+        else:
+            model_registry = get_model_registry()
+            raise ValueError(
+                f"No Pydantic model found for device_type '{device_type}'. "
+                "Provide 'config_model' or 'driver' for a custom device. "
+                f"Discovered models: {list(model_registry.keys())}"
+            )
 
     # Pop simulation-specific fields before validation, as they're not part of the config model
     if "simulation" in data:
@@ -153,9 +166,12 @@ def load_profile(key_or_path_or_dict: str | Path | dict[str, Any]) -> Instrument
     except (ValidationError, ValueError) as e:
         raise ValueError(f"Profile for device_type '{device_type}' is invalid: {e}") from e
 
-    if not isinstance(validated_model, InstrumentConfig):
-        raise TypeError(
-            f"Validated model for {device_type} is not an instance of InstrumentConfig."
-        )
+    if not isinstance(validated_model, DeviceConfig):
+        raise TypeError(f"Validated model for {device_type} is not an instance of DeviceConfig.")
 
     return validated_model
+
+
+def load_profile(source: str | Path | dict[str, Any]) -> DeviceConfig:
+    """Compatibility entry point for profile verification and existing clients."""
+    return load_device_profile(source)

@@ -11,7 +11,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
-## [Unreleased]
+## 0.3.0
+
+- Store VNA, spectrum, RF power, and impedance results directly in experiments, the database, and ordinary sessions. Sessions with active compliance hooks do not support these results yet.
+- Read saved trial captures with `experiment.measurements[name][0]`, including units, metadata, and any stored uncertainty.
+- Support setup-specific VNA uncertainty budgets and conditional manufacturer uncertainty components for spectrum markers, RF power, and impedance. Unsupported conditions stay nominal.
+- Add configurable averaging and triggering, diagnostics and guarded zeroing on U2000A and NRP18AN. Capture gated averages on U2000A and native buffers on NRP18AN.
+- The six bundled Keysight scope profiles now bind `run_self_test()` to `*TST?` without changing its text result. Supported RF power sensors return a structured self-test result.
+- Add RF input, detector, trigger and trace control, native marker and accumulation workflows, channel power and occupied bandwidth on N9000A and FSW26.
+- Add held complex and scalar impedance-analyzer curves, tuning, drive readback and fixture correction status on E4990A and IM3570, with guarded fresh acquisition on E4990A.
+- Read E5071C sweep settings, verify RF-off setup, and acquire one fresh linear or logarithmic stepped S-parameter sweep without enabling RF. Setup and acquisition are manual-backed and offline-tested, not hardware-qualified.
+- Add manual-backed held complex trace readback for Copper Mountain C1209, plus named VNA traces, measured-bin lookup, and CSV export.
+- Add grouped offline operation discovery, N9000A single- and multi-pair ACP, passive spectrum setup and aligned frames, RF sensor correction and trigger timing, staged NRP18AN readiness, impedance segment tables, fixture inspection, DataFrame/CSV export, and VNA segments, passive markers, and Touchstone export.
+- Shared motion commands live under `ptl motion`. Camera capture, prober contact and separation, and motion commands use aliases from the bench. Existing root motion routes remain callable.
+- Discover local VISA instruments with `ptl visa list` when using physical hardware.
+- Configure cameras, motion devices, probers, switch matrices and instruments together through reusable Bench APIs. Camera access requires an exact resource address, regardless of how many cameras are attached.
+- Use new native profiles for the Agilent 3458A (DC voltage), HP 4142B and HP4084B, SUSS PA200, and ToupTek camera. Profile inclusion is not a claim of physical qualification.
+- On the PA200, relative XY moves use same-home position readback to check the final target against configured software travel limits before sending an absolute move. An acknowledgement still does not verify completion.
+- Force built-in bench simulation with `ptl run --simulate` even when a device is configured as live. Unsupported entries or automation hooks are rejected; scripts are not sandboxed.
+- Reset supported bench instruments with `Bench.reset()` or opt into `reset_on_open`. CLI diagnostics skip startup resets.
+- `ptl instrument full-test` accepts a bench alias and its configured limits. It does not sample writes; eligible reads may acquire data or consume diagnostics.
+- Inspect profile-declared operations and use native uncertainty, waveform timing and digital-twin evidence tools.
+- Offline scope examples use a synthetic fixture or replay. Exported simulated benches can be recorded and replayed with their profile intact.
+- Wafer-specific GDS, alignment and probing workflows are not bundled with the library.
 
 ## [v0.2.4] - 2026-05-12
 
@@ -72,7 +94,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
-[Unreleased]: https://github.com/labiium/pytestlab/compare/v0.2.4...HEAD
 [v0.2.4]: https://github.com/labiium/pytestlab/compare/v0.2.3...v0.2.4
 [0.1.5]: https://github.com/labiium/pytestlab/releases/tag/v0.1.5
 [0.1.0]: https://github.com/labiium/pytestlab/releases/tag/v0.1.0

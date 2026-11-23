@@ -17,6 +17,7 @@ def sample_instrument_profile():
     """Sample instrument profile for testing."""
     return {
         "device_type": "power_supply",
+        "role": "stimulus",
         "manufacturer": "Keysight",
         "model": "EDU36311A",
         "channels": [
@@ -25,9 +26,9 @@ def sample_instrument_profile():
                 "description": "Channel 1",
                 "voltage_range": {"min_val": 0, "max_val": 30.0},
                 "current_limit_range": {"min_val": 0, "max_val": 5.0},
-                "accuracy": {"voltage": 0.05, "current": 0.2},
             }
         ],
+        "simulation": {"initial_state": {}, "scpi": {r"\*IDN\?": "Keysight,EDU36311A,TEST,1.0"}},
         "total_power": 90,
         "line_regulation": 0.01,
         "load_regulation": 0.01,
@@ -160,6 +161,7 @@ class TestAutoInstrumentBackendOverride:
         # Create profile with specific backend configuration
         profile_with_backend = {
             "device_type": "power_supply",
+            "role": "stimulus",
             "manufacturer": "Keysight",
             "model": "EDU36311A",
             "channels": [
@@ -168,9 +170,12 @@ class TestAutoInstrumentBackendOverride:
                     "description": "Channel 1",
                     "voltage_range": {"min_val": 0, "max_val": 30.0},
                     "current_limit_range": {"min_val": 0, "max_val": 5.0},
-                    "accuracy": {"voltage": 0.05, "current": 0.2},
                 }
             ],
+            "simulation": {
+                "initial_state": {},
+                "scpi": {r"\*IDN\?": "Keysight,EDU36311A,TEST,1.0"},
+            },
             "total_power": 90,
             "line_regulation": 0.01,
             "load_regulation": 0.01,
@@ -362,6 +367,7 @@ def test_backend_override_with_session_recording():
         # Create temporary profile
         profile = {
             "device_type": "power_supply",
+            "role": "stimulus",
             "manufacturer": "Test",
             "model": "TEST001",
             "channels": [

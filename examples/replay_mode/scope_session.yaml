@@ -1,0 +1,19 @@
+# Synthetic data, not a recording of physical hardware.
+scope:
+  profile: keysight/DSOX1204G
+  log:
+  - type: query
+    command: '*IDN?'
+    response: PyTestLab,SyntheticScope,REPLAY,1.0
+  - type: query
+    command: SYSTem:ERRor?
+    response: 0,"No error"
+  - type: query
+    command: :WAVeform:PREamble?
+    response: 0,0,8,1,0.000125,0,0,0.01,0,128
+  - type: query_raw
+    command: :WAVeform:DATA?
+    response_encoding: base64
+    response_base64: IzE4gJCWkIBwanA=
+    response_sha256: 55dd0053d79a5437a9834d55b412fd5a0a5aaaf09f736639a1edc1b805012e1a
+    response_len: 11

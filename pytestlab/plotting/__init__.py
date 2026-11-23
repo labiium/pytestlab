@@ -5,7 +5,7 @@ pytestlab.plotting
 Phase 1 lightweight plotting layer for PyTestLab.
 
 Features:
-- Optional matplotlib backend (imported lazily).
+- Matplotlib backend imported lazily.
 - Unified helpers:
     * PlotSpec      – declarative container for simple plots
     * plot_dataframe – line/scatter plotting of polars.DataFrame
@@ -16,13 +16,13 @@ Integrated Convenience:
 - MeasurementSession.plot()
 - MeasurementResult.plot()
 
-Installation (to enable plotting):
-    pip install 'pytestlab[plot]'
+Installation:
+    pip install pytestlab
 
 Future extension roadmap (Phase 2+):
 - Backend registry (plotly, bokeh)
 - Live streaming (LivePlotSession)
-- Uncertainty bands (UFloats -> error bars / shaded region)
+- Uncertainty bands from native uncertainty-aware measurement values
 - Specialized kinds: bode, spectrogram, waterfall
 - Compliance serialization: attaching PlotSpec JSON to experiment metadata
 

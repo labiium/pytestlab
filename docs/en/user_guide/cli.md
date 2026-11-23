@@ -2,7 +2,7 @@
 
 PyTestLab ships with a comprehensive command‑line interface built with [Typer](https://typer.tiangolo.com/). It helps you explore profiles, validate configs, interact with instruments, manage benches, and capture or replay sessions — all from your terminal.
 
-You invoke it via the `ptl` command (installed through the package’s console script).
+Start with the [simulated meter walkthrough](../cli.md#check-your-bench), or use the [command index](#command-index). Hardware is optional.
 
 ---
 
@@ -15,7 +15,7 @@ ptl --help
 ptl --version
 ```
 
-Each command and subcommand also supports `--help`:
+Use group help to browse commands, or request help for a specific bench operation:
 
 ```bash
 ptl profile --help
@@ -24,24 +24,44 @@ ptl bench validate --help
 
 ---
 
+## Command index
+
+| Prefix | Available commands |
+| --- | --- |
+| `ptl` | `run`, `list` |
+| `ptl bench` | `id`, `ls`, `measurement`, `measurements`, `route`, `routes`, `sim`, `validate` |
+| `ptl camera` | `capture`, `discover`, `info`, `list` |
+| `ptl device` | `idn`, `status-byte` |
+| `ptl evidence` | `check`, `generate`, `hardware-parity`, `scope-oracle`, `scope-twin` |
+| `ptl instrument` | `check-commands`, `check-operation-contract`, `describe-operation`, `execute-operation`, `full-test`, `idn`, `list-operations`, `list-options`, `test`, `verify-profile` |
+| `ptl lamb` | `list`, `verify-scopes` |
+| `ptl motion` | `position`, `move`, `status` |
+| `ptl prober` | `contact`, `separate` |
+| `ptl profile` | `list`, `list-schemas`, `schema`, `schema-info`, `show`, `validate`, `validate-schema` |
+| `ptl replay` | `record`, `run` |
+| `ptl sim` | `doctor`, `install-ngspice` |
+| `ptl sim-profile` | `diff`, `edit`, `record`, `reset` |
+| `ptl twin` | `characterize-scope`, `check`, `oracle`, `residual-from-replay` |
+| `ptl visa` | `list` |
+
 ## Top‑Level Commands
 
 ### `ptl run`
 Execute a measurement script against a bench configuration.
 
 ```bash
-ptl run path/to/script.py --bench path/to/bench.yaml [--simulate] [--output results.yaml]
+ptl run read_voltage.py --bench bench.yaml --simulate --output reading.yaml
 ```
 
 - `--bench`: Path to the bench descriptor YAML.
-- `--simulate`: Force simulation mode even if bench is real.
+- `--simulate` (0.3.0): Force a supported built-in simulator for every configured device, even if an entry sets `simulate: false`. The command rejects hooks, unsupported devices, and custom backends before loading the measurement script. This does not sandbox Python. Run only trusted scripts and simulator inputs. In 0.2.4, per-device settings could override this flag; do not rely on it to prevent live I/O.
 - `--output`: Optional path to write the script’s return value (YAML or string).
 
 Common pattern with a `main(bench)` function inside your script:
 
 ```python
 def main(bench):
-    # use bench.instruments[...] here
+    # access a configured alias, e.g. bench.dmm
     return {"ok": True}
 ```
 
@@ -107,7 +127,7 @@ Validate a profile YAML against an explicit schema (or auto‑detected from the 
 
 ```bash
 ptl profile validate-schema path/to/profile.yaml
-ptl profile validate-schema path/to/profile.yaml --instrument-type oscilloscope
+ptl profile validate-schema path/to/profile.yaml --device-type oscilloscope
 ```
 
 ### `list-schemas`
@@ -130,8 +150,8 @@ Connect to an instrument and print its `*IDN?` response.
 # Use a built‑in profile key
 ptl instrument idn keysight/EDU34450A --address USB0::0x2A8D::0x0101::MY12345678::INSTR
 
-# Or run in simulation mode
-ptl instrument idn keysight/EDU34450A --simulate
+# Inspect identity-query options
+ptl instrument idn --help
 ```
 
 Options:
@@ -141,10 +161,10 @@ Options:
 ### `verify-profile`
 Verify that a real instrument actually adheres to a profile YAML, not just that the YAML is schema-valid.
 
-The verifier prints a colored terminal report with schema, connection, identity, SCPI, and instrument-specific checks. By default it avoids state-changing probes and does not run health checks that may clear an instrument error queue. Health checks and generic SCPI query smoke tests are only enabled in `safe-write` mode. Setter-style and output-affecting checks stay disabled unless you explicitly allow them.
+The report covers schema, connection, identity, SCPI, and device-specific checks. Default `read-only` mode skips explicit health checks and query smoke tests; routine driver queries can still consume error entries. `safe-write` adds those probes. Setter-style and output-affecting checks require a separate opt-in.
 
 ```bash
-# Conservative default: no state-changing probes
+# Default: skip explicit health and smoke probes
 ptl instrument verify-profile keysight/EDU34450A --address USB0::...::INSTR
 
 # Allow health checks and SCPI query smoke tests
@@ -161,56 +181,211 @@ Options:
 - `--timeout-ms`: Override the backend communication timeout.
 - `--fail-fast`: Stop after the first failed verification check.
 
+---
+
 ### `test`
-Run selected real‑hardware tests against a profile (skips gracefully if hardware is absent). This command overrides test module constants to target your selected profile.
+Run the source checkout's driver-specific real-hardware pytest suite. The profile's validated `device_type` selects the suite; the tests are not included in installed wheels.
 
 ```bash
-# kind: multimeter | psu | oscilloscope | awg | all
-ptl instrument test multimeter keysight/EDU34450A
-ptl instrument test all keysight/EDU34450A
+ptl instrument test keysight/EDU34450A
+ptl instrument test keysight/EDU36311A
+
+# Legacy kind/profile syntax remains accepted when the kind matches the profile.
+ptl instrument test psu keysight/EDU36311A
 ```
 
+### Semantic operation discovery
+
+These commands inspect local/package profile metadata without creating a
+simulator, opening an instrument backend, or sending a query. Selectable values
+are accepted directly by the corresponding Python methods.
+
+```bash
+ptl instrument list-operations keysight/EDU34450A --supported-only
+ptl instrument list-operations keysight/EDU34450A --grouped --supported-only
+ptl instrument describe-operation keysight/EDU34450A measure
+ptl instrument list-options keysight/EDU34450A measure function
+ptl instrument list-options keysight/EDU34450A measure range_val \
+  --context '{"function":"dc_voltage"}'
+```
+
+**JSON is the default output**, for both results and errors. A capable interactive
+terminal gets syntax highlighting; redirected or piped output is plain JSON with
+no ANSI codes. Highlighting does not reflow long strings or interpret JSON string
+contents as terminal markup. Unicode units are printed directly.
+
+There is no format-selection flag. Set `NO_COLOR` to disable highlighting.
+
+Use `--include-unsupported` to inspect disabled choices and their reasons.
+`--context` must be a JSON object; dependent parameters such as a DMM
+range require their function context. Invalid profiles, operations, parameters,
+contexts, or unresolved metadata exit with status 1 and a structured JSON error
+on stdout. Diagnostics remain on stderr.
+
+`list-operations` returns IDs by default. `--grouped` returns complete
+operation descriptions keyed by semantic group. `--group GROUP` and
+`--scope family|model` filter this grouped view. `--supported-only` limits
+either view to operations supported by the loaded profile.
+
+Python applications use `list_operations()`, `describe_operations()`,
+`describe_operation()`, and `list_operation_options()` directly on the
+instrument; they do not need to invoke the CLI or parse JSON.
+
+### Execute a declared operation
+
+```bash
+ptl instrument execute-operation keysight/EDU34450A measure \
+  --params '{"function":"dc_voltage"}' --backend visa --address "$DMM_RESOURCE"
+```
+
+This optional hardware example takes a real reading. Set `DMM_RESOURCE` to the meter’s VISA address. If `describe-operation` reports `python_only`, call the typed Python method; the CLI will not run it.
+
+### Instrument validation
+
+`check-commands` builds mappings offline. `full-test` reports mappings,
+live reads, and skips separately. Bench mode uses the selected alias and its
+limits. Profile/address mode can send eligible single queries. Custom profiles
+stay offline. Queries may acquire data or consume diagnostic entries.
+
+`--include-writes` requests guarded writes; none currently qualify. Raw
+writes, resets, triggers, and output enables are not sampled. EDU36311A reads
+are measured values checked against upper and absolute caps, not setpoint
+verification or proof of DUT safety. PSU setpoints are not changed.
+
+```bash
+ptl instrument check-commands keysight/EDU34450A
+ptl instrument full-test psu --bench bench.yaml
+
+ptl instrument full-test keysight/EDU34450A --address "$DMM_RESOURCE"
+```
+
+These are explicit profile-development and hardware-validation workflows. They
+do not change the semantic Python API or require application code to know the
+underlying transport syntax.
+
 ---
+
+## VISA Discovery (`ptl visa`)
+
+Find VISA resource strings before adding instruments to a script or `bench.yaml`.
+
+### `list`
+List resources visible to PyVISA.
+
+```bash
+ptl visa list
+```
+
+Probe each discovered resource with `*IDN?` to identify which instrument is which:
+
+```bash
+ptl visa list --idn
+```
+
+Copy the resource string into `bench.yaml`:
+
+```yaml
+instruments:
+  scope:
+    profile: "keysight/MXR404A"
+    address: "TCPIP0::192.168.0.42::inst0::INSTR"
+```
+
+Options:
+- `--idn`: Query `*IDN?` for each discovered resource.
+- `--timeout-ms`: Timeout for `--idn` probes.
 
 ## Bench Management (`ptl bench`)
 
 Work with `bench.yaml` descriptors that define multiple instruments.
 
 ### `ls`
-List the instruments and effective backend settings referenced in a bench file.
+List the aliases and declared bindings in the bench without opening hardware. An undeclared address is not a simulation indicator. Use `ptl bench ls --json` for a machine-readable inventory; it does not verify that a configured device is connected or ready.
 
 ```bash
-ptl bench ls path/to/bench.yaml
+ptl bench ls
 ```
 
 ### `validate`
-Validate the bench descriptor and verify that referenced profiles can be loaded.
+Validate the descriptor and its profile and measurement-plan references. Use ordinary validation only with trusted profiles and extensions. Add `--strict` for offline checks of built-in profiles, custom validation rules, required device addresses, and declared routes. Strict mode does not import third-party drivers or configuration models, open hardware, or run hooks. Profiles that need those extensions are rejected in strict mode. Neither form verifies hardware readiness. Both `ls` and `validate` accept a positional path or `--bench PATH`. With neither, they use `PYTESTLAB_BENCH` or the nearest `bench.yaml`/`bench.yml`.
 
 ```bash
-ptl bench validate path/to/bench.yaml
+ptl bench validate
 ```
 
+### Inspect routes and measurements
+
+`ptl bench routes FILE` and `ptl bench measurements FILE` list named declarations. Pass a name to `ptl bench route FILE NAME` or `ptl bench measurement FILE NAME` to inspect its connections, device, and accessories before applying a route or acquiring data. Try the [worked route inspection](../cli.md#inspect-a-measurement-plan).
+
 ### `id`
-Connect to all non‑simulated instruments in the bench and query their `*IDN?` strings.
+Open the bench and query the identity of non-simulated instruments. This is a live operation, but it skips bench hooks and startup resets. For offline inventory, use `ptl bench ls`.
 
 ```bash
 ptl bench id path/to/bench.yaml
 ```
 
 ### `sim`
-Convert a bench descriptor to a fully simulated one. Prints to stdout or writes a file.
+Export a simulation-only descriptor (0.3.0). Uses the same eligibility checks as `ptl run --simulate` and rejects a bench it cannot fully simulate. Input paths are resolved against the original descriptor, so the export contains local file references.
 
 ```bash
 # Print simulated descriptor
 ptl bench sim path/to/bench.yaml
 
 # Save simulated descriptor
-ptl bench sim path/to/bench.yaml --output bench.sim.yaml
+ptl bench sim path/to/bench.yaml --output-path bench.sim.yaml
 ```
 
 For background on simulation mode, see the [Simulation Guide](simulation.md).
 
 ---
+
+## Camera, motion, and prober commands
+
+The default bench is resolved from `--bench PATH`, `PYTESTLAB_BENCH`, or a nearby `bench.yaml`/`bench.yml`.
+
+### Cameras
+
+```bash
+ptl camera list --json
+ptl camera info microscope
+ptl camera capture microscope /tmp/view.jpg
+ptl camera capture microscope /tmp/series --count 5 --interval 0.5
+```
+
+A configured camera needs its exact bench `address`. List and info inspect configured resources. Capture requires an explicit alias. Omitting it or providing an unknown alias does not select another camera. A valid capture opens the configured resource and writes image files, plus metadata sidecars by default. See [Using a camera or microscope](using_camera_microscope.md).
+
+### Motion
+
+```bash
+ptl motion position stage
+ptl motion status stage
+ptl motion move --help
+```
+
+`position` and `status` query the configured alias. Add `--json` for scripts. `move` can actuate hardware; confirm axis units, travel, interlocks, and target alias first. Earlier root-level motion routes remain callable for compatibility.
+
+### Probers
+
+```bash
+ptl motion position prober
+ptl motion status prober
+ptl prober contact --help
+ptl prober separate --help
+```
+
+Position and status connect to the selected controller. Contact and separation can physically move the station. Profile-declared readbacks are required to confirm contact or settling. See [Using a prober](using_prober.md) for PA200 limits and commissioning commands.
+
+### Device identity and status
+
+`ptl device idn PROFILE --address RESOURCE` reads the selected device's identity. `ptl device status-byte ALIAS --bench FILE --json` reads its native status byte and returns decimal and hexadecimal values.
+
+### Circuit simulation
+
+```bash
+ptl sim doctor
+```
+
+Doctor checks the circuit-simulation dependencies. `ptl sim install-ngspice` detects a package manager and can run a user-space install with confirmation; for system managers it prints the install command. Review `ptl sim install-ngspice --help` before using it.
 
 ## Simulation Profile Tools (`ptl sim-profile`)
 
@@ -287,11 +462,27 @@ ptl replay run scripts/run_measurement.py --session sessions/2025‑05‑12.yaml
 
 ---
 
+## Validation evidence and digital twins
+
+| Command | Input and result |
+| --- | --- |
+| `evidence generate` / `evidence check` | Write a validation bundle to `--output DIR`; verify an existing directory against the current repository. |
+| `evidence scope-twin` / `evidence scope-oracle` / `twin oracle` | Generate the software oscilloscope oracle bundle. Use `--check` to validate the generated artifacts. |
+| `evidence hardware-parity` | Compare a hardware replay fixture against expected measurements, using the chosen coverage factor. |
+| `twin residual-from-replay` | Convert a hardware replay fixture JSON into `twin_residual_report.json`. |
+| `twin characterize-scope` | Turn an eligible passing residual report into characterized scope evidence. |
+| `twin check` | Validate the payload hash and claims of a residual or twin evidence JSON file. |
+
+See the [CLI evidence walkthrough](../cli.md#generate-validation-evidence) for command sequences.
+
 ## Tips, Env Vars, and Exit Codes
 
-- `--help` works at every level: `ptl <cmd> [subcmd] --help`.
+- Bench-aware station commands resolve `--bench`, then `PYTESTLAB_BENCH`, then the nearest `bench.yaml` or `bench.yml`. An explicit invalid path is an error.
+- Operation discovery returns JSON on stdout. When a dependent option is missing, supply `--context` as one quoted JSON object and check the process exit status.
+
+- Use group help for replay and simulation-profile recording: `ptl replay --help` and `ptl sim-profile --help`.
 - Many commands return non‑zero exit codes on validation or runtime errors (useful for CI).
-- Environment variable `PYTESTLAB_SIMULATE=true` can influence default simulation mode within the Python API; many CLI commands also offer explicit `--simulate` flags for clarity.
+- For standalone Python instrument construction, `PYTESTLAB_SIMULATE=true` can set the default. It is not a blanket prohibition on live I/O. Use a simulation-only bench or `ptl run --simulate` to require supported built-in simulation.
 - VISA addresses typically look like `USB0::...::INSTR` or `TCPIP0::host::INSTR`.
 
 ---

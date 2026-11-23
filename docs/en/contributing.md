@@ -27,7 +27,7 @@ All contributors are expected to follow the [PyTestLab Code of Conduct](CODE_OF_
     ```
 4. **Install dependencies** (including development tools):
     ```bash
-    pip install -e .[dev,full]
+    python -m pip install -e ".[dev]"
     ```
 5. **Install pre-commit hooks** (for linting and formatting):
     ```bash
@@ -60,13 +60,13 @@ All contributors are expected to follow the [PyTestLab Code of Conduct](CODE_OF_
     ```bash
     git push origin feat/short-description
     ```
-- **Open a Pull Request** against the `main` branch on GitHub.
+- **Open a Pull Request** against the `master` branch on GitHub.
 
 ---
 
 ## Code Style & Quality
 
-- **Linting & Formatting:** PyTestLab uses [Ruff](https://docs.astral.sh/ruff/) for linting and formatting, and [Black](https://black.readthedocs.io/) for code style. These are enforced by pre-commit.
+- **Linting & Formatting:** PyTestLab uses [Ruff](https://docs.astral.sh/ruff/) for linting and formatting, for code style. These are enforced by pre-commit.
 - **Type Checking:** Use [ty](https://docs.astral.sh/ty/) for static type checking (e.g., `uvx ty check`).
 - **Commit Messages:** Follow the [Conventional Commits](https://www.conventionalcommits.org/) specification. Use `cz c` to help format your commit messages.
 
@@ -78,7 +78,7 @@ All contributors are expected to follow the [PyTestLab Code of Conduct](CODE_OF_
 - **API docs** are generated using [mkdocstrings](https://mkdocstrings.github.io/).
 - **To preview docs locally:**
     ```bash
-    mkdocs serve
+    mkdocs serve -f docs/mkdocs.yml
     ```
 - **Update or add docstrings** to your code as needed.
 
@@ -86,7 +86,7 @@ All contributors are expected to follow the [PyTestLab Code of Conduct](CODE_OF_
 
 ## Tests
 
-- **Unit tests** live in the `tests/` directory.
+- **Tests** live in `tests/`. Plain `pytest` skips physical hardware tests. Opt in explicitly with `pytest -m requires_real_hw` only on a configured bench. Install the ngspice executable for circuit simulation tests.
 - **All new features and bugfixes must include tests.**
 - **Run the full test suite before submitting a PR.**
 
@@ -94,7 +94,7 @@ All contributors are expected to follow the [PyTestLab Code of Conduct](CODE_OF_
 
 ## Submitting a Pull Request
 
-- Ensure your branch is up to date with `main`.
+- Ensure your branch is up to date with `master`.
 - Provide a clear title and description for your PR.
 - Link to any relevant issues.
 - Be responsive to code review feedback.

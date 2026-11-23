@@ -7,12 +7,13 @@ including SCPI command requirements for various features and capabilities.
 
 from __future__ import annotations
 
-from enum import Enum
-
 from pydantic import BaseModel
+from pydantic import ConfigDict
 from pydantic import Field
+from pydantic import model_validator
 
-from .accuracy import AccuracySpec
+from ..uncertainty.specs import AccuracyModel
+from ..uncertainty.specs import AccuracySpec as AccuracySpec
 from .instrument_config import InstrumentConfig
 
 # RangeSpec will be defined in this file
@@ -39,14 +40,16 @@ class RangeSpec(BaseModel):
 
     resolution: float | None = Field(None, description="Resolution for this range")
 
-    accuracy: AccuracySpec | None = Field(None, description="Accuracy specification for this range")
-    typical_accuracy: AccuracySpec | None = Field(
+    accuracy: AccuracyModel | None = Field(
+        None, description="Accuracy specification for this range"
+    )
+    typical_accuracy: AccuracyModel | None = Field(
         None, description="Typical accuracy when provided instead of 'accuracy'"
     )
-    accuracy_45Hz_10kHz: AccuracySpec | None = Field(
+    accuracy_45Hz_10kHz: AccuracyModel | None = Field(
         None, description="AC accuracy specification for 45 Hz to 10 kHz"
     )
-    accuracy_45Hz_1kHz: AccuracySpec | None = Field(
+    accuracy_45Hz_1kHz: AccuracyModel | None = Field(
         None, description="AC accuracy specification for 45 Hz to 1 kHz"
     )
 
@@ -92,49 +95,62 @@ class RangeSpec(BaseModel):
         return x
 
 
-class DMMFunction(Enum):
-    """Enumeration of DMM measurement functions."""
+class MeasurementFunctionTransport(BaseModel):
+    """Private profile mapping used by the driver for one measurement function."""
 
-    # DC measurements
-    VOLTAGE_DC = "VOLT:DC"
-    CURRENT_DC = "CURR:DC"
+    model_config = ConfigDict(extra="forbid")
 
-    # AC measurements
-    VOLTAGE_AC = "VOLT:AC"
-    CURRENT_AC = "CURR:AC"
-
-    # Resistance measurements
-    RESISTANCE = "RES"
-    FRESISTANCE = "FRES"
-
-    # Other measurements
-    CAPACITANCE = "CAP"
-    FREQUENCY = "FREQ"
-    TEMPERATURE = "TEMP"
-    DIODE = "DIOD"
-    CONTINUITY = "CONT"
+    function_token: str = Field(
+        ..., description="Instrument transport value used for this function"
+    )
+    response_tokens: list[str] = Field(
+        default_factory=list,
+        description="Additional profile-declared tokens that identify this function in readback",
+    )
+    measure_alias: str = Field(
+        ...,
+        description=(
+            "Private SCPI query alias for this function. Use a no-argument alias "
+            "for functions that do not accept generic range/resolution settings."
+        ),
+    )
 
 
 class FunctionSpec(BaseModel):
-    """Specification for a measurement function."""
+    """Profile capability and uncertainty specification for one function.
 
-    model_config = {"arbitrary_types_allowed": True}
+    ``id`` is the YAML mapping key (for example ``dc_voltage``). ``transport``
+    contains the instrument-specific value; it deliberately does not live in
+    the public semantic enum.
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="allow")
+
+    label: str | None = Field(None, description="Human-readable function label")
+    description: str | None = Field(None, description="What this function measures")
+    aliases: list[str] = Field(
+        default_factory=list, description="User-facing aliases accepted for this function"
+    )
+    unit: str | None = Field(None, description="Canonical result unit")
+    transport: MeasurementFunctionTransport | None = Field(
+        None, description="Profile-specific transport mapping"
+    )
 
     ranges: list[RangeSpec] = Field(
-        default_factory=list, description="Available ranges for this function"
+        default_factory=list, description="Available ranges with accuracy information"
     )
 
     # SCPI command requirements for this function
     required_scpi_commands: list[str] = Field(
         default_factory=list,
-        description="Required SCPI command aliases for this function (e.g., ['set_function', 'set_range', 'set_resolution'])",
+        description="Required SCPI command aliases for this function (typically ['measure'])",
     )
 
 
 class MeasurementFunctionsSpec(BaseModel):
-    """Specification for all measurement functions."""
+    """Profile-declared measurement capabilities for a multimeter."""
 
-    model_config = {"arbitrary_types_allowed": True}
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="allow")
 
     dc_voltage: FunctionSpec | None = Field(
         None, description="DC Voltage measurement specifications"
@@ -170,11 +186,80 @@ class MeasurementFunctionsSpec(BaseModel):
         None, description="Temperature measurement specifications"
     )
 
+    diode: FunctionSpec | None = Field(None, description="Diode-test specifications")
+
+    continuity: FunctionSpec | None = Field(None, description="Continuity-test specifications")
+
+    @model_validator(mode="after")
+    def _coerce_custom_function_specs(self) -> MeasurementFunctionsSpec:
+        """Parse custom functions and reject ambiguous semantic IDs or aliases."""
+
+        extras = self.model_extra or {}
+        for name, value in extras.items():
+            if isinstance(value, dict):
+                extras[name] = FunctionSpec.model_validate(value)
+        seen: dict[str, str] = {}
+        for function_id, spec in self.function_specs():
+            for alias in (function_id, *spec.aliases):
+                normalized = _normalise_function_key(alias)
+                previous = seen.get(normalized)
+                if previous is not None and previous != function_id:
+                    raise ValueError(
+                        f"ambiguous measurement function alias {alias!r} for "
+                        f"{previous!r} and {function_id!r}"
+                    )
+                seen[normalized] = function_id
+        return self
+
     # SCPI command requirements for function switching
     required_scpi_commands: list[str] = Field(
         default_factory=list,
-        description="Required SCPI command aliases for function switching (e.g., ['set_function', 'set_range'])",
+        description="Required SCPI command aliases for measurement operations (typically ['measure'])",
     )
+
+    def function_specs(self) -> list[tuple[str, FunctionSpec]]:
+        """Return all declared function specs, including custom YAML keys."""
+
+        specs: list[tuple[str, FunctionSpec]] = []
+        for name in type(self).model_fields:
+            if name == "required_scpi_commands":
+                continue
+            value = getattr(self, name, None)
+            if isinstance(value, FunctionSpec):
+                specs.append((name, value))
+        for name, value in (self.model_extra or {}).items():
+            if isinstance(value, FunctionSpec):
+                specs.append((name, value))
+        return specs
+
+    def function_spec(self, function_id: str) -> FunctionSpec | None:
+        """Return one function specification by its YAML key."""
+
+        wanted = _normalise_function_key(str(function_id))
+        for name, spec in self.function_specs():
+            if _normalise_function_key(name) == wanted:
+                return spec
+        return None
+
+    def function_for_transport_token(self, token: str) -> tuple[str, FunctionSpec] | None:
+        """Resolve a device-reported function token to its semantic profile entry.
+
+        The device token is deliberately interpreted only through the profile.  A
+        driver must not infer measurement families from vendor-specific prefixes.
+        """
+
+        wanted = token.strip().upper()
+        for function_id, spec in self.function_specs():
+            transport = spec.transport
+            if transport is not None:
+                tokens = (transport.function_token, *transport.response_tokens)
+                if any(candidate.strip().upper() == wanted for candidate in tokens):
+                    return function_id, spec
+        return None
+
+
+def _normalise_function_key(value: str) -> str:
+    return value.strip().lower().replace("-", "_").replace(" ", "_")
 
 
 class TriggerSpec(BaseModel):
@@ -257,12 +342,12 @@ class MultimeterConfig(InstrumentConfig):
 
     measurement_scpi_commands: list[str] = Field(
         default_factory=list,
-        description="Required SCPI command aliases for measurement functionality (e.g., ['configure', 'initiate', 'fetch', 'read'])",
+        description="Required SCPI command aliases for measurement functionality (typically ['measure'])",
     )
 
     configuration_scpi_commands: list[str] = Field(
         default_factory=list,
-        description="Required SCPI command aliases for configuration functionality (e.g., ['set_range', 'set_resolution', 'set_integration_time'])",
+        description="Optional low-level configuration aliases; measurement selection is handled by measure()",
     )
 
     status_scpi_commands: list[str] = Field(

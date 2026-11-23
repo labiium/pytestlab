@@ -53,12 +53,7 @@ from ..instrument import InstrumentIO
 # Logging setup
 ###############################################################################
 
-logger = logging.getLogger("pytestlab.sim.v2")
-if not logger.handlers:
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)-7s [%(name)s] %(message)s"))
-    logger.addHandler(handler)
-    logger.setLevel(logging.INFO)  # move to DEBUG for deep inspection
+logger = logging.getLogger(__name__)
 
 
 ###############################################################################
@@ -186,13 +181,13 @@ def safe_eval(
 
 
 def _load_yaml(path: Path) -> dict[str, Any]:
-    print(f"[DEBUG] Loading YAML profile: {path}")
+    logger.debug("Loading YAML profile: %s", path)
     if not path.exists():
         raise ProfileError(f"Profile file {path} does not exist")
     with path.open("rt", encoding="utf-8") as fh:
         try:
             data = yaml.safe_load(fh) or {}
-            print(f"[DEBUG] YAML loaded from {path}: {data}")
+            logger.debug("Loaded YAML profile: %s", path)
         except yaml.YAMLError as e:
             raise ProfileError(f"Invalid YAML in {path}: {e}") from e
     return data
@@ -246,6 +241,8 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
     functionality (see module docstring for highlights).
     """
 
+    is_simulated = True
+
     DEFAULT_TIMEOUT_MS = 5_000
     USER_OVERRIDE_ROOT = Path.home() / ".pytestlab" / "sim_profiles"
 
@@ -259,9 +256,12 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
         *,
         model: str | None = None,
         timeout_ms: int | None = None,
+        allow_user_profile_overrides: bool = True,
     ) -> None:
+        self._allow_user_profile_overrides = allow_user_profile_overrides
         self.profile_path = Path(profile_path)
         self.timeout_ms = timeout_ms or self.DEFAULT_TIMEOUT_MS
+        self._write_termination: str | None = None
         self.model = model or self.profile_path.stem
         # main data
         self._profile = self._load_profile()
@@ -271,6 +271,7 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
         # dispatcher
         self._exact_map: dict[str, Any] = {}
         self._pattern_rules: list[_PatternRule] = []
+        self._declared_write_noops: set[str] = set()
         self._build_dispatch_tables()
         logger.info("SimBackend initialised for %s", self.model)
 
@@ -308,6 +309,20 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
         resp = self._handle_command_raw(cmd)
         return resp
 
+    @staticmethod
+    def _validate_write_termination(value: str | None) -> str:
+        if value is None or value == "":
+            return ""
+        if not isinstance(value, str):
+            raise TypeError("Write termination must be a string or None.")
+        if value not in {"\n", "\r", "\r\n"}:
+            raise ValueError("Write termination must be None, empty, LF, CR, or CRLF.")
+        return value
+
+    def set_write_termination(self, value: str | None) -> None:
+        """Validate/store framing configuration; simulation commands stay unchanged."""
+        self._write_termination = self._validate_write_termination(value)
+
     def close(self) -> None:
         self.disconnect()
 
@@ -328,7 +343,9 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
         # Only try to find a user override if the profile is under the package profiles dir
         try:
             pkg_profiles_root = str(Path(__file__).parent.parent.parent / "profiles")
-            if str(self.profile_path).startswith(pkg_profiles_root):
+            if self._allow_user_profile_overrides and self.profile_path.is_relative_to(
+                pkg_profiles_root
+            ):
                 rel_path = self.profile_path.relative_to(pkg_profiles_root)
                 override_path = self.USER_OVERRIDE_ROOT / rel_path
                 if override_path.exists():
@@ -338,11 +355,10 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
         except Exception as e:
             logger.debug(f"User override check failed: {e}")
         if "simulation" not in main:
-            logger.warning(
-                "Profile %s is missing a `simulation` section. Defaulting to empty.",
-                self.profile_path,
+            raise ProfileError(
+                f"Profile {self.profile_path} is missing a `simulation` section; "
+                "cannot run it in simulation mode without explicit simulator behavior."
             )
-            main["simulation"] = {}
         return main
 
     # ................ dispatcher build ............... #
@@ -359,7 +375,7 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
             elif ("*" in raw) or any(ch in raw for ch in ".[](){}+|^$?"):
                 # treat as regex; escape SCPI special chars except *
                 patt = raw
-                if "*" in raw and "(" not in raw:
+                if "*" in raw and "(" not in raw and not any(ch in raw for ch in ".[]{}+|^$?"):
                     # convert simple glob to regex group capture
                     patt = re.escape(raw).replace("\\*", "(.*)")
                 else:
@@ -379,26 +395,55 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
         # sort patterns longest-specific first to favour deterministic match
         self._pattern_rules.sort(key=lambda r: r.pattern.pattern.count("*"), reverse=True)
 
+        self._collect_declared_write_noops()
+
         # errors
         self._error_specs: list[dict[str, Any]] = sim.get("errors", [])
 
+    def _collect_declared_write_noops(self) -> None:
+        declared = self._profile.get("scpi", {}).get("commands", {})
+        if not isinstance(declared, dict):
+            return
+        for spec in declared.values():
+            if not isinstance(spec, dict):
+                continue
+            templates = spec.get("sequence") or [spec.get("template")]
+            for template in templates:
+                if not isinstance(template, str) or "{" in template or "}" in template:
+                    continue
+                literal = template.strip().upper()
+                if not literal or "?" in literal or literal.startswith("*"):
+                    continue
+                self._declared_write_noops.add(literal)
+
     # ................ command execution ............... #
+
+    @staticmethod
+    def _command_variants(cmd: str) -> tuple[str, ...]:
+        if cmd.startswith(":"):
+            return (cmd, cmd[1:])
+        return (cmd, f":{cmd}")
 
     def _handle_command(self, cmd: str, *, expect_response: bool = False) -> str:
         cmd = cmd.strip()
-        upper = cmd.upper()
+        variants = self._command_variants(cmd)
+        upper_variants = tuple(variant.upper() for variant in variants)
 
         # 1. Exact match in user-defined SCPI map (highest priority)
-        if upper in self._exact_map:
-            result = self._execute_entry(self._exact_map[upper], cmd, ())
-            return str(result)
+        for upper in upper_variants:
+            if upper in self._exact_map:
+                result = self._execute_entry(self._exact_map[upper], cmd, ())
+                return str(result)
 
         # 2. Pattern-based rules
         for rule in self._pattern_rules:
-            m = rule.pattern.fullmatch(cmd)
-            if m:
-                result = self._execute_entry(rule.template, cmd, m.groups())
-                return str(result)
+            for variant in variants:
+                m = rule.pattern.fullmatch(variant)
+                if m:
+                    result = self._execute_entry(rule.template, variant, m.groups())
+                    return str(result)
+
+        upper = upper_variants[0]
 
         # 3. Built-in commands (fallback)
         if (
@@ -411,15 +456,25 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
         if upper == "*CLS":
             self._clear_errors()
             return ""
+        if upper == "*OPC?":
+            return "1"
         if upper == "*IDN?":
             # Check if IDN is defined in the profile's exact map first for overrides
             if "*IDN?" in self._exact_map:
                 result = self._execute_entry(self._exact_map["*IDN?"], cmd, ())
                 return str(result)
-            return self._profile.get("identification", f"Simulated,PyTestLab,{self.model}-SIM,1.0")
+            return self._profile.get(
+                "identification",
+                f"Simulated,PyTestLab,{self.model}-SIM,1.0",
+            )
+
+        if not expect_response:
+            for upper in upper_variants:
+                if upper in self._declared_write_noops:
+                    return ""
 
         # 4. No match found, push an error
-        # self._push_error(-113, "Undefined header")
+        self._push_error(-113, "Undefined header")
         if expect_response:
             return ""
         return ""
@@ -429,19 +484,26 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
         Handle a SCPI command and return raw bytes, preserving any binary data.
         """
         cmd = cmd.strip()
-        upper = cmd.upper()
+        variants = self._command_variants(cmd)
+        upper_variants = tuple(variant.upper() for variant in variants)
 
         # 1. Exact match
-        if upper in self._exact_map:
-            resp = self._execute_entry(self._exact_map[upper], cmd, (), raw=True)
-            return resp if isinstance(resp, bytes | bytearray) else str(resp).encode("utf-8")
+        for upper in upper_variants:
+            if upper in self._exact_map:
+                resp = self._execute_entry(self._exact_map[upper], cmd, (), raw=True)
+                return resp if isinstance(resp, bytes | bytearray) else str(resp).encode("utf-8")
 
         # 2. Pattern-based rules
         for rule in self._pattern_rules:
-            m = rule.pattern.fullmatch(cmd)
-            if m:
-                resp = self._execute_entry(rule.template, cmd, m.groups(), raw=True)
-                return resp if isinstance(resp, bytes | bytearray) else str(resp).encode("utf-8")
+            for variant in variants:
+                m = rule.pattern.fullmatch(variant)
+                if m:
+                    resp = self._execute_entry(rule.template, variant, m.groups(), raw=True)
+                    return (
+                        resp if isinstance(resp, bytes | bytearray) else str(resp).encode("utf-8")
+                    )
+
+        upper = upper_variants[0]
 
         # 3. Built-in commands (fallback)
         if (
@@ -454,6 +516,8 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
         if upper == "*CLS":
             self._clear_errors()
             return b""
+        if upper == "*OPC?":
+            return b"1"
         if upper == "*IDN?":
             # Check override first
             if "*IDN?" in self._exact_map:
@@ -464,6 +528,7 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
             ).encode("utf-8")
 
         # 4. No match
+        self._push_error(-113, "Undefined header")
         return b""
 
     # ................ execute a mapping/string ........ #
@@ -516,6 +581,10 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
                             self._state[key] = parsed_value
         # mapping form
         elif isinstance(entry, dict):
+            if "store_waveform" in entry:
+                return self._store_waveform(entry["store_waveform"], groups)
+            if "select_waveform" in entry:
+                return self._select_waveform(entry["select_waveform"], groups)
             # delay first – simulate instrument busy
             if "delay" in entry:
                 delay = float(entry["delay"])
@@ -531,7 +600,7 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
                 if value is not None:
                     response = str(value)
                 else:
-                    response = ""
+                    raise SCPIError(f"state mapping {substituted_key!r} is undefined")
             elif "response" in entry:
                 response = self._substitute(entry["response"], groups)
             elif "binary" in entry:
@@ -591,11 +660,78 @@ class SimBackend(InstrumentIO):  # implements InstrumentIO
             response_bytes = bytes(response)
             try:
                 response = response_bytes.decode()
-            except Exception:
+            except UnicodeDecodeError:
                 response = response_bytes.decode("utf-8", errors="ignore")
         return response
 
     # ................ substitution ..................... #
+
+    def _store_waveform(self, declaration: Any, groups: tuple[str, ...]) -> str:
+        if not isinstance(declaration, dict) or set(declaration) != {
+            "channel",
+            "name",
+            "format",
+            "data",
+            "max_points",
+        }:
+            raise ProfileError(
+                "store_waveform requires exact channel/name/format/data/max_points mapping"
+            )
+        maximum = declaration["max_points"]
+        if isinstance(maximum, bool) or not isinstance(maximum, int) or maximum < 1:
+            raise ProfileError("store_waveform max_points must be a positive integer")
+        channel = str(self._substitute(declaration["channel"], groups))
+        name = str(self._substitute(declaration["name"], groups))
+        data_format = str(self._substitute(declaration["format"], groups)).upper()
+        raw_data = str(self._substitute(declaration["data"], groups))
+        values: list[int | float] = []
+        try:
+            if not channel.isdigit() or not re.fullmatch(r"[A-Za-z0-9_]{1,12}", name):
+                raise ValueError("invalid waveform identity")
+            fields = raw_data.split(",")
+            if not fields or len(fields) > maximum:
+                raise ValueError("invalid waveform point count")
+            for field in fields:
+                field = field.strip()
+                if data_format == "DAC":
+                    if not re.fullmatch(r"[+-]?[0-9]+", field):
+                        raise ValueError("DAC samples must be integers")
+                    value = int(field)
+                    if not -32768 <= value <= 32767:
+                        raise ValueError("DAC sample is outside int16")
+                elif data_format == "NORM":
+                    value = float(field)
+                    if not math.isfinite(value) or not -1.0 <= value <= 1.0:
+                        raise ValueError("normalized sample is outside [-1,1]")
+                else:
+                    raise ProfileError("store_waveform format must be DAC or NORM")
+                values.append(value)
+        except (ValueError, OverflowError):
+            self._push_error(-222, "Data out of range")
+            return ""
+        waveform = {
+            "name": name,
+            "format": data_format,
+            "values": values,
+            "points": len(values),
+            "csv": raw_data,
+        }
+        self._state.setdefault(f"waveform_bank_ch{channel}", {})[name] = copy.deepcopy(waveform)
+        self._state[f"waveform_ch{channel}"] = waveform
+        return ""
+
+    def _select_waveform(self, declaration: Any, groups: tuple[str, ...]) -> str:
+        """Select uploaded samples without changing output state or fabricating data."""
+        if not isinstance(declaration, dict) or set(declaration) != {"channel", "name"}:
+            raise ProfileError("select_waveform requires exact channel/name mapping")
+        channel = str(self._substitute(declaration["channel"], groups))
+        name = str(self._substitute(declaration["name"], groups))
+        waveform = self._state.get(f"waveform_bank_ch{channel}", {}).get(name)
+        if waveform is None:
+            self._push_error(-256, "File name not found")
+            return ""
+        self._state[f"waveform_ch{channel}"] = copy.deepcopy(waveform)
+        return ""
 
     def _substitute(self, template: str | int | float | bool, groups: tuple[str, ...]) -> Any:
         """Substitute template variables and evaluate Python expressions."""

@@ -6,6 +6,14 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta name="description" content="{{ config.site_description }}" />
         <meta name="author" content="LABIIUM" />
+        <link rel="canonical" href="{{ config.site_url }}" />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="{{ config.site_name }}" />
+        <meta property="og:title" content="{{ config.site_name }} - {{ t.hero_title_1 }} {{ t.hero_title_2 }}" />
+        <meta property="og:description" content="{{ config.site_description }}" />
+        <meta property="og:url" content="{{ config.site_url }}" />
+        <meta property="og:image" content="{{ config.site_url }}img/pytestlab_logo.png" />
+        <meta name="twitter:card" content="summary" />
 
         <title>
             {{ config.site_name }} - {{ t.hero_title_1 }} {{ t.hero_title_2 }}
@@ -16,19 +24,8 @@
         <link rel="shortcut icon" href="{{ 'img/favicon.ico'|url }}" type="image/x-icon">
         <link rel="apple-touch-icon" href="{{ 'img/pytestlab_logo.png'|url }}">
 
-        <!-- Google Fonts -->
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link
-            href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&family=Manrope:wght@800&family=IBM+Plex+Mono:wght@400;500&display=swap"
-            rel="stylesheet"
-        />
-
-        <!-- Prism.js CSS for syntax highlighting -->
-        <link
-            rel="stylesheet"
-            href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css"
-        />
+        <link rel="stylesheet" href="{{ 'css/tokens.css'|url }}" />
+        <link rel="stylesheet" href="{{ 'css/theme.css'|url }}" />
 
         <!-- Extra CSS files from mkdocs.yml -->
         {% for path in config.extra_css %}
@@ -38,17 +35,6 @@
         <style>
             /* Core Variables */
             :root {
-                --photon-black: #0b0e11;
-                --photon-white: #f5f7fa;
-                --lab-violet: #5333ed;
-                --lab-violet-light: #7a5ff5;
-                --lab-aqua: #04e2dc;
-                --lab-aqua-light: #2cefea;
-
-                --glass-frost-bg: rgba(30, 33, 38, 0.75);
-                --glass-border: rgba(255, 255, 255, 0.1);
-                --glass-border-hover: rgba(255, 255, 255, 0.25);
-
                 /* Enhanced glassmorphism variables */
                 --glass-overlay-bg: rgba(11, 14, 17, 0.85);
                 --glass-nav-bg: rgba(15, 18, 23, 0.88);
@@ -71,36 +57,7 @@
                     rgba(4, 226, 220, 0.15) 100%
                 );
 
-                --graphite-30: #1a1d20;
-                --graphite-50: #2b2e32;
-                --graphite-70: #42454a;
-
-                --status-success: #00b27c;
-                --status-warning: #ffb02e;
-                --status-error: #ff5460;
-
-                --ease-curve: cubic-bezier(0.16, 1, 0.3, 1);
-
-                --font-ui:
-                    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
-                    Roboto, sans-serif;
-                --font-display: "Manrope", "Inter", sans-serif;
-                --font-code:
-                    "IBM Plex Mono", SFMono-Regular, Consolas,
-                    "Liberation Mono", Menlo, monospace;
-
-                --spacing-xs: 0.25rem;
-                --spacing-sm: 0.5rem;
-                --spacing-md: 1rem;
-                --spacing-lg: 1.5rem;
-                --spacing-xl: 2rem;
-                --spacing-xxl: 3rem;
-
                 --header-height: 80px;
-                --border-radius-sm: 4px;
-                --border-radius-md: 8px;
-                --border-radius-lg: 16px;
-                --border-radius-xl: 32px;
             }
 
             /* Reset & Base Styles */
@@ -571,9 +528,9 @@
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                min-height: 100vh;
+                min-height: min(42rem, 82vh);
                 position: relative;
-                padding: var(--spacing-xl) 0;
+                padding: calc(var(--header-height) + 3rem) 0 3rem;
                 width: 100%;
             }
 
@@ -633,12 +590,12 @@
 
             /* Features Section */
             .features-section {
-                padding: 8rem 0;
+                padding: clamp(2.5rem, 5vw, 5rem) 0;
             }
 
             .section-header {
                 text-align: center;
-                margin-bottom: 4rem;
+                margin-bottom: clamp(1.5rem, 3vw, 3rem);
             }
 
             .section-header h2 {
@@ -655,7 +612,7 @@
 
             .feature-grid {
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
                 gap: 2rem;
                 margin-top: 4rem;
             }
@@ -708,27 +665,25 @@
 
             /* Code Showcase Section */
             .code-showcase-section {
-                padding: 8rem 0;
+                padding: clamp(2.5rem, 5vw, 5rem) 0;
             }
 
             .code-showcase-grid {
                 display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 4rem;
-                margin-top: 4rem;
+                grid-template-columns: minmax(0, 4fr) minmax(0, 5fr);
+                gap: clamp(1.5rem, 4vw, 3rem);
                 align-items: center;
             }
 
             .code-story-steps {
                 display: flex;
                 flex-direction: column;
-                gap: 3rem;
+                gap: 0.75rem;
             }
 
             .code-story-step {
                 padding: 1.25rem 1.5rem;
-                margin-bottom: 1rem;
-                opacity: 0.5;
+                opacity: 0.85;
                 background: rgba(30, 33, 38, 0.75);
                 border: 1.5px solid var(--glass-border);
                 border-radius: var(--border-radius-lg);
@@ -773,9 +728,11 @@
                 opacity: 1;
             }
 
+            .code-story-step p { margin: 0; }
+
             .code-story-step h3 {
-                font-size: 1.75rem;
-                margin-bottom: 1rem;
+                font-size: clamp(1.2rem, 2vw, 1.5rem);
+                margin: 0 0 0.4rem;
                 color: var(--lab-aqua);
             }
 
@@ -822,72 +779,6 @@
                 color: var(--photon-white);
             }
 
-            /* Syntax Highlighting for Code Blocks */
-            .token.comment {
-                color: #8892b0;
-                font-style: italic;
-                opacity: 0.8;
-            }
-            .token.keyword {
-                color: #c678dd;
-                font-weight: 500;
-                text-shadow: 0 0 8px rgba(198, 120, 221, 0.3);
-            }
-            .token.string {
-                color: #98c379;
-                text-shadow: 0 0 8px rgba(152, 195, 121, 0.3);
-            }
-            .token.function {
-                color: #61afef;
-                font-weight: 500;
-                text-shadow: 0 0 8px rgba(97, 175, 239, 0.3);
-            }
-            .token.number {
-                color: #d19a66;
-                text-shadow: 0 0 8px rgba(209, 154, 102, 0.3);
-            }
-            .token.operator {
-                color: #56b6c2;
-            }
-            .token.punctuation {
-                color: #abb2bf;
-            }
-            .token.class-name {
-                color: #e5c07b;
-                font-weight: 500;
-            }
-            .token.decorator {
-                color: #61afef;
-            }
-            .token.parameter {
-                color: #d19a66;
-            }
-            .token.boolean {
-                color: #d19a66;
-                font-weight: 500;
-            }
-            .token.yaml-key {
-                color: #e06c75;
-            }
-            .token.key {
-                color: #e06c75;
-            }
-            .token.scalar {
-                color: #98c379;
-            }
-            .token.punctuation {
-                color: #abb2bf;
-            }
-            .token.important {
-                color: #c678dd;
-            }
-            .token.tag {
-                color: #e06c75;
-            }
-            .token.atrule {
-                color: #c678dd;
-            }
-
             /* Copy Button for Code */
             .copy-button {
                 position: absolute;
@@ -916,7 +807,8 @@
                 z-index: 5;
             }
 
-            .code-block:hover .copy-button {
+            .code-block:hover .copy-button,
+            .code-block .copy-button:focus-visible {
                 opacity: 1;
                 transform: translateY(0);
             }
@@ -932,27 +824,6 @@
                     #00c98d
                 );
                 box-shadow: 0 2px 10px rgba(0, 178, 124, 0.3);
-            }
-
-            /* Typing Animation */
-            .typing-cursor {
-                display: inline-block;
-                width: 2px;
-                height: 1.2em;
-                background-color: var(--lab-aqua);
-                margin-left: 2px;
-                vertical-align: middle;
-                animation: cursor-blink 1s step-end infinite;
-            }
-
-            @keyframes cursor-blink {
-                from,
-                to {
-                    opacity: 0;
-                }
-                50% {
-                    opacity: 1;
-                }
             }
 
             /* Language Badge */
@@ -1395,8 +1266,8 @@
                 }
 
                 .code-showcase-grid {
-                    grid-template-columns: 1fr;
-                    gap: 2rem;
+                    grid-template-columns: minmax(0, 1fr);
+                    gap: 1rem;
                 }
 
                 .cta-card h2 {
@@ -1618,10 +1489,8 @@
                 <div class="section-header fade-in">
                     <h2>{{ t.features_title }}</h2>
                     <p class="section-description">
-                        
+
                         {{ t.features_subtitle }}
-                    
-                        reproducible experiments.
                     </p>
                 </div>
                 <div class="feature-grid fade-in">
@@ -1646,8 +1515,6 @@
                         <h3>{{ t.feature_1_title }}</h3>
                         <p>
                             {{ t.feature_1_desc }}
-                            efficient background tasks and I/O. Maximize
-                            instrument uptime and slash test execution times.
                         </p>
                     </div>
                     <div class="glass-card feature-card">
@@ -1722,7 +1589,7 @@
                             <h3>{{ t.step_1_title }}</h3>
                             <p>
                                 Start simple. Connect to any instrument with one
-                                line. PyTestLab's `AutoInstrument` handles the
+                                line. PyTestLab's <code>AutoInstrument</code> handles the
                                 backend, even providing a full simulation for
                                 development and CI.
                             </p>
@@ -1769,7 +1636,7 @@
                     </div>
                     <div class="code-display-wrapper">
                         <div class="glass-card code-block">
-                            <pre><code id="codeDisplay"></code></pre>
+                            <div id="codeDisplay">{{ page.content }}</div>
                             <button class="copy-button">{{ t.copy_button }}</button>
                             <div class="lang-badge">Python</div>
                         </div>
@@ -1919,6 +1786,7 @@
         </footer>
 
         <!-- JavaScript -->
+        <script src="{{ 'js/clipboard.js'|url }}"></script>
         <script>
             document.addEventListener("DOMContentLoaded", function () {
                 // --- Background Beams Effect ---
@@ -2097,236 +1965,35 @@
                 }
 
                 // --- Code Showcase ---
-                const codeSnippets = [
-                    // Step 1
-                    `from pytestlab import AutoInstrument
-
-# PyTestLab can run without hardware!
-def main():
-    with AutoInstrument.from_config(
-        "keysight/DSOX1204G", simulate=True
-    ) as scope:
-        # Use a clean, chainable API
-        scope.channel(1).setup(scale=0.5).enable()
-        scope.trigger.setup_edge(source="CH1", level=0.2)
-
-        # Get data back as a Polars DataFrame
-        trace = scope.read_channels(1)
-        print(trace.head())
-
-main()`,
-                    // Step 2
-                    `# bench.yaml
-bench_name: "Power-Amp Characterisation"
-simulate: false
-
-instruments:
-  psu:
-    profile: "keysight/EDU36311A"
-    address: "TCPIP0::172.22.1.5::INSTR"
-    safety_limits:
-      channels:
-        1: {voltage: {max: 6.0}, current: {max: 3}}
-  dmm:
-    profile: "keysight/34470A"
-    address: "USB0::...::INSTR"`,
-                    // Step 3
-                    `import pytestlab
-
-def run_bench():
-    # Context manager handles connections & safety
-    with pytestlab.Bench.open("bench.yaml") as bench:
-
-        # Access instruments by their alias
-        v = bench.dmm.measure_voltage_dc()
-        print(f"Measured: {v.values:.4f} {v.units}")
-
-        # Safety limits are automatically enforced
-        try:
-            bench.psu.channel(1).set_voltage(7.0)
-        except SafetyLimitError as e:
-            print(f"\\nError: {e}")
-
-run_bench()`,
-                    // Step 4
-                    `from pytestlab.measurements import MeasurementSession
-
-# Declaratively build a complex experiment
-def run_sweep():
-    with MeasurementSession("MOSFET IV Curve") as meas:
-        meas.instrument("psu", "keysight/EDU36311A", address="...")
-        meas.instrument("dmm", "keysight/34470A", address="...")
-
-        meas.parameter("v_gate", range(0, 5, 0.5), unit="V")
-        meas.parameter("v_drain", [0.1, 1.0, 5.0], unit="V")
-
-        @meas.acquire
-        def drain_current(psu, dmm, v_gate, v_drain):
-            psu.channel(1).set_voltage(v_gate)
-            psu.channel(2).set_voltage(v_drain)
-            return dmm.measure_current_dc()
-
-        results = meas.run()
-        print(results.data.head())
-
-run_sweep()`,
-                ];
-
-                const codeDisplay = document.getElementById("codeDisplay");
-                const storySteps =
-                    document.querySelectorAll(".code-story-step");
-
-                // Keyboard accessibility: trigger click on Enter/Space
-                storySteps.forEach((step) => {
-                    step.addEventListener("keydown", (e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
+                const samples = document.querySelectorAll("#codeDisplay .highlight");
+                const steps = document.querySelectorAll(".code-story-step");
+                const badge = document.querySelector(".lang-badge");
+                let selected = 0;
+                function selectSample(index) {
+                    selected = index;
+                    samples.forEach((sample, i) => { sample.hidden = i !== index; });
+                    steps.forEach((step, i) => {
+                        step.classList.toggle("active", i === index);
+                        step.setAttribute("aria-pressed", String(i === index));
+                    });
+                    badge.textContent = samples[index].classList.contains("language-yaml") ? "YAML" : "Python";
+                }
+                selectSample(0);
+                steps.forEach((step, index) => {
+                    step.addEventListener("click", () => selectSample(index));
+                    step.addEventListener("keydown", (event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
                             step.click();
                         }
                     });
                 });
-
-                function typeCode(code, element, language = "python") {
-                    let i = 0;
-                    const speed = 2; // Typing speed
-                    element.textContent = "";
-                    element.className = `language-${language}`; // Set language for highlighting
-
-                    function type() {
-                        if (i < code.length) {
-                            element.textContent =
-                                code.substring(0, i + 1) + "|";
-                            i++;
-                            setTimeout(type, speed);
-                        } else {
-                            element.textContent = code;
-                            // Apply syntax highlighting after typing is complete
-                            if (window.Prism) {
-                                Prism.highlightElement(element);
-                            }
-                        }
-                    }
-
-                    type();
-                }
-
-                // Initialize with first code snippet after Prism loads
-                function initializeCodeDisplay() {
-                    if (codeDisplay) {
-                        const languages = [
-                            "python",
-                            "yaml",
-                            "python",
-                            "python",
-                        ];
-                        const languageNames = [
-                            "Python",
-                            "YAML",
-                            "Python",
-                            "Python",
-                        ];
-
-                        // Set initial language badge
-                        const langBadge = document.querySelector(".lang-badge");
-                        if (langBadge) {
-                            langBadge.textContent = languageNames[0];
-                        }
-
-                        typeCode(codeSnippets[0], codeDisplay, languages[0]);
-                    }
-                }
-
-                // Wait for Prism to load
-                if (window.Prism) {
-                    initializeCodeDisplay();
-                } else {
-                    window.addEventListener("load", initializeCodeDisplay);
-                }
-
-                // Set up event listeners for step selection
-                storySteps.forEach((step) => {
-                    step.addEventListener("click", () => {
-                        // Update active state
-                        storySteps.forEach((s) => s.classList.remove("active"));
-                        step.classList.add("active");
-
-                        // Get the step index from data-step attribute
-                        const stepIndex =
-                            parseInt(step.getAttribute("data-step")) || 0;
-
-                        // Type new code with appropriate language class
-                        if (codeDisplay) {
-                            const languages = [
-                                "python",
-                                "yaml",
-                                "python",
-                                "python",
-                            ];
-                            const languageNames = [
-                                "Python",
-                                "YAML",
-                                "Python",
-                                "Python",
-                            ];
-
-                            // Update language badge
-                            const langBadge =
-                                document.querySelector(".lang-badge");
-                            if (langBadge) {
-                                langBadge.textContent =
-                                    languageNames[stepIndex];
-                            }
-
-                            typeCode(
-                                codeSnippets[stepIndex],
-                                codeDisplay,
-                                languages[stepIndex],
-                            );
-                        }
-                    });
+                const copyButton = document.querySelector(".code-block .copy-button");
+                copyButton.addEventListener("click", async () => {
+                    const copied = await copyDocsText(samples[selected].querySelector("code").textContent);
+                    copyButton.textContent = copied ? "Copied!" : "Copy failed";
+                    setTimeout(() => { copyButton.textContent = "Copy"; }, 1600);
                 });
-
-                // Copy button functionality
-                const copyButton = document.querySelector(".copy-button");
-                if (copyButton && codeDisplay) {
-                    copyButton.addEventListener("click", () => {
-                        // Create a temporary div to get clean text from HTML
-                        const tempDiv = document.createElement("div");
-                        tempDiv.innerHTML = codeDisplay.innerHTML;
-                        const cleanText =
-                            tempDiv.textContent || tempDiv.innerText || "";
-
-                        navigator.clipboard
-                            .writeText(cleanText)
-                            .then(() => {
-                                copyButton.textContent = "Copied!";
-                                copyButton.classList.add("copied");
-
-                                setTimeout(() => {
-                                    copyButton.textContent = "Copy";
-                                    copyButton.classList.remove("copied");
-                                }, 2000);
-                            })
-                            .catch(() => {
-                                // Fallback for older browsers
-                                const textarea =
-                                    document.createElement("textarea");
-                                textarea.value = cleanText;
-                                document.body.appendChild(textarea);
-                                textarea.select();
-                                document.execCommand("copy");
-                                document.body.removeChild(textarea);
-
-                                copyButton.textContent = "Copied!";
-                                copyButton.classList.add("copied");
-
-                                setTimeout(() => {
-                                    copyButton.textContent = "Copy";
-                                    copyButton.classList.remove("copied");
-                                }, 2000);
-                            });
-                    });
-                }
 
                 // --- Fade-in Animation ---
                 const fadeElements = document.querySelectorAll(".fade-in");
@@ -2506,8 +2173,6 @@ run_sweep()`,
             });
         </script>
 
-        <!-- Prism.js for syntax highlighting -->
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+
     </body>
 </html>

@@ -1,0 +1,17 @@
+# Run ptl camera discover and replace each placeholder with the complete resource_string.
+# Do not edit or construct any portion of the returned identifier.
+bench_name: USB cameras through LAMB
+simulate: false
+devices:
+  bench_camera:
+    device_type: camera
+    address: "<copy the complete bench-camera resource_string from discovery>"
+    backend:
+      type: lamb
+      url: http://your-lamb-host.example:8000
+  bench_camera_2k:
+    device_type: camera
+    address: "<copy the complete 2K-camera resource_string from discovery>"
+    backend:
+      type: lamb
+      url: http://your-lamb-host.example:8000

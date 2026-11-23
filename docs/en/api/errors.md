@@ -16,6 +16,8 @@ This page documents the custom exception types used throughout PyTestLab. Unders
       show_if_no_docstring: true
 
 ::: pytestlab.errors.InstrumentParameterError
+
+::: pytestlab.errors.OperationDiscoveryError
     options:
       show_if_no_docstring: true
 
@@ -45,14 +47,18 @@ This page documents the custom exception types used throughout PyTestLab. Unders
 from pytestlab.errors import (
     InstrumentConnectionError,
     InstrumentParameterError,
-    DatabaseError,
 )
 
-q
-except InstrumentParameterError as e:
-    print(f"Invalid parameter: {e}")
-except DatabaseError as e:
-    print(f"Database error: {e}")
+
+def read_dc_voltage(dmm, range_val="AUTO"):
+    try:
+        return dmm.measure("dc_voltage", range_val=range_val)
+    except InstrumentParameterError as exc:
+        print(f"Invalid measurement setting: {exc}")
+        raise
+    except InstrumentConnectionError as exc:
+        print(f"Could not connect to the configured meter: {exc}")
+        raise
 ```
 
 ---

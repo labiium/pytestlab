@@ -2,17 +2,14 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-# Alias for backward compatibility
-# The old Config class and ChannelsConfig are removed as Pydantic handles this.
-# Individual instrument configs will use List[SpecificChannelModel]
 
-
-# --- DUMMY Config class for mkdocstrings compatibility ---
 class Config(BaseModel):
-    """
-    Dummy Config class for documentation compatibility.
-    This is not used in runtime code, but allows mkdocstrings to resolve
-    'pytestlab.config.Config' for API docs.
-    """
+    """Shared Pydantic base with legacy JSON-compatible serialization."""
 
-    pass
+    def to_json(self) -> dict:
+        """Return the model as JSON-compatible Python values."""
+        return self.model_dump(mode="json")
+
+
+class BaseConfig(Config):
+    """Base class for PyTestLab device and instrument configuration models."""

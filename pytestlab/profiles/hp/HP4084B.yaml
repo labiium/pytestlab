@@ -1,0 +1,37 @@
+# HP4084B/HP4085B switching protocol. The generic SwitchMatrixDevice owns
+# routes; this profile owns the non-SCPI wire vocabulary.
+manufacturer: hewlett-packard
+model: HP4084B
+device_type: switch_matrix
+role: switching
+protocol: HP-IB legacy PC command protocol
+terminals: [source, dut]
+channels: []
+switch:
+  message_io: {read_termination: "\n"}
+  crosspoint:
+    pattern: '^P(?P<port>[1-6]|[89]|10):(?P<pin>[0-9]+)$'
+    fields: [port, pin]
+    constraints:
+      pin: {min: 1, max: 48}
+  commands:
+    connect: 'PC{port}ON{pin:02d}'
+    open: 'PC0ON{pin:02d}'
+    guard_pin: 'PC1GD{pin:02d}'
+    clear: 'CL'
+    identity: 'ID'
+  queries:
+    identify_extended:
+      template: 'IDEX'
+      response: {type: str}
+    pin_status:
+      template: 'PN{pin:02d}'
+      parameters:
+        pin: {min: 1, max: 48}
+      response: {type: str}
+    port_status:
+      template: 'PT{port}'
+      parameters:
+        port:
+          choices: [1, 2, 3, 4, 5, 6, 8, 9, 10]
+      response: {type: str}

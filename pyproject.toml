@@ -15,7 +15,6 @@ dependencies = [
     "polars",
     "pyvisa",
     "pydantic",
-    "uncertainties",
     "cryptography",
     "pyyaml",
     "tqdm",
@@ -24,15 +23,18 @@ dependencies = [
     "pyusb",
     "httpx",
     "aiofiles",
-    "typer",
+    "typer==0.16.1",
+    "click>=8.2.1,<8.3", # Keep paired options compatible with pinned Typer.
     "Pillow",
-    "ruff>=0.12.9",
-    "types-pyyaml>=6.0.12.20250809",
-    "types-tqdm>=4.67.0.20250809",
-    "types-pillow>=10.2.0.20240822",
-    "types-requests>=2.32.4.20250809",
-    "ty>=0.0.1a29",
+    "pint",
+    "scipy",
+    "matplotlib",
+    "plotly",
 ]
+
+[project.urls]
+Documentation = "https://pytestlab.org/"
+Repository = "https://github.com/labiium/pytestlab"
 
 [tool.hatch.version]
 path = "pytestlab/__init__.py"
@@ -42,36 +44,48 @@ docs = [
     "ghp-import>=2.1.0",
     "matplotlib>=3.10.3",
     "mkdocs-autorefs>=1.4.2",
-    "mkdocs-awesome-pages-plugin>=2.10.1",
-    "mkdocs-git-revision-date-localized-plugin>=1.4.7",
-    "mkdocs-i18n>=0.4.6",
     "mkdocs-jupyter>=0.25.1",
-    "mkdocs-material-extensions>=1.3.1",
-    "mkdocs-material>=9.6.15",
     "mkdocs>=1.6.1",
     "mkdocstrings[python]>=0.29.1",
     "plotly>=6.2.0",
     "pymdown-extensions>=10.16",
     "watchdog>=6.0.0",
 ]
-plot = ["matplotlib", "plotly"]
-full = ["pytestlab[plot]", "uncertainties", "pydantic"]
+# Backward-compatible extras retained for existing install commands.
+# Plotting is included in the default install.
+plot = []
+full = []
+# Circuit simulation lane (pytestlab.sim.circuit). Its Python dependencies
+# (numpy/polars/pydantic/pyyaml) are already core requirements, so this extra
+# is a forward-compatible install target. NOTE: the lane also requires an
+# `ngspice` binary on PATH, which pip cannot install. Provide it via a system
+# package (apt/brew/conda install ngspice) or the `danchitnis/ngspice` Docker
+# image; a missing binary raises NgspiceNotFound with these instructions.
+circuit = []
 dev = [
-    "ruff",
-    "ty>=0.0.1a29",
+    "pytestlab[docs]",
+    "ruff==0.16.1",
+    "ty==0.0.69",
     "pytest",
     "pytest-cov",
     "pre-commit",
     "httpx",
     "aiofiles",
+    "types-pyyaml>=6.0.12.20250809",
+    "types-tqdm>=4.67.0.20250809",
+    "types-pillow>=10.2.0.20240822",
+    "types-requests>=2.32.4.20250809",
 ]
 
 [project.scripts]
 ptl = "pytestlab.cli:main"
 pytestlab = "pytestlab.cli:main"
+
+[project.entry-points."pytestlab.backends"]
+circuit_sim = "pytestlab.sim.circuit._entry:build_circuit_sim_backend"
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "0.1.5"
+version = "0.3.0"
 version_files = [
     "pytestlab/__init__.py:__version__", # For __version__ = "..."
 ]
@@ -85,8 +99,16 @@ exclude = [
     # "/examples", # Top-level examples are not included by `packages = ["pytestlab"]`
     # "/docs"      # Docs are not typically included in wheels
 ]
+[tool.hatch.build.targets.sdist]
+# Keep runnable examples, tests, and replay fixtures, not raw acquisition dumps.
+exclude = ["/tests/instruments/acquisition_test_results"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["pytestlab"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"schemas/metrology" = "schemas/metrology"
+"schemas/uncertainty" = "schemas/uncertainty"
 [tool.ty.environment]
 python-version = "3.11"
 
@@ -124,4 +146,4 @@ quote-style = "double"
 branch = true
 
 [dependency-groups]
-dev = ["ruff>=0.12.9"]
+dev = ["ruff==0.16.1"]

@@ -1,0 +1,29 @@
+device_type: power_supply
+role: stimulus
+manufacturer: Test
+model: FixturePSU
+channels:
+  - description: CH1
+    voltage_range:
+      min: 0.0
+      max: 20.0
+      resolution: 0.001
+    current_limit_range:
+      min: 0.0
+      max: 2.0
+      resolution: 0.0001
+measurement_accuracy:
+  read_voltage_ch1:
+    model: linear
+    range_percent: 0.5
+    distribution: standard
+    source: fixture-datasheet
+operation_options:
+  measure_voltage:
+    transport: {read: measure_voltage}
+    parameters:
+      channel:
+        kind: range
+        min: 1
+        max: 1
+        bindings: [{alias: read, parameter: channel}]

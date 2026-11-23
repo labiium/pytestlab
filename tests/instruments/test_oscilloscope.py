@@ -30,6 +30,8 @@ Requires:
     pytestlab
 """
 
+import os
+
 import numpy as np
 import polars as pl
 import pytest
@@ -40,7 +42,7 @@ from pytestlab.common.enums import AcquisitionType
 from pytestlab.common.enums import TriggerSlope
 
 # ------------------- CONFIGURE THESE FOR YOUR LAB -------------------
-OSC_CONFIG_KEY = "keysight/DSOX1204G"  # <-- Set your profile key or path here
+OSC_CONFIG_KEY = os.getenv("PYTESTLAB_INSTRUMENT_TEST_PROFILE", "keysight/DSOX1204G")
 # --------------------------------------------------------------------
 
 
@@ -74,7 +76,8 @@ def test_oscilloscope_full_real():
     idn = osc.id()
     print(f"IDN: {idn}")
     assert isinstance(idn, str)
-    assert "Keysight".upper() in idn
+    assert osc.config.manufacturer.upper() in idn.upper()
+    assert osc.config.model.upper() in idn.upper()
 
     # --- Channel configuration ---
     # Test all available channels

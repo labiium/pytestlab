@@ -1,0 +1,14 @@
+accessory_type: coaxial_cable
+manufacturer: generic
+model: rg58_bnc
+description: "Generic RG-58 50 ohm BNC cable template. Bind length_m and replace assumptions with lab calibration for traceable work."
+review_status: template
+required_parameters: [length_m]
+compatibility:
+  connector: bnc
+  impedance_ohm: 50
+  target_kinds: [oscilloscope_channel]
+sources:
+  - title: "Generic RG-58 manufacturer datasheet"
+    notes: "Template profile; users must verify their actual cable construction, length, and calibration."
+corrections: []

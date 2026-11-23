@@ -1,0 +1,409 @@
+manufacturer: Hioki
+model: IM3570
+device_type: impedance_analyzer
+role: measurement
+transport:
+  read_termination: "\n"
+  write_termination: "\r\n"
+
+readback:
+  encoding: polar_point
+  magnitude_limit_ohm: 1.0e12
+  checks:
+    measurement_mode: [ANALYZER]
+    sweep_domain: [FREQ]
+    sweep_trigger: [SEQUENTIAL, STEP]
+    transfer_format: [ASCII]
+    response_fields: ["22"]
+    response_header: ["ON"]
+    automatic_output: ["OFF"]
+
+sweep:
+  dialect: im3570
+  min_frequency_hz: 4
+  max_frequency_hz: 5000000
+  max_points: 801
+  max_segments: 20
+
+scpi:
+  queries:
+    identify: {template: "*IDN?"}
+    measurement_mode: {template: ":MODE?"}
+    sweep_domain: {template: ":SWE:MAIN:SOUR?"}
+    sweep_trigger: {template: ":SWE:TRIG?"}
+    transfer_format: {template: ":FORM:DATA?"}
+    response_fields: {template: ":MEAS:VAL?"}
+    response_header: {template: ":HEAD?"}
+    automatic_output: {template: ":MEAS:OUTP:AUTO?"}
+    impedance_point: {template: ":MEAS:POIN? {point}"}
+    segment_mode: {template: ":SEGM?"}
+    sweep_limits: {template: ":LIST:STAR:STOP?"}
+    # IM3570 communication command manual: DC Bias and Measurement Signal Level (LCR/ANALYZER).
+    dc_bias_enabled: {template: ":DCBIAS?"}
+    comparator_mode: {template: ":COMP:ANAL?"}
+    source_level_mode: {template: ":LEVEL?"}
+
+    speed: {template: ":SPEE?"}
+    averages: {template: ":AVER?"}
+    range_auto: {template: ":RANG:AUTO?"}
+    range_number: {template: ":RANG?"}
+    source_voltage: {template: ":LEVEL:VOLT?"}
+    source_constant_voltage: {template: ":LEVEL:CVOLT?"}
+    source_current: {template: ":LEVEL:CCURR?"}
+    correction_open: {template: ":CORR:OPEN:RET?"}
+    correction_short: {template: ":CORR:SHOR:RET?"}
+
+    segment_count: {template: ":SEGM:NUM?"}
+    segment_source: {template: ":SEGM:SUB:SOUR?"}
+    segment_limits: {template: ":SEGM:STAR:STOP? {point}"}
+    segment_level: {template: ":SEGM:SUB:SOUR:VAL? {point}"}
+    segment_range: {template: ":SEGM:RANG? {point}"}
+    segment_speed: {template: ":SEGM:SPEE? {point}"}
+    segment_averages: {template: ":SEGM:AVER? {point}"}
+    segment_delay: {template: ":SEGM:PDEL? {point}"}
+
+    parameter: {template: ":PARA{trace}?"}
+    correction_cable: {template: ":CORR:CABL?"}
+    correction_scaling: {template: ":CORR:SCAL?"}
+    correction_band: {template: ":CORR:LIM:POIN?"}
+
+    fixture_open_all: {template: ":CORR:OPEN:DATA:ALL?"}
+    fixture_open_spot: {template: ":CORR:OPEN:DATA:SPOT? {point}"}
+    fixture_open_result: {template: ":CORR:OPEN:ERR?"}
+    fixture_short_all: {template: ":CORR:SHOR:DATA:ALL?"}
+    fixture_short_spot: {template: ":CORR:SHOR:DATA:SPOT? {point}"}
+    fixture_short_result: {template: ":CORR:SHOR:ERR?"}
+
+    comparator_slot: {template: ":COMP:PARA?"}
+    point_frequency: {template: ":POIN? {point}"}
+    area_limits: {template: ":COMP:AREA:LIM? {point},{slot}"}
+    peak_limits: {template: ":COMP:PEAK? {point},{slot},{extremum}"}
+
+  commands:
+    set_parameter: {template: ":PARA{trace} {code}"}
+    set_segment_row: {template: ":SEGM:STAR:STOP {point},{start},{stop},{points},{spacing}"}
+    set_speed: {template: ":SPEE {speed}"}
+    set_averages: {template: ":AVER {averages}"}
+    set_fixed_range: {template: ":RANG {range_number}"}
+    set_auto_range: {template: ":RANG:AUTO ON"}
+    set_voltage: {template: ":LEVEL:VOLT {level}"}
+    set_sweep_limits: {template: ":LIST:STAR:STOP {start},{stop},{points},{spacing}"}
+
+operation_options:
+  operations:
+    read_impedance:
+      transport:
+        measurement_mode: measurement_mode
+        sweep_domain: sweep_domain
+        sweep_trigger: sweep_trigger
+        transfer_format: transfer_format
+        response_fields: response_fields
+        response_header: response_header
+        automatic_output: automatic_output
+        impedance_point: impedance_point
+      parameters:
+        point:
+          kind: range
+          integer: true
+          min: 1
+          max: 801
+          default: 1
+          bindings:
+            - {alias: impedance_point, parameter: point}
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, transport_parameter: false}
+    read_impedance_sweep:
+      transport:
+        measurement_mode: measurement_mode
+        sweep_domain: sweep_domain
+        sweep_trigger: sweep_trigger
+        transfer_format: transfer_format
+        response_fields: response_fields
+        response_header: response_header
+        automatic_output: automatic_output
+        segment_mode: segment_mode
+        sweep_limits: sweep_limits
+        impedance_point: impedance_point
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, transport_parameter: false}
+    configure_frequency_sweep:
+      transport:
+        measurement_mode: measurement_mode
+        sweep_domain: sweep_domain
+        sweep_trigger: sweep_trigger
+        segment_mode: segment_mode
+        sweep_limits: sweep_limits
+        dc_bias_enabled: dc_bias_enabled
+        comparator_mode: comparator_mode
+        source_level_mode: source_level_mode
+        set_sweep_limits: set_sweep_limits
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, transport_parameter: false}
+        start_hz: {kind: range, min: 4, max: 5000000, unit: Hz, transport_parameter: false}
+        stop_hz: {kind: range, min: 4, max: 5000000, unit: Hz, transport_parameter: false}
+        points: {kind: range, integer: true, min: 2, max: 801, transport_parameter: false}
+        spacing:
+          kind: enum
+          default: log
+          transport_parameter: false
+          options: [{value: linear, label: Linear}, {value: log, label: Logarithmic}]
+
+    read_measurement_sweep:
+      transport:
+        measurement_mode: measurement_mode
+        sweep_domain: sweep_domain
+        sweep_trigger: sweep_trigger
+        segment_mode: segment_mode
+        transfer_format: transfer_format
+        response_fields: response_fields
+        response_header: response_header
+        automatic_output: automatic_output
+        sweep_limits: sweep_limits
+        impedance_point: impedance_point
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, transport_parameter: false}
+        parameter:
+          kind: enum
+          transport_parameter: false
+          options:
+            - {value: magnitude, label: Impedance magnitude, unit: "ohm"}
+            - {value: phase, label: Impedance phase, unit: "deg"}
+            - {value: resistance, label: Series resistance, unit: "ohm"}
+            - {value: reactance, label: Series reactance, unit: "ohm"}
+            - {value: series_inductance, label: Series inductance, unit: "H"}
+            - {value: parallel_inductance, label: Parallel inductance, unit: "H"}
+            - {value: series_capacitance, label: Series capacitance, unit: "F"}
+            - {value: parallel_capacitance, label: Parallel capacitance, unit: "F"}
+            - {value: quality_factor, label: Quality factor, unit: "1"}
+            - {value: dissipation_factor, label: Dissipation factor, unit: "1"}
+            - {value: admittance_magnitude, label: Admittance magnitude, unit: "S"}
+            - {value: admittance_phase, label: Admittance phase, unit: "deg", supported: false, reason: IM3570 Analyzer exposes impedance phase only.}
+            - {value: conductance, label: Conductance, unit: "S"}
+            - {value: susceptance, label: Susceptance, unit: "S"}
+            - {value: parallel_resistance, label: Parallel resistance, unit: "ohm"}
+    configure_measurement_parameter:
+      transport:
+        measurement_mode: measurement_mode
+        sweep_domain: sweep_domain
+        sweep_trigger: sweep_trigger
+        segment_mode: segment_mode
+        dc_bias_enabled: dc_bias_enabled
+        comparator_mode: comparator_mode
+        parameter: parameter
+        set_parameter: set_parameter
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, transport_parameter: false}
+        parameter:
+          kind: enum
+          transport_parameter: false
+          options:
+            - {value: magnitude, label: Impedance magnitude, unit: "ohm"}
+            - {value: phase, label: Impedance phase, unit: "deg"}
+            - {value: resistance, label: Series resistance, unit: "ohm"}
+            - {value: reactance, label: Series reactance, unit: "ohm"}
+            - {value: series_inductance, label: Series inductance, unit: "H"}
+            - {value: parallel_inductance, label: Parallel inductance, unit: "H"}
+            - {value: series_capacitance, label: Series capacitance, unit: "F"}
+            - {value: parallel_capacitance, label: Parallel capacitance, unit: "F"}
+            - {value: quality_factor, label: Quality factor, unit: "1"}
+            - {value: dissipation_factor, label: Dissipation factor, unit: "1"}
+            - {value: admittance_magnitude, label: Admittance magnitude, unit: "S"}
+            - {value: admittance_phase, label: Admittance phase, unit: "deg", supported: false, reason: IM3570 Analyzer exposes impedance phase only.}
+            - {value: conductance, label: Conductance, unit: "S"}
+            - {value: susceptance, label: Susceptance, unit: "S"}
+            - {value: parallel_resistance, label: Parallel resistance, unit: "ohm"}
+        trace: {kind: range, integer: true, min: 1, max: 2, default: 1, transport_parameter: false}
+    get_measurement_settings:
+      transport:
+        measurement_mode: measurement_mode
+        sweep_domain: sweep_domain
+        sweep_trigger: sweep_trigger
+        segment_mode: segment_mode
+        speed: speed
+        averages: averages
+        range_auto: range_auto
+        range_number: range_number
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, transport_parameter: false}
+    configure_measurement_settings:
+      transport:
+        measurement_mode: measurement_mode
+        sweep_domain: sweep_domain
+        sweep_trigger: sweep_trigger
+        segment_mode: segment_mode
+        speed: speed
+        averages: averages
+        range_auto: range_auto
+        range_number: range_number
+        set_speed: set_speed
+        set_averages: set_averages
+        sweep_limits: sweep_limits
+        dc_bias_enabled: dc_bias_enabled
+        set_fixed_range: set_fixed_range
+        set_auto_range: set_auto_range
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, transport_parameter: false}
+        speed_step: {kind: range, integer: true, min: 1, max: 4, required: false, transport_parameter: false}
+        averages: {kind: range, integer: true, min: 1, max: 256, required: false, transport_parameter: false}
+        range_mode: {kind: enum, required: false, transport_parameter: false, options: [{value: auto, label: Auto}, {value: fixed, label: Fixed}]}
+        fixed_range_ohm: {kind: range, min: 0.1, max: 100000000, unit: ohm, required: false, transport_parameter: false}
+    get_excitation:
+      transport:
+        measurement_mode: measurement_mode
+        sweep_domain: sweep_domain
+        sweep_trigger: sweep_trigger
+        segment_mode: segment_mode
+        dc_bias_enabled: dc_bias_enabled
+        source_level_mode: source_level_mode
+        source_voltage: source_voltage
+        source_constant_voltage: source_constant_voltage
+        source_current: source_current
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, transport_parameter: false}
+    configure_voltage_excitation:
+      transport:
+        measurement_mode: measurement_mode
+        sweep_domain: sweep_domain
+        sweep_trigger: sweep_trigger
+        segment_mode: segment_mode
+        dc_bias_enabled: dc_bias_enabled
+        source_level_mode: source_level_mode
+        source_voltage: source_voltage
+        source_constant_voltage: source_constant_voltage
+        source_current: source_current
+        set_voltage: set_voltage
+        sweep_limits: sweep_limits
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, transport_parameter: false}
+        level_v_rms: {kind: range, min: 0.005, max: 1, unit: Vrms, transport_parameter: false}
+    get_fixture_correction:
+      transport:
+        measurement_mode: measurement_mode
+        correction_open: correction_open
+        correction_short: correction_short
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, transport_parameter: false}
+
+    get_segmented_sweep:
+      transport:
+        measurement_mode: measurement_mode
+        sweep_domain: sweep_domain
+        sweep_trigger: sweep_trigger
+        segment_mode: segment_mode
+        segment_count: segment_count
+        segment_source: segment_source
+        segment_limits: segment_limits
+        segment_level: segment_level
+        segment_range: segment_range
+        segment_speed: segment_speed
+        segment_averages: segment_averages
+        segment_delay: segment_delay
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, transport_parameter: false}
+    configure_frequency_segment:
+      transport:
+        measurement_mode: measurement_mode
+        sweep_domain: sweep_domain
+        sweep_trigger: sweep_trigger
+        segment_mode: segment_mode
+        segment_count: segment_count
+        segment_source: segment_source
+        segment_limits: segment_limits
+        segment_level: segment_level
+        segment_range: segment_range
+        segment_speed: segment_speed
+        segment_averages: segment_averages
+        segment_delay: segment_delay
+        dc_bias_enabled: dc_bias_enabled
+        comparator_mode: comparator_mode
+        set_segment_row: set_segment_row
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, transport_parameter: false}
+        index: {kind: range, integer: true, min: 1, max: 20, transport_parameter: false}
+        start_hz: {kind: range, min: 4, max: 5000000, unit: Hz, transport_parameter: false}
+        stop_hz: {kind: range, min: 4, max: 5000000, unit: Hz, transport_parameter: false}
+        points: {kind: range, integer: true, min: 2, max: 801, transport_parameter: false}
+        spacing:
+          kind: enum
+          default: linear
+          transport_parameter: false
+          options:
+            - {value: linear, label: Linear}
+            - {value: log, label: Logarithmic}
+
+    get_fixture_setup:
+      transport:
+        measurement_mode: measurement_mode
+        correction_open: correction_open
+        correction_short: correction_short
+        correction_cable: correction_cable
+        correction_scaling: correction_scaling
+        correction_band: correction_band
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, transport_parameter: false}
+
+    read_fixture_standard:
+      transport:
+        measurement_mode: measurement_mode
+        sweep_trigger: sweep_trigger
+        automatic_output: automatic_output
+        correction_open: correction_open
+        correction_short: correction_short
+        fixture_open_all: fixture_open_all
+        fixture_open_spot: fixture_open_spot
+        fixture_open_result: fixture_open_result
+        fixture_short_all: fixture_short_all
+        fixture_short_spot: fixture_short_spot
+        fixture_short_result: fixture_short_result
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, transport_parameter: false}
+        standard:
+          kind: enum
+          transport_parameter: false
+          options:
+            - {value: open, label: Open}
+            - {value: short, label: Short}
+            - {value: load, label: Load, supported: false, reason: IM3570 load compensation is only available in LCR mode.}
+        calibration_layer:
+          kind: enum
+          default: fixture
+          transport_parameter: false
+          options:
+            - {value: fixture, label: Fixture compensation}
+            - {value: user, label: User calibration, supported: false, reason: IM3570 Analyzer exposes fixture compensation only.}
+        spot: {kind: range, integer: true, min: 1, max: 5, required: false, transport_parameter: false, description: Inspect one SPOT record instead of the ALL records.}
+
+    get_area_comparator_limits:
+      transport:
+        measurement_mode: measurement_mode
+        sweep_domain: sweep_domain
+        sweep_trigger: sweep_trigger
+        segment_mode: segment_mode
+        comparator_mode: comparator_mode
+        automatic_output: automatic_output
+        comparator_slot: comparator_slot
+        parameter: parameter
+        sweep_limits: sweep_limits
+        point_frequency: point_frequency
+        area_limits: area_limits
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, transport_parameter: false}
+        point: {kind: range, integer: true, min: 1, max: 801, transport_parameter: false}
+        slot: {kind: range, integer: true, min: 1, max: 2, default: 1, transport_parameter: false}
+
+    get_peak_comparator_limits:
+      transport:
+        measurement_mode: measurement_mode
+        sweep_domain: sweep_domain
+        sweep_trigger: sweep_trigger
+        segment_mode: segment_mode
+        comparator_mode: comparator_mode
+        automatic_output: automatic_output
+        comparator_slot: comparator_slot
+        parameter: parameter
+        segment_count: segment_count
+        peak_limits: peak_limits
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 1, default: 1, transport_parameter: false}
+        segment: {kind: range, integer: true, min: 1, max: 20, default: 1, transport_parameter: false}
+        peak: {kind: enum, default: max, transport_parameter: false, options: [{value: min, label: Minimum}, {value: max, label: Maximum}]}
+        slot: {kind: range, integer: true, min: 1, max: 2, default: 1, transport_parameter: false}

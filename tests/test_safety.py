@@ -1,5 +1,4 @@
-# pytestlab/tests/test_safety.py
-
+import json
 import tempfile
 from pathlib import Path
 
@@ -7,7 +6,7 @@ import pytest
 import yaml
 
 from pytestlab.bench import SafetyLimitError
-from pytestlab.config.loader import load_profile
+from pytestlab.config.loader import load_device_profile
 from pytestlab.instruments import PowerSupply
 
 
@@ -16,6 +15,7 @@ def psu_config():
     """Create a temporary profile file for the power supply."""
     profile = {
         "device_type": "power_supply",
+        "role": "stimulus",
         "manufacturer": "Keysight",
         "model": "EDU36311A",
         "channels": [
@@ -24,7 +24,6 @@ def psu_config():
                 "description": "Channel 1",
                 "voltage_range": {"min_val": 0, "max_val": 6},
                 "current_limit_range": {"min_val": 0, "max_val": 5},
-                "accuracy": {"voltage": 0.05, "current": 0.2},
             }
         ],
         "scpi": {"queries": {"identify": {"template": "*IDN?", "response": {"type": "str"}}}},
@@ -41,7 +40,7 @@ def psu_config():
 @pytest.fixture
 def psu(psu_config):
     """A power supply with a simulated backend."""
-    config = load_profile(psu_config["profile"])
+    config = load_device_profile(psu_config["profile"])
     return PowerSupply(config=config, backend="sim")
 
 
@@ -99,3 +98,16 @@ def test_complex_safety_scenario_two(psu):
 
     with pytest.raises(SafetyLimitError):
         psu.current_limit = -0.5
+
+
+def test_safety_limit_error_appends_configured_audit_event(tmp_path, monkeypatch):
+    audit_path = tmp_path / "safety.jsonl"
+    monkeypatch.setenv("PYTESTLAB_SAFETY_AUDIT_PATH", str(audit_path))
+
+    SafetyLimitError("requested voltage exceeds limit")
+
+    event = json.loads(audit_path.read_text())
+    assert event["event"] == "safety_limit_rejection"
+    assert event["exception"] == "SafetyLimitError"
+    assert event["message"] == "requested voltage exceeds limit"
+    assert event["source"].endswith("test_safety.py")

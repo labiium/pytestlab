@@ -12,7 +12,8 @@ from typing import Literal
 from pydantic import BaseModel
 from pydantic import Field
 
-from .accuracy import AccuracySpec
+from ..uncertainty.specs import AccuracyModel
+from ..uncertainty.specs import AccuracySpec as AccuracySpec
 from .instrument_config import InstrumentConfig
 
 # RangeSpec will be defined in this file
@@ -33,7 +34,14 @@ class RangeSpec(BaseModel):
 
     resolution: float | None = Field(None, description="Resolution for this range")
 
-    accuracy: AccuracySpec | None = Field(None, description="Accuracy specification for this range")
+    special_values: list[str] = Field(
+        default_factory=list,
+        description="Profile-declared SCPI symbolic values accepted in place of a number",
+    )
+
+    accuracy: AccuracyModel | None = Field(
+        None, description="Accuracy specification for this range"
+    )
 
     def __init__(self, **data):
         super().__init__(**data)

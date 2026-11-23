@@ -1,102 +1,80 @@
-# Connecting to Instruments
+# Using Instruments and Connections
 
-PyTestLab provides a unified and straightforward way to connect to both real and simulated instruments.
-
----
+Start with a simulator, then connect a physical instrument only when you have
+reviewed the station and the operation. Constructing a standalone instrument
+selects and validates a profile; the first call that needs I/O opens the
+configured backend.
 
 ## Using `AutoInstrument`
 
-The `pytestlab.AutoInstrument` factory is the primary way to create a single instrument instance. You need to provide a configuration source, which can be a profile key (e.g., `"keysight/DSOX1204G"`) or a path to a YAML file.
+Use `from_preset()` for a bundled model, `from_file()` for a local profile,
+or `from_config()` for other supported configuration sources. Inspecting
+profile metadata does not connect the instrument.
 
-!!! note "Connection Process"
-    Creating an instrument instance with `AutoInstrument.from_config()` does **not** establish the connection.
-    You must always call the `connect_backend()` method on the created instrument object.
+### Simulated Instrument
 
----
-
-### Connecting to a Real Instrument
-
-To connect to a physical instrument, you typically need its VISA address.
+The packaged Keysight 34470A fixture needs neither a hardware address nor a
+VISA runtime:
 
 ```python
-import pytestlab
+from pytestlab import AutoInstrument
 
-def main():
-    # Create an instrument instance from a profile and specify its address
-    dmm = pytestlab.AutoInstrument.from_config(
-        "keysight/34470A",
-        address_override="USB0::0x0957::0x1B07::MY56430012::INSTR"
-    )
-
-    # Establish the connection
-    dmm.connect_backend()
-
-    print(f"Connected to: {dmm.id()}")
-
-    # ... perform operations ...
-
+dmm = AutoInstrument.from_preset("keysight/34470A", simulate=True)
+try:
+    reading = dmm.measure("dc_voltage", range_val=10, uncertainty=False)
+    print(f"{float(reading):.3f} V (simulated)")
+finally:
     dmm.close()
-
-main()
 ```
 
----
+### Real Instrument
 
-### Connecting to a Simulated Instrument
-
-To create a simulated instrument for development or testing, set the `simulate=True` flag. No address is needed.
+This example contacts a physical meter. Set up a working
+[VISA backend](../installation.md#visa-backend-support), confirm the meter and
+wiring, and set `DMM_VISA_RESOURCE` to the selected device's exact VISA address
+before running it:
 
 ```python
-import pytestlab
+import os
 
-def main():
-    scope_sim = pytestlab.AutoInstrument.from_config("keysight/DSOX1204G", simulate=True)
-    scope_sim.connect_backend()
+from pytestlab import AutoInstrument
 
-    print(f"Connected to simulated instrument: {scope_sim.id()}")
-
-    scope_sim.close()
-
-main()
+dmm = AutoInstrument.from_preset(
+    "keysight/34470A",
+    address_override=os.environ["DMM_VISA_RESOURCE"],
+    backend_type_hint="visa",
+    simulate=False,
+)
+try:
+    print(dmm.id())
+    print(dmm.measure("dc_voltage").values)
+finally:
+    dmm.close()
 ```
 
-Simulation mode is ideal for development, CI, and testing when hardware is unavailable.
-
----
+Here `id()` is the first hardware query. It does not prove that the meter is
+wired correctly or that a reading is calibrated.
 
 ## Using a Bench
 
-For managing multiple instruments, the `pytestlab.Bench` class is the recommended approach. It handles the connection and cleanup for all instruments defined in your `bench.yaml` file automatically.
+For a bench-based workflow, save the
+[simulated meter descriptor](../bench-yaml.md#start-with-one-simulated-meter)
+as `bench.yaml`:
 
 ```python
-import pytestlab
+from pytestlab import Bench
 
-def main():
-    with pytestlab.Bench.open("bench.yaml") as bench:
-        print(f"Bench loaded: {bench.config.bench_name}")
-        # Access instruments by alias, e.g.:
-        bench.psu.channel(1).set(voltage=3.3, current_limit=0.5).on()
-        voltage = bench.dmm.measure_voltage_dc()
-        print(f"Measured: {voltage.values:.4f} V")
-    # All instruments are closed automatically here
-
-main()
+with Bench.open("bench.yaml") as bench:
+    voltage = bench.dmm.measure("dc_voltage", uncertainty=False)
+    print(f"{float(voltage):.3f} V (simulated)")
 ```
 
-See the [Working with Benches](bench_descriptors.md) guide for more details.
+On a physical station, a default `Bench.open()` can open devices and run
+configured experiment hooks. Use `start_experiment=False` with the selected
+alias for a lazy device session without hooks. Use `ptl bench ls` or
+`ptl bench validate --strict` for offline configuration inspection.
 
----
-
-## Troubleshooting Connections
-
-- **VISA Not Found:** Ensure you have installed a VISA library (NI-VISA, Keysight IO Libraries, etc.) and that it is accessible in your system's PATH.
-- **Address Errors:** Double-check your instrument's VISA address. Use `ptl profile list` and `ptl bench ls` to inspect available profiles and bench configurations.
-- **Simulation:** If you encounter persistent connection issues, try running in simulation mode to isolate hardware vs. software problems.
-
----
-
-## Next Steps
-
-- [Getting Started Guide](getting_started.md)
-- [Simulation Guide](simulation.md)
-- [Bench Descriptors](bench_descriptors.md)
+For physical connection errors, check the selected VISA backend with
+`pyvisa-info` and confirm the exact device address. See
+[Working with Benches](bench_descriptors.md) or the
+[simulation guide](simulation.md).

@@ -296,6 +296,91 @@
       },
       "title": "SCPISection",
       "type": "object"
+    },
+    "SpectrumTraceReadback": {
+      "additionalProperties": false,
+      "description": "Model-specific ASCII trace shape and standard spectrum mode tokens.",
+      "properties": {
+        "layout": {
+          "enum": [
+            "interleaved_xy",
+            "split_xy"
+          ],
+          "title": "Layout",
+          "type": "string"
+        },
+        "mode_values": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Mode Values",
+          "type": "array"
+        },
+        "max_points": {
+          "exclusiveMinimum": 0,
+          "maximum": 1000000,
+          "title": "Max Points",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "layout",
+        "mode_values",
+        "max_points"
+      ],
+      "title": "SpectrumTraceReadback",
+      "type": "object"
+    },
+    "SpectrumSingleSweep": {
+      "additionalProperties": false,
+      "description": "How the profile verifies a passive, single, trace-updating measurement.",
+      "properties": {
+        "sweep_guard": {
+          "enum": [
+            "active_trace_types",
+            "sweep_count"
+          ],
+          "title": "Sweep Guard",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sweep_guard"
+      ],
+      "title": "SpectrumSingleSweep",
+      "type": "object"
+    },
+    "SpectrumRFInput": {
+      "additionalProperties": false,
+      "description": "Validated option identifiers for the bundled internal RF preamp.",
+      "properties": {
+        "preamp_options": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Preamp Options",
+          "type": "array"
+        },
+        "external_frontend_option": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "External Frontend Option"
+        }
+      },
+      "required": [
+        "preamp_options"
+      ],
+      "title": "SpectrumRFInput",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -448,6 +533,76 @@
       "default": null,
       "description": "Input attenuation in dB",
       "title": "Attenuation"
+    },
+    "trace_readback": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SpectrumTraceReadback"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "single_sweep": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SpectrumSingleSweep"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "rf_input": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SpectrumRFInput"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "sweep_control": {
+      "anyOf": [
+        {
+          "enum": [
+            "keysight",
+            "fsw"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sweep Control"
+    },
+    "trace_setup": {
+      "default": false,
+      "title": "Trace Setup",
+      "type": "boolean"
+    },
+    "markers": {
+      "anyOf": [
+        {
+          "enum": [
+            "keysight",
+            "fsw"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Markers"
     }
   },
   "required": [

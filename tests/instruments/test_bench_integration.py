@@ -15,7 +15,6 @@ import pytest
 
 from pytestlab.bench import Bench
 from pytestlab.experiments.database import MeasurementDatabase
-from pytestlab.instruments.Multimeter import DMMFunction
 from pytestlab.measurements.session import MeasurementSession
 
 # Test bench YAML configuration with a database path
@@ -36,14 +35,14 @@ experiment:
 
 simulate: false
 
-# Continue operation even if some instruments fail to connect
-continue_on_instrument_error: true
+# Continue operation even if some devices fail to connect
+continue_on_device_error: true
 continue_on_automation_error: true
 
 backend_defaults:
   type: "lamb"
 
-instruments:
+devices:
   psu:
     profile: "keysight/EDU36311A"
     backend:
@@ -143,7 +142,7 @@ def test_bench_session_database_integration(bench_config_file_with_db, db_path):
                 psu.output(1, True)
                 time.sleep(0.1)  # Wait for voltage to stabilize
 
-                measurement = dmm.measure(function=DMMFunction.VOLTAGE_DC)
+                measurement = dmm.measure(function="dc_voltage")
 
                 psu.output(1, False)
 

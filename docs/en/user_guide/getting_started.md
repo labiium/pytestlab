@@ -4,79 +4,34 @@ title: Getting Started
 
 # Getting Started with PyTestLab
 
-Welcome to PyTestLab! This guide will walk you through the essential first steps to get up and running with the toolbox.
-
-The best way to get started is with our interactive **10-Minute Tour**. This Jupyter Notebook will guide you through:
-
-- Connecting to a simulated instrument.
-- Using the synchronous, facade-based API for instrument control.
-- Performing a simple measurement.
-- Storing results in a database.
-
-[➡️ **Start the 10-Minute Tour**](../tutorials/10_minute_tour.ipynb)
-
----
+Take a first DC voltage reading with a packaged simulator. No instrument,
+device address, or VISA runtime is needed.
 
 ## 1. Installation
 
-Before you begin, make sure you have PyTestLab installed. If not, see the [Installation Guide](../installation.md).
+Follow the [0.3.0 installation guide](../installation.md) and check
+`ptl --version` before running this example.
 
-```bash
-pip install pytestlab
-```
+## 2. Your First Measurement (Simulated)
 
-For full functionality (plotting, uncertainty, etc.), use:
-
-```bash
-pip install pytestlab[full]
-```
-
----
-
-## 2. Your First Instrument (Simulated)
-
-PyTestLab uses a clean synchronous API that's easy to understand and use. All instrument operations are straightforward function calls.
-
-Here's how to connect to a simulated oscilloscope and acquire data:
+Save this as `first_measurement.py`:
 
 ```python
 from pytestlab import AutoInstrument
 
-def main():
-    # Create a simulated oscilloscope
-    scope = AutoInstrument.from_config("keysight/DSOX1204G", simulate=True)
-    scope.connect_backend()
-
-    # Configure channel and trigger
-    scope.channel(1).setup(scale=0.5, offset=0).enable()
-    scope.trigger.setup_edge(source="CH1", level=0.25)
-
-    # Acquire waveform data
-    result = scope.read_channels(1)
-    print("Acquired waveform data:")
-    print(result.values.head())  # .values is a Polars DataFrame
-
-    scope.close()
-
-main()
+dmm = AutoInstrument.from_preset("keysight/34470A", simulate=True)
+try:
+    reading = dmm.measure("dc_voltage", range_val=10, uncertainty=False)
+    print(f"{float(reading):.3f} V (simulated)")
+finally:
+    dmm.close()
 ```
 
----
+Run `python first_measurement.py`. The output is `0.000 V (simulated)`. This is
+a fixture response, not a physical or calibrated measurement.
 
 ## 3. Next Steps
 
-- **Explore the [10-Minute Tour](../tutorials/10_minute_tour.ipynb)** for a hands-on walkthrough.
-- See how to [Connect to real instruments](connecting.md).
-- Browse the [Profile Gallery](../profiles/gallery.md) for supported devices.
-- Read about [Simulation Mode](simulation.md) for hardware-free development.
-
----
-
-## 4. Need Help?
-
-- Check the [User Guide](../index.md) for more topics.
-- Join the community or open an issue on GitHub if you get stuck.
-
----
-
-Happy testing and measuring!
+- [Put the simulated meter in a bench](../bench-yaml.md#start-with-one-simulated-meter).
+- [Run a measurement and save the result from the CLI](../cli.md#run-a-measurement).
+- [Connect to a physical instrument](connecting.md#real-instrument) when ready.

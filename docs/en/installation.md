@@ -1,76 +1,62 @@
 # Installation
 
-PyTestLab requires **Python 3.9** or higher.
+These examples use **PyTestLab 0.3.0** and **Python 3.11 or newer**. The
+simulated first measurement needs no hardware, instrument address, or VISA
+runtime.
 
 ## Standard Installation
 
-We recommend installing PyTestLab in a virtual environment.
+Create a virtual environment and install PyTestLab:
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+source .venv/bin/activate
+python -m pip install "pytestlab==0.3.0"
 ```
 
-You can install PyTestLab from PyPI using `pip`.
+In Windows PowerShell, activate with `.\.venv\Scripts\Activate.ps1` instead.
+Plotting and scientific-data support are included in the default install.
 
-### Core Package
-
-For the core functionality:
-
-```bash
-pip install pytestlab
-```
-
-### Full Installation
-
-To include all optional dependencies for plotting, extended data formats, and development tools:
-
-```bash
-pip install pytestlab[full]
-```
-
-## VISA Backend Support
-
-To communicate with most physical instruments, you will need to install a VISA backend library. PyTestLab uses `pyvisa` to interface with these libraries.
-
-1. **Install a VISA implementation** from your hardware vendor:
-    - [National Instruments NI-VISA](https://www.ni.com/visa/)
-    - [Keysight IO Libraries Suite](https://www.keysight.com/find/iosuites)
-    - [Rohde & Schwarz VISA](https://www.rohde-schwarz.com/us/products/test-and-measurement/software/visa-software/visa-software_63493-1066743.html)
-
-2. **Install `pyvisa`**:
-
-    ```bash
-    pip install pyvisa
-    ```
-
-PyTestLab will automatically detect and use the installed VISA backend.
-
-## Upgrading
-
-To upgrade PyTestLab to the latest version:
-
-```bash
-pip install --upgrade pytestlab
-```
+If PyPI does not list 0.3.0 yet, install from the matching source checkout
+with `python -m pip install .` or wait for the release. Earlier versions may
+not support these examples.
 
 ## Verifying Your Installation
-
-After installation, you can verify that PyTestLab is installed and working:
 
 ```bash
 ptl --version
 ptl profile list
 ```
 
-If you see a list of available instrument profiles, your installation is successful.
+Then [run your first simulated measurement](user_guide/getting_started.md#2-your-first-measurement-simulated).
+The built-in profile list is not a hardware inventory.
 
-## Troubleshooting
+## VISA Backend Support
 
-- If you encounter issues with instrument connectivity, ensure your VISA library is installed and accessible in your system's PATH.
-- For simulation-only development, you do **not** need to install any VISA libraries.
+Skip this section unless you are connecting physical equipment through VISA.
+The PyVISA Python package is already installed with PyTestLab. Use your
+existing VISA backend, or install a suitable one such as
+[NI-VISA](https://www.ni.com/visa/) or
+[Keysight IO Libraries Suite](https://www.keysight.com/find/iosuites) if needed.
 
-## Next Steps
+For supported transports, you can install
+[PyVISA-py](https://pyvisa.readthedocs.io/projects/pyvisa-py/en/stable/installation.html)
+and select it explicitly in your shell:
 
-- [Getting Started Guide](user_guide/getting_started.md)
-- [Connecting to Instruments](user_guide/connecting.md)
+```bash
+python -m pip install pyvisa-py
+export PYVISA_LIBRARY=@py
+```
+
+Run `pyvisa-info` to check the backend and `ptl visa list` to list visible
+resources. Some addresses, such as TCP/IP sockets, do not appear in default
+discovery. Copy the exact resource into `address` with
+`backend: {type: visa}` in [bench.yaml](bench-yaml.md), then follow
+[Connecting to Instruments](user_guide/connecting.md#real-instrument).
+
+## Upgrading
+
+In 0.3.0, `ptl run --simulate` forces supported built-in simulation for the
+whole bench or refuses the run. It does not sandbox your Python script. See the
+[changelog](changelog.md) for other changes. For development dependencies,
+install `".[dev]"` from a source checkout.

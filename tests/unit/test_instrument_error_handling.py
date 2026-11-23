@@ -5,6 +5,7 @@ from typing import Any
 import pytest
 import yaml
 
+from pytestlab.config.device_config import DeviceRole
 from pytestlab.config.instrument_config import InstrumentConfig
 from pytestlab.errors import InstrumentCommunicationError
 from pytestlab.instruments.backends.sim_backend import SimBackend
@@ -52,24 +53,44 @@ class ProgrammableErrorSimBackend(SimBackend):
 @pytest.fixture
 def error_handling_instrument():
     """Fixture to provide an Instrument instance with ProgrammableErrorSimBackend."""
+    scpi_profile = {
+        "commands": {
+            "clear": {"template": "*CLS"},
+            "reset": {"template": "*RST"},
+            "opc": {"template": "*OPC"},
+        },
+        "queries": {
+            "get_error": {
+                "template": "SYST:ERR?",
+                "response": {"type": "raw"},
+            },
+            "identify": {"template": "*IDN?", "response": {"type": "str"}},
+            "opc_query": {"template": "*OPC?", "response": {"type": "raw"}},
+            "esr_query": {"template": "*ESR?", "response": {"type": "raw"}},
+        },
+    }
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
         profile_file = f.name
-        yaml.dump({"device_type": "instrument", "scpi": {"*IDN?": "dummy_idn"}}, f)
+        yaml.dump(
+            {
+                "device_type": "instrument",
+                "role": DeviceRole.CUSTOM.value,
+                "scpi": scpi_profile,
+                "simulation": {},
+            },
+            f,
+        )
     backend = ProgrammableErrorSimBackend(profile_path=profile_file)
     # Minimal config for the instrument
     config = InstrumentConfig(
         manufacturer="Test",
         model="TestErrorInstrument",
         device_type="instrument",
-        general=dict(id="TestErrorInstrument", driver="GenericInstrument"),
-        settings=dict(
-            check_errors_on_read=False, check_errors_on_write=False
-        ),  # Disable auto checks for these tests
+        role=DeviceRole.CUSTOM,
+        scpi=scpi_profile,
     )
     instrument = Instrument(config=config, backend=backend, address="SIM::ERRTEST")
-    # instrument.connect() # connect might do an error check, skip for manual control initially
-    # Manually set connected state if needed, or ensure connect doesn't auto-error-check
-    instrument._connected = True  # pylint: disable=protected-access
+    instrument.connect_backend()
     yield instrument, backend
     Path(profile_file).unlink(missing_ok=True)
 
@@ -86,6 +107,25 @@ def test_error_check_no_error(error_handling_instrument):
     assert backend.get_syst_err_query_count() == 1
 
 
+def test_error_check_accepts_bare_zero_no_error(error_handling_instrument):
+    """Some transports return a bare zero for an empty SCPI error queue."""
+    instrument, backend = error_handling_instrument
+    backend.set_error_responses(["0"])
+
+    instrument._error_check()
+    assert backend.get_syst_err_query_count() == 1
+
+
+def test_error_check_rejects_bare_numeric_instrument_error(error_handling_instrument):
+    """A bare nonzero SCPI code is an instrument error, not a malformed reply."""
+    instrument, backend = error_handling_instrument
+    backend.set_error_responses(["-420"])
+
+    with pytest.raises(InstrumentCommunicationError, match="SCPI error -420"):
+        instrument._error_check()
+    assert backend.get_syst_err_query_count() == 1
+
+
 def test_error_check_with_error(error_handling_instrument):
     """Test _error_check() when SimBackend returns an error string."""
     instrument, backend = error_handling_instrument
@@ -95,6 +135,20 @@ def test_error_check_with_error(error_handling_instrument):
     with pytest.raises(InstrumentCommunicationError, match="Something went wrong"):
         instrument._error_check()
     assert backend.get_syst_err_query_count() == 1  # Should stop after first error
+
+
+def test_raw_query_rejects_payload_when_simulator_error_is_queued(error_handling_instrument):
+    """Raw payloads must not hide a queued simulator SCPI error."""
+    instrument, backend = error_handling_instrument
+    backend.query_raw = lambda cmd, delay=None: b"\x01\x02"
+    backend.set_error_responses(['-113,"Undefined header"'])
+
+    with pytest.raises(InstrumentCommunicationError, match="Undefined header"):
+        instrument._query_raw("RAW?")
+
+    assert backend.get_syst_err_query_count() == 1
+    assert instrument._command_log[-1]["type"] == "query_raw"
+    assert instrument._command_log[-1]["success"] is False
 
 
 # Tests for get_error()
@@ -108,6 +162,26 @@ def test_get_error_no_error(error_handling_instrument):
     code, message = instrument.get_error()
     assert code == 0
     assert message == "No error"
+    assert backend.get_syst_err_query_count() == 1
+
+
+def test_get_error_accepts_bare_plus_zero(error_handling_instrument):
+    """A bare +0 is equivalent to the standard '+0,\"No error\"' form."""
+    instrument, backend = error_handling_instrument
+    backend.set_error_responses(["+0"])
+
+    code, message = instrument.get_error()
+    assert code == 0
+    assert message == ""
+    assert backend.get_syst_err_query_count() == 1
+
+
+def test_get_error_parses_bare_numeric_instrument_error(error_handling_instrument):
+    """A bare numeric error still carries its SCPI code for recovery/reporting."""
+    instrument, backend = error_handling_instrument
+    backend.set_error_responses(["-420"])
+
+    assert instrument.get_error() == (-420, "SCPI error -420")
     assert backend.get_syst_err_query_count() == 1
 
 

@@ -1,0 +1,30 @@
+manufacturer: hewlett-packard
+model: HP4142B
+device_type: instrument
+driver: pytestlab.instruments.profile_instrument:ProfileInstrument
+role: stimulus
+protocol: HP 4142B modular DC source HPIB
+
+capabilities:
+  identity: {enabled: true, required: false}
+  error_queue: false
+  message_io:
+    read_termination: "\n"
+  status_byte:
+    enabled: true
+    flags: {}
+
+scpi:
+  queries:
+    identify:
+      template: "*IDN?"
+      response: {type: str}
+
+operation_options:
+  operations:
+    identify:
+      mode: query
+      transport: {query: identify}
+    status_byte:
+      mode: native
+      backend_method: read_status_byte

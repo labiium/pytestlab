@@ -1,0 +1,44 @@
+/* All three renderers emit Pygments classes. Notebook exports embed their own
+   stylesheet in the article, so scope these rules to the rendered code. */
+:is(.article, #codeDisplay) :is(.highlight, .highlight-ipynb, .codehilite) pre {
+    color: #e6edf7;
+    tab-size: 4;
+    font-variant-ligatures: none;
+}
+:is(.article, #codeDisplay) :is(.highlight, .highlight-ipynb, .codehilite) pre :is(.c, .c1, .cm, .ch, .cp, .cs) {
+    color: #a5b2c4; font-style: italic;
+}
+:is(.article, #codeDisplay) :is(.highlight, .highlight-ipynb, .codehilite) pre :is(.k, .kc, .kd, .kn, .kp, .kr, .kt, .ow) {
+    color: #d6a6ff; font-weight: 600;
+}
+:is(.article, #codeDisplay) :is(.highlight, .highlight-ipynb, .codehilite) pre :is(.s, .s1, .s2, .sa, .sb, .sc, .sd, .se, .sh, .si, .sr, .ss, .sx) {
+    color: #a8dba5;
+}
+:is(.article, #codeDisplay) :is(.highlight, .highlight-ipynb, .codehilite) pre :is(.m, .mb, .mf, .mh, .mi, .mo, .il) {
+    color: #f3c477;
+}
+:is(.article, #codeDisplay) :is(.highlight, .highlight-ipynb, .codehilite) pre :is(.nf, .fm, .nb, .bp) {
+    color: #83c9ff;
+}
+:is(.article, #codeDisplay) :is(.highlight, .highlight-ipynb, .codehilite) pre :is(.nc, .nn, .nt, .na) {
+    color: #ffd18a;
+}
+:is(.article, #codeDisplay) :is(.highlight, .highlight-ipynb, .codehilite) pre :is(.o, .p) {
+    color: #b9c6d6;
+}
+:is(.article, #codeDisplay) :is(.highlight, .highlight-ipynb, .codehilite) pre :is(.n, .nv) {
+    color: #e6edf7;
+}
+:is(.article, #codeDisplay) :is(.highlight, .codehilite) pre .err {
+    color: #ff8a91; text-decoration: underline wavy;
+}
+/* IPython shell escapes such as !pip are valid in notebook inputs. */
+.article .highlight-ipynb pre .err {
+    color: inherit;
+    border: 0;
+}
+
+/* Match the specificity of the exported notebook name tokens above. */
+:is(.article, #codeDisplay) :is(.highlight, .highlight-ipynb) pre .shell-command { color: #83c9ff; }
+:is(.article, #codeDisplay) :is(.highlight, .highlight-ipynb) pre .shell-subcommand { color: #a8dba5; }
+:is(.article, #codeDisplay) .highlight pre .shell-option { color: #d6a6ff; }

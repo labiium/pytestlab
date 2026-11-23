@@ -61,8 +61,12 @@ BENCHMARKS = [
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Benchmark pytestlab CLI startup and import paths.")
-    parser.add_argument("--repeats", type=int, default=5, help="Number of measured runs per command.")
+    parser = argparse.ArgumentParser(
+        description="Benchmark pytestlab CLI startup and import paths."
+    )
+    parser.add_argument(
+        "--repeats", type=int, default=5, help="Number of measured runs per command."
+    )
     parser.add_argument(
         "--json-out",
         type=Path,

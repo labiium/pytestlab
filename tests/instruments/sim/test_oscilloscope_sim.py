@@ -5,9 +5,6 @@ import polars as pl
 import pytest
 from PIL import Image
 
-from pytestlab.common.enums import AcquisitionType
-from pytestlab.common.enums import TriggerSlope
-from pytestlab.common.enums import WaveformType
 from pytestlab.errors import InstrumentCommunicationError
 from pytestlab.errors import InstrumentParameterError
 from pytestlab.instruments import Oscilloscope
@@ -51,6 +48,15 @@ def test_timebase_control(sim_scope: Oscilloscope):
     assert position == -1e-3
 
 
+def test_phase_measurement_uses_profile_abstraction(
+    sim_scope: Oscilloscope, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setattr(sim_scope, "_query", lambda command: "12.5")
+    result = sim_scope.measure_phase(2, uncertainty=False)
+    assert result.values == 12.5
+    assert result.units == "degree"
+
+
 def test_channel_facade(sim_scope: Oscilloscope):
     """Verify the chained channel facade methods."""
     # Use the facade to configure channel 2
@@ -61,19 +67,19 @@ def test_channel_facade(sim_scope: Oscilloscope):
     assert ch2_scale == 0.5
     assert ch2_offset == -0.1
 
-    cmd = sim_scope.scpi_engine.build("channel_display", channel=2)[0]
+    cmd = sim_scope._scpi_engine.build("channel_display", channel=2)[0]
     ch2_display_state = sim_scope._query(cmd)
     assert ch2_display_state == "1"
 
 
 def test_trigger_facade(sim_scope: Oscilloscope):
     """Verify the trigger facade methods."""
-    sim_scope.trigger.setup_edge(source="CH4", level=1.23, slope=TriggerSlope.NEGATIVE)
+    sim_scope.trigger.setup_edge(source="channel_4", level=1.23, slope="negative")
 
     # Verify the state change by querying the simulator
-    source = sim_scope._query(sim_scope.scpi_engine.build("trigger_source")[0])
-    level = sim_scope._query(sim_scope.scpi_engine.build("trigger_level")[0])
-    slope = sim_scope._query(sim_scope.scpi_engine.build("trigger_slope")[0])
+    source = sim_scope._query(sim_scope._scpi_engine.build("trigger_source")[0])
+    level = sim_scope._query(sim_scope._scpi_engine.build("trigger_level")[0])
+    slope = sim_scope._query(sim_scope._scpi_engine.build("trigger_slope")[0])
 
     assert source == "CHANnel4"
     assert float(level) == 1.23
@@ -139,8 +145,8 @@ def test_fft_configuration_and_data(sim_scope: Oscilloscope):
         span=2.5e6,
         scale=2.0,
         offset=-10.0,
-        window_type="HANNing",
-        units="DECibel",
+        window_type="hanning",
+        units="decibel",
     )
     state = _sim_state(sim_scope)
     fft_state = state["fft"]
@@ -166,33 +172,33 @@ def test_wave_generator_controls(sim_scope: Oscilloscope):
     assert state["wgen"]["output"] == "1"
 
     sim_scope.set_wgen_sin(amp=2.0, offset=0.2, freq=1.5e3)
-    assert state["wgen"]["func"] == WaveformType.SINE.value
+    assert state["wgen"]["func"] == "SIN"
     assert state["wgen"]["volt"] == pytest.approx(2.0)
     assert state["wgen"]["offset"] == pytest.approx(0.2)
     assert state["wgen"]["freq"] == pytest.approx(1.5e3)
 
-    sim_scope.set_wgen_square(v0=-1.0, v1=1.0, freq=2.0e3, duty_cycle=120)
-    assert state["wgen"]["func"] == WaveformType.SQUARE.value
+    sim_scope.set_wgen_square(v0=-1.0, v1=1.0, freq=2.0e3, duty_cycle=99)
+    assert state["wgen"]["func"] == "SQUare"
     assert state["wgen"]["low"] == pytest.approx(-1.0)
     assert state["wgen"]["high"] == pytest.approx(1.0)
     assert state["wgen"]["freq"] == pytest.approx(2.0e3)
     assert state["wgen"]["square_duty"] == pytest.approx(99)
 
-    sim_scope.set_wgen_ramp(v0=-0.5, v1=0.5, freq=3.0e3, symmetry=120)
-    assert state["wgen"]["func"] == WaveformType.RAMP.value
+    sim_scope.set_wgen_ramp(v0=-0.5, v1=0.5, freq=3.0e3, symmetry=100)
+    assert state["wgen"]["func"] == "RAMp"
     assert state["wgen"]["ramp_symmetry"] == pytest.approx(100)
 
     sim_scope.set_wgen_pulse(v0=0.0, v1=2.0, period=1e-3, pulse_width=2e-4)
-    assert state["wgen"]["func"] == WaveformType.PULSE.value
+    assert state["wgen"]["func"] == "PULse"
     assert state["wgen"]["period"] == pytest.approx(1e-3)
     assert state["wgen"]["pulse_width"] == pytest.approx(2e-4)
 
     sim_scope.set_wgen_dc(offset=0.75)
-    assert state["wgen"]["func"] == WaveformType.DC.value
+    assert state["wgen"]["func"] == "DC"
     assert state["wgen"]["offset"] == pytest.approx(0.75)
 
     sim_scope.set_wgen_noise(v0=-0.1, v1=0.1, offset=0.05)
-    assert state["wgen"]["func"] == WaveformType.NOISE.value
+    assert state["wgen"]["func"] == "NOISe"
     assert state["wgen"]["low"] == pytest.approx(-0.1)
     assert state["wgen"]["high"] == pytest.approx(0.1)
     assert state["wgen"]["offset"] == pytest.approx(0.05)
@@ -206,12 +212,12 @@ def test_display_channel_bulk(sim_scope: Oscilloscope):
     channels = [1, 2, 3]
     sim_scope.display_channel(channels, state=False)
     for ch in channels:
-        cmd = sim_scope.scpi_engine.build("channel_display", channel=ch)[0]
+        cmd = sim_scope._scpi_engine.build("channel_display", channel=ch)[0]
         assert sim_scope._query(cmd) == "0"
 
     sim_scope.display_channel(channels, state=True)
     for ch in channels:
-        cmd = sim_scope.scpi_engine.build("channel_display", channel=ch)[0]
+        cmd = sim_scope._scpi_engine.build("channel_display", channel=ch)[0]
         assert sim_scope._query(cmd) == "1"
 
 
@@ -243,7 +249,7 @@ def test_health_check_reports_features(sim_scope: Oscilloscope):
 
 def test_acquisition_facade_operations(sim_scope: Oscilloscope):
     """Verify acquisition facade drives simulated state correctly."""
-    sim_scope.acquisition.set_acquisition_type(AcquisitionType.AVERAGE)
+    sim_scope.acquisition.set_acquisition_type("average")
     state = _sim_state(sim_scope)
     assert state["acquisition"]["type"] == "AVERage"
 
@@ -261,8 +267,8 @@ def test_acquisition_facade_operations(sim_scope: Oscilloscope):
 
     sim_scope.acquisition.analyze_all_segments()
 
-    assert sim_scope.acquisition.get_acquisition_type() == AcquisitionType.AVERAGE.name
-    assert sim_scope.acquisition.get_acquisition_mode() == "SEGMENTED"
+    assert sim_scope.acquisition.get_acquisition_type() == "average"
+    assert sim_scope.acquisition.get_acquisition_mode() == "segmented"
     assert sim_scope.acquisition.get_acquisition_average_count() == 8
     assert sim_scope.acquisition.get_segmented_count() == 10
     assert sim_scope.acquisition.get_segment_index() == 3

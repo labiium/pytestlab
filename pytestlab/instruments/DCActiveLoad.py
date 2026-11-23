@@ -10,8 +10,6 @@ from typing import Any
 from typing import Literal
 
 import numpy as np
-from uncertainties import ufloat
-from uncertainties.core import UFloat
 
 from ..common.health import HealthReport
 from ..common.health import HealthStatus
@@ -20,10 +18,18 @@ from ..config.dc_active_load_config import ModeSpec
 from ..config.dc_active_load_config import ReadbackAccuracySpec
 from ..config.instrument_config import InstrumentConfig
 from ..errors import InstrumentCommunicationError
+from ..errors import InstrumentConfigurationError
 from ..errors import InstrumentParameterError
 from ..experiments import MeasurementResult
+from ..uncertainty import Quantity as MeasurementQuantity
 from .instrument import Instrument
 from .instrument import InstrumentIO
+from .operation_contract import OperationDescriptor
+from .uncertainty_adapters import dc_load_measurement_context
+from .uncertainty_adapters import dc_load_range_value
+from .uncertainty_adapters import dc_load_readback_accuracy
+from .uncertainty_adapters import nominal_measurement_quantity
+from .uncertainty_adapters import nonzero_uncertainty_quantity
 
 
 class DCActiveLoad(Instrument):
@@ -46,6 +52,91 @@ class DCActiveLoad(Instrument):
     config: DCActiveLoadConfig  # Type hint for the specific config
     current_mode: str | None = None
 
+    OPERATION_CONTRACT: tuple[OperationDescriptor, ...] = (
+        OperationDescriptor("set_mode", public_method="set_mode"),
+        OperationDescriptor("set_load", public_method="set_load"),
+        OperationDescriptor("enable_input", public_method="enable_input"),
+        OperationDescriptor(
+            "is_input_enabled", public_method="is_input_enabled", safety_class="read"
+        ),
+        OperationDescriptor("short_input", public_method="short_input"),
+        OperationDescriptor(
+            "measure_current", public_method="measure_current", safety_class="read"
+        ),
+        OperationDescriptor(
+            "measure_voltage", public_method="measure_voltage", safety_class="read"
+        ),
+        OperationDescriptor("measure_power", public_method="measure_power", safety_class="read"),
+        OperationDescriptor("set_range", public_method="set_range"),
+        OperationDescriptor("set_slew_rate", public_method="set_slew_rate", required=False),
+        OperationDescriptor(
+            "configure_transient_mode",
+            public_method="configure_transient_mode",
+            capability="transient",
+            required=False,
+        ),
+        OperationDescriptor(
+            "set_transient_level",
+            public_method="set_transient_level",
+            capability="transient",
+            required=False,
+        ),
+        OperationDescriptor(
+            "start_transient",
+            public_method="start_transient",
+            capability="transient",
+            required=False,
+        ),
+        OperationDescriptor(
+            "stop_transient", public_method="stop_transient", capability="transient", required=False
+        ),
+        OperationDescriptor(
+            "enable_battery_test",
+            public_method="enable_battery_test",
+            capability="battery_test",
+            required=False,
+        ),
+        OperationDescriptor(
+            "get_battery_test_measurement",
+            public_method="get_battery_test_measurement",
+            capability="battery_test",
+            safety_class="read",
+            required=False,
+        ),
+        OperationDescriptor(
+            "fetch_scope_data",
+            public_method="fetch_scope_data",
+            capability="data_acquisition",
+            safety_class="read",
+            required=False,
+        ),
+        OperationDescriptor(
+            "fetch_datalogger_data",
+            public_method="fetch_datalogger_data",
+            capability="data_acquisition",
+            safety_class="read",
+            required=False,
+        ),
+        OperationDescriptor(
+            "set_battery_cutoff_voltage",
+            public_method="set_battery_cutoff_voltage",
+            capability="battery_test",
+            required=False,
+        ),
+        OperationDescriptor(
+            "set_battery_cutoff_capacity",
+            public_method="set_battery_cutoff_capacity",
+            capability="battery_test",
+            required=False,
+        ),
+        OperationDescriptor(
+            "set_battery_cutoff_timer",
+            public_method="set_battery_cutoff_timer",
+            capability="battery_test",
+            required=False,
+        ),
+    )
+
     def __init__(self, config: DCActiveLoadConfig, backend: InstrumentIO, **kwargs: Any) -> None:
         super().__init__(config, backend, **kwargs)
         self.current_mode = None
@@ -55,39 +146,12 @@ class DCActiveLoad(Instrument):
         cls: type[DCActiveLoad], config: InstrumentConfig, debug_mode: bool = False
     ) -> DCActiveLoad:
         """
-        Factory method aligning with base Instrument.from_config signature.
-        Backend selection is handled by the factory layer; direct use constructs the driver only.
+        Direct construction is disabled because backend selection is handled by AutoInstrument.
         """
-        if not isinstance(config, DCActiveLoadConfig):
-            config = DCActiveLoadConfig(**dict(config))
-
-        # Provide a minimal no-op backend to satisfy typing when constructing directly.
-        class _NoopBackend:
-            def connect(self) -> None:
-                return None
-
-            def disconnect(self) -> None:
-                return None
-
-            def write(self, cmd: str) -> None:
-                return None
-
-            def query(self, cmd: str, delay: float | None = None) -> str:
-                return ""
-
-            def query_raw(self, cmd: str, delay: float | None = None) -> bytes:
-                return b""
-
-            def close(self) -> None:
-                return None
-
-            def set_timeout(self, timeout_ms: int) -> None:
-                return None
-
-            def get_timeout(self) -> int:
-                return 5000
-
-        return cls(config=config, backend=_NoopBackend(), debug_mode=debug_mode)
+        raise NotImplementedError(
+            "DCActiveLoad.from_config() does not select communication backends. "
+            "Use AutoInstrument.from_config() or instantiate DCActiveLoad with an explicit backend."
+        )
 
     def set_mode(self, mode: str) -> None:
         """Sets the operating mode of the electronic load.
@@ -108,21 +172,32 @@ class DCActiveLoad(Instrument):
         Raises:
             InstrumentParameterError: If the specified mode is not supported.
         """
-        mode_upper = mode.upper()
-        valid_modes = ["CC", "CV", "CP", "CR"]
-        if mode_upper not in valid_modes:
-            raise InstrumentParameterError(
-                parameter="mode",
-                value=mode,
-                valid_range=valid_modes,
-                message=f"Unsupported mode '{mode}'. Valid modes are: {', '.join(valid_modes)}.",
-            )
-        for cmd in self.scpi_engine.build("set_mode", mode=mode_upper):
+        resolved = self._resolve_operation_parameter("set_mode", "mode", mode)
+        for cmd in self._scpi_engine.build("set_mode", mode=resolved.transport_value):
             self._send_command(cmd)
-        self.current_mode = mode_upper
-        self._logger.info(f"Operating mode set to {mode_upper} via SCPIEngine.")
+        # Keep the driver's state in the semantic form used by dependent
+        # operation resolution and by the legacy mode-specific aliases.
+        self.current_mode = str(resolved.value).upper()
+        self._logger.info(f"Operating mode set to {self.current_mode} via SCPIEngine.")
 
-    def set_load(self, value: float) -> None:
+    def _select_mode(self, operation_id: str, mode: str | None = None) -> tuple[str, Any]:
+        """Resolve an operation mode and activate it when explicitly selected."""
+        selected = mode if mode is not None else self.current_mode
+        if selected is None:
+            message = {
+                "set_load": "Load mode has not been set. Call set_mode() first.",
+                "set_slew_rate": "Mode must be set before setting slew rate.",
+                "set_range": "Mode must be set before setting range.",
+                "set_transient_level": "Mode must be set before setting transient level.",
+            }.get(operation_id, "Mode must be set before this operation.")
+            raise InstrumentParameterError(message)
+        resolved = self._resolve_operation_parameter(operation_id, "mode", selected)
+        canonical = str(resolved.value).upper()
+        if mode is not None and self.current_mode != canonical:
+            self.set_mode(canonical)
+        return canonical, resolved.transport_value
+
+    def set_load(self, value: float, mode: str | None = None) -> None:
         """Programs the load's setpoint for the current operating mode.
 
         This method sets the target value that the load will maintain. The unit
@@ -134,32 +209,27 @@ class DCActiveLoad(Instrument):
 
         Args:
             value: The target value for the load.
+            mode: Optional semantic mode to activate before setting the value.
+                   When omitted, the previously selected mode is used.
 
         Raises:
             InstrumentParameterError: If the operating mode has not been set first
                                       by calling `set_mode()`.
         """
-        if self.current_mode is None:
-            raise InstrumentParameterError("Load mode has not been set. Call set_mode() first.")
+        selected_mode, _mode_transport = self._select_mode("set_load", mode)
+        resolved = self._resolve_operation_parameter(
+            "set_load", "value", value, context={"mode": selected_mode}
+        )
+        value = resolved.transport_value
 
-        command_map = {
-            "CC": ("set_current_level", "CURRent"),
-            "CV": ("set_voltage_level", "VOLTage"),
-            "CP": ("set_power_level", "POWer"),
-            "CR": ("set_resistance_level", "RESistance"),
-        }
-        mapping = command_map.get(self.current_mode)
-
-        if mapping:
-            cmd_name, _legacy_prefix = mapping
-            for cmd in self.scpi_engine.build(cmd_name, value=value):
+        cmd_name = self.config.mode_load_aliases.get(selected_mode)
+        if cmd_name:
+            for cmd in self._scpi_engine.build(cmd_name, value=value):
                 self._send_command(cmd)
-            self._logger.info(
-                f"Load value set to {value} in mode {self.current_mode} via SCPIEngine."
-            )
+            self._logger.info(f"Load value set to {value} in mode {selected_mode}.")
         else:
             raise InstrumentParameterError(
-                f"Internal error: Unknown current_mode '{self.current_mode}'."
+                f"Profile does not declare a load-value operation for mode '{selected_mode}'."
             )
 
     def enable_input(self, state: bool, channel: int = 1) -> None:
@@ -169,7 +239,14 @@ class DCActiveLoad(Instrument):
             state: True to enable the input, False to disable.
             channel: The channel to control (default is 1).
         """
-        for cmd in self.scpi_engine.build("set_input_state", state=state, channel=channel):
+        resolved = self._resolve_operation_arguments(
+            "enable_input", {"state": state, "channel": channel}
+        ).get("enable_input", {})
+        for cmd in self._scpi_engine.build(
+            "set_input_state",
+            state=resolved.get("state", state),
+            channel=resolved.get("channel", channel),
+        ):
             self._send_command(cmd)
         self._logger.info(f"Input on channel {channel} turned {'ON' if state else 'OFF'}.")
 
@@ -179,7 +256,10 @@ class DCActiveLoad(Instrument):
         Returns:
             True if the input is enabled, False otherwise.
         """
-        q = self.scpi_engine.build("get_input_state", channel=channel)[0]
+        channel = int(
+            self._resolve_operation_parameter("is_input_enabled", "channel", channel).value
+        )
+        q = self._scpi_engine.build("get_input_state", channel=channel)[0]
         response = self._query(q)
         s = response.strip().upper()
         return s in ("1", "ON", "TRUE")
@@ -191,47 +271,71 @@ class DCActiveLoad(Instrument):
             state: True to enable the short, False to disable.
             channel: The channel to control (default is 1).
         """
-        for cmd in self.scpi_engine.build("input_short_state", state=state, channel=channel):
+        resolved = self._resolve_operation_arguments(
+            "short_input", {"state": state, "channel": channel}
+        ).get("short_input", {})
+        for cmd in self._scpi_engine.build(
+            "input_short_state",
+            state=resolved.get("state", state),
+            channel=resolved.get("channel", channel),
+        ):
             self._send_command(cmd)
         self._logger.info(f"Input short on channel {channel} turned {'ON' if state else 'OFF'}.")
 
-    def set_slew_rate(self, rate: float | str, channel: int = 1) -> None:
+    def set_slew_rate(self, rate: float | str, channel: int = 1, mode: str | None = None) -> None:
         """Sets the slew rate for the current operating mode.
 
         Args:
             rate: The desired slew rate. Units depend on the mode (A/s, V/s, etc.).
                   Can also be "MIN", "MAX", or "INF".
             channel: The channel to configure (default is 1).
+            mode: Optional semantic mode to activate before setting the slew rate.
         """
-        if self.current_mode is None:
-            raise InstrumentParameterError("Mode must be set before setting slew rate.")
-
-        for cmd in self.scpi_engine.build(
-            "mode_set_slew", mode=self.current_mode, rate=rate, channel=channel
+        selected_mode, mode_transport = self._select_mode("set_slew_rate", mode)
+        resolved = self._resolve_operation_arguments(
+            "set_slew_rate",
+            {"rate": rate, "channel": channel},
+            context={"mode": selected_mode},
+        ).get("set_slew_rate", {})
+        for cmd in self._scpi_engine.build(
+            "mode_set_slew",
+            mode=mode_transport,
+            rate=resolved.get("rate", rate),
+            channel=resolved.get("channel", channel),
         ):
             self._send_command(cmd)
         self._logger.info(
             f"Slew rate for mode {self.current_mode} on channel {channel} set to {rate}."
         )
 
-    def set_range(self, value: float | str, channel: int = 1) -> None:
+    def set_range(self, value: float | str, channel: int = 1, mode: str | None = None) -> None:
         """Sets the operating range for the current mode.
 
         Args:
             value: The maximum expected value to set the range. Can also be "MIN" or "MAX".
             channel: The channel to configure (default is 1).
+            mode: Optional semantic mode to activate before setting the range.
         """
-        if self.current_mode is None:
-            raise InstrumentParameterError("Mode must be set before setting range.")
-        for cmd in self.scpi_engine.build(
-            "mode_set_range", mode=self.current_mode, value=value, channel=channel
+        selected_mode, mode_transport = self._select_mode("set_range", mode)
+        resolved = self._resolve_operation_arguments(
+            "set_range",
+            {"value": value, "channel": channel},
+            context={"mode": selected_mode},
+        ).get("set_range", {})
+        for cmd in self._scpi_engine.build(
+            "mode_set_range",
+            mode=mode_transport,
+            value=resolved.get("value", value),
+            channel=resolved.get("channel", channel),
         ):
             self._send_command(cmd)
         self._logger.info(
             f"Range for mode {self.current_mode} on channel {channel} set for value {value}."
         )
 
-    def _get_readback_spec(self, mode: str, unit: str) -> ReadbackAccuracySpec | None:
+    def _get_readback_spec(
+        self, mode: str, unit: str
+    ) -> tuple[ReadbackAccuracySpec, float | None] | None:
         """Helper to find the correct readback accuracy spec from the config."""
         mode_map_to_config: dict[str, ModeSpec | None] = {
             "CC": self.config.operating_modes.constant_current_CC,
@@ -245,8 +349,8 @@ class DCActiveLoad(Instrument):
 
         # Query the instrument's current range maximum via SCPI engine
         try:
-            q = self.scpi_engine.build("mode_get_range", quantity=unit)[0]
-            instrument_max_range = float(self.scpi_engine.parse("mode_get_range", self._query(q)))
+            q = self._scpi_engine.build("mode_get_range", quantity=unit)[0]
+            instrument_max_range = float(self._scpi_engine.parse("mode_get_range", self._query(q)))
         except (InstrumentCommunicationError, ValueError):
             self._logger.info(f"Could not query range for {unit}; cannot determine uncertainty.")
             return None
@@ -269,69 +373,105 @@ class DCActiveLoad(Instrument):
                     best_match_spec = r_spec
 
         if best_match_spec and best_match_spec.readback_accuracy:
-            return best_match_spec.readback_accuracy
+            range_value = dc_load_range_value(best_match_spec, unit)
+            return best_match_spec.readback_accuracy, range_value
         return None
 
     def _measure_with_uncertainty(
         self, measurement_type: Literal["current", "voltage", "power"], channel: int = 1
     ) -> MeasurementResult:
         """Internal helper to perform a measurement and calculate uncertainty."""
-        scpi_map = {
-            "current": ("CURRent", "A"),
-            "voltage": ("VOLTage", "V"),
-            "power": ("POWer", "W"),
-        }
-        _scpi_cmd, unit = scpi_map[measurement_type]
+        operation_id = f"measure_{measurement_type}"
+        resolved = self._resolve_operation_parameter(operation_id, "quantity", measurement_type)
+        unit = resolved.option.unit if resolved.option and resolved.option.unit else ""
+        if not unit:
+            raise InstrumentConfigurationError(
+                self.config.model,
+                f"Profile does not declare a unit for '{operation_id}'.",
+            )
+        # Use the private profile mapping to build the measurement query.
+        q = self._scpi_engine.build("measure", quantity=resolved.transport_value, channel=channel)[
+            0
+        ]
+        reading = float(self._scpi_engine.parse("measure", self._query(q)))
 
-        # Use SCPI engine to measure atomically
-        q = self.scpi_engine.build("measure", quantity=measurement_type, channel=channel)[0]
-        reading = float(self.scpi_engine.parse("measure", self._query(q)))
-
-        value_to_return: float | UFloat = reading
+        value_to_return: float | MeasurementQuantity = nominal_measurement_quantity(
+            reading,
+            unit,
+            function=measurement_type,
+            output_name=f"{measurement_type}_ch{channel}",
+            reason=(
+                f"{self.config.model} {measurement_type} channel {channel}: no applied "
+                "uncertainty metadata yet; result is nominal-only and non-report-grade."
+            ),
+        )
 
         # Find and apply accuracy spec if mode is set
         if self.current_mode:
-            readback_spec = self._get_readback_spec(self.current_mode, unit)
-            if readback_spec:
-                # Get the appropriate accuracy spec based on measurement type
-                if measurement_type == "current" and readback_spec.current_accuracy:
-                    accuracy_spec = readback_spec.current_accuracy
-                elif measurement_type == "voltage" and readback_spec.voltage_accuracy:
-                    accuracy_spec = readback_spec.voltage_accuracy
-                elif measurement_type == "power" and readback_spec.power_accuracy:
-                    accuracy_spec = readback_spec.power_accuracy
-                else:
-                    accuracy_spec = None
+            readback_match = self._get_readback_spec(self.current_mode, unit)
+            if readback_match:
+                readback_spec, range_value = readback_match
+                accuracy_spec = dc_load_readback_accuracy(readback_spec, measurement_type)
 
-                if accuracy_spec and hasattr(accuracy_spec, "calculate_std_dev"):
-                    std_dev = accuracy_spec.calculate_std_dev(
-                        reading, reading
-                    )  # Use reading as range for now
-                    if std_dev > 0:
-                        value_to_return = ufloat(reading, std_dev)
+                if accuracy_spec:
+                    context = dc_load_measurement_context(
+                        reading=reading,
+                        unit=unit,
+                        function=measurement_type,
+                        range_value=range_value,
+                        channel=channel,
+                        instrument_key=self._uncertainty_source_key(),
+                    )
+                    quantity = nonzero_uncertainty_quantity(
+                        accuracy_spec,
+                        context,
+                        logger=self._logger,
+                        label=f"accuracy spec for {measurement_type}",
+                        warning_level="info",
+                        strict=self.config.uncertainty_strict,
+                    )
+                    if quantity is not None:
+                        value_to_return = quantity
                         self._logger.info(f"Measured {measurement_type}: {value_to_return} {unit}")
                 else:
+                    value_to_return = nominal_measurement_quantity(
+                        reading,
+                        unit,
+                        function=measurement_type,
+                        output_name=f"{measurement_type}_ch{channel}",
+                        reason=(
+                            f"{self.config.model} {measurement_type} channel {channel}: "
+                            "no readback accuracy spec available; add readback_accuracy."
+                        ),
+                    )
                     self._logger.info(
-                        f"Warning: No accuracy spec available for {measurement_type}. Returning float."
+                        "Warning: No accuracy spec available for %s. Returning nominal-only "
+                        "non-report-grade Quantity.",
+                        measurement_type,
                     )
             else:
+                value_to_return = nominal_measurement_quantity(
+                    reading,
+                    unit,
+                    function=measurement_type,
+                    output_name=f"{measurement_type}_ch{channel}",
+                    reason=(
+                        f"{self.config.model} {measurement_type} channel {channel}: no matching "
+                        "readback spec found for the current mode."
+                    ),
+                )
                 self._logger.info(
-                    f"Warning: No matching readback spec found for {measurement_type}. Returning float."
+                    "Warning: No matching readback spec found for %s. Returning nominal-only "
+                    "non-report-grade Quantity.",
+                    measurement_type,
                 )
         else:
-            self._logger.info("Warning: Mode not set, cannot determine measurement uncertainty.")
+            self._logger.info(
+                "Warning: Mode not set, cannot determine measurement uncertainty. Returning "
+                "nominal-only non-report-grade Quantity."
+            )
 
-        # Ensure value_to_return is a float or UFloat, not Variable
-        try:
-            from uncertainties import Variable
-
-            if isinstance(value_to_return, Variable):
-                # If not already a UFloat, cast to float
-                if not isinstance(value_to_return, UFloat):
-                    value_to_return = float(value_to_return.nominal_value)
-        except ImportError:
-            pass
-        if not isinstance(value_to_return, float | UFloat):
+        if not isinstance(value_to_return, float | MeasurementQuantity):
             value_to_return = float(value_to_return)
 
         return MeasurementResult(
@@ -358,82 +498,137 @@ class DCActiveLoad(Instrument):
         self, mode: Literal["CONTinuous", "PULSe", "TOGGle", "LIST"], channel: int = 1
     ) -> None:
         """Sets the operating mode of the transient generator."""
-        for cmd in self.scpi_engine.build("transient_set_mode", mode=mode.upper(), channel=channel):
+        resolved = self._resolve_operation_arguments(
+            "configure_transient_mode", {"mode": mode, "channel": channel}
+        ).get("configure_transient_mode", {})
+        for cmd in self._scpi_engine.build(
+            "transient_set_mode",
+            mode=resolved.get("mode", mode),
+            channel=resolved.get("channel", channel),
+        ):
             self._send_command(cmd)
 
-    def set_transient_level(self, value: float, channel: int = 1) -> None:
-        """Sets the secondary (transient) level for the current operating mode."""
-        if self.current_mode is None:
-            raise InstrumentParameterError("Mode must be set before setting transient level.")
-        for cmd in self.scpi_engine.build(
-            "transient_set_level", mode=self.current_mode, value=value, channel=channel
+    def set_transient_level(self, value: float, channel: int = 1, mode: str | None = None) -> None:
+        """Sets the secondary transient level for the selected operating mode."""
+        selected_mode, mode_transport = self._select_mode("set_transient_level", mode)
+        resolved = self._resolve_operation_arguments(
+            "set_transient_level",
+            {"value": value, "channel": channel},
+            context={"mode": selected_mode},
+        ).get("set_transient_level", {})
+        for cmd in self._scpi_engine.build(
+            "transient_set_level",
+            mode=mode_transport,
+            value=resolved.get("value", value),
+            channel=resolved.get("channel", channel),
         ):
             self._send_command(cmd)
 
     def start_transient(self, continuous: bool = False, channel: int = 1) -> None:
         """Initiates the transient trigger system."""
-        for cmd in self.scpi_engine.build(
-            "transient_start", continuous=continuous, channel=channel
+        resolved = self._resolve_operation_arguments(
+            "start_transient", {"continuous": continuous, "channel": channel}
+        ).get("start_transient", {})
+        for cmd in self._scpi_engine.build(
+            "transient_start",
+            state=resolved.get("state", continuous),
+            channel=resolved.get("channel", channel),
         ):
             self._send_command(cmd)
 
     def stop_transient(self, channel: int = 1) -> None:
         """Aborts any pending or in-progress transient operations."""
-        for cmd in self.scpi_engine.build("transient_abort", channel=channel):
+        channel = int(self._resolve_operation_parameter("stop_transient", "channel", channel).value)
+        for cmd in self._scpi_engine.build("transient_abort", channel=channel):
             self._send_command(cmd)
 
     # --- Battery Test Methods ---
     def enable_battery_test(self, state: bool, channel: int = 1) -> None:
         """Enables or disables the battery test operation."""
-        for cmd in self.scpi_engine.build("battery_enable", state=state, channel=channel):
+        resolved = self._resolve_operation_arguments(
+            "enable_battery_test", {"state": state, "channel": channel}
+        ).get("enable_battery_test", {})
+        for cmd in self._scpi_engine.build(
+            "battery_enable",
+            state=resolved.get("state", state),
+            channel=resolved.get("channel", channel),
+        ):
             self._send_command(cmd)
 
     def set_battery_cutoff_voltage(
         self, voltage: float, state: bool = True, channel: int = 1
     ) -> None:
         """Configures the voltage cutoff condition for the battery test."""
-        for cmd in self.scpi_engine.build(
-            "battery_cutoff_voltage_state", state=state, channel=channel
+        resolved = self._resolve_operation_arguments(
+            "set_battery_cutoff_voltage", {"state": state, "channel": channel}
+        ).get("set_battery_cutoff_voltage", {})
+        voltage = self._resolve_operation_parameter(
+            "set_battery_cutoff_voltage", "voltage", voltage
+        ).transport_value
+        for cmd in self._scpi_engine.build(
+            "battery_cutoff_voltage_state",
+            state=resolved.get("state", state),
+            channel=resolved.get("channel", channel),
         ):
             self._send_command(cmd)
-        if state:
-            for cmd in self.scpi_engine.build(
-                "battery_cutoff_voltage", voltage=voltage, channel=channel
-            ):
-                self._send_command(cmd)
+        for cmd in self._scpi_engine.build(
+            "battery_cutoff_voltage", voltage=voltage, channel=resolved.get("channel", channel)
+        ):
+            self._send_command(cmd)
 
     def set_battery_cutoff_capacity(
         self, capacity: float, state: bool = True, channel: int = 1
     ) -> None:
         """Configures the capacity (Ah) cutoff condition for the battery test."""
-        for cmd in self.scpi_engine.build(
-            "battery_cutoff_capacity_state", state=state, channel=channel
+        resolved = self._resolve_operation_arguments(
+            "set_battery_cutoff_capacity", {"state": state, "channel": channel}
+        ).get("set_battery_cutoff_capacity", {})
+        capacity = self._resolve_operation_parameter(
+            "set_battery_cutoff_capacity", "capacity", capacity
+        ).transport_value
+        for cmd in self._scpi_engine.build(
+            "battery_cutoff_capacity_state",
+            state=resolved.get("state", state),
+            channel=resolved.get("channel", channel),
         ):
             self._send_command(cmd)
-        if state:
-            for cmd in self.scpi_engine.build(
-                "battery_cutoff_capacity", capacity=capacity, channel=channel
-            ):
-                self._send_command(cmd)
+        for cmd in self._scpi_engine.build(
+            "battery_cutoff_capacity", capacity=capacity, channel=resolved.get("channel", channel)
+        ):
+            self._send_command(cmd)
 
     def set_battery_cutoff_timer(self, time_s: float, state: bool = True, channel: int = 1) -> None:
         """Configures the timer (seconds) cutoff condition for the battery test."""
-        for cmd in self.scpi_engine.build(
-            "battery_cutoff_timer_state", state=state, channel=channel
+        resolved = self._resolve_operation_arguments(
+            "set_battery_cutoff_timer", {"state": state, "channel": channel}
+        ).get("set_battery_cutoff_timer", {})
+        time_s = self._resolve_operation_parameter(
+            "set_battery_cutoff_timer", "time_s", time_s
+        ).transport_value
+        for cmd in self._scpi_engine.build(
+            "battery_cutoff_timer_state",
+            state=resolved.get("state", state),
+            channel=resolved.get("channel", channel),
         ):
             self._send_command(cmd)
-        if state:
-            for cmd in self.scpi_engine.build(
-                "battery_cutoff_timer", time_s=time_s, channel=channel
-            ):
-                self._send_command(cmd)
+        for cmd in self._scpi_engine.build(
+            "battery_cutoff_timer", time_s=time_s, channel=resolved.get("channel", channel)
+        ):
+            self._send_command(cmd)
 
     def get_battery_test_measurement(
         self, metric: Literal["capacity", "power", "time"], channel: int = 1
     ) -> float:
         """Queries a measurement from the ongoing battery test."""
-        q = self.scpi_engine.build("battery_measure", metric=metric, channel=channel)[0]
-        return float(self.scpi_engine.parse("battery_measure", self._query(q)))
+        resolved = self._resolve_operation_arguments(
+            "get_battery_test_measurement", {"metric": metric, "channel": channel}
+        ).get("get_battery_test_measurement", {})
+        q = self._scpi_engine.build(
+            "battery_measure",
+            metric=resolved.get("metric", metric),
+            channel=resolved.get("channel", channel),
+        )[0]
+        return float(self._scpi_engine.parse("battery_measure", self._query(q)))
 
     # --- Data Acquisition Methods ---
     def fetch_scope_data(
@@ -441,17 +636,31 @@ class DCActiveLoad(Instrument):
     ) -> np.ndarray:
         """Fetches the captured waveform (scope) data as a NumPy array."""
         # Removed unused scpi_map (mapping was unused).
+        resolved = self._resolve_operation_arguments(
+            "fetch_scope_data", {"measurement": measurement, "channel": channel}
+        ).get("fetch_scope_data", {})
         raw_block = self._query_raw(
-            self.scpi_engine.build("fetch_array", quantity=measurement, channel=channel)[0]
+            self._scpi_engine.build(
+                "fetch_array",
+                quantity=resolved.get("quantity", measurement),
+                channel=resolved.get("channel", channel),
+            )[0]
         )
-        data_bytes = self.scpi_engine.parse("fetch_array", raw_block)
+        data_bytes = self._scpi_engine.parse("fetch_array", raw_block)
         return np.frombuffer(data_bytes, dtype=np.float32)
 
     def fetch_datalogger_data(self, num_points: int, channel: int = 1) -> list[float]:
         """Fetches the specified number of logged data points."""
-        q = self.scpi_engine.build("fetch_datalogger", points=num_points, channel=channel)[0]
+        resolved = self._resolve_operation_arguments(
+            "fetch_datalogger_data", {"num_points": num_points, "channel": channel}
+        ).get("fetch_datalogger_data", {})
+        q = self._scpi_engine.build(
+            "fetch_datalogger",
+            points=resolved.get("num_points", num_points),
+            channel=resolved.get("channel", channel),
+        )[0]
         resp = self._query(q)
-        return list(self.scpi_engine.parse("fetch_datalogger", resp))
+        return list(self._scpi_engine.parse("fetch_datalogger", resp))
 
     def health_check(self) -> HealthReport:
         """Performs a health check on the DC Electronic Load."""

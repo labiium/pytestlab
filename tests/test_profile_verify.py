@@ -9,6 +9,8 @@ from rich.console import Console
 
 from pytestlab.common.health import HealthReport
 from pytestlab.common.health import HealthStatus
+from pytestlab.config.multimeter_config import FunctionSpec
+from pytestlab.config.multimeter_config import MeasurementFunctionsSpec
 from pytestlab.verification import VerificationReport
 from pytestlab.verification import VerificationResult
 from pytestlab.verification import VerificationStatus
@@ -38,13 +40,15 @@ class DummyConfig(BaseModel):
     model: str
     device_type: str
     scpi: DummyScpiSection | None = None
-    measurement_functions: DummyMeasurementFunctions | None = None
+    measurement_functions: MeasurementFunctionsSpec | None = None
     channels: list[DummyChannel] = Field(default_factory=list)
 
 
 @dataclass
 class FakeMultimeterSnapshot:
-    measurement_mode: str = "VOLT:DC"
+    measurement_mode: str = "DC Voltage"
+    range_value: float = 10.0
+    resolution: str = "0.0001"
 
 
 class FakeScpiEngine:
@@ -73,7 +77,7 @@ class FakeScpiEngine:
 class FakeInstrument:
     def __init__(self, *, idn: str = "Keysight,EDU34450A,MY1234,1.0"):
         self._idn = idn
-        self.scpi_engine = FakeScpiEngine()
+        self._scpi_engine = FakeScpiEngine()
         self.closed = False
         self.connected = False
         self.health_calls = 0
@@ -105,8 +109,10 @@ class FakeInstrument:
     def get_config(self) -> FakeMultimeterSnapshot:
         return FakeMultimeterSnapshot()
 
-    def set_measurement_function(self, function: object) -> None:
-        self.function_writes.append(str(function))
+    def configure_measurement(self, function: str, *, range_val: float, resolution: str) -> None:
+        self.function_writes.append(function)
+        assert range_val == 10.0
+        assert resolution == "0.0001"
 
 
 class CloseFailingInstrument(FakeInstrument):
@@ -189,9 +195,9 @@ def _dummy_config(
         scpi=DummyScpiSection(
             feature_mappings={"measurement": {"required_scpi": ["measure_voltage"]}}
         ),
-        measurement_functions=DummyMeasurementFunctions(
+        measurement_functions=MeasurementFunctionsSpec(
             required_scpi_commands=["get_status"],
-            dc_voltage=DummyFunctionSpec(required_scpi_commands=["measure_voltage"]),
+            dc_voltage=FunctionSpec(label="DC Voltage", required_scpi_commands=["measure_voltage"]),
         ),
         channels=channels or [],
     )
@@ -244,8 +250,8 @@ def test_verify_instrument_profile_safe_write_runs_health_queries_and_reapplies_
     assert any(result.id == "scpi.query.get_status" for result in report.results)
     assert any(result.id == "scpi.query.measure_voltage" for result in report.results)
     assert instrument.health_calls == 1
-    assert instrument.query_calls == ["STAT?", "MEAS:VOLT?"]
-    assert instrument.function_writes == ["DMMFunction.VOLTAGE_DC"]
+    assert sorted(instrument.query_calls) == ["MEAS:VOLT?", "STAT?"]
+    assert instrument.function_writes == ["dc_voltage"]
     assert instrument.closed is True
 
 
@@ -464,3 +470,25 @@ def test_render_verification_report_outputs_human_readable_summary():
     assert "PASS=1" in rendered
     assert "FAIL=1" in rendered
     assert "identity.idn" in rendered
+
+
+@pytest.mark.parametrize("mode,resolution", [("unknown", "0.0001"), ("DC Voltage", "N/A")])
+def test_multimeter_write_probe_skips_unknown_settings(monkeypatch, mode, resolution):
+    instrument = FakeInstrument()
+    instrument.get_config = lambda: FakeMultimeterSnapshot(
+        measurement_mode=mode, resolution=resolution
+    )
+    monkeypatch.setattr(
+        "pytestlab.verification.profile_verify.load_profile",
+        lambda source: _dummy_config(),
+    )
+    monkeypatch.setattr(
+        "pytestlab.verification.profile_verify.AutoInstrument.from_config",
+        lambda **kwargs: instrument,
+    )
+    report = verify_instrument_profile("keysight/EDU34450A", probe_mode="safe-write")
+    assert not instrument.function_writes
+    assert any(
+        result.id == "plugin.multimeter.set-function" and result.status == VerificationStatus.SKIP
+        for result in report.results
+    )

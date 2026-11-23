@@ -13,17 +13,6 @@ if TYPE_CHECKING:
     from ..measurements import MeasurementSession
 
 
-# --- DUMMY Sweep class for mkdocstrings compatibility ---
-class Sweep:
-    """
-    Dummy Sweep class for documentation compatibility.
-    This is not used in runtime code, but allows mkdocstrings to resolve
-    'pytestlab.experiments.Sweep' for API docs.
-    """
-
-    pass
-
-
 # Type variables for better typing
 T = TypeVar("T")
 R = TypeVar("R")
@@ -301,7 +290,7 @@ def _grid_sweep_impl(
         )
 
     grids: list[np.ndarray] = [
-        np.linspace(min_val, max_val, q_n_list[i])
+        _parameter_grid_axis(min_val, max_val, q_n_list[i])
         for i, (min_val, max_val) in enumerate(param_ranges)
     ]
     if not grids:  # Handle empty param_ranges
@@ -317,6 +306,25 @@ def _grid_sweep_impl(
 
     results.sort(key=lambda x: x[0])
     return results
+
+
+def _parameter_grid_axis(start: float, stop: float, count: int) -> np.ndarray:
+    """Build one ParameterGrid axis, repairing only overflowing finite spans."""
+    with np.errstate(over="ignore", invalid="ignore"):
+        span = stop - start
+    if np.isfinite(span):
+        return np.linspace(start, stop, count)
+
+    # A finite, ordered range can have an unrepresentable difference only when
+    # its endpoints have opposite signs. Convex interpolation keeps each term
+    # bounded, while explicit endpoints preserve the inclusive contract.
+    if count == 1:
+        return np.asarray([start], dtype=np.float64)
+    fractions = np.arange(count, dtype=np.float64) / (count - 1)
+    axis = (1.0 - fractions) * start + fractions * stop
+    axis[0] = start
+    axis[-1] = stop
+    return axis
 
 
 # ==========================================
@@ -345,6 +353,8 @@ def _gwass_impl(
     num_params = len(param_ranges)
     if num_params == 0:
         return []  # No parameters to sweep
+    if budget > 1 and all(low == high for low, high in param_ranges):
+        raise ValueError("Adaptive budget exceeds the single point in the declared parameter space")
 
     evaluated_points: dict[tuple[float, ...], Any] = {}
     total_evaluations = 0
@@ -779,3 +789,16 @@ def gwass(
         return wrapper
 
     return decorator
+
+
+class Sweep:
+    """Class-oriented access to grid, Monte Carlo, and adaptive sweep decorators.
+
+    ``grid``, ``monte_carlo``, and ``adaptive`` are the same functions exported
+    by this module; they accept a :class:`ParameterSpace` or range mapping and
+    return decorators that preserve the wrapped measurement function metadata.
+    """
+
+    grid = staticmethod(grid_sweep)
+    monte_carlo = staticmethod(monte_carlo_sweep)
+    adaptive = staticmethod(gwass)

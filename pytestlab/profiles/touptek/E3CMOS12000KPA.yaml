@@ -1,0 +1,5 @@
+manufacturer: touptek
+model: E3CMOS12000KPA
+device_type: camera
+role: measurement
+protocol: LAMB webcam JPEG capture

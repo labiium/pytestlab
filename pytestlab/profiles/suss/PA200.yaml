@@ -1,0 +1,108 @@
+# Compact ProberBench protocol from the existing station PBhwcmd driver.
+# Interface units mm, wire units um; wiring/backend belong to the bench.
+# A zero response token acknowledges a command, not measured physical settling.
+# Reset is deliberately not declared. Z macros are secondary device operations.
+manufacturer: suss
+model: PA200
+device_type: prober
+role: dut_control
+protocol: ProberBench compact hex (GPIB)
+transport:
+  min_command_interval_s: 0.1
+  query_delay_s: 0.1
+  read_termination: "\r\n"
+  write_termination: null
+motion:
+  axes:
+  - name: x
+    units: mm
+    minimum: -100.0
+    maximum: 100.0
+  - name: y
+    units: mm
+    minimum: -100.0
+    maximum: 100.0
+  frames:
+  - machine
+  supports:
+  - set_home
+  - move_home
+  - move_absolute
+  - move_relative
+  - position
+  - status
+  - contact
+  - separate
+  - move_to_align
+  - move_to_load
+  - set_vacuum
+  - configure_chuck
+  # Position (31) defaults to micrometres from wafer home, matching 34 ... H.
+  relative_from_position: [x, y]
+  wire_scale: 1000.0
+  commands:
+    set_home:
+      template: '40'
+    move_home:
+      template: 34 0 0 H
+    move_absolute:
+      template: 34 {x} {y} H
+    contact:
+      template: '37'
+    move_to_align:
+      template: '38'
+    separate:
+      template: '39'
+    move_to_load:
+      template: 3A
+    set_vacuum:
+      template: 05 {enabled}
+      parameters:
+        enabled:
+          kind: enum
+          strict: true
+          choices:
+          - token: '1'
+            label: 'on'
+            aliases: ['true', 'on', '1']
+          - token: '0'
+            label: 'off'
+            aliases: ['false', 'off', '0']
+    configure_chuck:
+      template: 03 {overtravel} {auto_z} {interlock} {edge_sensor} 2
+      parameters:
+        overtravel: &chuck_bit
+          kind: enum
+          strict: true
+          choices:
+          - token: '1'
+            label: engaged
+            aliases: ['true', 'on', '1']
+          - token: '0'
+            label: bypassed
+            aliases: ['false', 'off', '0']
+        auto_z: *chuck_bit
+        interlock: *chuck_bit
+        edge_sensor: *chuck_bit
+  queries:
+    position:
+      template: '31'
+      response:
+        type: axis_tuple
+        skip: 1
+        axes:
+        - x
+        - y
+        - z
+        scale: 0.001
+    status:
+      template: '31'
+      response:
+        type: status_field
+        index: 0
+        ok_value: '0'
+        settled_on_success: false
+  message_io:
+    read_termination: "\r\n"
+  query_delay_s: 0.1
+  success_token: '0'

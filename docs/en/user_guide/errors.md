@@ -21,10 +21,10 @@ Here are the most important exception types you may encounter:
   Raised when there is an error in an instrument's profile or bench configuration file. This can happen if required fields are missing or the file does not conform to the expected schema.
 
 - **`SafetyLimitError`**
-  Raised when an operation would violate a safety limit defined in your `bench.yaml` file. This prevents accidental damage to equipment or DUTs.
+  Raised when a supported operation would violate a configured bench limit. It does not replace station interlocks or hardware protection. Import it from `pytestlab.bench`.
 
-- **`InstrumentNotFoundError`**
-  Raised when you try to access an instrument alias that is not defined in your bench configuration.
+- **`AttributeError` or `KeyError` for a bench alias**
+  A nonexistent `bench.alias` raises `AttributeError`; a nonexistent `bench.devices["alias"]` key raises `KeyError`. Check the configured names with `ptl bench ls`.
 
 ---
 
@@ -36,12 +36,10 @@ Always catch the most specific exception possible. This allows you to handle dif
 
 ```python
 import pytestlab
-from pytestlab.errors import (
-    InstrumentConnectionError,
-    InstrumentParameterError,
-    SafetyLimitError,
-)
+from pytestlab.bench import SafetyLimitError
+from pytestlab.errors import InstrumentConnectionError, InstrumentParameterError
 
+# Use the simulated descriptor from “Working with Benches”.
 try:
     with pytestlab.Bench.open("bench.yaml") as bench:
         # This might raise InstrumentParameterError if 6.0 is out of range,
@@ -61,12 +59,15 @@ except Exception as e:
 
 ### Use context managers for Cleanup
 
-`Bench` and `MeasurementSession` are regular context managers. Using them with `with` ensures all instruments are closed and cleanup hooks are run, even if an error occurs.
+`Bench` and `MeasurementSession` are regular context managers. Use `with` for cleanup even if an error interrupts the body. A successfully opened experiment bench can run its configured post-experiment hooks on close. A lazy bench opened with `start_experiment=False` does not run those hooks.
 
 ```python
+from pytestlab import Bench
+
+
 def safe_operation():
     try:
-        with pytestlab.Bench.open("bench.yaml") as bench:
+        with Bench.open("bench.yaml") as bench:
             # ... your code ...
             pass
     except Exception as e:

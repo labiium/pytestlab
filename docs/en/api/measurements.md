@@ -6,12 +6,13 @@ The `MeasurementSession` class in PyTestLab provides a high-level, context-manag
 
 ## Overview
 
-A `MeasurementSession` encapsulates:
+A `MeasurementSession` coordinates:
 
 - The set of instruments involved in a measurement.
-- Experiment metadata (operator, DUT, environmental conditions, etc.).
-- The sequence of measurement steps and their results.
-- Automatic logging and database integration.
+- Session name, description, timezone, parameters, and registered acquisitions.
+- Optional bench resources and explicit device/instrument registrations.
+- Uncertainty-aware result metadata and optional compliance evidence.
+- Deterministic construction of a Polars result table and `Experiment` object.
 
 This abstraction is ideal for automating multi-instrument experiments, batch measurements, or compliance/audit scenarios.
 
@@ -19,42 +20,39 @@ This abstraction is ideal for automating multi-instrument experiments, batch mea
 
 ## API Reference
 
-::: pytestlab.measurements.MeasurementSession
+::: pytestlab.measurements.session.MeasurementSession
     options:
       show_root_heading: true
       show_category_heading: true
       show_if_no_docstring: true
 
+::: pytestlab.measurements.steps.StepSpec
+
+::: pytestlab.plotting.simple.PlotSpec
+
 ---
 
 ## Example Usage
 
+This example uses two independent simulators. Setting the simulated supply
+does not change the multimeter's recorded simulation responses.
+
 ```python
 from pytestlab.measurements import MeasurementSession
-from pytestlab import AutoInstrument
 
 def main():
-    # Create instrument instances (simulated for this example)
-    dmm = AutoInstrument.from_config("keysight/EDU34450A", simulate=True)
-    psu = AutoInstrument.from_config("keysight/EDU36311A", simulate=True)
-    dmm.connect_backend()
-    psu.connect_backend()
+    with MeasurementSession("Power Supply Test", compliance=False) as session:
+        dmm = session.instrument("dmm", "keysight/EDU34450A", simulate=True)
+        psu = session.instrument("psu", "keysight/EDU36311A", simulate=True)
+        session.parameter("point", [0])
 
-    # Start a measurement session
-    with MeasurementSession(
-        instruments={"dmm": dmm, "psu": psu},
-        metadata={"operator": "Alice", "experiment": "Power Supply Test"}
-    ) as session:
-        # Configure instruments
-        psu.channel(1).set(voltage=3.3, current_limit=0.5).on()
-        # Perform measurement
-        voltage = dmm.measure_voltage_dc()
-        # Record result in the session
-        session.record("dmm_voltage", voltage)
+        @session.acquire
+        def acquire(dmm, psu):
+            psu.channel(1).set(voltage=3.3, current_limit=0.5).on()
+            return dmm.measure("dc_voltage")
 
-        # ... additional steps ...
-
-    # Session automatically logs results and closes instruments
+        experiment = session.run(show_progress=False)
+        print(experiment.data)
 
 main()
 ```
@@ -64,9 +62,9 @@ main()
 ## Key Features
 
 - **Context Management:** Ensures all resources are properly initialized and cleaned up.
-- **Metadata Tracking:** Attach arbitrary metadata to each session for traceability.
-- **Result Recording:** Store and retrieve results by key for later analysis or database storage.
-- **Integration:** Works seamlessly with PyTestLab's database and experiment modules.
+- **Measurement Metadata:** Preserve uncertainty-aware result metadata alongside numeric columns.
+- **Result Recording:** Build a Polars table and an `Experiment` from registered acquisitions.
+- **Integration:** Returns an `Experiment` that callers may explicitly persist with `MeasurementDatabase`.
 
 ---
 

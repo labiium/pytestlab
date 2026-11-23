@@ -17,9 +17,53 @@ This section details the Pydantic models used for instrument and bench configura
 
 Each instrument profile YAML must specify a `device_type` that matches one of the following configuration models. These models define the required and optional fields for each instrument type.
 
+The shared hierarchy is `Config` → `BaseConfig` → `DeviceConfig` →
+`InstrumentConfig`. `Config` supplies JSON-compatible serialization, while
+`DeviceConfig` owns the common identity, role, address, driver, and backend
+fields used by concrete device and instrument profiles.
+
+::: pytestlab.config.config.Config
+
+::: pytestlab.config.config.BaseConfig
+
+::: pytestlab.config.device_config.DeviceConfig
+
+::: pytestlab.config.device_config.GenericDeviceConfig
+
+::: pytestlab.config.device_config.DeviceRole
+
 ### Base Instrument Model
 
+`InstrumentConfig.operation_options` is the optional profile block for
+semantic operation parameters. Each parameter declares a kind (`enum`,
+`range`, `open_string`, `bool`, or `unresolved`), semantic option values, and
+private transport mappings used by profile authors. Those mappings are consumed
+internally by the shared operation resolver and are never returned by normal
+Python or CLI discovery.
+
+::: pytestlab.config.operation_options.ProfileOperationOptions
+
+::: pytestlab.config.operation_options.ProfileOperationParameter
+
+::: pytestlab.config.operation_options.ProfileOperationOption
+
 ::: pytestlab.config.instrument_config.InstrumentConfig
+
+::: pytestlab.config.switch_matrix_config.SwitchMatrixConfig
+
+::: pytestlab.uncertainty.specs.BandAccuracySpec
+
+::: pytestlab.uncertainty.specs.CompositeBudgetSpec
+
+::: pytestlab.uncertainty.specs.ExpressionAccuracySpec
+
+::: pytestlab.uncertainty.specs.MonteCarloAccuracySpec
+
+::: pytestlab.uncertainty.specs.RepeatabilityAccuracySpec
+
+::: pytestlab.uncertainty.specs.UncertaintyContext
+
+::: pytestlab.uncertainty.units.UnitCompatibilityError
 
 ---
 
@@ -71,6 +115,12 @@ Each instrument profile YAML must specify a `device_type` that matches one of th
 
 ---
 
+### Impedance Analyzer
+
+::: pytestlab.config.impedance_analyzer_config.ImpedanceAnalyzerConfig
+
+---
+
 ### Virtual Instrument
 
 ::: pytestlab.config.virtual_instrument_config.VirtualInstrumentConfig
@@ -81,13 +131,20 @@ Each instrument profile YAML must specify a `device_type` that matches one of th
 
 Many instrument models include an `accuracy` field or section. This is typically defined using the `AccuracySpec` model.
 
-::: pytestlab.config.accuracy.AccuracySpec
+::: pytestlab.uncertainty.specs.AccuracySpec
 
 ---
 
 ## Configuration Loader
 
-For advanced users, PyTestLab provides a configuration loader utility for validating and loading profiles.
+For advanced users, PyTestLab provides functions for resolving, validating, and loading profiles.
+
+::: pytestlab.config.loader.resolve_profile_key_to_path
+
+::: pytestlab.config.loader.load_device_profile
+
+For class-oriented integrations, `ConfigLoader` delegates to the same canonical
+functions rather than maintaining a separate loading implementation.
 
 ::: pytestlab.config.loader.ConfigLoader
 

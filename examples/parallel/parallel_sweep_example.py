@@ -30,13 +30,13 @@ def main():
     # Define the path to the bench configuration file
     bench_config_path = Path(__file__).parent / "bench_parallel.yaml"
 
-    # Use a Bench object to manage all instruments
+    # Use a Bench object to manage all devices
     with Bench.open(bench_config_path) as bench:
-        print("Bench initialized with the following instruments:")
-        for alias in bench.instruments:
+        print("Bench initialized with the following devices:")
+        for alias in bench.devices:
             print(f"- {alias}")
 
-        # Create a MeasurementSession, inheriting instruments from the bench
+        # Create a MeasurementSession, inheriting devices from the bench
         with Measurement(bench=bench) as session:
             session.name = "Device Ripple Under Dynamic Load"
             session.description = "Measures DUT response while PSU voltage ramps and load changes."
@@ -83,10 +83,9 @@ def main():
 
             # Acquisition: Measure ripple voltage
             @session.acquire
-            def measure_ripple(psu, load, scope):
+            def measure_ripple():
                 """Measures the output ripple of the DUT."""
                 # Simulated ripple measurement
-                # In real use, you would use scope.read_channels(1)
                 ripple_voltage = random.uniform(0.01, 0.1)  # 10mV to 100mV
                 return {"ripple_v": ripple_voltage}
 

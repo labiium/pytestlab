@@ -1,0 +1,27 @@
+accessory_type: passive_voltage_probe
+manufacturer: Keysight
+model: N2843A
+description: "Passive oscilloscope probe, 10:1, 500 MHz class."
+review_status: template
+compatibility:
+  target_kinds: [oscilloscope_channel]
+  connector: bnc
+  attenuation_modes: [10]
+sources:
+  - title: "Keysight Oscilloscope Probes Configuration Guide"
+    url: "https://www.keysight.com/us/en/assets/3123-1148/configuration-guides/Oscilloscope-Probes.pdf"
+    retrieved: "2026-05-29"
+    notes: "Used for model identity, 10:1 attenuation, bandwidth, compensation range, and input loading fields."
+corrections:
+  - name: probe_attenuation_ratio_10x
+    operation: multiply
+    nominal: 10.0
+    unit: ""
+    coverage_factor_note: "reading_fraction is interpreted as a k=1 standard uncertainty for this preset; replace with calibration data for traceable work."
+    source: "Keysight probe guide; uncertainty value is a conservative template pending lab calibration."
+    uncertainty:
+      model: linear
+      reading_fraction: 0.02
+      distribution: standard
+      coverage_factor: 1.0
+      source: "template-conservative"

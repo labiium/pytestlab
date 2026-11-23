@@ -1,91 +1,763 @@
 # Handling Uncertainty
 
-PyTestLab provides first-class support for measurement uncertainty, enabling you to propagate and quantify errors throughout your data analysis workflow. This is essential for scientific rigor and for meeting compliance requirements in regulated environments.
+PyTestLab treats uncertainty as a measurement budget, not just a displayed
+`+/-` value. Instrument profiles describe explicit uncertainty components,
+drivers evaluate those components with runtime context, and scalar results are
+returned as `MeasurementQuantity` objects with nominal value, unit, standard
+uncertainty, expanded uncertainty, and budget provenance.
 
----
+The model follows the usual metrology workflow: identify Type A and Type B
+components, convert limits to standard uncertainty using the stated
+distribution, combine independent components in quadrature, and report
+expanded uncertainty when needed.
 
-## Why Uncertainty Matters
+## Reading a Measurement Result
 
-Every measurement has an associated uncertainty, arising from instrument limitations, environmental factors, and other sources of error. Properly tracking and propagating these uncertainties is crucial for:
+The everyday path is intentionally small: acquire a result, print it, and use
+ordinary comparison operators for nominal-value control flow. Use the explicit
+decision helpers when uncertainty must affect a pass/fail decision. Missing
+profile metadata returns a nominal-only `Quantity` with report-grade blockers
+instead of hiding the gap as a bare float.
 
-- Assessing the reliability of your results
-- Comparing measurements from different instruments or labs
-- Meeting the requirements of standards such as ISO/IEC 17025
+```python
+result = dmm.measure("dc_voltage")
+voltage = result.values
 
----
+print(voltage)                    # human display: nominal +/- u unit
+nominal = voltage.n               # short explicit nominal-only number
+standard_u = voltage.u            # standard uncertainty
+expanded_u = voltage.U(k=2)       # expanded uncertainty
+budget = voltage.budget()         # component-level provenance
 
-## How PyTestLab Handles Uncertainty
+if voltage > 4.75:                # nominal comparison in volts
+    print("displayed voltage is above the limit")
 
-PyTestLab integrates with the [`uncertainties`](https://pythonhosted.org/uncertainties/) Python package to represent and propagate measurement errors automatically.
+if voltage.exceeds(4.75, k=2):    # guard-banded lower-limit decision
+    print("voltage is safely above the limit")
 
-### Instrument Profiles and Accuracy
+if not voltage.is_report_grade:
+    print(voltage.report_grade_blockers())
+```
 
-Instrument profiles in PyTestLab can specify accuracy specifications directly in their YAML configuration, typically as a combination of percentage of reading, percentage of range, and absolute offset. These are parsed and used to compute the standard uncertainty for each measurement.
+`voltage == 5.0` and `voltage > 4.75` compare nominal values. A bare scalar is
+interpreted in the quantity's unit; comparisons between quantities convert
+compatible units. These operators deliberately do not use uncertainty. Use
+`voltage.consistent_with(expected)` for agreement checks and
+`voltage.exceeds(...)` / `voltage.below(...)` for guard-banded thresholds.
+Use `voltage.same_representation(other)` only when internal scalar-representation
+identity—not measurement agreement or complete metadata equality—is required.
 
-Example excerpt from a DMM profile:
+## RF and impedance measurements
+
+Native storage does not imply that uncertainty was evaluated. Keep ordinary
+acquisition unchanged and use the documented options to add uncertainty:
+
+- [VNA](../api/instruments/vector-network-analyzer.md#attach-setup-specific-s-parameter-uncertainty):
+  attach an evaluated budget for the actual calibration and fixture; retain its covariance.
+- [Spectrum](../api/instruments/spectrum-analyzer.md#marker-amplitude-uncertainty):
+  evaluate a supported marker amplitude under the published conditions.
+- [RF power](../api/instruments/power-meter-capabilities.md#power-datasheet-uncertainty): evaluate a documented CW sensor component.
+- [Impedance](../api/instruments/impedance-sweep-export.md#add-an-accuracy-limit-or-a-type-b-component):
+  read conditional accuracy limits or evaluate one component of a point.
+
+Use `experiment.measurements["capture"][0]` to retrieve a named
+capture. Its `.values` holds the original data, and `.uncertainty` returns
+the native budget when present. Check `.envelope` for the model's scope and
+assumptions. A vendor accuracy limit alone is not a standard uncertainty, and
+a single component is not the uncertainty of the whole bench.
+
+## Strict Accuracy Specs
+
+Accuracy fields are intentionally explicit. Ambiguous fields such as
+`percent_reading` are rejected.
 
 ```yaml
 accuracy:
-  dc_voltage:
-    percentage: 0.025   # ±0.025% of reading
-    absolute: 0.0005    # ±0.0005 V
+  model: linear
+  reading_percent: 0.025
+  range_percent: 0.005
+  offset: 0.0005
+  offset_unit: V
+  distribution: rectangular
+  source: "EDU34450A datasheet, 1 year, 23 C +/- 5 C"
 ```
 
----
+Percent fields are human percentages: `0.025` means `0.025%`, not the fraction
+`0.025`. Use `reading_fraction` or `reading_ppm` when the source is already in
+fractional or ppm units.
 
-## Automatic Uncertainty Propagation
+## Measurement Quantities
 
-When you perform a measurement using a PyTestLab instrument driver, the returned value is a [`UFloat`](https://pythonhosted.org/uncertainties/) object (from the `uncertainties` package) if accuracy data is available. This object contains both the nominal value and its standard deviation.
+When an applicable accuracy model is available, instrument methods return a
+`MeasurementQuantity` in `MeasurementResult.values`.
 
 ```python
-import pytestlab
+result = dmm.measure("dc_voltage")
+quantity = result.values
 
-# Assume 'dmm' is an initialized instrument with accuracy specs
-result = dmm.measure_voltage_dc()
-print(result.values)  # e.g., 5.0012+/-0.0025
-
-# The value is a UFloat, so you can do math and propagate errors:
-resistor = 1000.0  # Ohms, assumed exact
-current = result.values / resistor
-print(f"Current: {current}")  # Uncertainty is propagated automatically
+print(quantity.n)            # short nominal value
+print(quantity.unit)         # "V"
+print(quantity.u)            # combined standard uncertainty
+print(quantity.U(k=2))       # expanded uncertainty
+print(quantity.budget())      # component-level provenance
 ```
 
----
+`MeasurementQuantity` supports basic arithmetic propagation. Arithmetic preserves
+per-component provenance in the propagated budget metadata, so downstream results
+remain auditable instead of becoming anonymous standard deviations.
 
-## Working with UFloat Objects
+## Oscilloscope Waveform and Timing Uncertainty
 
-- **Nominal value:** `result.values.nominal_value`
-- **Standard deviation:** `result.values.std_dev`
-- **String representation:** `str(result.values)` (e.g., `5.0012+/-0.0025`)
-- **Math operations:** All standard math operations propagate uncertainty.
+Oscilloscope waveform reductions use `QuantityArray` under the hood. Vertical
+gain, offset, range, quantization, and observed-noise terms are represented as
+factored covariance components rather than dense waveform covariance matrices.
+Routine users can stay on the simple API:
 
-For more, see the [uncertainties documentation](https://pythonhosted.org/uncertainties/).
+```python
+wave = scope.acquire_waveform(1)
+print(wave.rms().u)
+print(wave.timing.frequency().u)
 
----
+waves = scope.acquire_waveforms([1, 2])
+print(waves.delay(1, 2).u)
+```
 
-## Custom Uncertainty Models
+Horizontal terms are applied to timing measurands where they are physically
+meaningful. Voltage noise near an edge contributes through inverse slew rate;
+trigger jitter is a shared additive time offset; timebase uncertainty is a
+shared relative scale term; and channel skew remains a per-channel contribution
+for cross-channel delay/skew. Mean and RMS voltage reductions do not pretend to
+use horizontal uncertainty terms where the model would add complexity without a
+valid measurement equation.
 
-If your instrument or measurement requires a custom uncertainty model (e.g., temperature dependence, non-Gaussian errors), you can:
+Timing outputs carry measurement-model assumptions such as threshold level, edge
+policy, interpolation model, trigger jitter, timebase reference, and channel
+skew. Missing horizontal traceability remains visible in provenance and
+report-grade gates.
 
-- Extend the instrument profile with additional fields
-- Post-process the returned `UFloat` objects with your own calculations
-- Use the `uncertainties.ufloat` constructor to wrap your own values
+## Advanced Models
 
----
+For non-linear or context-dependent instruments, profiles can use richer models:
 
-## Best Practices
+- band tables for frequency, range, channel, or other context variables
+- expression models for compact datasheet formulas
+- Monte Carlo models for simulated propagation from component distributions
+- repeatability models for Type A uncertainty from repeated observations
+- composite budgets that combine repeatability, resolution, calibration, drift,
+  and datasheet terms
 
-- **Always check your instrument profile:** Ensure accuracy specs are present and correct.
-- **Use the returned `UFloat` objects:** Don’t discard uncertainty information in your analysis.
-- **Propagate uncertainty through all calculations:** This is automatic with `uncertainties`, but be careful when converting to plain floats.
-- **Document your uncertainty sources:** For compliance and reproducibility.
+Every model evaluates against an `UncertaintyContext`, which can include
+reading, unit, range, resolution, frequency, temperature, NPLC, bandwidth,
+channel, sample count, calibration age, and instrument metadata.
 
----
+Profile-facing accuracy fields accept the same model set in range specs,
+readback specs, and `measurement_accuracy` maps. Use `model` to select the
+shape:
 
-## Further Reading
+```yaml
+accuracy:
+  model: band_table
+  variable: reading
+  bands:
+    - min: 0
+      max: 1
+      reading_percent: 0.05
+      range_percent: 0.02
+    - min: 1
+      max: 10
+      reading_percent: 0.02
+      range_percent: 0.01
+```
 
-- [uncertainties package documentation](https://pythonhosted.org/uncertainties/)
-- [PyTestLab Configuration Models](../api/config.md)
-- [10-Minute Tour: Uncertainty Example](../tutorials/10_minute_tour.ipynb)
+```yaml
+measurement_accuracy:
+  vpp_ch1:
+    model: composite
+    components:
+      - model: linear
+        range_percent: 1.0
+      - model: expression
+        expression: "0.01*reading + 0.001*bandwidth/1e6"
+        distribution: standard
+```
 
----
+Drivers pass the context they know. For example, multimeters provide reading,
+unit, range, resolution, and function; oscilloscopes add channel and bandwidth;
+power supplies and active loads provide channel and configured/readback range
+when available. If a model requires context the driver cannot know, keep that
+term in a profile field or metadata path that the driver can provide.
+
+Model evaluation is strict by default: referenced expression variables and
+range/count terms must have explicit context values, with zero remaining a valid
+value. Driver methods propagate configured uncertainty-model failures instead of
+returning nominal-only results. Missing profile metadata is different: the
+acquisition can still succeed, but drivers return a nominal-only
+non-report-grade `Quantity` whose blockers explain the profile gap. Such values
+display as nominal-only/not-report-grade, and decision helpers warn because a
+zero-uncertainty metadata gap is not a guard band. Set
+`uncertainty_strict: false` only when malformed model evaluation should also be
+kept exploratory while a profile is being repaired.
+
+## Worked Examples
+
+### DMM Range Accuracy From a Profile
+
+Use a linear model when the datasheet gives terms such as percent of reading,
+percent of range, fixed offset, counts, or resolution.
+
+```yaml
+device_type: multimeter
+role: measurement
+manufacturer: Test
+model: ExampleDMM
+uncertainty_strict: true
+measurement_functions:
+  dc_voltage:
+    label: DC voltage
+    unit: V
+    ranges:
+      - nominal_V: 10.0
+        resolution: 0.001
+        accuracy:
+          model: linear
+          reading_percent: 0.025
+          range_percent: 0.005
+          offset: 0.0005
+          offset_unit: V
+          distribution: rectangular
+          source: "ExampleDMM datasheet, 1 year, 23 C +/- 5 C"
+```
+
+This excerpt shows only the semantic measurement and uncertainty metadata.
+Instrument transport mappings remain in the profile and are documented in the
+profile-authoring guide; measurement code never needs them.
+
+Then measure normally. In the example below, `backend` is whichever configured
+instrument backend you use for the session, such as VISA, Lamb, replay, or a
+simulated backend. When the driver finds a matching range, the result value is a
+`MeasurementQuantity`.
+
+```python
+from pytestlab.instruments import AutoInstrument
+
+dmm = AutoInstrument.from_config(
+    "example_dmm.yaml",
+    backend_override=backend,
+)
+
+measurement = dmm.measure("dc_voltage")
+quantity = measurement.values
+
+print(quantity.nominal)
+print(quantity.u)
+print(quantity.U(k=2))
+print(quantity.budget().components[0].source)
+```
+
+For a 5 V reading on the 10 V range, the budget has separate reading, range,
+and offset components. Those components remain visible after later arithmetic.
+
+### Arithmetic Propagation
+
+`MeasurementQuantity` supports scalar and quantity arithmetic while preserving
+the input component provenance.
+
+```python
+voltage = dmm.measure("dc_voltage").values
+current = ammeter.measure("dc_current").values
+
+power = voltage * current
+efficiency = power / input_power
+scaled_voltage = 2 * voltage
+margin = 5.0 - voltage
+
+print(power.nominal)
+print(power.unit)
+print(power.u)
+print(power.budget().components)
+```
+
+Addition and subtraction require compatible units. Multiplication and division
+combine units with Pint when available, so `V * A` becomes a power-like compound
+unit and `V / mV` can become dimensionless.
+
+### Oscilloscope Context-Dependent Accuracy
+
+Use an expression model when the uncertainty depends on runtime context the
+driver can provide, such as reading, range, channel, bandwidth, or sample count.
+
+```yaml
+device_type: oscilloscope
+role: measurement
+manufacturer: Test
+model: ExampleScope
+bandwidth: 100000000.0
+sampling_rate: 1000000000.0
+memory: 1000000.0
+waveform_update_rate: 1000.0
+trigger:
+  types: [edge]
+  modes: [auto]
+  slopes: [rising]
+channels:
+  - description: CH1
+    channel_range:
+      min_val: -5.0
+      max_val: 5.0
+    input_coupling: [DC]
+    input_impedance: 1000000.0
+    probe_attenuation: [1]
+    timebase:
+      range:
+        min_val: 0.000000001
+        max_val: 1.0
+      horizontal_resolution: 0.000000001
+measurement_accuracy:
+  vpp_ch1:
+    model: expression
+    expression: "0.01*reading + 0.001*bandwidth/1e6"
+    distribution: standard
+```
+
+```python
+result = scope.measure_voltage_peak_to_peak(1)
+quantity = result.values
+
+print(quantity.nominal)
+print(quantity.u)
+print(quantity.budget().method)
+```
+
+If an expression references `bandwidth`, `range`, `resolution`, or another
+context variable, that value must be provided by the driver or by model
+parameters. Missing referenced context raises in the model layer.
+
+### PSU and DC Load Readback Accuracy
+
+Power supplies usually attach measurement accuracy to channel readback keys.
+
+```yaml
+device_type: power_supply
+role: stimulus
+manufacturer: Test
+model: ExamplePSU
+channels:
+  - description: CH1
+    voltage_range:
+      min: 0.0
+      max: 20.0
+      resolution: 0.001
+    current_limit_range:
+      min: 0.0
+      max: 2.0
+      resolution: 0.0001
+measurement_accuracy:
+  read_voltage_ch1:
+    model: linear
+    range_percent: 0.5
+    distribution: standard
+    source: "ExamplePSU voltage readback specification"
+```
+
+```python
+voltage = psu.read_voltage(1)
+print(voltage.nominal, voltage.u)
+```
+
+Active loads place readback accuracy under the operating mode range.
+
+```yaml
+device_type: dc_active_load
+role: load
+manufacturer: Test
+model: ExampleLoad
+operating_modes:
+  constant_voltage_CV:
+    ranges:
+      - min: 0.0
+        max: 10.0
+        max_voltage_V: 10.0
+        readback_accuracy:
+          voltage_accuracy:
+            model: linear
+            range_percent: 1.0
+            distribution: standard
+            source: "ExampleLoad voltage readback specification"
+```
+
+```python
+load.set_mode("CV")
+voltage_result = load.measure_voltage()
+voltage = voltage_result.values
+
+print(voltage.nominal, voltage.u)
+```
+
+### Database Round Trip
+
+Databases preserve the full `MeasurementQuantity` budget, not just the nominal
+value and standard uncertainty.
+
+```python
+from pytestlab.experiments.database import MeasurementDatabase
+
+measurement = dmm.measure("dc_voltage")
+
+with MeasurementDatabase("lab_results") as db:
+    key = db.store_measurement(None, measurement)
+    restored = db.retrieve_measurement(key)
+
+restored_quantity = restored.values
+print(restored_quantity.nominal)
+print(restored_quantity.u)
+print(restored_quantity.budget().components)
+```
+
+Older serialized uncertainty records are migrated to `MeasurementQuantity` values
+on load; new uncertainty-aware drivers use native quantities so provenance stays
+attached.
+
+### Accessory Chains
+
+Instrument profiles describe only the instrument. PyTestLab never assumes a
+probe, cable, lead, shunt, or current probe is attached just because an
+instrument profile supports one. Accessories must be declared in `bench.yaml` or
+constructed explicitly in code.
+
+Accessory corrections reuse the same uncertainty model types as instrument
+profiles. A 10:1 probe ratio is a dimensionless `MeasurementQuantity`; applying
+it is ordinary multiplication, so the existing arithmetic propagation preserves
+the instrument budget and adds the accessory components.
+
+```yaml
+accessories:
+  probe_ch1:
+    profile: keysight/N2142A
+    serial_number: MY1234
+    notes: Calibrated 10:1 passive probe used on VIN
+
+routes:
+  scope_ch1_to_vin:
+    description: Scope CH1 cabled to DUT VIN.
+    connects:
+      - from: scope.CH1
+        to: dut.vin
+        path: [front-panel-bnc, vin-test-point]
+    accessories: [probe_ch1]
+
+measurement_plan:
+  - name: input_ripple_vpp
+    description: Input rail ripple at DUT VIN
+    instrument: scope
+    route: scope_ch1_to_vin
+    target:
+      kind: oscilloscope_channel
+      channel: 1
+      measurement: vpp
+    accessories: [probe_ch1]
+```
+
+```python
+with pytestlab.Bench.open("bench.yaml") as bench:
+    print(bench.route("scope_ch1_to_vin").describe())
+    print(bench.measurement("input_ripple_vpp").describe())
+    # PyTestLab records route provenance during measure(), but it does not
+    # silently actuate switch hardware. If a route declares an active switch
+    # matrix, apply it explicitly before measuring:
+    # bench.route("scope_ch1_to_vin").apply()
+    ripple = bench.measure("input_ripple_vpp")
+    print(ripple.envelope["measurement_chain"])
+```
+
+`describe()` is intended to be physically auditable. It reports the path from the
+DUT through the declared accessories into the instrument channel, the driver call
+that will be made, the correction operations, and the accessory provenance from
+`bench.yaml` such as alias, source preset/file, serial number, parameters, and
+notes. A static description cannot know whether the future driver call will
+return a complete instrument uncertainty budget. That status is recorded on the
+measured result envelope after `measure()` or `MeasurementChain.apply()`.
+For v1 auditable measurements, a referenced route's `accessories:` list must
+match the measurement's `accessories:` list in order, so the physical route
+provenance and the uncertainty correction chain cannot diverge silently.
+
+Validate and inspect declared measurements before touching hardware:
+
+```bash
+pytestlab bench validate bench.yaml
+pytestlab bench routes bench.yaml
+pytestlab bench route bench.yaml scope_ch1_to_vin
+pytestlab bench measurements bench.yaml
+pytestlab bench measurement bench.yaml input_ripple_vpp
+```
+
+Executable `measurement_plan` entries use YAML `target:` for the measurement
+function/channel to call. Existing descriptive entries remain valid, and their
+free-form `settings:` are not interpreted as executable driver arguments. For
+executable entries, PyTestLab rejects unknown settings keys so typos such as
+`resoluton` do not silently change the experiment.
+
+For ad hoc analysis, chains can also be applied directly:
+
+```python
+from pytestlab.accessories import AccessoryProfile, MeasurementChain
+
+probe = AccessoryProfile.from_config("keysight/N2142A")
+raw = scope.measure_voltage_peak_to_peak(1)
+corrected = MeasurementChain([probe]).apply(raw)
+```
+
+Use `AccessoryProfile.from_config()` for packaged PyTestLab presets and
+`AccessoryProfile.from_file()` for local lab profiles. Local bench files should
+use `file: lab/probes/my_probe.yaml`; packaged presets use `profile:
+keysight/N2142A`. Accessory profiles used by executable `measurement_plan`
+entries must declare `compatibility.target_kinds` or explicitly set
+`compatibility.unrestricted_target_kinds: true`; otherwise `bench validate` and
+`Bench.open()` reject the chain before hardware initialization. DMM accessories
+can further narrow compatibility with `compatibility.multimeter_functions`, for
+example a lead-resistance correction should apply only to resistance functions.
+
+If an instrument driver returns a plain float because its profile has no
+uncertainty budget or `uncertainty_strict` is disabled, accessory application is
+still allowed. The resulting envelope states that the instrument contributed no
+uncertainty budget, so the budget is not mistaken for complete instrument-plus
+accessory uncertainty.
+
+### Strict-Mode Profile Qualification
+
+Use `uncertainty_strict: true` when validating a profile. In strict mode,
+configured uncertainty models that cannot be evaluated raise instead of being
+logged and downgraded to a nominal float.
+
+```yaml
+device_type: oscilloscope
+role: measurement
+manufacturer: Test
+model: BrokenScopeProfile
+uncertainty_strict: true
+measurement_accuracy:
+  vpp_ch1:
+    model: expression
+    expression: "0.01*reading + 0.001*bandwidth"
+    distribution: standard
+```
+
+If the driver or profile does not provide `bandwidth`, model evaluation raises:
+
+```python
+try:
+    scope.measure_voltage_peak_to_peak(1)
+except ValueError as exc:
+    print(f"profile needs more context: {exc}")
+```
+
+Set `uncertainty_strict: false` only when intentionally running an exploratory
+profile-repair session that should log a profile issue and keep returning
+nominal floats until the profile is fixed.
+
+### Choosing a Model
+
+| Datasheet or calibration pattern | Recommended model |
+|---|---|
+| `+/- (% reading + % range + offset)` | `linear` |
+| Counts or resolution terms | `linear` with `counts` and `resolution` |
+| Different specs by frequency, range, temperature, or reading band | `band_table` |
+| Compact formula using reading, range, bandwidth, channel, or NPLC | `expression` |
+| Repeated observations from a calibration run | `repeatability` |
+| Several independent terms that need to remain separately auditable | `composite` |
+| Nonlinear propagation or simulated component distributions | `monte_carlo` |
+
+Prefer the simplest model that preserves the scientific assumptions from the
+source. Always record `source`, distribution, coverage assumptions, calibration
+conditions, and unit assumptions for production profiles.
+
+## Persistence
+
+Databases store uncertain scalar values as structured measurement quantities:
+nominal value, unit, standard uncertainty, expanded uncertainty, and the full
+budget JSON. This avoids serializing raw Python objects and preserves the audit
+trail across save/load boundaries. Legacy third-party scalar, list, and array
+uncertainty records are migrated to native quantities when loaded so older
+results also round-trip through the database.
+
+## Validation Lanes
+
+Deterministic CI uses committed fixture profiles under
+`tests/fixtures/uncertainty/`. Those profiles intentionally use small, synthetic
+models with explicit assumptions so profile loading, driver context, and
+database persistence can be regression-tested without hardware.
+
+Real profile and hardware validation is opt-in:
+
+```bash
+pytest tests/instruments/test_uncertainty_real_hw.py -m requires_real_hw
+```
+
+Set `PYTESTLAB_UNCERTAINTY_HW_PROFILE` and
+`PYTESTLAB_UNCERTAINTY_HW_ADDRESS` when a physical instrument is available.
+Production profile entries should not be treated as scientifically reviewed
+until their source, distribution, coverage assumptions, calibration conditions,
+and unit assumptions are recorded in the profile review artifact.
+
+## Practical Defaults
+
+- Type B datasheet limits default to rectangular distribution.
+- Expanded uncertainty defaults to `k=2`.
+- `budget.coverage_factor_for(confidence)` uses effective degrees of freedom
+  and SciPy's Student-t/normal quantiles when available.
+- Unit compatibility and scaled-unit algebra are enforced with Pint when
+  installed. For example, `1 V / 1000 mV` is treated as dimensionless `1`.
+- Missing context required by a configured model raises an error instead of
+  silently dropping uncertainty. Missing profile metadata returns a nominal-only
+  non-report-grade `Quantity`; `uncertainty_strict: false` is only for keeping
+  malformed model-evaluation failures exploratory.
+
+## Covariance-Aware Waveform Arrays
+
+`QuantityArray` represents waveform-scale uncertainty without materializing a
+large dense covariance matrix. It stores a nominal sample vector, an independent
+per-sample diagonal variance term, and shared atom sensitivities for systematic
+terms such as vertical gain or offset:
+
+```python
+from pytestlab.uncertainty import QuantityArray
+
+waveform = QuantityArray.from_samples(
+    [1.0, 1.1, 0.9, 1.2],
+    unit="V",
+    independent_std=0.05,
+)
+
+mean = waveform.mean(dof_method="validated_independent")
+rms = waveform.rms(dof_method="lag1_autocorrelation")
+vpp = waveform.peak_to_peak()
+```
+
+Reductions emit scalar `Quantity` objects with an attached `measurement_model`.
+For non-differentiable reductions such as peak-to-peak, the first-order result is
+marked `monte_carlo_required` and is not report-grade unless a Monte Carlo
+validation path is supplied.
+
+Waveform degrees of freedom are based on a validated independence assumption or
+an effective sample-size calculation. Raw sample count is not used when waveform
+autocorrelation is unknown.
+
+`QuantityArray.save_npz_sidecar(path)` writes the normative large-trace sidecar:
+compressed NPZ plus a JSON manifest containing SHA-256, sample count, and dtype.
+Database round-trips preserve `QuantityArray` values and mark legacy/incomplete
+records with `provenance_complete=false` instead of failing old data reads.
+
+## Compliance Boundaries
+
+PyTestLab is not ISO/IEC 17025 accredited and cannot confer accreditation. The
+uncertainty APIs are designed to support validated laboratory workflows by
+carrying measurement models, traceability references, provenance, coverage
+factors, and effective degrees of freedom.
+
+Traceability metadata is necessary but not sufficient: an unverified certificate
+identifier or free-text source does not establish SI traceability. SI-traceability
+claims must be suppressed unless all significant inputs resolve to acceptable
+`accredited_cal` or `nmi` evidence.
+
+D-SI unit export uses Pint-backed dimensional resolution plus an explicit D-SI
+mapping. Non-resolvable units are flagged and must not be guessed. The first DCC
+/ D-SI export increment is scoped to cached DCC 3.3.0 and D-SI 2.2.1 schemas.
+PyTestLab emits unsigned XML; cryptographic signing and PKI are the issuing
+laboratory's responsibility.
+
+### Oscilloscope waveform integration
+
+`scope.read_channels()` keeps the data-frame acquisition surface while exposing
+uncertainty-aware quantities lazily. Call `result.quantity(channel)` for the
+calibrated waveform quantity:
+
+```python
+trace = scope.read_channels(1)
+waveform_q = trace.quantity(1)
+mean = waveform_q.mean(dof_method="lag1_autocorrelation")
+vpp = waveform_q.peak_to_peak_monte_carlo(samples=100_000, seed=1234)
+```
+
+Peak-to-peak is nonlinear because the selected maximum and minimum samples can
+change under perturbation.  The first-order `peak_to_peak()` method is therefore
+marked `monte_carlo_required`; use `peak_to_peak_monte_carlo()` for a
+report-grade-capable propagation path.
+
+### Report-grade gates
+
+Use `report_grade_blockers(result)` or `is_report_grade(result)` before any
+machine-readable report export.  A result is blocked from report-grade status
+unless it has complete provenance, a measurement model, a resolvable unit, and
+traceability references for significant uncertainty inputs. Manufacturer
+specification terms remain useful Type-B inputs, but they do not support an SI
+traceability claim without accredited/NMI evidence.
+
+DCC/D-SI exports are pinned to cached DCC 3.3.0 and D-SI 2.2.1 schema files in
+this repository.  PyTestLab validates its local unsigned evidence XML profile and
+records pinned DCC/D-SI schema hashes as external interoperability targets;
+complete issuing-lab DCC validation and XML signing remain outside the library.
+
+## Scalar uncertainty ergonomics
+
+PyTestLab provides a scalar-first API for common uncertainty workflows. Use the
+callable `uq` factory for a value with a standard uncertainty:
+
+```python
+from pytestlab.uncertainty import uq, umath
+
+voltage = uq(2.000, 0.015, "V", label="scope Vpp")
+gain = uq.percent(10.0, 0.5)      # 0.5 % standard relative uncertainty
+limit = uq.limit(1.0, 0.02, "V") # rectangular half-width -> standard uncertainty
+result = umath.exp(gain / 10) * voltage
+```
+
+The scalar constructor is deliberately PyTestLab-native: use `uq(...)` and
+`uq.fromstr(...)`. The top-level helpers `nominal_value`, `std_dev`,
+`nominal_values`, `std_devs`, `covariance_matrix`, `correlation_matrix`,
+`correlated_values`, and `correlated_values_norm` operate on PyTestLab quantities.
+
+### Numeric conversions and NumPy scalar ufuncs
+
+`float(quantity)` and `int(quantity)` return the nominal value without a warning;
+`int()` uses Python's usual truncation toward zero.  These explicit conversions
+discard uncertainty, unit, correlation, and provenance information.
+`np.asarray([q], dtype=float)` likewise produces nominal values.  The named
+accessors `nominal_value(q)`, `nominal_values(...)`, `q.n`, and `q.nominal` remain
+available when code benefits from making nominal extraction self-documenting.
+Scalar equality and ordering use unit-aware nominal values, making sorting and
+ordinary Python control flow work as expected. Use
+`q.consistent_with(expected, k=...)`, `q.en_ratio(expected)`,
+`q.exceeds(limit, k=...)`, `q.below(limit, k=...)`, or `q.compare(...)` for an
+auditable uncertainty-aware decision record.
+
+Direct scalar ufunc calls such as `np.exp(q)`, `np.add(q, 1)`, and
+`np.multiply(q, 2)` propagate uncertainty.  Object-array ufuncs such as
+`np.exp(np.array([q], dtype=object))` are intentionally not a first-class scalar
+API; use explicit scalar loops today and `QuantityArray` for waveform/array
+results.
+
+### Covariance and correlation
+
+Use `correlated_values(...)` to create scalar quantities from a covariance
+matrix.  Covariance imports fail loud for non-square, non-symmetric, non-finite,
+negative-variance, or meaningfully non-PSD matrices.  Singular PSD matrices are
+accepted and preserved.
+
+```python
+from pytestlab.uncertainty import correlated_values, covariance_matrix
+
+x, y = correlated_values([1.0, 2.0], [[1.0, 0.25], [0.25, 4.0]], labels=["x", "y"])
+assert covariance_matrix([x, y])[0, 1] == 0.25
+```
+
+For correlated results, `q.error_components()` reports diagonal terms and emits
+`CorrelationComponentWarning` because diagonal terms alone do not sum to the
+combined variance.  For a complete covariance-aware variance budget, use:
+
+```python
+rows = q.error_components(basis="variance", correlation="include_cross")
+```
+
+Cross rows preserve positive and negative covariance terms; the sum of all
+`variance_contribution` values equals `q.variance` within numerical tolerance.
+`UncertaintyBudget.percentage_contributions()` remains diagonal by default and
+warns for correlated budgets so reports do not over-claim explanatory power.

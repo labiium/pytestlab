@@ -1,24 +1,24 @@
-# Experiments & Sweeps
+# Experiments and results
 
-This section documents the core classes and utilities for managing experiments, sweeps, and measurement results in PyTestLab.
+Native captures can be stored and read without unpacking trial columns:
+
+```python
+experiment.add_trial(sweep)
+saved = experiment.measurements["result"][0]
+print(saved.values)
+```
+
+For a named capture, use `experiment.measurements["spectrum_trace"][0]`.
+This also works after `database.retrieve_experiment(codename)`.
+
+Passing an existing table-valued `MeasurementResult` directly still adds only
+its values. Use a [session](../user_guide/measurement_session.md#store-a-waveform-or-sweep-with-each-trial)
+to retain that envelope.
 
 ---
-
-## Database & Results
-
-::: pytestlab.experiments.database.Database
-    options:
-      show_root_heading: true
-      show_root_toc_entry: false
 
 ::: pytestlab.experiments.results.MeasurementResult
 
----
-
-## Experiments & Sweeps
+::: pytestlab.experiments.experiments.ExperimentParameter
 
 ::: pytestlab.experiments.experiments.Experiment
-
-::: pytestlab.experiments.sweep
-
----

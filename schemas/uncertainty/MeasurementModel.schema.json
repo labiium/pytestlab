@@ -1,0 +1,296 @@
+{
+  "$defs": {
+    "CorrectionRecord": {
+      "additionalProperties": false,
+      "description": "Correction record, including zero-valued corrections.",
+      "properties": {
+        "basis": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Basis"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "u": {
+          "default": 0.0,
+          "title": "U",
+          "type": "number"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "title": "CorrectionRecord",
+      "type": "object"
+    },
+    "InputQuantityRecord": {
+      "additionalProperties": false,
+      "description": "Input quantity entry in a serialized measurement model.",
+      "properties": {
+        "distribution": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Distribution"
+        },
+        "dof": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dof"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "traceability_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TraceabilityRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "unit": {
+          "default": "",
+          "title": "Unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "InputQuantityRecord",
+      "type": "object"
+    },
+    "TraceabilityRef": {
+      "additionalProperties": false,
+      "description": "Reference to evidence supporting one influence quantity.",
+      "properties": {
+        "accreditation_body": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Accreditation Body"
+        },
+        "accreditation_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Accreditation Id"
+        },
+        "calibration_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Calibration Date"
+        },
+        "certificate_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Certificate Id"
+        },
+        "cmc": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cmc"
+        },
+        "issuing_lab": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Issuing Lab"
+        },
+        "reference_standard": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reference Standard"
+        },
+        "source": {
+          "default": "manufacturer_spec",
+          "enum": [
+            "accredited_cal",
+            "nmi",
+            "manufacturer_spec",
+            "type_a_measurement",
+            "assumed"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "valid_until": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valid Until"
+        }
+      },
+      "title": "TraceabilityRef",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Machine-readable measurement model emitted with derived quantities.",
+  "properties": {
+    "assumptions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Assumptions",
+      "type": "array"
+    },
+    "corrections": {
+      "items": {
+        "$ref": "#/$defs/CorrectionRecord"
+      },
+      "title": "Corrections",
+      "type": "array"
+    },
+    "dof_method": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Dof Method"
+    },
+    "function": {
+      "title": "Function",
+      "type": "string"
+    },
+    "inputs": {
+      "items": {
+        "$ref": "#/$defs/InputQuantityRecord"
+      },
+      "title": "Inputs",
+      "type": "array"
+    },
+    "linearization_note": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Linearization Note"
+    },
+    "method": {
+      "default": "gum_first_order",
+      "enum": [
+        "gum_first_order",
+        "monte_carlo",
+        "analytic_exact",
+        "monte_carlo_required"
+      ],
+      "title": "Method",
+      "type": "string"
+    },
+    "output_name": {
+      "title": "Output Name",
+      "type": "string"
+    },
+    "output_unit": {
+      "default": "",
+      "title": "Output Unit",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "output_name",
+    "function"
+  ],
+  "title": "MeasurementModel",
+  "type": "object"
+}

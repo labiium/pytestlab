@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel  # Added ConfigDict
-from pydantic import ConfigDict  # Added ConfigDict
-from pydantic import Field  # Added ConfigDict
+from pydantic import BaseModel
+from pydantic import ConfigDict
+from pydantic import Field
 
 from .base import Range
 from .instrument_config import InstrumentConfig  # The Pydantic base
@@ -32,6 +32,10 @@ class Channel(BaseModel):
 
 class Trigger(BaseModel):
     model_config = ConfigDict(validate_assignment=True, extra="forbid")
+    sources: dict[str, str] | list[str] = Field(
+        default_factory=dict,
+        description="Profile-owned semantic trigger sources and transport tokens",
+    )
     types: list[str] = Field(
         ..., min_length=1, description="Supported trigger types (e.g., Edge, Pulse, Runt)"
     )
@@ -40,6 +44,9 @@ class Trigger(BaseModel):
     )
     slopes: list[str] = Field(
         ..., min_length=1, description="Supported trigger slopes (e.g., Rising, Falling, Either)"
+    )
+    level_range: Range | None = Field(
+        None, description="Supported trigger threshold range in volts"
     )
 
 
@@ -97,6 +104,8 @@ class FRAnalysis(BaseModel):
 
 
 class OscilloscopeConfig(InstrumentConfig):
+    """Oscilloscope channels, trigger, acquisition, FFT, and optional FRA capabilities."""
+
     model_config = ConfigDict(validate_assignment=True, extra="forbid")
     device_type: Literal["oscilloscope"] = Field(
         "oscilloscope", description="Type of the device (oscilloscope)"
@@ -111,6 +120,9 @@ class OscilloscopeConfig(InstrumentConfig):
     )
     waveform_update_rate: float = Field(
         ..., gt=0, description="Waveform update rate in waveforms/sec"
+    )
+    waveform_source_separator: str = Field(
+        ", ", min_length=1, description="Profile-defined separator for multiple waveform sources"
     )
     fft: FFT | None = Field(None, description="FFT capabilities, if available")
     function_generator: FunctionGenerator | None = Field(

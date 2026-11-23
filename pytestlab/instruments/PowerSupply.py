@@ -3,16 +3,18 @@ from __future__ import annotations
 from typing import Any
 from typing import Self
 
-from pydantic import validate_call  # Added validate_call
-from uncertainties import ufloat
-from uncertainties.core import UFloat
+from pydantic import validate_call
 
-from ..common.enums import SCPIOnOff  # Added SCPIOnOff
-from ..config import PowerSupplyConfig  # V2 model
+from ..config import PowerSupplyConfig
 from ..errors import InstrumentConfigurationError
 from ..errors import InstrumentParameterError
+from ..uncertainty import Quantity
 from .instrument import Instrument
+from .operation_contract import OperationDescriptor
 from .scpi_engine import SCPIEngine
+from .uncertainty_adapters import nominal_measurement_quantity
+from .uncertainty_adapters import nonzero_uncertainty_quantity
+from .uncertainty_adapters import psu_measurement_context
 
 
 class PSUChannelFacade:
@@ -42,11 +44,38 @@ class PSUChannelFacade:
         Returns:
             The `PSUChannelFacade` instance for method chaining.
         """
+        self._validate_setpoints(voltage=voltage, current_limit=current_limit)
+
         if voltage is not None:
             self._psu.set_voltage(self._channel, voltage)
         if current_limit is not None:
             self._psu.set_current(self._channel, current_limit)
         return self
+
+    def _validate_setpoints(
+        self, *, voltage: float | None = None, current_limit: float | None = None
+    ) -> None:
+        """Validate a channel update without writing to the instrument."""
+        if voltage is not None:
+            self._psu._resolve_operation_arguments(
+                "set_voltage", {"channel": self._channel, "voltage": voltage}
+            )
+            if self._psu._voltage_limit is not None and voltage > self._psu._voltage_limit:
+                from ..bench import SafetyLimitError
+
+                raise SafetyLimitError(
+                    f"{voltage}V exceeds safety limit {self._psu._voltage_limit}V"
+                )
+        if current_limit is not None:
+            self._psu._resolve_operation_arguments(
+                "set_current", {"channel": self._channel, "current": current_limit}
+            )
+            if self._psu._current_limit is not None and current_limit > self._psu._current_limit:
+                from ..bench import SafetyLimitError
+
+                raise SafetyLimitError(
+                    f"{current_limit}A exceeds safety limit {self._psu._current_limit}A"
+                )
 
     @validate_call
     def slew(self, duration_s: float | None = None, enabled: bool = True) -> Self:
@@ -77,12 +106,17 @@ class PSUChannelFacade:
         self._psu.output(self._channel, False)
         return self
 
-    def get_voltage(self) -> float | UFloat:
-        """Reads the measured voltage from this channel."""
+    def get_voltage(self) -> Quantity:
+        """Read measured channel voltage.
+
+        The result is a PyTestLab :class:`Quantity`; use ``float(result)`` for
+        its nominal value or ``result.nominal`` when the explicit property is
+        clearer.
+        """
         return self._psu.read_voltage(self._channel)
 
-    def get_current(self) -> float | UFloat:
-        """Reads the measured current from this channel."""
+    def get_current(self) -> Quantity:
+        """Read measured channel current as a PyTestLab :class:`Quantity`."""
         return self._psu.read_current(self._channel)
 
     def get_output_state(self) -> bool:
@@ -94,8 +128,10 @@ class PSUChannelFacade:
         Raises:
             InstrumentParameterError: If the instrument returns an unexpected state.
         """
-        cmd = self._psu._eng().build("get_output_state", channel=self._channel)[0]
-        state_str = self._psu._eng().parse("get_output_state", self._psu._query(cmd))
+        commands = self._psu._eng().build("get_output_state", channel=self._channel)
+        for command in commands[:-1]:
+            self._psu._send_command(command)
+        state_str = self._psu._eng().parse("get_output_state", self._psu._query(commands[-1]))
         s = str(state_str).strip().upper()
         if s in {"1", "ON", "TRUE"}:
             return True
@@ -119,7 +155,9 @@ class PSUChannelConfig:
         state: The output state of the channel ("ON" or "OFF").
     """
 
-    def __init__(self, voltage: float | UFloat, current: float | UFloat, state: int | str) -> None:
+    def __init__(
+        self, voltage: float | Quantity, current: float | Quantity, state: int | str
+    ) -> None:
         """Initializes the PSUChannelConfig.
 
         Args:
@@ -127,21 +165,21 @@ class PSUChannelConfig:
             current: The current value for the channel.
             state: The state of the channel (e.g., 0, 1, "ON", "OFF").
         """
-        # Allow UFloat or float for channel telemetry
-        self.voltage: float | UFloat = voltage
-        self.current: float | UFloat = current
+        # Allow native quantities or nominal floats for channel telemetry.
+        self.voltage: float | Quantity = voltage
+        self.current: float | Quantity = current
         self.state: str  # Store state as string "ON" or "OFF" for consistency
         if isinstance(state, str):
             # Normalize state from various string inputs like "1", "0", "ON", "OFF"
             state_upper = state.upper().strip()
-            if state_upper == SCPIOnOff.ON.value or state_upper == "1":
-                self.state = SCPIOnOff.ON.value
-            elif state_upper == SCPIOnOff.OFF.value or state_upper == "0":
-                self.state = SCPIOnOff.OFF.value
+            if state_upper == "ON" or state_upper == "1":
+                self.state = "ON"
+            elif state_upper == "OFF" or state_upper == "0":
+                self.state = "OFF"
             else:
                 raise ValueError(f"Invalid string state value: {state}")
         elif isinstance(state, int | float):  # float for query results that might be like 1.0
-            self.state = SCPIOnOff.ON.value if int(state) == 1 else SCPIOnOff.OFF.value
+            self.state = "ON" if int(state) == 1 else "OFF"
         else:
             raise ValueError(f"Invalid state value type: {type(state)}, value: {state}")
 
@@ -173,12 +211,31 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
     _voltage_value: float
     _current_value: float
 
+    OPERATION_CONTRACT: tuple[OperationDescriptor, ...] = (
+        OperationDescriptor("identify", public_method="id", safety_class="read"),
+        OperationDescriptor("reset", public_method="reset"),
+        OperationDescriptor("set_voltage", public_method="set_voltage"),
+        OperationDescriptor("set_current", public_method="set_current"),
+        OperationDescriptor("set_slew_rate", public_method="set_slew_rate", required=False),
+        OperationDescriptor("set_output", public_method="output"),
+        OperationDescriptor("set_display", public_method="display", required=False),
+        OperationDescriptor("measure_voltage", public_method="read_voltage", safety_class="read"),
+        OperationDescriptor("measure_current", public_method="read_current", safety_class="read"),
+        OperationDescriptor(
+            "get_output_state", public_method="get_output_state", safety_class="read"
+        ),
+        OperationDescriptor("enable_slew_rate", public_method="enable_slew_rate", required=False),
+        OperationDescriptor(
+            "get_configuration", public_method="get_configuration", safety_class="read"
+        ),
+    )
+
     def __init__(self, config: PowerSupplyConfig, **kwargs: Any):
         super().__init__(config=config, **kwargs)
         # Initialize SCPI engine from the config if available (reusing base if present)
-        if getattr(self, "scpi_engine", None) is None:
+        if getattr(self, "_scpi_engine", None) is None:
             scpi_data = config.scpi.model_dump() if config.scpi else {}
-            self.scpi_engine = SCPIEngine(scpi_data, variant=config.scpi_variant)
+            self._scpi_engine = SCPIEngine(scpi_data, variant=config.scpi_variant)
 
         # Initialize safety limit properties
         self._voltage_limit = None
@@ -189,11 +246,11 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
     # PowerSupply uses the base Instrument.__init__ method
 
     def _eng(self) -> SCPIEngine:
-        if not self.scpi_engine:
+        if not self._scpi_engine:
             raise InstrumentConfigurationError(
                 self.config.model, "No SCPI mapping configured for this PSU."
             )
-        return self.scpi_engine
+        return self._scpi_engine
 
     @validate_call
     def set_voltage(self, channel: int, voltage: float) -> None:
@@ -208,16 +265,11 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
                                       voltage is outside the configured range for
                                       that channel.
         """
-        # Validate that the channel number is within the configured range
-        if not self.config.channels or not (1 <= channel <= len(self.config.channels)):
-            num_ch = len(self.config.channels) if self.config.channels else 0
-            raise InstrumentParameterError(
-                f"Channel number {channel} is out of range (1-{num_ch})."
-            )
-
-        # Validate the voltage against the limits defined in the configuration
-        channel_config = self.config.channels[channel - 1]
-        channel_config.voltage_range.assert_in_range(voltage, name=f"Voltage for channel {channel}")
+        resolved = self._resolve_operation_arguments(
+            "set_voltage", {"channel": channel, "voltage": voltage}
+        ).get("set_voltage", {})
+        channel = int(resolved.get("channel", channel))
+        voltage = float(resolved.get("voltage", voltage))
 
         # Enforce safety limit, if any
         from ..bench import SafetyLimitError
@@ -225,9 +277,9 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         if self._voltage_limit is not None and voltage > self._voltage_limit:
             raise SafetyLimitError(f"{voltage}V exceeds safety limit {self._voltage_limit}V")
 
-        # Build and send the SCPI command
-        cmd = self._eng().build("set_voltage", channel=channel, voltage=voltage)[0]
-        self._send_command(cmd)
+        # Build and send the SCPI command using the resolver's private values.
+        for cmd in self._eng().build("set_voltage", channel=channel, voltage=voltage):
+            self._send_command(cmd)
         # Cache recent set value for safety checks
         if channel == 1:
             self._voltage_value = voltage
@@ -245,24 +297,19 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
                                       current is outside the configured range for
                                       that channel.
         """
-        if not self.config.channels or not (1 <= channel <= len(self.config.channels)):
-            num_ch = len(self.config.channels) if self.config.channels else 0
-            raise InstrumentParameterError(
-                f"Channel number {channel} is out of range (1-{num_ch})."
-            )
-
-        channel_config = self.config.channels[channel - 1]  # channel is 1-based
-        channel_config.current_limit_range.assert_in_range(
-            current, name=f"Current for channel {channel}"
-        )
+        resolved = self._resolve_operation_arguments(
+            "set_current", {"channel": channel, "current": current}
+        ).get("set_current", {})
+        channel = int(resolved.get("channel", channel))
+        current = float(resolved.get("current", current))
 
         from ..bench import SafetyLimitError
 
         if self._current_limit is not None and current > self._current_limit:
             raise SafetyLimitError(f"{current}A exceeds safety limit {self._current_limit}A")
 
-        cmd = self._eng().build("set_current", channel=channel, current=current)[0]
-        self._send_command(cmd)
+        for cmd in self._eng().build("set_current", channel=channel, current=current):
+            self._send_command(cmd)
         if channel == 1:
             self._current_value = current
 
@@ -274,15 +321,14 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
             channel: The channel number (1-based).
             duration_s: The time in seconds for the voltage to ramp to the set value.
         """
-        if not self.config.channels or not (1 <= channel <= len(self.config.channels)):
-            num_ch = len(self.config.channels) if self.config.channels else 0
-            raise InstrumentParameterError(
-                f"Channel number {channel} is out of range (1-{num_ch})."
-            )
-
+        resolved = self._resolve_operation_arguments(
+            "set_slew_rate", {"channel": channel, "duration_s": duration_s}
+        ).get("set_slew_rate", {})
+        channel = int(resolved.get("channel", channel))
+        duration_s = float(resolved.get("duration_ms", duration_s))
         duration_ms = int(duration_s * 1000)
-        cmd = self._eng().build("set_slew_rate", channel=channel, duration_ms=duration_ms)[0]
-        self._send_command(cmd)
+        for cmd in self._eng().build("set_slew_rate", channel=channel, duration_ms=duration_ms):
+            self._send_command(cmd)
 
     @validate_call
     def enable_slew_rate(self, channel: int, state: bool) -> None:
@@ -298,9 +344,16 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
                 f"Channel number {channel} is out of range (1-{num_ch})."
             )
 
-        command_name = "enable_slew_rate" if state else "disable_slew_rate"
-        cmd = self._eng().build(command_name, channel=channel)[0]
-        self._send_command(cmd)
+        resolved_channel = self._resolve_operation_parameter("enable_slew_rate", "channel", channel)
+        resolved_state = self._resolve_operation_parameter("enable_slew_rate", "state", state)
+        operation = self.config.operation_options.operation("enable_slew_rate")
+        logical = "enable" if bool(resolved_state.value) else "disable"
+        command_name = operation.transport.get(logical) if operation else None
+        if command_name is None:
+            raise InstrumentConfigurationError(
+                self.config.model, "Profile does not implement slew-rate state control."
+            )
+        self._send_profile_alias(command_name, channel=resolved_channel.transport_value)
 
     @validate_call
     def output(self, channel: int | list[int], state: bool = True) -> None:
@@ -334,10 +387,17 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
                     f"Channel number {ch_num} is out of range (1-{num_configured_channels})."
                 )
 
-        # Send command for each channel individually
-        for ch_num in channels_to_process:
-            cmd = self._eng().build("set_output", channel=ch_num, state=state)[0]
-            self._send_command(cmd)
+        # Resolve all channels and the state before sending any command.
+        resolved_state = self._resolve_operation_parameter("set_output", "state", state)
+        resolved_channels = [
+            int(self._resolve_operation_parameter("set_output", "channel", ch).value)
+            for ch in channels_to_process
+        ]
+        for ch_num in resolved_channels:
+            for cmd in self._eng().build(
+                "set_output", channel=ch_num, state=resolved_state.transport_value
+            ):
+                self._send_command(cmd)
 
     @validate_call
     def display(self, state: bool) -> None:
@@ -346,31 +406,61 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         Args:
             state: True to turn the display on, False to turn it off.
         """
-        cmd = self._eng().build("set_display", state=state)[0]
+        resolved = self._resolve_operation_parameter("set_display", "state", state)
+        cmd = self._eng().build("set_display", state=resolved.transport_value)[0]
         self._send_command(cmd)
 
     @validate_call
-    def read_voltage(self, channel: int) -> float | UFloat:
+    def get_output_state(self, channel: int) -> bool:
+        """Read whether a power-supply channel output is enabled."""
+        channel = int(
+            self._resolve_operation_parameter("get_output_state", "channel", channel).value
+        )
+        commands = self._eng().build("get_output_state", channel=channel)
+        for command in commands[:-1]:
+            self._send_command(command)
+        state = (
+            str(self._eng().parse("get_output_state", self._query(commands[-1]))).strip().upper()
+        )
+        if state in {"1", "ON", "TRUE"}:
+            return True
+        if state in {"0", "OFF", "FALSE"}:
+            return False
+        raise InstrumentParameterError(
+            parameter="state", value=state, message="Unexpected output state response."
+        )
+
+    @validate_call
+    def read_voltage(self, channel: int) -> Quantity:
         """Reads the measured output voltage from a specific channel.
 
         Args:
             channel: The channel number to measure (1-based).
 
         Returns:
-            The measured voltage as a float.
+            The measured voltage as an uncertainty-aware quantity.
 
         Raises:
             InstrumentParameterError: If the channel number is invalid.
         """
-        if not self.config.channels or not (1 <= channel <= len(self.config.channels)):
-            num_ch = len(self.config.channels) if self.config.channels else 0
-            raise InstrumentParameterError(
-                f"Channel number {channel} is out of range (1-{num_ch})."
-            )
-        cmd = self._eng().build("measure_voltage", channel=channel)[0]
-        reading = float(self._eng().parse("measure_voltage", self._query(cmd)))
+        channel = int(
+            self._resolve_operation_parameter("measure_voltage", "channel", channel).value
+        )
+        commands = self._eng().build("measure_voltage", channel=channel)
+        for command in commands[:-1]:
+            self._send_command(command)
+        reading = float(self._eng().parse("measure_voltage", self._query(commands[-1])))
 
-        value_to_return: Any = reading
+        value_to_return: Any = nominal_measurement_quantity(
+            reading,
+            "V",
+            function="read_voltage",
+            output_name=f"read_voltage_ch{channel}",
+            reason=(
+                f"{self.config.model} read_voltage channel {channel}: no applied uncertainty "
+                "metadata yet; result is nominal-only and non-report-grade."
+            ),
+        )
 
         if self.config.measurement_accuracy:
             mode_key = f"read_voltage_ch{channel}"
@@ -380,52 +470,80 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
             spec = self.config.measurement_accuracy.get(mode_key)
 
             if spec:
-                sigma = spec.calculate_std_dev(reading, range_value=None)
-                if sigma > 0:
-                    try:
-                        value_to_return = ufloat(reading, sigma)
-                    except Exception:
-                        value_to_return = reading
-                    self._logger.debug(
-                        f"Applied accuracy spec '{mode_key}', value: {value_to_return}"
-                    )
-                else:
-                    self._logger.debug(
-                        f"Accuracy spec '{mode_key}' resulted in sigma=0. Returning float."
-                    )
+                context = psu_measurement_context(
+                    self.config,
+                    channel=channel,
+                    reading=reading,
+                    unit="V",
+                    function="read_voltage",
+                    instrument_key=self._uncertainty_source_key(),
+                )
+                quantity = nonzero_uncertainty_quantity(
+                    spec,
+                    context,
+                    logger=self._logger,
+                    label=f"accuracy spec '{mode_key}'",
+                    strict=self.config.uncertainty_strict,
+                )
+                if quantity is not None:
+                    value_to_return = quantity
             else:
+                value_to_return = nominal_measurement_quantity(
+                    reading,
+                    "V",
+                    function="read_voltage",
+                    output_name=f"read_voltage_ch{channel}",
+                    reason=(
+                        f"{self.config.model} read_voltage channel {channel}: missing "
+                        f"measurement_accuracy key {mode_key!r}; add an accuracy spec."
+                    ),
+                )
                 self._logger.debug(
-                    f"No accuracy spec found for read_voltage on channel {channel} with key '{mode_key}'. Returning float."
+                    "No accuracy spec found for read_voltage on channel %s with key %r; "
+                    "returning nominal-only non-report-grade Quantity.",
+                    channel,
+                    mode_key,
                 )
         else:
             self._logger.debug(
-                f"No measurement_accuracy configuration in instrument for read_voltage on channel {channel}. Returning float."
+                "No measurement_accuracy configuration in instrument for read_voltage on channel "
+                "%s; returning nominal-only non-report-grade Quantity.",
+                channel,
             )
 
         return value_to_return
 
     @validate_call
-    def read_current(self, channel: int) -> float | UFloat:
+    def read_current(self, channel: int) -> Quantity:
         """Reads the measured output current from a specific channel.
 
         Args:
             channel: The channel number to measure (1-based).
 
         Returns:
-            The measured current as a float.
+            The measured current as an uncertainty-aware quantity.
 
         Raises:
             InstrumentParameterError: If the channel number is invalid.
         """
-        if not self.config.channels or not (1 <= channel <= len(self.config.channels)):
-            num_ch = len(self.config.channels) if self.config.channels else 0
-            raise InstrumentParameterError(
-                f"Channel number {channel} is out of range (1-{num_ch})."
-            )
-        cmd = self._eng().build("measure_current", channel=channel)[0]
-        reading = float(self._eng().parse("measure_current", self._query(cmd)))
+        channel = int(
+            self._resolve_operation_parameter("measure_current", "channel", channel).value
+        )
+        commands = self._eng().build("measure_current", channel=channel)
+        for command in commands[:-1]:
+            self._send_command(command)
+        reading = float(self._eng().parse("measure_current", self._query(commands[-1])))
 
-        value_to_return: Any = reading
+        value_to_return: Any = nominal_measurement_quantity(
+            reading,
+            "A",
+            function="read_current",
+            output_name=f"read_current_ch{channel}",
+            reason=(
+                f"{self.config.model} read_current channel {channel}: no applied uncertainty "
+                "metadata yet; result is nominal-only and non-report-grade."
+            ),
+        )
 
         if self.config.measurement_accuracy:
             mode_key = f"read_current_ch{channel}"
@@ -435,26 +553,45 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
             spec = self.config.measurement_accuracy.get(mode_key)
 
             if spec:
-                sigma = spec.calculate_std_dev(reading, range_value=None)
-                if sigma > 0:
-                    try:
-                        value_to_return = ufloat(reading, sigma)
-                    except Exception:
-                        value_to_return = reading
-                    self._logger.debug(
-                        f"Applied accuracy spec '{mode_key}', value: {value_to_return}"
-                    )
-                else:
-                    self._logger.debug(
-                        f"Accuracy spec '{mode_key}' resulted in sigma=0. Returning float."
-                    )
+                context = psu_measurement_context(
+                    self.config,
+                    channel=channel,
+                    reading=reading,
+                    unit="A",
+                    function="read_current",
+                    instrument_key=self._uncertainty_source_key(),
+                )
+                quantity = nonzero_uncertainty_quantity(
+                    spec,
+                    context,
+                    logger=self._logger,
+                    label=f"accuracy spec '{mode_key}'",
+                    strict=self.config.uncertainty_strict,
+                )
+                if quantity is not None:
+                    value_to_return = quantity
             else:
+                value_to_return = nominal_measurement_quantity(
+                    reading,
+                    "A",
+                    function="read_current",
+                    output_name=f"read_current_ch{channel}",
+                    reason=(
+                        f"{self.config.model} read_current channel {channel}: missing "
+                        f"measurement_accuracy key {mode_key!r}; add an accuracy spec."
+                    ),
+                )
                 self._logger.debug(
-                    f"No accuracy spec found for read_current on channel {channel} with key '{mode_key}'. Returning float."
+                    "No accuracy spec found for read_current on channel %s with key %r; "
+                    "returning nominal-only non-report-grade Quantity.",
+                    channel,
+                    mode_key,
                 )
         else:
             self._logger.debug(
-                f"No measurement_accuracy configuration in instrument for read_current on channel {channel}. Returning float."
+                "No measurement_accuracy configuration in instrument for read_current on channel "
+                "%s; returning nominal-only non-report-grade Quantity.",
+                channel,
             )
 
         return value_to_return
@@ -483,13 +620,15 @@ class PowerSupply(Instrument[PowerSupplyConfig]):
         for channel_num in range(1, num_channels + 1):  # Iterate 1-indexed channel numbers
 
             def _nominal(x: Any) -> float:
-                return x.nominal_value if hasattr(x, "nominal_value") else float(x)
+                return x.nominal if isinstance(x, Quantity) else float(x)
 
             voltage_val = _nominal(self.read_voltage(channel_num))
             current_val = _nominal(self.read_current(channel_num))
             # Query output state using SCPI engine
-            cmd = self._eng().build("get_output_state", channel=channel_num)[0]
-            state_str: str = self._eng().parse("get_output_state", self._query(cmd))
+            commands = self._eng().build("get_output_state", channel=channel_num)
+            for command in commands[:-1]:
+                self._send_command(command)
+            state_str: str = self._eng().parse("get_output_state", self._query(commands[-1]))
 
             results[channel_num] = PSUChannelConfig(
                 voltage=voltage_val, current=current_val, state=state_str.strip()

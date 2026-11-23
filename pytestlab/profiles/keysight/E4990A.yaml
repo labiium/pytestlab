@@ -1,0 +1,439 @@
+manufacturer: Keysight
+model: E4990A
+device_type: impedance_analyzer
+role: measurement
+
+readback:
+  encoding: complex_arrays
+  magnitude_limit_ohm: 1.0e12
+  checks:
+    transfer_format: [ASC]
+    sweep_domain: [LIN, LOG, SEGM]
+    continuous_sweep: ["0"]
+
+sweep:
+  dialect: e4990a
+  min_frequency_hz: 20
+  max_frequency_hz: 120000000
+  max_points: 1601
+  max_segments: 201
+  max_excitation_v_rms: 1.0
+
+scpi:
+  queries:
+    identify: {template: "*IDN?"}
+    get_error: {template: ":SYST:ERR?"}
+    transfer_format: {template: ":FORM:DATA?"}
+    sweep_domain: {template: ":SENS{channel}:SWE:TYPE?"}
+    continuous_sweep: {template: ":INIT{channel}:CONT?"}
+    frequency_data: {template: ":SENS{channel}:FREQ:DATA?"}
+    impedance_data: {template: ":CALC{channel}:DATA:RDAT?"}
+    points: {template: ":SENS{channel}:SWE:POIN?"}
+    start: {template: ":SENS{channel}:FREQ:STAR?"}
+    stop: {template: ":SENS{channel}:FREQ:STOP?"}
+    min_frequency: {template: ":SERV:SWE:FREQ:MIN?"}
+    max_frequency: {template: ":SERV:SWE:FREQ:MAX?"}
+    trace: {template: ":SERV:CHAN{channel}:ATR:ACT?"}
+    parameter: {template: ":CALC{channel}:PAR{trace}:DEF?"}
+    complex_format: {template: ":CALC{channel}:FORM:TWOD?"}
+    math_mode: {template: ":CALC{channel}:MATH:FUNC?"}
+    formatted_data: {template: ":CALC{channel}:DATA:FDAT?"}
+    active_channel: {template: ":SERV:ACH:ACT?"}
+    trigger_source: {template: ":TRIG:SOUR?"}
+    trigger_scope: {template: ":TRIG:SCOP?"}
+    point_trigger: {template: ":TRIG:POIN?"}
+    averaging: {template: ":SENS{channel}:AVER?"}
+    sweep_averaging: {template: ":CALC{channel}:AVER?"}
+    bias: {template: ":SOUR:BIAS:STAT?"}
+    source_mode: {template: ":SOUR{channel}:MODE?"}
+    source_alc: {template: ":SOUR{channel}:ALC?"}
+    source_voltage: {template: ":SOUR{channel}:VOLT?"}
+    operation_complete: {template: "*OPC?"}
+
+    speed: {template: ":SENS{channel}:APER?"}
+    averages: {template: ":SENS{channel}:AVER:COUN?"}
+    trace_count: {template: ":CALC{channel}:PAR:COUN?"}
+    expanded_phase: {template: ":CALC{channel}:FORM:EPH?"}
+    phase_unit: {template: ":CALC{channel}:UNIT:ANGL?"}
+    source_current: {template: ":SOUR{channel}:CURR?"}
+    correction_open: {template: ":SENS{channel}:CORR2:OPEN?"}
+    correction_short: {template: ":SENS{channel}:CORR2:SHOR?"}
+    correction_load: {template: ":SENS{channel}:CORR2:LOAD?"}
+    port_calibration: {template: ":SENS{channel}:CORR1:STAT?"}
+    port_extension: {template: ":SENS{channel}:CORR2:EDEL:STAT?"}
+    port_extension_time: {template: ":SENS{channel}:CORR2:EDEL:TIME?"}
+
+    segment_table: {template: ":SENS{channel}:SEGM:DATA?"}
+    segment_points: {template: ":SENS{channel}:SEGM:SWE:POIN?"}
+
+    user_count: {template: ":SENS{channel}:CORR1:ZME:POIN?"}
+    user_frequency: {template: ":SENS{channel}:CORR1:ZME:FREQ?"}
+    fixture_open_count: {template: ":SENS{channel}:CORR2:ZME:OPEN:POIN?"}
+    fixture_open_frequency: {template: ":SENS{channel}:CORR2:ZME:OPEN:FREQ?"}
+    fixture_open_values: {template: ":SENS{channel}:CORR2:ZME:OPEN?"}
+    user_open_values: {template: ":SENS{channel}:CORR1:ZME:OPEN?"}
+    fixture_short_count: {template: ":SENS{channel}:CORR2:ZME:SHOR:POIN?"}
+    fixture_short_frequency: {template: ":SENS{channel}:CORR2:ZME:SHOR:FREQ?"}
+    fixture_short_values: {template: ":SENS{channel}:CORR2:ZME:SHOR?"}
+    user_short_values: {template: ":SENS{channel}:CORR1:ZME:SHOR?"}
+    fixture_load_count: {template: ":SENS{channel}:CORR2:ZME:LOAD:POIN?"}
+    fixture_load_frequency: {template: ":SENS{channel}:CORR2:ZME:LOAD:FREQ?"}
+    fixture_load_values: {template: ":SENS{channel}:CORR2:ZME:LOAD?"}
+    user_load_values: {template: ":SENS{channel}:CORR1:ZME:LOAD?"}
+
+    limit_enabled: {template: ":CALC{channel}:LIM?"}
+    limit_table: {template: ":CALC{channel}:LIM:DATA?"}
+    limit_stim_offset: {template: ":CALC{channel}:LIM:OFFS:STIM?"}
+    limit_response_offset: {template: ":CALC{channel}:LIM:OFFS:AMPL?"}
+
+  commands:
+    set_segment_table: {template: ":SENS{channel}:SEGM:DATA {table}"}
+    set_speed: {template: ":SENS{channel}:APER {speed}"}
+    set_averages: {template: ":SENS{channel}:AVER:COUN {averages}"}
+    set_averaging: {template: ":SENS{channel}:AVER {averaging}"}
+    set_parameter: {template: ":CALC{channel}:PAR{trace}:DEF {code}"}
+    set_voltage: {template: ":SOUR{channel}:VOLT {level}"}
+    set_sweep_type: {template: ":SENS{channel}:SWE:TYPE {spacing}"}
+    set_start: {template: ":SENS{channel}:FREQ:STAR {start}"}
+    set_stop: {template: ":SENS{channel}:FREQ:STOP {stop}"}
+    set_points: {template: ":SENS{channel}:SWE:POIN {points}"}
+    arm_sweep: {template: ":INIT{channel}:CONT ON"}
+    hold_sweep: {template: ":INIT{channel}:CONT OFF"}
+    trigger_sweep: {template: ":TRIG:SING"}
+    abort_sweep: {template: ":ABOR"}
+
+operation_options:
+  operations:
+    read_impedance:
+      transport:
+        transfer_format: transfer_format
+        sweep_domain: sweep_domain
+        continuous_sweep: continuous_sweep
+        frequency_data: frequency_data
+        impedance_data: impedance_data
+      parameters:
+        point: {kind: range, integer: true, min: 1, max: 1601, default: 1, transport_parameter: false}
+        channel:
+          kind: range
+          integer: true
+          min: 1
+          max: 4
+          default: 1
+          bindings:
+            - {alias: sweep_domain, parameter: channel}
+            - {alias: continuous_sweep, parameter: channel}
+            - {alias: frequency_data, parameter: channel}
+            - {alias: impedance_data, parameter: channel}
+    read_impedance_sweep:
+      transport:
+        transfer_format: transfer_format
+        sweep_domain: sweep_domain
+        continuous_sweep: continuous_sweep
+        frequency_data: frequency_data
+        points: points
+        segment_points: segment_points
+        trace: trace
+        parameter: parameter
+        complex_format: complex_format
+        math_mode: math_mode
+        formatted_data: formatted_data
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 4, default: 1, transport_parameter: false}
+    configure_frequency_sweep:
+      transport:
+        sweep_domain: sweep_domain
+        continuous_sweep: continuous_sweep
+        min_frequency: min_frequency
+        max_frequency: max_frequency
+        start: start
+        stop: stop
+        points: points
+        set_sweep_type: set_sweep_type
+        set_start: set_start
+        set_stop: set_stop
+        set_points: set_points
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 4, default: 1, transport_parameter: false}
+        start_hz: {kind: range, min: 20, max: 120000000, unit: Hz, transport_parameter: false}
+        stop_hz: {kind: range, min: 20, max: 120000000, unit: Hz, transport_parameter: false}
+        points: {kind: range, integer: true, min: 2, max: 1601, transport_parameter: false}
+        spacing:
+          kind: enum
+          default: log
+          transport_parameter: false
+          options: [{value: linear, label: Linear}, {value: log, label: Logarithmic}]
+    acquire_impedance_sweep:
+      transport:
+        transfer_format: transfer_format
+        sweep_domain: sweep_domain
+        continuous_sweep: continuous_sweep
+        frequency_data: frequency_data
+        points: points
+        segment_points: segment_points
+        trace: trace
+        parameter: parameter
+        complex_format: complex_format
+        math_mode: math_mode
+        formatted_data: formatted_data
+        active_channel: active_channel
+        trigger_source: trigger_source
+        trigger_scope: trigger_scope
+        point_trigger: point_trigger
+        averaging: averaging
+        sweep_averaging: sweep_averaging
+        bias: bias
+        source_mode: source_mode
+        source_alc: source_alc
+        source_voltage: source_voltage
+        operation_complete: operation_complete
+        arm_sweep: arm_sweep
+        hold_sweep: hold_sweep
+        trigger_sweep: trigger_sweep
+        abort_sweep: abort_sweep
+        get_error: get_error
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 4, default: 1, transport_parameter: false}
+        max_excitation_v_rms: {kind: range, min: 0, max: 1, unit: Vrms, required: false, transport_parameter: false}
+        timeout_ms: {kind: range, integer: true, min: 1, max: 120000, unit: ms, default: 30000, transport_parameter: false}
+
+    read_measurement_sweep:
+      transport:
+        continuous_sweep: continuous_sweep
+        sweep_domain: sweep_domain
+        transfer_format: transfer_format
+        frequency_data: frequency_data
+        points: points
+        segment_points: segment_points
+        trace: trace
+        parameter: parameter
+        expanded_phase: expanded_phase
+        phase_unit: phase_unit
+        math_mode: math_mode
+        formatted_data: formatted_data
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 4, default: 1, transport_parameter: false}
+        parameter:
+          kind: enum
+          transport_parameter: false
+          options:
+            - {value: magnitude, label: Impedance magnitude, unit: "ohm"}
+            - {value: phase, label: Impedance phase, unit: "deg"}
+            - {value: resistance, label: Series resistance, unit: "ohm"}
+            - {value: reactance, label: Series reactance, unit: "ohm"}
+            - {value: series_inductance, label: Series inductance, unit: "H"}
+            - {value: parallel_inductance, label: Parallel inductance, unit: "H"}
+            - {value: series_capacitance, label: Series capacitance, unit: "F"}
+            - {value: parallel_capacitance, label: Parallel capacitance, unit: "F"}
+            - {value: quality_factor, label: Quality factor, unit: "1"}
+            - {value: dissipation_factor, label: Dissipation factor, unit: "1"}
+            - {value: admittance_magnitude, label: Admittance magnitude, unit: "S"}
+            - {value: admittance_phase, label: Admittance phase, unit: "deg"}
+            - {value: conductance, label: Conductance, unit: "S"}
+            - {value: susceptance, label: Susceptance, unit: "S"}
+            - {value: parallel_resistance, label: Parallel resistance, unit: "ohm"}
+    configure_measurement_parameter:
+      transport:
+        continuous_sweep: continuous_sweep
+        sweep_domain: sweep_domain
+        trace_count: trace_count
+        parameter: parameter
+        set_parameter: set_parameter
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 4, default: 1, transport_parameter: false}
+        parameter:
+          kind: enum
+          transport_parameter: false
+          options:
+            - {value: magnitude, label: Impedance magnitude, unit: "ohm"}
+            - {value: phase, label: Impedance phase, unit: "deg"}
+            - {value: resistance, label: Series resistance, unit: "ohm"}
+            - {value: reactance, label: Series reactance, unit: "ohm"}
+            - {value: series_inductance, label: Series inductance, unit: "H"}
+            - {value: parallel_inductance, label: Parallel inductance, unit: "H"}
+            - {value: series_capacitance, label: Series capacitance, unit: "F"}
+            - {value: parallel_capacitance, label: Parallel capacitance, unit: "F"}
+            - {value: quality_factor, label: Quality factor, unit: "1"}
+            - {value: dissipation_factor, label: Dissipation factor, unit: "1"}
+            - {value: admittance_magnitude, label: Admittance magnitude, unit: "S"}
+            - {value: admittance_phase, label: Admittance phase, unit: "deg"}
+            - {value: conductance, label: Conductance, unit: "S"}
+            - {value: susceptance, label: Susceptance, unit: "S"}
+            - {value: parallel_resistance, label: Parallel resistance, unit: "ohm"}
+            - {value: impedance, label: Complex impedance, unit: "ohm"}
+        trace: {kind: range, integer: true, min: 1, max: 4, default: 1, transport_parameter: false}
+    get_measurement_settings:
+      transport:
+        continuous_sweep: continuous_sweep
+        sweep_domain: sweep_domain
+        speed: speed
+        averages: averages
+        averaging: averaging
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 4, default: 1, transport_parameter: false}
+    configure_measurement_settings:
+      transport:
+        continuous_sweep: continuous_sweep
+        sweep_domain: sweep_domain
+        speed: speed
+        averages: averages
+        averaging: averaging
+        set_speed: set_speed
+        set_averages: set_averages
+        set_averaging: set_averaging
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 4, default: 1, transport_parameter: false}
+        speed_step: {kind: range, integer: true, min: 1, max: 5, required: false, transport_parameter: false}
+        averages: {kind: range, integer: true, min: 1, max: 999, required: false, transport_parameter: false}
+        range_mode: {kind: enum, strict: false, transport_parameter: false, supported: false, required: false, reason: This profile does not expose manual measurement ranging.}
+        fixed_range_ohm: {kind: range, transport_parameter: false, supported: false, required: false, reason: This profile does not expose manual measurement ranging.}
+    get_excitation:
+      transport:
+        continuous_sweep: continuous_sweep
+        sweep_domain: sweep_domain
+        bias: bias
+        source_mode: source_mode
+        source_alc: source_alc
+        source_voltage: source_voltage
+        source_current: source_current
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 4, default: 1, transport_parameter: false}
+    configure_voltage_excitation:
+      transport:
+        continuous_sweep: continuous_sweep
+        sweep_domain: sweep_domain
+        bias: bias
+        source_mode: source_mode
+        source_alc: source_alc
+        source_voltage: source_voltage
+        source_current: source_current
+        set_voltage: set_voltage
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 4, default: 1, transport_parameter: false}
+        level_v_rms: {kind: range, min: 0.005, max: 1, unit: Vrms, transport_parameter: false}
+    get_fixture_correction:
+      transport:
+        correction_open: correction_open
+        correction_short: correction_short
+        correction_load: correction_load
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 4, default: 1, transport_parameter: false}
+
+    get_segmented_sweep:
+      transport:
+        transfer_format: transfer_format
+        continuous_sweep: continuous_sweep
+        sweep_domain: sweep_domain
+        segment_table: segment_table
+        segment_points: segment_points
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 4, default: 1, transport_parameter: false}
+    configure_frequency_segment:
+      transport:
+        transfer_format: transfer_format
+        continuous_sweep: continuous_sweep
+        sweep_domain: sweep_domain
+        segment_table: segment_table
+        segment_points: segment_points
+        bias: bias
+        min_frequency: min_frequency
+        max_frequency: max_frequency
+        set_segment_table: set_segment_table
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 4, default: 1, transport_parameter: false}
+        index: {kind: range, integer: true, min: 1, max: 201, transport_parameter: false}
+        start_hz: {kind: range, min: 20, max: 120000000, unit: Hz, transport_parameter: false}
+        stop_hz: {kind: range, min: 20, max: 120000000, unit: Hz, transport_parameter: false}
+        points: {kind: range, integer: true, min: 2, max: 1601, transport_parameter: false}
+        spacing:
+          kind: enum
+          default: linear
+          transport_parameter: false
+          options:
+            - {value: linear, label: Linear}
+
+    get_fixture_setup:
+      transport:
+        correction_open: correction_open
+        correction_short: correction_short
+        correction_load: correction_load
+        port_calibration: port_calibration
+        port_extension: port_extension
+        port_extension_time: port_extension_time
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 4, default: 1, transport_parameter: false}
+
+    read_fixture_standard:
+      transport:
+        transfer_format: transfer_format
+        continuous_sweep: continuous_sweep
+        port_calibration: port_calibration
+        correction_load: correction_load
+        correction_open: correction_open
+        correction_short: correction_short
+        user_count: user_count
+        user_frequency: user_frequency
+        fixture_open_count: fixture_open_count
+        fixture_open_frequency: fixture_open_frequency
+        fixture_open_values: fixture_open_values
+        user_open_values: user_open_values
+        fixture_short_count: fixture_short_count
+        fixture_short_frequency: fixture_short_frequency
+        fixture_short_values: fixture_short_values
+        user_short_values: user_short_values
+        fixture_load_count: fixture_load_count
+        fixture_load_frequency: fixture_load_frequency
+        fixture_load_values: fixture_load_values
+        user_load_values: user_load_values
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 4, default: 1, transport_parameter: false}
+        standard:
+          kind: enum
+          transport_parameter: false
+          options:
+            - {value: open, label: Open}
+            - {value: short, label: Short}
+            - {value: load, label: Load}
+        calibration_layer:
+          kind: enum
+          default: fixture
+          transport_parameter: false
+          options:
+            - {value: fixture, label: Fixture compensation}
+            - {value: user, label: User calibration}
+        spot: {kind: range, integer: true, required: false, supported: false, transport_parameter: false, reason: E4990A exposes complete stored arrays rather than SPOT slots.}
+
+    get_trace_limit_table:
+      transport:
+        transfer_format: transfer_format
+        continuous_sweep: continuous_sweep
+        sweep_domain: sweep_domain
+        math_mode: math_mode
+        expanded_phase: expanded_phase
+        phase_unit: phase_unit
+        trace: trace
+        parameter: parameter
+        limit_enabled: limit_enabled
+        limit_table: limit_table
+        limit_stim_offset: limit_stim_offset
+        limit_response_offset: limit_response_offset
+      parameters:
+        channel: {kind: range, integer: true, min: 1, max: 4, default: 1, transport_parameter: false}
+        parameter:
+          kind: enum
+          transport_parameter: false
+          options:
+            - {value: magnitude, label: Impedance magnitude, unit: "ohm"}
+            - {value: phase, label: Impedance phase, unit: "deg"}
+            - {value: resistance, label: Series resistance, unit: "ohm"}
+            - {value: reactance, label: Series reactance, unit: "ohm"}
+            - {value: series_inductance, label: Series inductance, unit: "H"}
+            - {value: parallel_inductance, label: Parallel inductance, unit: "H"}
+            - {value: series_capacitance, label: Series capacitance, unit: "F"}
+            - {value: parallel_capacitance, label: Parallel capacitance, unit: "F"}
+            - {value: quality_factor, label: Quality factor, unit: "1"}
+            - {value: dissipation_factor, label: Dissipation factor, unit: "1"}
+            - {value: admittance_magnitude, label: Admittance magnitude, unit: "S"}
+            - {value: admittance_phase, label: Admittance phase, unit: "deg"}
+            - {value: conductance, label: Conductance, unit: "S"}
+            - {value: susceptance, label: Susceptance, unit: "S"}
+            - {value: parallel_resistance, label: Parallel resistance, unit: "ohm"}

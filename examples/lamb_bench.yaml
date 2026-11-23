@@ -1,0 +1,30 @@
+# Example only: replace the host and confirm all instrument addresses before use.
+# Copy the microscope's complete resource_string from ptl camera discover.
+bench_name: LAMB station
+simulate: false
+
+devices:
+  prober:
+    profile: suss/PA200
+    address: GPIB0::1::INSTR
+    backend: {type: lamb, url: "http://your-lamb-host.example:8000"}
+  matrix:
+    profile: hp/HP4084B
+    address: GPIB0::22::INSTR
+    backend: {type: lamb, url: "http://your-lamb-host.example:8000"}
+  microscope:
+    profile: touptek/E3CMOS12000KPA
+    address: "<copy the complete resource_string from ptl camera discover>"
+    backend:
+      type: lamb
+      url: http://your-lamb-host.example:8000
+
+instruments:
+  dmm:
+    profile: agilent/3458A
+    address: GPIB0::12::INSTR
+    backend: {type: lamb, url: "http://your-lamb-host.example:8000"}
+  smu:
+    profile: hp/4142B
+    address: GPIB0::23::INSTR
+    backend: {type: lamb, url: "http://your-lamb-host.example:8000"}

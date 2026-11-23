@@ -11,6 +11,9 @@ Note: This example creates plots using matplotlib. The plots are saved to files
 rather than displayed, making it suitable for automated testing.
 """
 
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
 import numpy as np
 
 from pytestlab import Experiment
@@ -61,25 +64,11 @@ def main():
 
     # Generate the plot
     print("\n--- Generating Plot ---")
-    try:
-        fig = exp.plot(plot_spec)
-        print("  Plot generated successfully!")
-
-        # Save the plot to a file
-        output_file = "simple_plot.png"
+    fig = exp.plot(plot_spec)
+    with TemporaryDirectory(prefix="pytestlab-example-") as directory:
+        output_file = Path(directory) / "example.png"
         fig.savefig(output_file, dpi=150, bbox_inches="tight")
-        print(f"  Plot saved to: {output_file}")
-
-        # Clean up the plot file
-        import os
-
-        if os.path.exists(output_file):
-            os.remove(output_file)
-            print(f"  Cleaned up: {output_file}")
-
-    except Exception as e:
-        print(f"  Note: Plotting requires matplotlib: {e}")
-        print("  To install: pip install 'pytestlab[plot]'")
+        print(f"  Temporary PNG rendered ({output_file.stat().st_size} bytes).")
 
     print("\n" + "=" * 60)
     print("Plotting example completed successfully!")

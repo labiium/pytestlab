@@ -1,0 +1,144 @@
+manufacturer: hewlett-packard
+model: 4142B
+device_type: source_measure
+config_model: pytestlab.config.source_measure_config:SourceMeasureConfig
+driver: pytestlab.instruments.SourceMeasure:SourceMeasure
+role: source_measure
+protocol: HP-IB
+
+# The 4142B is modular. Installed source cards are deliberately not guessed;
+# provide qualified channel entries before enabling output operations.
+channels: []
+
+capabilities:
+  standard_commands: false
+  error_queue: false
+  status_byte: true
+  measurement_header: profile
+  channel_requirements:
+    channel_ids: [1, 2, 3, 4, 5, 6, 7, 8]
+    note: "Populate channels with the installed unit's rated voltage/current ranges."
+
+scpi:
+  queries:
+    identify:
+      template: "*IDN?"
+      response: {type: str}
+    measure_voltage:
+      template: "TV{channel}"
+      response:
+        type: raw
+        header_width: 3
+        value_start: 3
+        header_fields: [status, channel, measurement_type]
+        expected_measurement_type: V
+        status_map:
+          N: normal
+          T: transient
+          C: compliance
+          V: overrange
+          X: oscillating
+          F: unsettled
+        status_metadata:
+          N: {validity: valid}
+          T: {validity: transient}
+          C: {validity: compliance}
+          V: {validity: overrange}
+          X: {validity: oscillating}
+          F: {validity: unsettled}
+        compliance_statuses: [C]
+    measure_current:
+      template: "TI{channel}"
+      response:
+        type: raw
+        header_width: 3
+        value_start: 3
+        header_fields: [status, channel, measurement_type]
+        expected_measurement_type: I
+        status_map:
+          N: normal
+          T: transient
+          C: compliance
+          V: overrange
+          X: oscillating
+          F: unsettled
+        status_metadata:
+          N: {validity: valid}
+          T: {validity: transient}
+          C: {validity: compliance}
+          V: {validity: overrange}
+          X: {validity: oscillating}
+          F: {validity: unsettled}
+        compliance_statuses: [C]
+  commands:
+    force_voltage:
+      template: "DV {channel},{voltage_range_code},{voltage},{current_limit},{compliance_polarity}"
+      defaults: {voltage_range_code: 0, compliance_polarity: 0}
+      parameters:
+        channel: {kind: raw, description: "Configured source-measure channel."}
+        voltage_range_code: {kind: raw, description: "4142B output voltage range; 0 is auto ranging per HP-IB reference."}
+        voltage: {kind: raw, description: "Voltage source value in volts."}
+        current_limit: {kind: raw, description: "Current compliance in amperes."}
+        compliance_polarity: {kind: raw, description: "Compliance polarity mode; 0 is automatic per HP-IB reference."}
+    force_current:
+      template: "DI {channel},{current_range_code},{current},{voltage_compliance},{compliance_polarity}"
+      defaults: {current_range_code: 0, compliance_polarity: 0}
+      parameters:
+        channel: {kind: raw, description: "Configured source-measure channel."}
+        current_range_code: {kind: raw, description: "4142B output current range; 0 is auto ranging per HP-IB reference."}
+        current: {kind: raw, description: "Current source value in amperes."}
+        voltage_compliance: {kind: raw, description: "Voltage compliance in volts."}
+        compliance_polarity: {kind: raw, description: "Compliance polarity mode; 0 is automatic per HP-IB reference."}
+    output_on:
+      template: "CN{channel}"
+      parameters:
+        channel: {kind: raw, description: "Configured source-measure channel."}
+    output_off:
+      template: "CL{channel}"
+      parameters:
+        channel: {kind: raw, description: "Configured source-measure channel."}
+
+operation_options:
+  id:
+    transport: {query: identify}
+  set_voltage:
+    transport: {write: force_voltage}
+    parameters:
+      channel: &channel_parameter
+        kind: range
+        min: 1
+        max: 8
+        integer: true
+        transport_parameter: false
+        description: Must also name an installed channel configured in this bench.
+      voltage: {kind: range, unit: V, transport_parameter: false}
+  set_current:
+    transport: {write: force_voltage}
+    parameters:
+      channel: *channel_parameter
+      current_limit: {kind: range, unit: A, transport_parameter: false}
+  force_current:
+    transport: {write: force_current}
+    parameters:
+      channel: *channel_parameter
+      current: {kind: range, unit: A, transport_parameter: false}
+      voltage_compliance: {kind: range, unit: V, transport_parameter: false}
+  output:
+    transport: {enable: output_on, disable: output_off}
+    parameters:
+      channel: *channel_parameter
+      state:
+        kind: bool
+        transport_parameter: false
+        default: true
+        options:
+          - {value: true, label: Enable, transport: {value: true}}
+          - {value: false, label: Disable, transport: {value: false}}
+  read_voltage:
+    transport: {query: measure_voltage}
+    parameters:
+      channel: *channel_parameter
+  read_current:
+    transport: {query: measure_current}
+    parameters:
+      channel: *channel_parameter

@@ -142,7 +142,7 @@ def demo_key_info():
             print(f"Fingerprint: {info['fingerprint']}")
     except ImportError:
         print("cryptography library not installed")
-        print("Install with: pip install pytestlab[secure]")
+        print("Reinstall PyTestLab with its standard dependencies (cryptography is included).")
 
 
 if __name__ == "__main__":

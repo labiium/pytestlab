@@ -2,7 +2,7 @@
 manufacturer: Keysight
 model: E5071C
 device_type: vna
-address: "TCPIP0::localhost::inst1::INSTR" # Example address for simulation
+role: measurement
 
 # Optional fields from VNAConfig with example values
 s_parameters: ["S11", "S21"]
@@ -11,3 +11,565 @@ stop_frequency: 8.5e9 # 8.5 GHz
 num_points: 201
 if_bandwidth: 10e3 # 10 kHz
 power_level: -5 # -5 dBm
+
+# Enable the shared resource transaction lock without adding command pacing.
+transport:
+  min_command_interval_s: 0
+
+readback:
+  channel: 1
+  minimum_firmware: A.09.60
+  max_traces: 16
+  max_points: 20001
+
+scpi:
+  commands:
+    reset:
+      template: "*RST"
+    clear:
+      template: "*CLS"
+    opc:
+      template: "*OPC"
+    define_sparameter:
+      template: ':CALC{channel}:PAR{index}:DEF {s_parameter}'
+      validators:
+        channel: {min: 1, max: 36}
+        index: {min: 1, max: 16}
+      parameters:
+        s_parameter:
+          kind: enum
+          strict: true
+          choices:
+            - {value: s11, token: "S11", label: "S11", aliases: [S11]}
+            - {value: s12, token: "S12", label: "S12", aliases: [S12]}
+            - {value: s21, token: "S21", label: "S21", aliases: [S21]}
+            - {value: s22, token: "S22", label: "S22", aliases: [S22]}
+    set_sweep_type:
+      template: ":SENS{channel}:SWE:TYPE {mode}"
+      validators:
+        channel: {min: 1, max: 36}
+      parameters:
+        mode:
+          kind: enum
+          strict: true
+          choices:
+            - {value: linear, token: LIN}
+            - {value: log, token: LOG}
+    set_start_frequency:
+      template: ":SENS{channel}:FREQ:STAR {frequency}"
+      validators:
+        channel: {min: 1, max: 36}
+        frequency: {min: 9e3, max: 20e9}
+    set_stop_frequency:
+      template: ":SENS{channel}:FREQ:STOP {frequency}"
+      validators:
+        channel: {min: 1, max: 36}
+        frequency: {min: 9e3, max: 20e9}
+    set_points:
+      template: ":SENS{channel}:SWE:POIN {points}"
+      validators:
+        channel: {min: 1, max: 36}
+        points: {min: 2, max: 20001}
+    set_if_bandwidth:
+      template: ":SENS{channel}:BWID {bandwidth}"
+      validators:
+        channel: {min: 1, max: 36}
+        bandwidth: {min: 10, max: 1.5e6}
+    set_power_level:
+      template: ":SOUR{channel}:POW {power}"
+      validators:
+        channel: {min: 1, max: 36}
+        power: {min: -85, max: 10}
+    set_vna_trace_count:
+      template: ":CALC{channel}:PAR:COUN {count}"
+      validators:
+        channel: {min: 1, max: 36}
+        count: {min: 1, max: 16}
+    fresh_arm:
+      template: ":INIT1"
+    fresh_trigger:
+      template: ":TRIG:SING"
+    fresh_abort:
+      template: ":ABOR"
+  queries:
+    inventory_channels: {template: ":SERV:CHAN:COUN?"}
+    inventory_traces: {template: ":SERV:CHAN:TRAC:COUN?"}
+    inventory_points: {template: ":SERV:SWE:POIN?"}
+    inventory_active_channel: {template: ":SERV:CHAN:ACT?"}
+    segment_table: {template: ":SENS{channel}:SEGM:DATA?", validators: {channel: {min: 1, max: 36}}}
+    segment_state_control: {template: ":SENS{channel}:SEGM:LIST:CONT:STAT?", validators: {channel: {min: 1, max: 36}}}
+    segment_row_states: {template: ":SENS{channel}:SEGM:LIST:CONT:DATA?", validators: {channel: {min: 1, max: 36}}}
+    segment_arbitrary: {template: ":SENS{channel}:SEGM:ARB:STAT?", validators: {channel: {min: 1, max: 36}}}
+    marker_state: {template: ":CALC{channel}:TRAC{trace}:MARK{marker}:STAT?", validators: {channel: {min: 1, max: 36}, trace: {min: 1, max: 16}, marker: {min: 1, max: 9}}}
+    marker_format: {template: ":CALC{channel}:TRAC{trace}:FORM?", validators: {channel: {min: 1, max: 36}, trace: {min: 1, max: 16}}}
+    marker_display_data: {template: ":DISP:WIND{channel}:TRAC{trace}:STAT?", validators: {channel: {min: 1, max: 36}, trace: {min: 1, max: 16}}}
+    marker_display_memory: {template: ":DISP:WIND{channel}:TRAC{trace}:MEM?", validators: {channel: {min: 1, max: 36}, trace: {min: 1, max: 16}}}
+    marker_time_transform: {template: ":CALC{channel}:TRAC{trace}:TRAN:TIME:STAT?", validators: {channel: {min: 1, max: 36}, trace: {min: 1, max: 16}}}
+    marker_conversion: {template: ":CALC{channel}:TRAC{trace}:CONV:STAT?", validators: {channel: {min: 1, max: 36}, trace: {min: 1, max: 16}}}
+    marker_reference: {template: ":CALC{channel}:TRAC{trace}:MARK:REF:STAT?", validators: {channel: {min: 1, max: 36}, trace: {min: 1, max: 16}}}
+    marker_equation: {template: ":CALC{channel}:TRAC{trace}:EQU:STAT?", validators: {channel: {min: 1, max: 36}, trace: {min: 1, max: 16}}}
+    marker_data: {template: ":CALC{channel}:TRAC{trace}:MARK{marker}:DATA?", validators: {channel: {min: 1, max: 36}, trace: {min: 1, max: 16}, marker: {min: 1, max: 9}}}
+    context_port_extension: {template: ":SENS{channel}:CORR:EXT:STAT?", validators: {channel: {min: 1, max: 36}}}
+    context_identify: {template: "*IDN?"}
+    context_ports: {template: ":SERV:PORT:COUN?"}
+    context_continuous: {template: ":INIT{channel}:CONT?", validators: {channel: {min: 1, max: 36}}}
+    context_sweep_type: {template: ":SENS{channel}:SWE:TYPE?", validators: {channel: {min: 1, max: 36}}}
+    context_start_hz: {template: ":SENS{channel}:FREQ:STAR?", validators: {channel: {min: 1, max: 36}}}
+    context_stop_hz: {template: ":SENS{channel}:FREQ:STOP?", validators: {channel: {min: 1, max: 36}}}
+    context_points: {template: ":SENS{channel}:SWE:POIN?", validators: {channel: {min: 1, max: 36}}}
+    context_if_bandwidth: {template: ":SENS{channel}:BWID?", validators: {channel: {min: 1, max: 36}}}
+    context_average: {template: ":SENS{channel}:AVER?", validators: {channel: {min: 1, max: 36}}}
+    context_average_count: {template: ":SENS{channel}:AVER:COUN?", validators: {channel: {min: 1, max: 36}}}
+    context_frequency_offset: {template: ":SENS{channel}:OFFS:STAT?", validators: {channel: {min: 1, max: 36}}}
+    context_fixture_simulator: {template: ":CALC{channel}:FSIM:STAT?", validators: {channel: {min: 1, max: 36}}}
+    context_trace_count: {template: ":CALC{channel}:PAR:COUN?", validators: {channel: {min: 1, max: 36}}}
+    context_trace_identity: {template: ":CALC{channel}:PAR{index}:DEF?", validators: {channel: {min: 1, max: 36}, index: {min: 1, max: 16}}}
+    context_trace_correction: {template: ":SENS{channel}:CORR:TYPE{index}?", validators: {channel: {min: 1, max: 36}, index: {min: 1, max: 16}}}
+    context_status: {template: "*STB?"}
+    context_condition: {template: ":STAT:OPER:COND?"}
+    context_format: {template: ":FORM:DATA?"}
+    context_options: {template: "*OPT?"}
+    context_reference_ohms: {template: ":SENS:CORR:IMP:INP:MAGN?"}
+    fresh_shift_lo:
+      template: ":SENS1:SWE:SLOC:STAT?"
+    fresh_trace_live:
+      template: ":DISP:WIND1:TRAC{trace}:STAT?"
+      validators:
+        trace: {min: 1, max: 4}
+    fresh_trace_conversion:
+      template: ":CALC1:TRAC{trace}:CONV:STAT?"
+      validators:
+        trace: {min: 1, max: 4}
+    fresh_trace_gating:
+      template: ":CALC1:TRAC{trace}:FILT:GATE:TIME:STAT?"
+      validators:
+        trace: {min: 1, max: 4}
+    fresh_identify:
+      template: "*IDN?"
+    fresh_options:
+      template: "*OPT?"
+    fresh_status:
+      template: "*STB?"
+    fresh_condition:
+      template: ":STAT:OPER:COND?"
+    fresh_points:
+      template: ":SENS1:SWE:POIN?"
+    fresh_trace_count:
+      template: ":CALC1:PAR:COUN?"
+    fresh_trace_identity:
+      template: ":CALC1:PAR{trace}:DEF?"
+      validators:
+        trace: {min: 1, max: 4}
+    fresh_trace_correction:
+      template: ":SENS1:CORR:TYPE{trace}?"
+      validators:
+        trace: {min: 1, max: 4}
+    fresh_trace_time_transform:
+      template: ":CALC1:TRAC{trace}:TRAN:TIME:STAT?"
+      validators:
+        trace: {min: 1, max: 4}
+    fresh_trace_equation:
+      template: ":CALC1:TRAC{trace}:EQU:STAT?"
+      validators:
+        trace: {min: 1, max: 4}
+    fresh_trace_hold:
+      template: ":CALC1:TRAC{trace}:HOLD:TYPE?"
+      validators:
+        trace: {min: 1, max: 4}
+    fresh_trace_math:
+      template: ":CALC1:TRAC{trace}:MATH:FUNC?"
+      validators:
+        trace: {min: 1, max: 4}
+    fresh_frequency_stimulus:
+      template: ":SENS1:FREQ:DATA?"
+    fresh_start_frequency:
+      template: ":SENS1:FREQ:STAR?"
+    fresh_stop_frequency:
+      template: ":SENS1:FREQ:STOP?"
+    fresh_source_power:
+      template: ":SOUR1:POW?"
+    fresh_completion:
+      template: "*OPC?"
+    fresh_port_count:
+      template: ":SERV:PORT:COUN?"
+    fresh_channel_limit:
+      template: ":SERV:CHAN:COUN?"
+    fresh_continuous:
+      template: ":INIT1:CONT?"
+    fresh_trigger_source:
+      template: ":TRIG:SOUR?"
+    fresh_point_trigger:
+      template: ":TRIG:POIN?"
+    fresh_trigger_output:
+      template: ":TRIG:OUTP:STAT?"
+    fresh_averaging_trigger:
+      template: ":TRIG:AVER?"
+    fresh_averaging:
+      template: ":SENS1:AVER?"
+    fresh_rf_output:
+      template: ":OUTP?"
+    fresh_format:
+      template: ":FORM:DATA?"
+    fresh_sweep_type:
+      template: ":SENS1:SWE:TYPE?"
+    fresh_sweep_generation:
+      template: ":SENS1:SWE:GEN?"
+    fresh_fixture_simulator:
+      template: ":CALC1:FSIM:STAT?"
+    fresh_frequency_offset:
+      template: ":SENS1:OFFS:STAT?"
+    fresh_external_lo:
+      template: ":SENS1:OFFS:LOC:STAT?"
+    fresh_external_source_control:
+      template: ":SENS1:OFFS:LOC:CONT?"
+    fresh_external_test_set:
+      template: ":SYST:TSET?"
+    fresh_multiplexer_1:
+      template: ":SENS:MULT1:STAT?"
+    fresh_multiplexer_2:
+      template: ":SENS:MULT2:STAT?"
+    fresh_coupled_power:
+      template: ":SOUR1:POW:PORT:COUP?"
+    fresh_power_slope:
+      template: ":SOUR1:POW:SLOP:STAT?"
+    fresh_port_1_source_correction:
+      template: ":SOUR1:POW:PORT1:CORR?"
+    fresh_port_1_loss_compensation:
+      template: ":SOUR1:POW:PORT1:CORR:COLL:TABL:LOSS?"
+    fresh_port_2_source_correction:
+      template: ":SOUR1:POW:PORT2:CORR?"
+    fresh_port_2_loss_compensation:
+      template: ":SOUR1:POW:PORT2:CORR:COLL:TABL:LOSS?"
+    sweep_start_frequency:
+      template: ":SENS{channel}:FREQ:STAR?"
+      validators:
+        channel: {min: 1, max: 36}
+    sweep_stop_frequency:
+      template: ":SENS{channel}:FREQ:STOP?"
+      validators:
+        channel: {min: 1, max: 36}
+    sweep_if_bandwidth:
+      template: ":SENS{channel}:BWID?"
+      validators:
+        channel: {min: 1, max: 36}
+    sweep_power_coupled:
+      template: ":SOUR{channel}:POW:PORT:COUP?"
+      validators:
+        channel: {min: 1, max: 36}
+    sweep_power_level:
+      template: ":SOUR{channel}:POW?"
+      validators:
+        channel: {min: 1, max: 36}
+    sweep_rf_output:
+      template: ":OUTP?"
+    sweep_error_correction:
+      template: ":SENS{channel}:CORR:STAT?"
+      validators:
+        channel: {min: 1, max: 36}
+    identify:
+      template: "*IDN?"
+      response: {type: str}
+    get_error:
+      template: "SYST:ERR?"
+      response: {type: str}
+    opc_query:
+      template: "*OPC?"
+      response: {type: str}
+    esr_query:
+      template: "*ESR?"
+      response: {type: str}
+    readback_status_byte:
+      template: "*STB?"
+    readback_condition:
+      template: ":STAT:OPER:COND?"
+    readback_continuous:
+      template: ":INIT{channel}:CONT?"
+      validators:
+        channel: {min: 1, max: 36}
+    readback_data_format:
+      template: ":FORM:DATA?"
+    readback_sweep_type:
+      template: ":SENS{channel}:SWE:TYPE?"
+      validators:
+        channel: {min: 1, max: 36}
+    readback_frequency_span:
+      template: ":SENS{channel}:FREQ:SPAN?"
+      validators:
+        channel: {min: 1, max: 36}
+    readback_frequency_offset:
+      template: ":SENS{channel}:OFFS:STAT?"
+      validators:
+        channel: {min: 1, max: 36}
+    readback_fixture_simulator:
+      template: ":CALC{channel}:FSIM:STAT?"
+      validators:
+        channel: {min: 1, max: 36}
+    readback_points:
+      template: ":SENS{channel}:SWE:POIN?"
+      validators:
+        channel: {min: 1, max: 36}
+    readback_trace_count:
+      template: ":CALC{channel}:PAR:COUN?"
+      validators:
+        channel: {min: 1, max: 36}
+    readback_trace_identity:
+      template: ":CALC{channel}:PAR{trace}:DEF?"
+      validators:
+        channel: {min: 1, max: 36}
+        trace: {min: 1, max: 16}
+    readback_trace_equation:
+      template: ":CALC{channel}:TRAC{trace}:EQU:STAT?"
+      validators:
+        channel: {min: 1, max: 36}
+        trace: {min: 1, max: 16}
+    readback_trace_time_transform:
+      template: ":CALC{channel}:TRAC{trace}:TRAN:TIME:STAT?"
+      validators:
+        channel: {min: 1, max: 36}
+        trace: {min: 1, max: 16}
+    readback_trace_axis:
+      template: ":CALC{channel}:TRAC{trace}:DATA:XAX?"
+      validators:
+        channel: {min: 1, max: 36}
+        trace: {min: 1, max: 16}
+    readback_trace_data:
+      template: ":CALC{channel}:TRAC{trace}:DATA:SDAT?"
+      validators:
+        channel: {min: 1, max: 36}
+        trace: {min: 1, max: 16}
+
+operation_options:
+  operations:
+    sparameter_sweep_setup:
+      transport:
+        trace_count: set_vna_trace_count
+        set_sweep_type: set_sweep_type
+        set_start_frequency: set_start_frequency
+        set_stop_frequency: set_stop_frequency
+        set_points: set_points
+        set_if_bandwidth: set_if_bandwidth
+        set_power_level: set_power_level
+        define_sparameter: define_sparameter
+      parameters:
+        sweep_type:
+          kind: enum
+          bindings:
+          - alias: set_sweep_type
+            parameter: mode
+          options:
+          - value: linear
+            label: Linear
+            transport: {value: LIN}
+          - value: log
+            label: Logarithmic
+            transport: {value: LOG}
+        num_points:
+          kind: range
+          min: 2
+          max: 20001
+          bindings:
+          - alias: set_points
+            parameter: points
+        if_bandwidth:
+          kind: range
+          min: 10
+          max: 1.5e6
+          bindings:
+          - alias: set_if_bandwidth
+            parameter: bandwidth
+        power_level:
+          kind: range
+          min: -85
+          max: 10
+          bindings:
+          - alias: set_power_level
+            parameter: power
+        s_params:
+          kind: enum
+          bindings:
+          - alias: define_sparameter
+            parameter: s_parameter
+          options:
+          - value: s11
+            label: S11
+            aliases:
+            - S11
+            transport:
+              value: S11
+          - value: s12
+            label: S12
+            aliases:
+            - S12
+            transport:
+              value: S12
+          - value: s21
+            label: S21
+            aliases:
+            - S21
+            transport:
+              value: S21
+          - value: s22
+            label: S22
+            aliases:
+            - S22
+            transport:
+              value: S22
+        start_freq:
+          kind: range
+          min: 9e3
+          max: 20e9
+          bindings:
+          - alias: set_start_frequency
+            parameter: frequency
+        stop_freq:
+          kind: range
+          min: 9e3
+          max: 20e9
+          bindings:
+          - alias: set_stop_frequency
+            parameter: frequency
+    sparameter_data:
+      transport:
+        identify: identify
+        status_byte: readback_status_byte
+        condition: readback_condition
+        continuous: readback_continuous
+        data_format: readback_data_format
+        sweep_type: readback_sweep_type
+        frequency_span: readback_frequency_span
+        frequency_offset: readback_frequency_offset
+        fixture_simulator: readback_fixture_simulator
+        points: readback_points
+        trace_count: readback_trace_count
+        trace_identity: readback_trace_identity
+        trace_equation: readback_trace_equation
+        trace_time_transform: readback_trace_time_transform
+        trace_axis: readback_trace_axis
+        trace_data: readback_trace_data
+      parameters:
+        include_context: {kind: bool, default: false, required: false, transport_parameter: false, options: [{value: false}, {value: true}], description: Observe per-port reference impedance and indexed trace correction}
+    sparameter_sweep_settings:
+      transport:
+        start_freq: sweep_start_frequency
+        stop_freq: sweep_stop_frequency
+        if_bandwidth: sweep_if_bandwidth
+        power_coupled: sweep_power_coupled
+        power_level: sweep_power_level
+        rf_output: sweep_rf_output
+        correction: sweep_error_correction
+    sparameter_sweep_acquire:
+      transport:
+        identify: fresh_identify
+        options: fresh_options
+        status: fresh_status
+        condition: fresh_condition
+        points: fresh_points
+        trace_count: fresh_trace_count
+        trace_identity: fresh_trace_identity
+        trace_correction: fresh_trace_correction
+        trace_time_transform: fresh_trace_time_transform
+        trace_equation: fresh_trace_equation
+        trace_hold: fresh_trace_hold
+        trace_math: fresh_trace_math
+        start_frequency: fresh_start_frequency
+        frequency_stimulus: fresh_frequency_stimulus
+        stop_frequency: fresh_stop_frequency
+        source_power: fresh_source_power
+        completion: fresh_completion
+        port_count: fresh_port_count
+        channel_limit: fresh_channel_limit
+        continuous: fresh_continuous
+        trigger_source: fresh_trigger_source
+        point_trigger: fresh_point_trigger
+        trigger_output: fresh_trigger_output
+        averaging_trigger: fresh_averaging_trigger
+        averaging: fresh_averaging
+        rf_output: fresh_rf_output
+        format: fresh_format
+        sweep_type: fresh_sweep_type
+        sweep_generation: fresh_sweep_generation
+        fixture_simulator: fresh_fixture_simulator
+        frequency_offset: fresh_frequency_offset
+        external_lo: fresh_external_lo
+        external_source_control: fresh_external_source_control
+        external_test_set: fresh_external_test_set
+        multiplexer_1: fresh_multiplexer_1
+        multiplexer_2: fresh_multiplexer_2
+        coupled_power: fresh_coupled_power
+        power_slope: fresh_power_slope
+        port_1_source_correction: fresh_port_1_source_correction
+        port_1_loss_compensation: fresh_port_1_loss_compensation
+        port_2_source_correction: fresh_port_2_source_correction
+        port_2_loss_compensation: fresh_port_2_loss_compensation
+        arm: fresh_arm
+        trigger: fresh_trigger
+        abort: fresh_abort
+        trace_gating: fresh_trace_gating
+        trace_conversion: fresh_trace_conversion
+        trace_live: fresh_trace_live
+        shift_lo: fresh_shift_lo
+    vna_inventory:
+      transport:
+        identify: context_identify
+        continuous: context_continuous
+        ports: context_ports
+        max_channels: inventory_channels
+        max_traces: inventory_traces
+        max_points: inventory_points
+        active_channel: inventory_active_channel
+        trace_count: context_trace_count
+        status: context_status
+        condition: context_condition
+        options: context_options
+      parameters: {}
+    sparameter_segment_table:
+      transport:
+        identify: context_identify
+        continuous: context_continuous
+        sweep_type: context_sweep_type
+        table: segment_table
+        status: context_status
+        condition: context_condition
+        format: context_format
+        state_control: segment_state_control
+        row_states: segment_row_states
+        arbitrary: segment_arbitrary
+      parameters: {}
+    sparameter_channel_context:
+      transport:
+        port_extension: context_port_extension
+        identify: context_identify
+        ports: context_ports
+        continuous: context_continuous
+        sweep_type: context_sweep_type
+        start_hz: context_start_hz
+        stop_hz: context_stop_hz
+        points: context_points
+        if_bandwidth: context_if_bandwidth
+        average: context_average
+        average_count: context_average_count
+        frequency_offset: context_frequency_offset
+        fixture_simulator: context_fixture_simulator
+        trace_count: context_trace_count
+        trace_identity: context_trace_identity
+        trace_correction: context_trace_correction
+        status: context_status
+        condition: context_condition
+        format: context_format
+        options: context_options
+        reference_ohms: context_reference_ohms
+      parameters: {}
+    sparameter_frequency_marker:
+      transport:
+        state: marker_state
+        format: marker_format
+        display_data: marker_display_data
+        display_memory: marker_display_memory
+        time_transform: marker_time_transform
+        conversion: marker_conversion
+        reference: marker_reference
+        equation: marker_equation
+        data: marker_data
+      parameters:
+        trace: {kind: range, integer: true, min: 1, max: 16, transport_parameter: false}
+        marker: {kind: range, integer: true, min: 1, max: 9, default: 1, required: false, transport_parameter: false}

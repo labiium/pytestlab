@@ -4,14 +4,20 @@ Integration tests for the replay system CLI commands.
 
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import click.exceptions
 import pytest
 import yaml
+from typer.testing import CliRunner
 
+from pytestlab.cli import app
 from pytestlab.cli import replay_record
 from pytestlab.cli import replay_run
+from pytestlab.config.bench_config import DeviceEntry
+from pytestlab.config.loader import resolve_profile_key_to_path
+from pytestlab.devices import AutoDevice
 from pytestlab.errors import ReplayMismatchError
 
 
@@ -129,40 +135,74 @@ class TestReplayRecord:
         output_file = tempfile.mktemp(suffix=".yaml")
 
         try:
-            # Mock the Bench.open to return a mock bench
+
             class MockInstrument:
-                def __init__(self, responses=None):
-                    self.responses = responses or {}
-                    self.commands = []
+                def __init__(self):
+                    self._backend = SimpleNamespace(
+                        query=lambda command: {
+                            "*IDN?": "Keysight Technologies,EDU36311A,Test",
+                            "MEAS:VOLT? (@1)": "+9.99749000E-01",
+                        }[command],
+                        write=lambda command: None,
+                        query_raw=lambda command: b"",
+                    )
 
                 def id(self):
-                    return self.responses.get("*IDN?", "Mock Instrument")
+                    return self._backend.query("*IDN?")
 
                 def set_current(self, channel, current):
-                    self.commands.append(f"CURR {current}, (@{channel})")
+                    self._backend.write(f"CURR {current}, (@{channel})")
 
                 def output(self, channel, state):
                     state_str = "ON" if state else "OFF"
-                    self.commands.append(f"OUTP:STAT {state_str}, (@{channel})")
+                    self._backend.write(f"OUTP:STAT {state_str}, (@{channel})")
 
                 def set_voltage(self, channel, voltage):
-                    self.commands.append(f"VOLT {voltage}, (@{channel})")
+                    self._backend.write(f"VOLT {voltage}, (@{channel})")
 
                 def read_voltage(self, channel):
-                    return 0.999749
+                    return self._backend.query(f"MEAS:VOLT? (@{channel})")
 
             class MockBench:
                 def __init__(self):
-                    self.psu = MockInstrument({"*IDN?": "Keysight Technologies,EDU36311A,Test"})
+                    self.psu = MockInstrument()
+                    self.devices = {"psu": self.psu}
+                    self._config = SimpleNamespace(
+                        devices={
+                            "psu": DeviceEntry(profile="keysight/EDU36311A"),
+                        },
+                        instruments={},
+                    )
+                    self.closed = False
 
-            # Mock Bench.open
-            with patch("pytestlab.bench.Bench.open", return_value=MockBench()):
-                # Test that the function can be called without errors
-                # Note: Full integration testing would require actual instrument backends
-                # Here we test the command structure and argument parsing
+                def close_all(self):
+                    self.closed = True
 
-                # This would normally run the recording, but we mock it to avoid dependencies
-                pass
+            bench = MockBench()
+            with patch("pytestlab.bench.Bench.open", return_value=bench):
+                replay_record(simple_test_script, temp_bench_file, output_file)
+
+            assert bench.closed is True
+            recorded = yaml.safe_load(Path(output_file).read_text())
+            assert recorded["psu"]["profile"] == "keysight/EDU36311A"
+            assert [
+                {key: value for key, value in entry.items() if key != "timestamp"}
+                for entry in recorded["psu"]["log"]
+            ] == [
+                {
+                    "type": "query",
+                    "command": "*IDN?",
+                    "response": "Keysight Technologies,EDU36311A,Test",
+                },
+                {"type": "write", "command": "CURR 0.1, (@1)"},
+                {"type": "write", "command": "OUTP:STAT ON, (@1)"},
+                {"type": "write", "command": "VOLT 1.0, (@1)"},
+                {
+                    "type": "query",
+                    "command": "MEAS:VOLT? (@1)",
+                    "response": "+9.99749000E-01",
+                },
+            ]
 
         finally:
             Path(output_file).unlink(missing_ok=True)
@@ -189,9 +229,6 @@ class TestReplayRun:
 
     def test_replay_run_successful(self, simple_test_script, temp_session_file):
         """Test successful replay run."""
-        # This test verifies the replay mechanism works with proper session data
-
-        # Create a script that matches the session data exactly
         exact_script_content = '''#!/usr/bin/env python3
 """Script that exactly matches session data."""
 
@@ -207,9 +244,6 @@ def main(bench):
     voltage = psu._backend.query('MEAS:VOLT? (@1)')
 
     return {"psu_id": psu_id, "voltage": voltage}
-
-if __name__ == "__main__":
-    print("Use with pytestlab replay commands")
 '''
 
         exact_script_file = tempfile.mktemp(suffix=".py")
@@ -217,34 +251,34 @@ if __name__ == "__main__":
             f.write(exact_script_content)
 
         try:
-            # Mock the bench to use ReplayBackend
+
             class MockReplayInstrument:
                 def __init__(self, backend):
                     self._backend = backend
+                    self.closed = False
 
-            class MockReplayBench:
-                def __init__(self, session_file):
-                    from pytestlab.instruments.backends.replay_backend import ReplayBackend
+                def connect_backend(self):
+                    self._backend.connect()
 
-                    psu_backend = ReplayBackend(session_file, "psu")
-                    self.psu = MockReplayInstrument(psu_backend)
+                def close(self):
+                    self.closed = True
+                    self._backend.close()
 
-            # Test that the ReplayBackend can be set up correctly with session data
-            # This verifies the core replay functionality works
-            from pytestlab.instruments.backends.replay_backend import ReplayBackend
+            created_devices = []
 
-            backend = ReplayBackend(temp_session_file, "psu")
+            def from_config(config_source, backend_override):
+                assert config_source == "keysight/EDU36311A"
+                device = MockReplayInstrument(backend_override)
+                created_devices.append(device)
+                return device
 
-            # Verify it can replay the exact sequence from the session
-            idn = backend.query("*IDN?")
-            assert idn == "Keysight Technologies,EDU36311A,CN61130056,K-01.08.03-01.00-01.08-02.00"
+            with patch("pytestlab.devices.AutoDevice.from_config", side_effect=from_config):
+                replay_run(exact_script_file, temp_session_file)
 
-            backend.write("CURR 0.1, (@1)")
-            backend.write("OUTP:STAT ON, (@1)")
-            backend.write("VOLT 1.0, (@1)")
-
-            voltage = backend.query("MEAS:VOLT? (@1)")
-            assert voltage == "+9.99749200E-01"
+            assert len(created_devices) == 1
+            replay_backend = created_devices[0]._backend
+            assert replay_backend._step == len(replay_backend._log)
+            assert created_devices[0].closed is True
 
         finally:
             Path(exact_script_file).unlink(missing_ok=True)
@@ -397,32 +431,21 @@ if __name__ == "__main__":
 
     def test_error_handling_in_cli(self):
         """Test error handling in CLI commands."""
-        # Test various error conditions that CLI should handle gracefully
-
-        # Test 1: Invalid Python script
-        invalid_script = tempfile.mktemp(suffix=".py")
-        with open(invalid_script, "w") as f:
-            f.write("invalid python syntax <<<")
-
-        try:
-            # CLI should handle syntax errors gracefully
-            # (This would be tested in actual CLI integration)
-            pass
-        finally:
-            Path(invalid_script).unlink(missing_ok=True)
-
-        # Test 2: Script without main() function
         no_main_script = tempfile.mktemp(suffix=".py")
+        temp_session = tempfile.mktemp(suffix=".yaml")
         with open(no_main_script, "w") as f:
             f.write('print("No main function")')
+        with open(temp_session, "w") as f:
+            yaml.safe_dump({"psu": {"profile": "keysight/EDU36311A", "log": []}}, f)
 
         try:
-            # CLI should detect missing main() function
-            pass
+            with pytest.raises(click.exceptions.Exit) as exc_info:
+                replay_run(no_main_script, temp_session)
+            assert exc_info.value.exit_code == 1
         finally:
             Path(no_main_script).unlink(missing_ok=True)
+            Path(temp_session).unlink(missing_ok=True)
 
-        # Test 3: Malformed session file
         malformed_session = tempfile.mktemp(suffix=".yaml")
         with open(malformed_session, "w") as f:
             f.write("invalid: yaml: content: [")
@@ -430,7 +453,8 @@ if __name__ == "__main__":
         try:
             # CLI should handle YAML parsing errors
             with pytest.raises(yaml.YAMLError):
-                yaml.safe_load(open(malformed_session))
+                with open(malformed_session) as f:
+                    yaml.safe_load(f)
         finally:
             Path(malformed_session).unlink(missing_ok=True)
 
@@ -552,3 +576,53 @@ def test_replay_backend_with_cli_workflow():
 
     finally:
         Path(session_file).unlink(missing_ok=True)
+
+
+@pytest.mark.parametrize("source_kind", ["named", "exported", "custom_relative"])
+def test_simulated_record_and_replay_preserves_profile_source(tmp_path, monkeypatch, source_kind):
+    def forbid_cdn(*_args, **_kwargs):
+        pytest.fail("record/replay must not look up these profiles on the network")
+
+    monkeypatch.setattr(AutoDevice, "get_config_from_cdn", forbid_cdn)
+    bench_dir = tmp_path / "bench"
+    bench_dir.mkdir()
+    bench = bench_dir / "bench.yaml"
+    profile_key = "keysight/34470A"
+    entry = {"profile": profile_key}
+    expected_profile = profile_key
+    if source_kind == "custom_relative":
+        local_profile = bench_dir / "meter.yaml"
+        local_profile.write_bytes(resolve_profile_key_to_path(profile_key).read_bytes())
+        entry = {"file": local_profile.name}
+        expected_profile = str(local_profile)
+    bench.write_text(
+        yaml.safe_dump(
+            {"bench_name": "Replay demo", "simulate": True, "instruments": {"dmm": entry}}
+        )
+    )
+    script = tmp_path / "measure.py"
+    script.write_text(
+        'def main(bench):\n    reading = bench.dmm.measure("dc_voltage")\n'
+        '    print(f"reading={reading.values.nominal:.3f} {reading.units}")\n'
+    )
+    session = tmp_path / "session.yaml"
+    runner = CliRunner()
+    monkeypatch.chdir(tmp_path)
+    if source_kind == "exported":
+        export = bench_dir / "bench.sim.yaml"
+        result = runner.invoke(app, ["bench", "sim", str(bench), "--output-path", str(export)])
+        assert result.exit_code == 0, result.output
+        assert "file" in yaml.safe_load(export.read_text())["instruments"]["dmm"]
+        bench = export
+    result = runner.invoke(
+        app, ["replay", "record", str(script), "--bench", str(bench), "--output", str(session)]
+    )
+    assert result.exit_code == 0, result.output
+    assert "reading=0.000 V" in result.output
+    dmm_session = yaml.safe_load(session.read_text())["dmm"]
+    assert dmm_session["profile"] == expected_profile
+    assert dmm_session["log"]
+
+    result = runner.invoke(app, ["replay", "run", str(script), "--session", str(session)])
+    assert result.exit_code == 0, result.output
+    assert "reading=0.000 V" in result.output

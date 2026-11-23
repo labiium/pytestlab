@@ -1,0 +1,46 @@
+device_type: multimeter
+role: measurement
+manufacturer: Test
+model: FixtureDMM
+measurement_functions:
+  dc_voltage:
+    label: DC voltage
+    unit: V
+    transport:
+      function_token: "VOLT:DC"
+      measure_alias: measure
+    ranges:
+      - nominal_V: 10.0
+        resolution: 0.001
+        accuracy:
+          model: expression
+          expression: 0.01*reading + 0.001*range
+          distribution: standard
+scpi:
+  queries:
+    get_error:
+      template: "SYSTem:ERRor?"
+    measure:
+      template: "MEASURE:{function}? {range},{resolution}"
+      parameters:
+        function:
+          kind: open_string
+        range:
+          kind: open_string
+        resolution:
+          kind: open_string
+      response: {type: str}
+operation_options:
+  measure:
+    transport: {measure: measure}
+    parameters:
+      function:
+        kind: enum
+        options:
+          - value: dc_voltage
+            label: DC voltage
+            unit: V
+            transport: {value: VOLT:DC}
+        bindings: [{alias: measure, parameter: function}]
+      range_val: {kind: open_string, required: false, strict: false, transport_parameter: false}
+      resolution: {kind: open_string, required: false, strict: false, transport_parameter: false}

@@ -1,32 +1,10 @@
 from __future__ import annotations
 
-from pydantic import (  # validator is not used in the example, Field might be useful later. Added ConfigDict
-    BaseModel,
-)
-from pydantic import (  # validator is not used in the example, Field might be useful later. Added ConfigDict
-    ConfigDict,
-)
+from pydantic import ConfigDict
 
 from ._mixins import RangeMixin
+from .config import BaseConfig as BaseConfig
 
 
-class Range(RangeMixin):  # RangeMixin already inherits from BaseModel
+class Range(RangeMixin):
     model_config = ConfigDict(validate_assignment=True, extra="forbid")
-    # Fields min_val and max_val are inherited from RangeMixin
-    # No need to redefine them here unless overriding or adding more specific constraints
-    # that cannot be handled in RangeMixin itself.
-    pass
-
-
-# Add other core/common Pydantic models here if identified or needed later.
-
-
-# --- DUMMY BaseConfig for mkdocstrings compatibility ---
-class BaseConfig(BaseModel):
-    """
-    Dummy BaseConfig class for documentation compatibility.
-    This is not used in runtime code, but allows mkdocstrings to resolve
-    'pytestlab.config.BaseConfig' for API docs.
-    """
-
-    pass

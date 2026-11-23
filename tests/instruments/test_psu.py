@@ -22,6 +22,7 @@ Requires:
     pytestlab
 """
 
+import os
 import time
 
 import pytest
@@ -29,8 +30,19 @@ import pytest
 from pytestlab import AutoInstrument
 
 # ------------------- CONFIGURE THESE FOR YOUR LAB -------------------
-PSU_CONFIG_KEY = "keysight/EDU36311A"
+PSU_CONFIG_KEY = os.getenv("PYTESTLAB_INSTRUMENT_TEST_PROFILE", "keysight/EDU36311A")
 # --------------------------------------------------------------------
+
+
+def _safe_channel_value(range_spec, preferred):
+    lower = range_spec.min if range_spec.min is not None else range_spec.min_val
+    upper = range_spec.max if range_spec.max is not None else range_spec.max_val
+    value = preferred
+    if lower is not None:
+        value = max(value, lower)
+    if upper is not None:
+        value = min(value, upper)
+    return value
 
 
 def check_hardware_available():
@@ -58,7 +70,7 @@ def test_keysight_edu36311a_psu_sanity():
     # --- Instrument Identification ---
     idn = psu.id()
     assert isinstance(idn, str)
-    assert "EDU36311A" in idn
+    assert psu.config.model.upper() in idn.upper()
 
     # --- Get Initial Configuration ---
     initial_config = psu.get_configuration()
@@ -68,24 +80,13 @@ def test_keysight_edu36311a_psu_sanity():
         for cfg in initial_config.values()
     )
 
-    # --- Set Voltage for Each Channel ---
-    psu.set_voltage(1, 1.5)
-    psu.set_voltage(2, 2.5)
-    psu.set_voltage(3, 3.3)
-    time.sleep(0.5)
-
-    # --- Set Current for Each Channel ---
-    psu.set_current(1, 0.1)
-    psu.set_current(2, 0.2)
-    psu.set_current(3, 0.3)
-    time.sleep(0.5)
-
-    # --- Enable Output for Each Channel ---
-    psu.output(1, True)
-    time.sleep(0.5)
-    psu.output(2, True)
-    time.sleep(0.5)
-    psu.output(3, True)
+    channels = list(range(1, len(psu.config.channels) + 1))
+    for channel, channel_config in zip(channels, psu.config.channels, strict=True):
+        psu.set_voltage(channel, _safe_channel_value(channel_config.voltage_range, 1.0 + channel))
+        psu.set_current(
+            channel, _safe_channel_value(channel_config.current_limit_range, 0.1 * channel)
+        )
+        psu.output(channel, True)
     time.sleep(0.5)
 
     # --- Get Current Configuration ---
@@ -94,7 +95,7 @@ def test_keysight_edu36311a_psu_sanity():
         assert config.state == "ON"
 
     # --- Enable Output for Multiple Channels at Once ---
-    psu.output([1, 2, 3], False)
+    psu.output(channels, False)
     time.sleep(0.5)
     config_after_off = psu.get_configuration()
     for _channel, config in config_after_off.items():
@@ -129,7 +130,7 @@ def test_psu_individual_functions():
     # Test IDN separately
     idn = psu.id()
     assert isinstance(idn, str)
-    assert "EDU36311A" in idn
+    assert psu.config.model.upper() in idn.upper()
 
     # Test configuration retrieval
     config = psu.get_configuration()

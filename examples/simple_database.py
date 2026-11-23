@@ -6,10 +6,12 @@ This example demonstrates:
   - Creating an Experiment with trial data
   - Storing experiments in the measurement database
   - Retrieving experiments from the database
-  - Searching experiments
 
 This example creates a temporary database that is cleaned up after.
 """
+
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from pytestlab import Experiment
 from pytestlab.experiments.database import MeasurementDatabase
@@ -56,42 +58,14 @@ def main():
     print(f"  Created experiment with {len(exp.data)} rows of data")
 
     # Create and use the database
-    db_path = "simple_example.db"
-    print(f"\n--- Using Database: {db_path} ---")
-
-    try:
-        # Open the database (creates it if it doesn't exist)
-        db = MeasurementDatabase(db_path)
-
-        # Store the experiment
-        exp_id = db.store_experiment(None, exp)
-        print(f"  Stored experiment with ID: {exp_id}")
-
-        # List all experiments
-        print("\n--- Listing Experiments ---")
-        experiments = db.list_experiments()
-        print(f"  Database contains {len(experiments)} experiment(s)")
-        for exp_codename in experiments:
-            print(f"    - {exp_codename}")
-
-        # Retrieve the experiment
-        print("\n--- Retrieving Experiment ---")
-        retrieved = db.retrieve_experiment(exp_id)
-        print(f"  Retrieved: {retrieved.name}")
-        print(f"  Description: {retrieved.description}")
-        print(f"  Data rows: {len(retrieved.data)}")
-
-        # Close the database
-        db.close()
-        print("\n  Database connection closed")
-
-    finally:
-        # Clean up the database file
-        import os
-
-        if os.path.exists(db_path):
-            os.remove(db_path)
-            print(f"  Cleaned up: {db_path}")
+    with TemporaryDirectory(prefix="pytestlab-example-") as directory:
+        path = Path(directory) / "example.db"
+        with MeasurementDatabase(path) as db:
+            exp_id = db.store_experiment(None, exp)
+            print(f"  Stored experiment with ID: {exp_id}")
+            print("  Experiments:", db.list_experiments())
+            retrieved = db.retrieve_experiment(exp_id)
+            print(f"  Retrieved: {retrieved.name}; {len(retrieved.data)} rows")
 
     print("\n" + "=" * 60)
     print("Database example completed successfully!")

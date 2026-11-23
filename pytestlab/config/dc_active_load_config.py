@@ -7,10 +7,13 @@ including SCPI command requirements for various features and capabilities.
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel
 from pydantic import Field
 
-from .accuracy import AccuracySpec
+from ..uncertainty.specs import AccuracyModel
+from ..uncertainty.specs import AccuracySpec as AccuracySpec
 from .instrument_config import InstrumentConfig
 
 # RangeSpec is defined in this file
@@ -31,9 +34,17 @@ class RangeSpec(BaseModel):
 
     resolution: float | None = Field(None, description="Resolution for this range")
 
-    accuracy: AccuracySpec | None = Field(None, description="Accuracy specification for this range")
+    accuracy: AccuracyModel | None = Field(
+        None, description="Accuracy specification for this range"
+    )
     max_current_A: float | None = Field(None, description="Maximum current for this range (A)")
     max_voltage_V: float | None = Field(None, description="Maximum voltage for this range (V)")
+    range_W: str | float | None = Field(
+        None, description="Power range notation used by load profiles"
+    )
+    range_ohm: str | float | None = Field(
+        None, description="Resistance range notation used by load profiles"
+    )
     readback_accuracy: ReadbackAccuracySpec | None = Field(
         None, description="Readback accuracy specifications for this range"
     )
@@ -69,11 +80,11 @@ class ReadbackAccuracySpec(BaseModel):
 
     model_config = {"arbitrary_types_allowed": True}
 
-    voltage_accuracy: AccuracySpec | None = Field(None, description="Voltage readback accuracy")
+    voltage_accuracy: AccuracyModel | None = Field(None, description="Voltage readback accuracy")
 
-    current_accuracy: AccuracySpec | None = Field(None, description="Current readback accuracy")
+    current_accuracy: AccuracyModel | None = Field(None, description="Current readback accuracy")
 
-    power_accuracy: AccuracySpec | None = Field(None, description="Power readback accuracy")
+    power_accuracy: AccuracyModel | None = Field(None, description="Power readback accuracy")
 
 
 class ModeSpec(BaseModel):
@@ -83,6 +94,9 @@ class ModeSpec(BaseModel):
 
     ranges: list[RangeSpec] = Field(
         default_factory=list, description="Available ranges for this mode"
+    )
+    slew_rate_range: RangeSpec | None = Field(
+        None, description="Supported positive slew-rate range for this mode"
     )
 
     # SCPI command requirements for this mode
@@ -180,12 +194,24 @@ class DCActiveLoadConfig(InstrumentConfig):
 
     operating_modes: OperatingModesSpec = Field(..., description="Operating mode specifications")
 
+    mode_load_aliases: dict[str, str] = Field(
+        default_factory=dict,
+        description="Profile-private operation alias for each semantic load mode",
+    )
+
     transient: TransientSpec | None = Field(None, description="Transient capabilities")
 
     battery_test: BatteryTestSpec | None = Field(None, description="Battery testing capabilities")
 
     data_acquisition: DataAcquisitionSpec | None = Field(
         None, description="Data acquisition capabilities"
+    )
+
+    # Keep profile-level capability metadata available to the semantic
+    # operation resolver.  Older profiles use this mapping for values such as
+    # ``number_of_channels`` and instrument-wide limits.
+    general_specifications: dict[str, Any] | None = Field(
+        None, description="Profile-level instrument specifications"
     )
 
     # Core SCPI command requirements

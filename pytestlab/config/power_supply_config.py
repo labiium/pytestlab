@@ -10,7 +10,8 @@ from __future__ import annotations
 from pydantic import BaseModel
 from pydantic import Field
 
-from .accuracy import AccuracySpec
+from ..uncertainty.specs import AccuracyModel
+from ..uncertainty.specs import AccuracySpec as AccuracySpec
 from .instrument_config import InstrumentConfig
 
 # RangeSpec will be defined in this file
@@ -31,7 +32,9 @@ class RangeSpec(BaseModel):
 
     resolution: float | None = Field(None, description="Resolution for this range")
 
-    accuracy: AccuracySpec | None = Field(None, description="Accuracy specification for this range")
+    accuracy: AccuracyModel | None = Field(
+        None, description="Accuracy specification for this range"
+    )
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -62,7 +65,9 @@ class RangeSpec(BaseModel):
 class ChannelSpec(BaseModel):
     """Specification for a single power supply channel."""
 
-    model_config = {"arbitrary_types_allowed": True}
+    model_config = {"arbitrary_types_allowed": True, "extra": "forbid"}
+
+    channel_id: int | None = Field(None, ge=1, description="Optional explicit channel number")
 
     description: str = Field(..., description="Channel description")
 
@@ -70,6 +75,16 @@ class ChannelSpec(BaseModel):
 
     current_limit_range: RangeSpec = Field(
         ..., description="Current limit range supported by this channel"
+    )
+
+    voltage_measurement_range: RangeSpec | None = Field(
+        None,
+        description="Nominal voltage measurement range used for uncertainty and calibration matching",
+    )
+
+    current_measurement_range: RangeSpec | None = Field(
+        None,
+        description="Nominal current measurement range used for uncertainty and calibration matching",
     )
 
     power_limit: float | None = Field(None, description="Maximum power limit in Watts")
@@ -112,11 +127,11 @@ class MeasurementSpec(BaseModel):
 
     model_config = {"arbitrary_types_allowed": True}
 
-    voltage_accuracy: AccuracySpec | None = Field(None, description="Voltage measurement accuracy")
+    voltage_accuracy: AccuracyModel | None = Field(None, description="Voltage measurement accuracy")
 
-    current_accuracy: AccuracySpec | None = Field(None, description="Current measurement accuracy")
+    current_accuracy: AccuracyModel | None = Field(None, description="Current measurement accuracy")
 
-    power_accuracy: AccuracySpec | None = Field(None, description="Power measurement accuracy")
+    power_accuracy: AccuracyModel | None = Field(None, description="Power measurement accuracy")
 
     # SCPI command requirements for measurement functionality
     required_scpi_commands: list[str] = Field(

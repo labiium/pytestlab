@@ -1,0 +1,29 @@
+# Declarative legacy-controller bench.  Addresses are example wiring only.
+bench_name: Legacy Controller Profile Bench
+description: HP 4084/4085 switching and SUSS PA200 prober profile examples.
+version: "1.0"
+simulate: false
+
+instruments:
+  hp4084b:
+    profile: hp/HP4084B_legacy
+    address: GPIB0::22::INSTR
+    backend:
+      type: lamb
+  pa200:
+    profile: suss/PA200_legacy
+    address: GPIB0::1::INSTR
+    backend:
+      type: lamb
+
+  # Optional read-only reference instruments; example addresses only.
+  # dmm_3458a:
+  #   profile: agilent/3458A_legacy
+  #   address: GPIB0::12::INSTR
+  #   backend:
+  #     type: lamb
+  # hp4142b:
+  #   profile: hp/4142B_legacy
+  #   address: GPIB0::23::INSTR
+  #   backend:
+  #     type: lamb

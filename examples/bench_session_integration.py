@@ -72,7 +72,7 @@ def main():
                 time.sleep(0.1)
 
                 # Measure collector current (in simulation mode this will return random values)
-                # Note: In real use with hardware, you would use dmm.measure(DMMFunction.CURRENT_DC)
+                # Note: In real use with hardware, you would use dmm.measure("dc_current")
                 import random
 
                 collector_current = random.uniform(0.001, 0.1)  # Simulated: 1mA to 100mA

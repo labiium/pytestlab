@@ -1,60 +1,59 @@
-# Smart Bench Quick Start
+# PyTestLab examples
 
-## 🚀 60 Second Setup
+Run these from a PyTestLab source checkout with PyTestLab installed. Python
+examples may write plots or databases to the current directory. The examples
+below do not connect to hardware.
 
-### 1. Test Smart Bench (Simulation)
-```bash
-cd examples
-python simple_bench_test.py
-```
+## Start here
 
-### 2. Load Instruments Directly
-```python
-from pytestlab import AutoInstrument
+| Workflow | Command |
+| --- | --- |
+| Simulated power supply | `python examples/simple_hello_world.py` |
+| Simulated bench | `python examples/simple_bench.py` |
+| Simulated measurement and parameter sweep | `python examples/measurement_session_example.py` or `python examples/simple_sweep.py` |
+| Synthetic scope capture and plot | `python examples/simulation/capture_scope.py` |
+| Strict replay of a synthetic scope trace | `ptl replay run examples/replay_mode/capture_scope.py --session examples/replay_mode/scope_session.yaml` |
+| Independent PSU and DMM simulations | `python examples/simulation/psu_dmm_sweep.py` |
 
-osc = AutoInstrument.from_config("keysight/DSOX1204G", simulate=True)
-awg = AutoInstrument.from_config("keysight/EDU33212A", simulate=True)
-psu = AutoInstrument.from_config("keysight/EDU36311A", simulate=True)
-dmm = AutoInstrument.from_config("keysight/EDU34450A", simulate=True)
+The scope fixture is a source-only profile under `examples/simulation/`.
+It demonstrates acquisition and plotting without modeling a physical instrument.
+The two instruments in the PSU/DMM sweep are independent simulators.
 
-print(osc.id(), awg.id(), psu.id(), dmm.id())
-```
+## More offline examples
 
-### 3. Load via Bench Configuration
-```python
-from pytestlab.bench import Bench
+- Bench-backed measurements: `python examples/bench_session_integration.py`
+  and `python examples/bench_sweep_integration_example.py`. The bench session
+  also has an [interactive notebook](bench_session_integration.ipynb).
+- Concurrent simulated acquisitions:
+  `python examples/parallel/parallel_sweep_example.py`.
+- Sweep decorators: `python examples/sweep_decorator_example.py`; compare fixed
+  and adaptive sampling with `python examples/advanced_sweep_strategies.py`.
+- Experiment records and persistence: `python examples/example_experiment.py`
+  and `python examples/simple_database.py`.
+- Compliance metadata: `python examples/auto_compliance_demo.py`
+  and `python examples/compliance_decorator_example.py`.
+- Plotting generated data: `python examples/simple_plotting.py`,
+  `python examples/plot_experiment.py`, and
+  `python examples/plot_measurement_result_array.py`.
+- Native capabilities against an in-memory fake transport:
+  `python examples/native_capabilities_offline.py`.
+- Declarative operation introspection:
+  `python examples/profile_instrument_bench.py`.
+- Bench declarations: `ptl bench validate examples/bench.yaml --strict`.
+  Inspect a declared measurement route with
+  `ptl bench measurement examples/auditable_bench.yaml input_ripple_vpp`.
+- [Interactive instrument controls](gui.ipynb) require Jupyter and ipywidgets
+  in your notebook environment. The instruments are simulated.
 
-bench = Bench.open("smarbench.yaml")
+## Live hardware templates
 
-# Access instruments
-osc = bench.instruments["osc"]
-awg = bench.instruments["awg"]
-psu = bench.instruments["psu"]
-dmm = bench.instruments["dmm"]
+The files below are templates, not offline examples. Copy and review them
+before use. Confirm exact addresses, backend host, station wiring, and
+applicable safety limits. Do not run them against placeholders.
 
-# Use PSU
-psu.set_voltage(1, 3.3)
-psu.output(1, True)
-```
-
-## 📋 Files
-
-- `smarbench.yaml` - Main configuration (4 instruments)
-- `simple_bench_test.py` - Quick test (RECOMMENDED)
-- `test_smarbench.py` - Full test suite (9 tests)
-- `SMARBENCH_README.md` - Complete documentation
-
-## ✅ Verification
-
-All tests passing:
-- 194 unit tests passed
-- 9 bench tests passed
-- All instrument loading verified
-
-## 🎯 Next Steps
-
-1. Read `SMARBENCH_README.md` for detailed usage
-2. Customize `smarbench.yaml` for your setup
-3. Switch to `simulate: false` for real hardware
-
-**Status: PRODUCTION READY** 🚀
+- [LAMB bench](lamb_bench.yaml): native instruments, camera, and prober.
+- [Legacy LAMB profile bench](profile_instrument_bench.yaml): illustrative
+  GPIB addresses for legacy generic profile usage.
+- [USB cameras](ugreen_cameras.yaml): copy the complete camera resource
+  strings from discovery into your bench copy. To actually capture, supply that
+  file explicitly: `python examples/ugreen_cameras.py --bench PATH_TO_YOUR_BENCH`.

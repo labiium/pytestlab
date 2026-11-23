@@ -1,0 +1,115 @@
+{
+  "$defs": {
+    "ToleranceInterval": {
+      "additionalProperties": false,
+      "description": "Tolerance interval for conformity assessment.",
+      "properties": {
+        "lower": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lower"
+        },
+        "unit": {
+          "default": "",
+          "title": "Unit",
+          "type": "string"
+        },
+        "upper": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Upper"
+        }
+      },
+      "title": "ToleranceInterval",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Conformity decision record; never a bare pass/fail bool.",
+  "properties": {
+    "decision": {
+      "enum": [
+        "pass",
+        "fail",
+        "conditional_pass",
+        "conditional_fail",
+        "indeterminate"
+      ],
+      "title": "Decision",
+      "type": "string"
+    },
+    "decision_rule": {
+      "additionalProperties": true,
+      "title": "Decision Rule",
+      "type": "object"
+    },
+    "measurand_prior_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Measurand Prior Ref"
+    },
+    "measured": {
+      "additionalProperties": {
+        "type": "number"
+      },
+      "title": "Measured",
+      "type": "object"
+    },
+    "schema_version": {
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "specific_risk": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "title": "Specific Risk",
+      "type": "object"
+    },
+    "statement": {
+      "title": "Statement",
+      "type": "string"
+    },
+    "tolerance": {
+      "$ref": "#/$defs/ToleranceInterval"
+    }
+  },
+  "required": [
+    "tolerance",
+    "decision_rule",
+    "measured",
+    "decision",
+    "statement"
+  ],
+  "title": "ConformityResult",
+  "type": "object"
+}

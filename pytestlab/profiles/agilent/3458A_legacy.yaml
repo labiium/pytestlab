@@ -1,0 +1,35 @@
+manufacturer: agilent technologies
+model: 3458A
+device_type: instrument
+driver: pytestlab.instruments.profile_instrument:ProfileInstrument
+role: measurement
+protocol: Agilent 3458A legacy HPIB
+
+capabilities:
+  identity: {enabled: true, required: false}
+  error_queue: false
+  message_io:
+    read_termination: "\n"
+  status_byte:
+    enabled: true
+    flags: {}
+
+scpi:
+  queries:
+    identify:
+      template: ID?
+      response: {type: str}
+
+simulation:
+  identification: HP3458A
+  scpi:
+    ID?: HP3458A
+
+operation_options:
+  operations:
+    identify:
+      mode: query
+      transport: {query: identify}
+    status_byte:
+      mode: native
+      backend_method: read_status_byte

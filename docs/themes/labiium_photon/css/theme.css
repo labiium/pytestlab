@@ -3,60 +3,6 @@
  */
 
 /* ------------------------------
- * 1. CORE VARIABLES & TOKENS
- * ------------------------------ */
-:root {
-    /* Core Brand Colors */
-    --photon-black: #0b0e11;
-    --photon-white: #f5f7fa;
-    --lab-violet: #5333ed;
-    --lab-aqua: #04e2dc;
-
-    /* Glass Effects */
-    --glass-frost-bg: rgba(30, 33, 38, 0.75);
-    --glass-border: rgba(255, 255, 255, 0.1);
-    --glass-border-hover: rgba(255, 255, 255, 0.25);
-
-    /* Neutral Shades */
-    --graphite-30: #1a1d20;
-    --graphite-50: #2b2e32;
-    --graphite-70: #42454a;
-
-    /* Status Colors */
-    --status-success: #00b27c;
-    --status-warning: #ffb02e;
-    --status-error: #ff5460;
-
-    /* Interaction */
-    --ease-curve: cubic-bezier(0.16, 1, 0.3, 1);
-
-    /* Typography */
-    --font-ui:
-        "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-        sans-serif;
-    --font-display: "Manrope", "Inter", sans-serif;
-    --font-code:
-        "IBM Plex Mono", SFMono-Regular, Consolas, "Liberation Mono", Menlo,
-        monospace;
-
-    /* Spacing & Layout */
-    --spacing-xs: 0.25rem;
-    --spacing-sm: 0.5rem;
-    --spacing-md: 1rem;
-    --spacing-lg: 1.5rem;
-    --spacing-xl: 2rem;
-    --spacing-xxl: 3rem;
-
-    /* Component dimensions */
-    --header-height: 80px;
-    --sidebar-width: 260px;
-    --border-radius-sm: 4px;
-    --border-radius-md: 8px;
-    --border-radius-lg: 16px;
-    --border-radius-xl: 32px;
-}
-
-/* ------------------------------
  * 2. CORE ELEMENTS
  * ------------------------------ */
 html {

@@ -20,7 +20,7 @@ experiment:
 simulate: true
 
 continue_on_automation_error: true
-continue_on_instrument_error: false
+continue_on_device_error: false
 
 backend_defaults:
   type: "sim"
@@ -28,7 +28,7 @@ backend_defaults:
 
 instruments:
   osc:
-    profile: "keysight/DSOX1204G"
+    profile: "simulation/scope.yaml"
     address: "SIM::oscilloscope::1"
     backend:
       type: "sim"
@@ -46,7 +46,7 @@ instruments:
           voltage: {"max": 12.0}
           current: {"max": 1.0}
         3:
-          voltage: {"max": -5.5}
+          voltage: {"min": -5.5, "max": 0.0}
           current: {"max": 0.5}
 
   dmm:
@@ -56,16 +56,6 @@ instruments:
 custom_validations:
   - "psu1['safety_limits']['channels'][1]['voltage']['max'] <= 6.0"
   - "experiment['operator'] is not None"
-  - "len(experiment['title']) > 5"
-
-automation:
-  pre_experiment:
-    - "echo 'Starting experiment setup...'"
-    - "psu1: output all OFF"
-    - "osc: autoscale"
-  post_experiment:
-    - "psu1: output all OFF"
-    - "echo 'Experiment completed.'"
 
 traceability:
   calibration:
@@ -81,7 +71,7 @@ traceability:
 
 measurement_plan:
   - name: "Voltage Measurement"
-    instrument: "dmm"
+    resource: "dmm"
     probe_location: "DUT input"
     settings:
       function: "DC_VOLTAGE"
@@ -90,7 +80,7 @@ measurement_plan:
     notes: "Measure input voltage characteristics"
 
   - name: "Power Supply Monitoring"
-    instrument: "dmm"
+    resource: "dmm"
     probe_location: "DUT Vdd rail"
     settings:
       function: "DC_VOLTAGE"
@@ -99,7 +89,7 @@ measurement_plan:
     notes: "Monitor supply voltage stability during test"
 
   - name: "Waveform Capture"
-    instrument: "osc"
+    resource: "osc"
     probe_location: "Output signal"
     settings:
       timebase: "1ms/div"

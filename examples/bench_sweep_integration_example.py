@@ -86,8 +86,7 @@ def main():
                 psu.output(2, True)
                 time.sleep(0.05)
                 # Note: In simulation mode, DMM measurement API is limited
-                # In real use: from pytestlab.config.multimeter_config import DMMFunction
-                # result = dmm.measure(DMMFunction.CURRENT_DC)
+                # In real use: result = dmm.measure("dc_current")
                 # For this example, we simulate the measurement
                 I_collector = (V_base - 0.6) * (V_collector / 5) * 0.01
                 psu.output(1, False)

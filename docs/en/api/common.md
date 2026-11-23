@@ -1,17 +1,8 @@
 # Common Utilities
 
-This section documents shared enums, health checks, and other utility modules used throughout PyTestLab.
-
----
-
-## Enums
-
-::: pytestlab.common.enums
-    options:
-      show_root_heading: true
-      show_category_heading: false
-
----
+Shared health and status models are documented here. Instrument choices are
+profile-defined and discovered from the instrument API; no enum import is
+required.
 
 ## Health Checks
 
@@ -19,5 +10,3 @@ This section documents shared enums, health checks, and other utility modules us
     options:
       show_root_heading: true
       show_category_heading: false
-
----

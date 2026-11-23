@@ -1,30 +1,308 @@
 manufacturer: keysight
 model: 34470A
 device_type: multimeter
+role: measurement
 resolution: 7.5
 max_voltage: 1000
 max_resistance: 1e9
 max_current: 10
 max_capacitance: 1e-4
 max_frequency: 3e5
-configuration:
-  resolution:
-    - FAST
-    - MEDIUM
-    - SLOW
-  current:
-    - 1e-6
-    - 1e-5
-    - 1e-4
-    - 1e-3
-    - 1e-2
-    - 1e-1
-    - 1
-    - 3
-    - 10
-  voltage:
-    - 0.1
-    - 1
-    - 10
-    - 100
-    - 1000
+measurement_functions:
+  dc_voltage:
+    label: DC voltage
+    description: Measure direct voltage at the DMM input.
+    aliases:
+    - voltage
+    - voltage_dc
+    unit: V
+    transport:
+      function_token: VOLT:DC
+      measure_alias: measure
+    resolution:
+    - MIN
+    - MAX
+    - DEF
+    ranges:
+    - nominal_V: 0.1
+    - nominal_V: 1
+    - nominal_V: 10
+    - nominal_V: 100
+    - nominal_V: 1000
+  ac_voltage:
+    label: AC voltage
+    description: Measure alternating voltage at the DMM input.
+    aliases:
+    - voltage_ac
+    unit: V
+    transport:
+      function_token: VOLT:AC
+      measure_alias: measure
+    resolution:
+    - MIN
+    - MAX
+    - DEF
+    ranges:
+    - nominal_V: 0.1
+    - nominal_V: 1
+    - nominal_V: 10
+    - nominal_V: 100
+    - nominal_V: 1000
+  dc_current:
+    label: DC current
+    description: Measure direct current through the DMM input.
+    aliases:
+    - current
+    - current_dc
+    unit: A
+    transport:
+      function_token: CURR:DC
+      measure_alias: measure
+    resolution:
+    - MIN
+    - MAX
+    - DEF
+    ranges:
+    - nominal_A: 1e-6
+    - nominal_A: 1e-5
+    - nominal_A: 1e-4
+    - nominal_A: 1e-3
+    - nominal_A: 1e-2
+    - nominal_A: 1e-1
+    - nominal_A: 1
+    - nominal_A: 3
+    - nominal_A: 10
+  ac_current:
+    label: AC current
+    description: Measure alternating current through the DMM input.
+    aliases:
+    - current_ac
+    unit: A
+    transport:
+      function_token: CURR:AC
+      measure_alias: measure
+    resolution:
+    - MIN
+    - MAX
+    - DEF
+    ranges:
+    - nominal_A: 1e-6
+    - nominal_A: 1e-5
+    - nominal_A: 1e-4
+    - nominal_A: 1e-3
+    - nominal_A: 1e-2
+    - nominal_A: 1e-1
+    - nominal_A: 1
+    - nominal_A: 3
+    - nominal_A: 10
+  resistance:
+    label: 2-wire resistance
+    description: Measure resistance using the two-wire technique.
+    aliases:
+    - ohms
+    - resistance_2wire
+    unit: Ω
+    transport:
+      function_token: RES
+      measure_alias: measure
+  resistance_4wire:
+    label: 4-wire resistance
+    description: Measure resistance using the four-wire technique.
+    aliases:
+    - four_wire_resistance
+    unit: Ω
+    transport:
+      function_token: FRES
+      measure_alias: measure
+  capacitance:
+    label: Capacitance
+    description: Measure capacitance at the DMM input.
+    aliases:
+    - capacitance_measurement
+    unit: F
+    transport:
+      function_token: CAP
+      measure_alias: measure
+  frequency:
+    label: Frequency
+    description: Measure signal frequency.
+    aliases:
+    - frequency_hz
+    unit: Hz
+    transport:
+      function_token: FREQ
+      measure_alias: measure
+  temperature:
+    label: Temperature
+    description: Measure temperature with a supported probe.
+    aliases:
+    - temperature_c
+    unit: °C
+    transport:
+      function_token: TEMP
+      measure_alias: measure_no_args
+  diode:
+    label: Diode test
+    description: Perform a diode forward-voltage test.
+    aliases:
+    - diode_test
+    unit: V
+    transport:
+      function_token: DIOD
+      measure_alias: measure_no_args
+  continuity:
+    label: Continuity
+    description: Check electrical continuity.
+    aliases:
+    - continuity_test
+    unit: Ω
+    transport:
+      function_token: CONT
+      measure_alias: measure_no_args
+scpi:
+  commands:
+    reset:
+      template: '*RST'
+    clear:
+      template: '*CLS'
+    opc:
+      template: '*OPC'
+    set_trigger_source:
+      template: TRIG:SOUR {source}
+      enums:
+        source:
+          imm: IMM
+          ext: EXT
+          bus: BUS
+  queries:
+    identify:
+      template: '*IDN?'
+      response:
+        type: str
+    read:
+      template: READ?
+      response:
+        type: str
+    measure:
+      template: MEASURE:{function}? {range},{resolution}
+      parameters:
+        function:
+          kind: raw
+          allow_raw: true
+          examples:
+          - VOLT:DC
+        range:
+          kind: raw
+          allow_raw: true
+          examples:
+          - AUTO
+        resolution:
+          kind: raw
+          allow_raw: true
+          examples:
+          - DEF
+      response:
+        type: str
+    measure_no_args:
+      template: MEASURE:{function}?
+      parameters:
+        function:
+          kind: raw
+          allow_raw: true
+          examples:
+          - TEMP
+      response:
+        type: str
+    get_config:
+      template: CONFigure?
+      response:
+        type: str
+    opc_query:
+      template: '*OPC?'
+    get_error:
+      template: SYSTem:ERRor?
+simulation:
+  identification: Keysight Technologies,34470A,SIM,1.0
+  scpi:
+    '*IDN?': Keysight Technologies,34470A,SIM,1.0
+    SYST:ERR?: +0,"No error"
+    CONFigure?: VOLT:DC 10,DEF
+    READ?: '0.0'
+    MEASURE:.*\? .*: '0.0'
+    MEASURE:(TEMP|DIOD|CONT)\?$: '0.0'
+operation_options:
+  measure:
+    transport:
+      measure: measure
+    parameters:
+      nplc:
+        kind: range
+        required: false
+        supported: false
+        transport_parameter: false
+        reason: This profile does not declare integration-time control.
+      function:
+        kind: enum
+        source: measurement_functions
+        description: Profile-supported measurement function ID or alias.
+      range_val:
+        transport_parameter: false
+        kind: enum
+        required: false
+        source: measurement_functions.ranges
+        dependencies:
+        - function
+        default: AUTO
+        strict: false
+      resolution:
+        transport_parameter: false
+        kind: open_string
+        required: false
+        source: measurement_functions.resolution
+        dependencies:
+        - function
+        default: DEF
+        strict: false
+      uncertainty:
+        transport_parameter: false
+        kind: bool
+        options:
+        - value: true
+          label: Apply uncertainty
+          transport:
+            value: true
+        - value: false
+          label: Nominal value
+          transport:
+            value: false
+        default: true
+  identify:
+    transport:
+      command: identify
+  get_config:
+    transport:
+      query: get_config
+  reset:
+    transport:
+      command: reset
+  set_trigger_source:
+    transport:
+      command: set_trigger_source
+    source:
+      kind: enum
+      bindings:
+      - alias: command
+        parameter: source
+      options:
+      - value: imm
+        label: Immediate
+        transport:
+          value: IMM
+      - value: ext
+        label: External
+        transport:
+          value: EXT
+      - value: bus
+        label: Bus
+        transport:
+          value: BUS

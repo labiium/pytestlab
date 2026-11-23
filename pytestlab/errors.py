@@ -63,6 +63,23 @@ class InstrumentParameterError(ValueError):
         full_message += f". {message}"
         super().__init__(full_message)
 
+    def to_dict(self) -> dict[str, object]:
+        """Return a machine-readable parameter failure for CLI callers."""
+
+        error: dict[str, object] = {
+            "code": "invalid_parameter",
+            "message": str(self),
+        }
+        if self.parameter is not None:
+            error["parameter"] = self.parameter
+        if self.value is not None:
+            error["value"] = self.value
+        if self.valid_range is not None:
+            error["valid_range"] = (
+                list(self.valid_range) if isinstance(self.valid_range, tuple) else self.valid_range
+            )
+        return {"error": error}
+
 
 class InstrumentNotFoundError(Exception):
     """For instrument not found errors."""
@@ -81,6 +98,46 @@ class InstrumentConfigurationError(Exception):
             super().__init__(f"Invalid configuration for instrument '{instrument}'. {message}")
         else:
             super().__init__(f"Invalid instrument configuration. {message}")
+
+
+class OperationDiscoveryError(ValueError):
+    """Structured error for semantic operation discovery and resolution.
+
+    The exception is intentionally backend-independent.  CLI callers can use
+    :meth:`to_dict` without parsing human-oriented exception text.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: str = "operation_discovery_error",
+        operation_id: str | None = None,
+        parameter: str | None = None,
+        context: dict[str, object] | None = None,
+        details: dict[str, object] | None = None,
+    ) -> None:
+        self.code = code
+        self.operation_id = operation_id
+        self.parameter = parameter
+        self.context = dict(context or {})
+        self.details = dict(details or {})
+        super().__init__(message)
+
+    def to_dict(self) -> dict[str, object]:
+        error: dict[str, object] = {
+            "code": self.code,
+            "message": str(self),
+        }
+        if self.operation_id is not None:
+            error["operation_id"] = self.operation_id
+        if self.parameter is not None:
+            error["parameter"] = self.parameter
+        if self.context:
+            error["context"] = self.context
+        if self.details:
+            error["details"] = self.details
+        return {"error": error}
 
 
 # WARNINGS

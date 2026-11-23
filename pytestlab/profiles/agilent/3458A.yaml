@@ -1,0 +1,218 @@
+manufacturer: agilent
+model: 3458A
+device_type: multimeter
+role: measurement
+protocol: Agilent 3458A native HPIB ASCII transport
+
+capabilities:
+  identity: true
+  error_queue: false
+  status_byte: true
+  standard_commands: false
+  message_io:
+    read_termination: "\r\n"
+
+# The 3458A profile intentionally declares only the verified DCV path.
+# Accuracy metadata is omitted until a model/option/calibration fixture is supplied.
+scpi:
+  commands:
+    set_function:
+      template: "FUNC {function}"
+      parameters:
+        function:
+          kind: enum
+          strict: true
+          choices:
+            - token: DCV
+              label: VOLT:DC
+              aliases: [VOLTAGE_DC]
+              evidence: Keysight 3458A User's Guide, FUNC command
+    set_range_auto:
+      template: "FUNC {function},AUTO"
+      parameters:
+        function:
+          kind: enum
+          strict: true
+          choices:
+            - token: DCV
+              label: VOLT:DC
+              aliases: [VOLTAGE_DC]
+    set_resolution:
+      template: "FUNC {function},AUTO,{resolution}"
+      parameters:
+        function:
+          kind: enum
+          strict: true
+          choices:
+            - token: DCV
+              label: VOLT:DC
+              aliases: [VOLTAGE_DC]
+        resolution:
+          kind: enum
+          strict: false
+          choices:
+            - token: ""
+              label: DEF
+              aliases: [DEFAULT]
+    configure:
+      sequence:
+        - "FUNC {function},{range},{resolution}"
+        - "NPLC {nplc}"
+        - "NRDGS 1,AUTO"
+        - "OFORMAT ASCII"
+        - "TARM AUTO"
+        - "TRIG {trigger}"
+      defaults:
+        nplc: 1
+        trigger: ON_READ
+      parameters:
+        function:
+          kind: enum
+          strict: true
+          choices:
+            - token: DCV
+              label: VOLT:DC
+              aliases: [VOLTAGE_DC]
+        range:
+          kind: open_string
+          allow_raw: true
+          pattern: '^(?i:AUTO|[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][+-]?\d+)?)\Z'
+        resolution:
+          kind: enum
+          strict: false
+          choices:
+            - token: ""
+              label: DEF
+              aliases: [DEFAULT]
+        nplc:
+          kind: range
+          min: 0
+          max: 1000
+        trigger:
+          kind: enum
+          strict: true
+          choices:
+            - token: SYN
+              label: ON_READ
+    set_trigger_source:
+      template: "TRIG {source}"
+      parameters:
+        source:
+          kind: enum
+          strict: true
+          choices:
+            - token: SYN
+              label: ON_READ
+  queries:
+    identify:
+      template: ID?
+      response: {type: str}
+    measure:
+      sequence:
+        - "FUNC {function},{range},{resolution}"
+        - "NPLC {nplc}"
+        - "NRDGS 1,AUTO"
+        - "OFORMAT ASCII"
+        - "TARM AUTO"
+        - "TRIG {trigger}"
+      defaults:
+        nplc: 1
+        trigger: ON_READ
+      response: {type: scpi_float, transport: read}
+      parameters:
+        function:
+          kind: enum
+          strict: true
+          choices:
+            - token: DCV
+              label: VOLT:DC
+              aliases: [VOLTAGE_DC]
+        range:
+          kind: open_string
+          allow_raw: true
+          pattern: '^(?i:AUTO|[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][+-]?\d+)?)\Z'
+        resolution:
+          kind: enum
+          strict: false
+          choices:
+            - token: ""
+              label: DEF
+              aliases: [DEFAULT]
+        nplc:
+          kind: range
+          min: 0
+          max: 1000
+        trigger:
+          kind: enum
+          strict: true
+          choices:
+            - token: SYN
+              label: ON_READ
+    read:
+      template: ""
+      response: {type: scpi_float, transport: read}
+    get_config:
+      template: FUNC?
+      response:
+        type: csv
+        numeric_map:
+          "1": VOLT:DC
+
+measurement_functions:
+  dc_voltage:
+    label: Voltage
+    aliases: [VOLTAGE_DC]
+    unit: V
+    transport:
+      function_token: VOLT:DC
+      response_tokens: [DCV]
+      measure_alias: measure
+operation_options:
+  measure:
+    transport: {measure: measure}
+    parameters:
+      function: {kind: enum, source: measurement_functions}
+      range_val:
+        kind: open_string
+        required: false
+        transport_parameter: false
+        default: AUTO
+      resolution:
+        kind: open_string
+        required: false
+        transport_parameter: false
+        default: DEF
+      uncertainty:
+        kind: bool
+        transport_parameter: false
+        default: true
+        options:
+          - {value: true, label: Apply uncertainty, transport: {value: true}}
+          - {value: false, label: Nominal value, transport: {value: false}}
+      nplc:
+        kind: range
+        min: 0
+        max: 1000
+        required: false
+        transport_parameter: false
+  configure_measurement:
+    transport: {configure: configure}
+    parameters:
+      function: {kind: enum, source: measurement_functions}
+      range_val: {kind: open_string, required: false, transport_parameter: false, default: AUTO}
+      resolution: {kind: open_string, required: false, transport_parameter: false, default: DEF}
+      nplc: {kind: range, min: 0, max: 1000, required: false, transport_parameter: false}
+  identify:
+    transport: {command: identify}
+  get_config:
+    transport: {query: get_config}
+  set_trigger_source:
+    transport: {command: set_trigger_source}
+    source:
+      kind: enum
+      bindings: [{alias: command, parameter: source}]
+      options:
+        - value: on_read
+          label: On read
+          aliases: [ON_READ]
+          transport: {value: ON_READ}

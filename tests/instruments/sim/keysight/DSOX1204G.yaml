@@ -1,6 +1,7 @@
 manufacturer: Keysight
 model: DSOX1204G
 device_type: oscilloscope
+role: measurement
 trigger:
     types:
         - HIGH
@@ -132,8 +133,1158 @@ franalysis:
         - SWE
 
 # SCPI engine definitions for simulation profile (used to build commands/queries)
+operation_options:
+  reset:
+    transport:
+      write: reset
+  channel_axis:
+    transport:
+      write: set_channel_axis
+    parameters:
+      channel:
+        kind: range
+        min: 1
+        max: 4
+        bindings:
+        - alias: write
+          parameter: channel
+      scale:
+        kind: range
+        min: 1.0e-06
+        max: 1000
+        bindings:
+        - alias: write
+          parameter: scale
+      offset:
+        kind: open_string
+        bindings:
+        - alias: write
+          parameter: offset
+  channel_setup:
+    transport:
+      coupling: set_channel_coupling
+      probe: probe_set
+      bandwidth: channel_bandwidth
+    parameters:
+      channel:
+        kind: range
+        min: 1
+        max: 4
+        bindings:
+        - alias: coupling
+          parameter: channel
+        - alias: probe
+          parameter: channel
+        - alias: bandwidth
+          parameter: channel
+      coupling:
+        kind: enum
+        options:
+        - value: ac
+          aliases:
+          - AC
+          transport:
+            value: AC
+        - value: dc
+          aliases:
+          - DC
+          transport:
+            value: DC
+        bindings:
+        - alias: coupling
+          parameter: coupling
+      probe_attenuation:
+        kind: range
+        min: 1
+        max: 1000
+        bindings:
+        - alias: probe
+          parameter: scale
+      bandwidth_limit:
+        kind: range
+        min: 0
+        max: 1000000000
+        bindings:
+        - alias: bandwidth
+          parameter: bandwidth
+  auto_scale:
+    transport:
+      write: auto_scale
+  run:
+    transport:
+      write: run
+  stop:
+    transport:
+      write: stop
+  measure_phase:
+    transport:
+      read: measure_phase
+    parameters:
+      channel:
+        kind: range
+        min: 1
+        max: 4
+        bindings:
+        - alias: read
+          parameter: channel
+      uncertainty:
+        kind: bool
+        strict: false
+        default: true
+        transport_parameter: false
+  fft_display:
+    transport:
+      write: fft_display
+    parameters:
+      state:
+        kind: bool
+        options:
+        - value: true
+          aliases:
+          - 'on'
+          transport:
+            value: true
+        - value: false
+          aliases:
+          - 'off'
+          transport:
+            value: false
+        bindings:
+        - alias: write
+          parameter: state
+  configure_trigger:
+    transport:
+      write: configure_trigger
+    parameters:
+      source:
+        kind: enum
+        options:
+        - value: channel_1
+          label: Channel 1
+          aliases:
+          - ch1
+          - chan1
+          transport:
+            value: CHANnel1
+        - value: channel_2
+          label: Channel 2
+          aliases:
+          - ch2
+          - chan2
+          transport:
+            value: CHANnel2
+        - value: channel_3
+          label: Channel 3
+          aliases:
+          - ch3
+          - chan3
+          transport:
+            value: CHANnel3
+        - value: channel_4
+          label: Channel 4
+          aliases:
+          - ch4
+          - chan4
+          transport:
+            value: CHANnel4
+        - value: external
+          label: External
+          aliases:
+          - ext
+          transport:
+            value: EXTERNAL
+        - value: line
+          label: Line
+          transport:
+            value: LINE
+        - value: wgen
+          label: Waveform generator
+          aliases:
+          - generator
+          transport:
+            value: WGEN
+        bindings:
+        - alias: write
+          parameter: source
+      mode:
+        kind: enum
+        options:
+        - value: edge
+          label: Edge
+          transport:
+            value: EDGE
+        - value: glitch
+          label: Glitch
+          transport:
+            value: GLITch
+        - value: pattern
+          label: Pattern
+          transport:
+            value: PATTern
+        - value: delay
+          label: Delay
+          transport:
+            value: DELay
+        - value: or
+          label: Or
+          transport:
+            value: OR
+        - value: runt
+          label: Runt
+          transport:
+            value: RUNT
+        - value: setup_hold
+          label: Setup and hold
+          aliases:
+          - shold
+          transport:
+            value: SHOLd
+        - value: transition
+          label: Rise/fall transition
+          transport:
+            value: TRANsition
+        - value: window
+          label: Window
+          transport:
+            value: WINDow
+        bindings:
+        - alias: write
+          parameter: mode
+      slope:
+        kind: enum
+        options:
+        - value: positive
+          label: Positive
+          aliases:
+          - pos
+          - rising
+          transport:
+            value: POS
+        - value: negative
+          label: Negative
+          aliases:
+          - neg
+          - falling
+          transport:
+            value: NEG
+        - value: alternating
+          label: Alternating
+          aliases:
+          - alt
+          transport:
+            value: ALT
+        - value: either
+          label: Either
+          aliases:
+          - eith
+          transport:
+            value: EITH
+        bindings:
+        - alias: write
+          parameter: slope
+      channel:
+        kind: range
+        min: 1
+        max: 4
+        bindings:
+        - alias: write
+          parameter: channel
+      level:
+        kind: range
+        min: -1000
+        max: 1000
+        bindings:
+        - alias: write
+          parameter: level
+  waveform_readout:
+    transport:
+      source: set_wave_source
+      points_max: set_wave_points_max
+      format_byte: set_wave_format_byte
+      points_raw: set_wave_points_mode_raw
+    parameters:
+      channel:
+        kind: enum
+        options:
+        - value: channel_1
+          label: Channel 1
+          aliases:
+          - ch1
+          - chan1
+          transport:
+            value: CHANnel1
+        - value: channel_2
+          label: Channel 2
+          aliases:
+          - ch2
+          - chan2
+          transport:
+            value: CHANnel2
+        - value: channel_3
+          label: Channel 3
+          aliases:
+          - ch3
+          - chan3
+          transport:
+            value: CHANnel3
+        - value: channel_4
+          label: Channel 4
+          aliases:
+          - ch4
+          - chan4
+          transport:
+            value: CHANnel4
+        bindings:
+        - alias: source
+          parameter: source
+      mode:
+        kind: enum
+        required: false
+        default: controlled
+        transport_parameter: false
+        options:
+        - value: controlled
+        - value: read_only
+      format:
+        kind: enum
+        required: false
+        default: byte
+        transport_parameter: false
+        options:
+        - value: byte
+        - value: word
+        - value: auto
+      points:
+        kind: range
+        required: false
+        min: 1
+        transport_parameter: false
+      uncertainty:
+        kind: bool
+        required: false
+        default: true
+        transport_parameter: false
+        options:
+        - value: true
+        - value: false
+      restore_state:
+        kind: bool
+        required: false
+        default: false
+        transport_parameter: false
+        options:
+        - value: true
+        - value: false
+      timeout_ms:
+        kind: range
+        required: false
+        min: 1
+        transport_parameter: false
+  wave_generator_basic:
+    transport:
+      write: wgen_output
+    parameters:
+      state:
+        kind: bool
+        options:
+        - value: true
+          aliases:
+          - 'on'
+          transport:
+            value: true
+        - value: false
+          aliases:
+          - 'off'
+          transport:
+            value: false
+        bindings:
+        - alias: write
+          parameter: state
+  set_acquisition_type:
+    transport:
+      write: acq_set_type
+    parameters:
+      acq_type:
+        kind: enum
+        options:
+        - value: normal
+          aliases:
+          - norm
+          transport:
+            value: NORMal
+        - value: average
+          aliases:
+          - aver
+          transport:
+            value: AVERage
+        - value: peak
+          aliases: []
+          transport:
+            value: PEAK
+        - value: high_resolution
+          aliases:
+          - high_res
+          - hres
+          transport:
+            value: HRESolution
+        bindings:
+        - alias: write
+          parameter: value
+  set_acquisition_mode:
+    transport:
+      write: acq_set_mode
+    parameters:
+      mode:
+        kind: enum
+        options:
+        - value: real_time
+          aliases:
+          - rtim
+          - rtime
+          transport:
+            value: RTIMe
+        - value: segmented
+          aliases:
+          - segm
+          transport:
+            value: SEGMented
+        bindings:
+        - alias: write
+          parameter: value
+  set_wave_gen_func:
+    transport:
+      write: wgen_set_func
+    parameters:
+      func_type:
+        kind: enum
+        options:
+        - value: sine
+          aliases:
+          - sin
+          transport:
+            value: SIN
+        - value: square
+          aliases:
+          - square
+          transport:
+            value: SQUare
+        - value: ramp
+          aliases:
+          - ramp
+          transport:
+            value: RAMp
+        - value: pulse
+          aliases:
+          - pulse
+          transport:
+            value: PULse
+        - value: noise
+          aliases:
+          - noise
+          transport:
+            value: NOISe
+        - value: dc
+          aliases:
+          - dc
+          transport:
+            value: DC
+        bindings:
+        - alias: write
+          parameter: func
+  time_axis:
+    transport:
+      write: set_time_axis
+    parameters:
+      scale:
+        kind: range
+        min: 1.0e-15
+        max: 1000
+        bindings:
+        - alias: write
+          parameter: scale
+      position:
+        kind: range
+        min: -1000
+        max: 1000
+        bindings:
+        - alias: write
+          parameter: position
+  measure_vpp:
+    transport:
+      read: measure_vpp
+    parameters:
+      channel:
+        kind: range
+        min: 1
+        max: 4
+        bindings:
+        - alias: read
+          parameter: channel
+      uncertainty:
+        kind: bool
+        strict: false
+        default: true
+        transport_parameter: false
+  measure_vrms:
+    transport:
+      read: measure_vrms
+    parameters:
+      channel:
+        kind: range
+        min: 1
+        max: 4
+        bindings:
+        - alias: read
+          parameter: channel
+      uncertainty:
+        kind: bool
+        strict: false
+        default: true
+        transport_parameter: false
+  trigger_setup_edge:
+    transport:
+      configure: configure_trigger
+      coupling: set_trigger_coupling
+    parameters:
+      source:
+        kind: enum
+        bindings:
+        - alias: configure
+          parameter: source
+        options:
+        - value: channel_1
+          transport:
+            value: CHANnel1
+      level:
+        kind: range
+        bindings:
+        - alias: configure
+          parameter: level
+        min: -1000
+        max: 1000
+      slope:
+        kind: enum
+        bindings:
+        - alias: configure
+          parameter: slope
+        options:
+        - value: positive
+          transport:
+            value: POS
+      coupling:
+        kind: enum
+        bindings:
+        - alias: coupling
+          parameter: coupling
+        options:
+        - value: dc
+          transport:
+            value: DC
+      mode:
+        kind: enum
+        bindings:
+        - alias: configure
+          parameter: mode
+        options:
+        - value: edge
+          transport:
+            value: EDGE
+  acquisition:
+    transport:
+      set_type: acq_set_type
+      get_type: acq_get_type
+      set_mode: acq_set_mode
+      get_mode: acq_get_mode
+      set_count: acq_set_count
+      get_count: acq_get_count
+      points: acquire_points
+      sample_rate: acquire_sample_rate
+  segmented_acquisition:
+    transport:
+      set_count: seg_set_count
+      get_count: seg_get_count
+      set_index: seg_set_index
+      get_index: seg_get_index
+      analyze: seg_analyze
+  digitize:
+    transport:
+      write: digitize
+    parameters:
+      channels:
+        kind: enum
+        transport_parameter: false
+        options:
+        - value:
+          - 1
+          label: Channel 1
+      run_after:
+        kind: bool
+        required: false
+        default: true
+        transport_parameter: false
+        options:
+        - value: true
+        - value: false
+      timebase:
+        kind: range
+        required: false
+        min: 0
+        transport_parameter: false
+      timeout_ms:
+        kind: range
+        required: false
+        min: 1
+        transport_parameter: false
+      waveform_format:
+        kind: enum
+        required: false
+        default: byte
+        transport_parameter: false
+        options:
+        - value: byte
+        - value: word
+        - value: auto
+  screenshot:
+    transport:
+      read: screenshot
+    parameters:
+      timeout_ms:
+        kind: range
+        min: 0
+        max: 3600000
+        transport_parameter: false
+  system_lock:
+    transport:
+      write: system_lock
+    parameters:
+      lock:
+        kind: bool
+        bindings:
+        - alias: write
+          parameter: state
+        options:
+        - value: true
+          transport:
+            value: 'ON'
+        - value: false
+          transport:
+            value: 'OFF'
+  display_channel:
+    transport:
+      write: display_channel
+    parameters:
+      channels:
+        kind: range
+        bindings:
+        - alias: write
+          parameter: channel
+        min: 1
+        max: 4
+      state:
+        kind: bool
+        bindings:
+        - alias: write
+          parameter: state
+        options:
+        - value: true
+          transport:
+            value: 'ON'
+        - value: false
+          transport:
+            value: 'OFF'
+  wave_generator_shapes:
+    transport:
+      low: wgen_set_low
+      high: wgen_set_high
+      duty: wgen_set_square_duty
+      frequency: wgen_set_freq
+    parameters:
+      duty_cycle:
+        kind: range
+        bindings:
+        - alias: duty
+          parameter: duty
+        min: 0
+        max: 100
+      freq:
+        kind: range
+        bindings:
+        - alias: frequency
+          parameter: frequency
+        min: 0.1
+        max: 2e+20
+      v0:
+        kind: range
+        bindings:
+        - alias: low
+          parameter: value
+        min: -11
+        max: 11
+      v1:
+        kind: range
+        bindings:
+        - alias: high
+          parameter: value
+        min: -11
+        max: 11
+  fft:
+    transport:
+      display: fft_display
+      source: fft_source
+      window: fft_window
+      span: fft_span
+      vtype: fft_vtype
+      scale: fft_scale
+      offset: fft_offset
+    parameters:
+      source_channel:
+        kind: range
+        bindings:
+        - alias: source
+          parameter: channel
+        min: 1
+        max: 4
+      scale:
+        kind: range
+        bindings:
+        - alias: scale
+          parameter: scale
+        required: false
+      offset:
+        kind: range
+        bindings:
+        - alias: offset
+          parameter: offset
+        required: false
+      span:
+        kind: range
+        bindings:
+        - alias: span
+          parameter: span
+        required: false
+      window_type:
+        kind: enum
+        bindings:
+        - alias: window
+          parameter: window
+        options:
+        - value: rectangular
+          transport:
+            value: RECTangular
+        - value: hanning
+          transport:
+            value: HANNing
+        - value: flat_top
+          transport:
+            value: FLATtop
+        - value: blackman_harris
+          transport:
+            value: BHARris
+        required: false
+        default: hanning
+      units:
+        kind: enum
+        bindings:
+        - alias: vtype
+          parameter: units
+        options:
+        - value: decibel
+          transport:
+            value: DECibel
+        - value: vrms
+          transport:
+            value: VRMS
+        required: false
+        default: decibel
+      display:
+        kind: bool
+        bindings:
+        - alias: display
+          parameter: state
+        options:
+        - value: true
+          transport:
+            value: 'ON'
+        - value: false
+          transport:
+            value: 'OFF'
+        required: false
+        default: true
+  function_display:
+    transport:
+      write: function_display
+    parameters:
+      state:
+        kind: bool
+        bindings:
+        - alias: write
+          parameter: state
+        options:
+        - value: true
+          transport:
+            value: 'ON'
+        - value: false
+          transport:
+            value: 'OFF'
+  frequency_response_analysis:
+    transport:
+      start: fran_start
+      stop: fran_stop
+      amplitude: fran_amplitude
+      points: fran_points
+      load: fran_load
+      fetch: fran_fetch
+      input: fran_input_source
+      output: fran_output_source
+      trace: fran_trace
+      enable: fran_enable
+      disable: fran_disable
+    parameters:
+      input_channel:
+        kind: range
+        bindings:
+        - alias: input
+          parameter: channel
+        min: 1
+        max: 4
+      output_channel:
+        kind: range
+        bindings:
+        - alias: output
+          parameter: channel
+        min: 1
+        max: 4
+      start_freq:
+        kind: range
+        bindings:
+        - alias: start
+          parameter: value
+        min: 0.1
+        max: 2.0e+20
+      stop_freq:
+        kind: range
+        bindings:
+        - alias: stop
+          parameter: value
+        min: 0.1
+        max: 2.0e+20
+      amplitude:
+        kind: range
+        bindings:
+        - alias: amplitude
+          parameter: value
+        min: 0
+        max: 9
+      points:
+        kind: range
+        bindings:
+        - alias: points
+          parameter: value
+        min: 2
+        max: 1000.0
+        required: false
+        default: 10
+      trace:
+        kind: enum
+        bindings:
+        - alias: trace
+          parameter: value
+        options:
+        - value: none
+          transport:
+            value: NONE
+        - value: all
+          transport:
+            value: ALL
+        - value: gain
+          transport:
+            value: GAIN
+        - value: phase
+          transport:
+            value: PHASe
+        required: false
+        default: none
+      load:
+        kind: enum
+        bindings:
+        - alias: load
+          parameter: value
+        options:
+        - value: onemeg
+          transport:
+            value: ONEMeg
+        - value: fifty
+          transport:
+            value: FIFTy
+        required: false
+        default: onemeg
+      disable_on_complete:
+        kind: bool
+        strict: false
+        default: true
+        transport_parameter: false
+        required: false
+        options:
+        - value: true
+        - value: false
+  time_axis_read:
+    transport:
+      scale: get_timebase_scale
+      position: get_timebase_position
+    parameters: {}
+  channel_axis_read:
+    transport:
+      scale: get_channel_scale
+      offset: get_channel_offset
+    parameters:
+      channel:
+        kind: range
+        required: false
+        min: 1
+        max: 4
+        bindings:
+        - alias: scale
+          parameter: channel
+        - alias: offset
+          parameter: channel
+  waveform_acquisition:
+    transport: {}
+    parameters:
+      channels:
+        kind: open_string
+        required: false
+        transport_parameter: false
+      run_after:
+        kind: bool
+        required: false
+        default: true
+        transport_parameter: false
+        options:
+        - value: true
+        - value: false
+      timebase:
+        kind: range
+        required: false
+        transport_parameter: false
+      timeout_ms:
+        kind: range
+        required: false
+        min: 1
+        transport_parameter: false
+  probe_read:
+    transport:
+      read: probe_get
+    parameters:
+      channel:
+        kind: range
+        required: false
+        min: 1
+        max: 4
+        bindings:
+        - alias: read
+          parameter: channel
+  probe_write:
+    transport:
+      write: probe_set
+    parameters:
+      channel:
+        kind: range
+        required: false
+        min: 1
+        max: 4
+        bindings:
+        - alias: write
+          parameter: channel
+      scale:
+        kind: range
+        required: false
+        bindings:
+        - alias: write
+          parameter: scale
+  acquisition_time:
+    transport:
+      write: timebase_main_range
+    parameters:
+      time:
+        kind: range
+        required: false
+        bindings:
+        - alias: write
+          parameter: time
+  sample_rate:
+    transport:
+      write: acquire_set_rate
+    parameters:
+      rate:
+        kind: range
+        required: false
+        bindings:
+        - alias: write
+          parameter: rate
+  bandwidth_limit:
+    transport:
+      write: channel_bandwidth
+    parameters:
+      channel:
+        kind: range
+        required: false
+        min: 1
+        max: 4
+        bindings:
+        - alias: write
+          parameter: channel
+      bandwidth:
+        kind: range
+        required: false
+        bindings:
+        - alias: write
+          parameter: bandwidth
+  wave_generator_frequency:
+    transport:
+      write: wgen_set_freq
+    parameters:
+      freq:
+        kind: range
+        required: false
+        bindings:
+        - alias: write
+          parameter: frequency
+  wave_generator_amplitude:
+    transport:
+      write: wgen_set_volt
+    parameters:
+      amp:
+        kind: range
+        required: false
+        bindings:
+        - alias: write
+          parameter: amplitude
+  wave_generator_offset:
+    transport:
+      write: wgen_set_offset
+    parameters:
+      offset:
+        kind: range
+        required: false
+        bindings:
+        - alias: write
+          parameter: offset
+  wave_generator_sine:
+    transport: {}
+    parameters:
+      amp:
+        kind: range
+        required: false
+        transport_parameter: false
+      offset:
+        kind: range
+        required: false
+        transport_parameter: false
+      freq:
+        kind: range
+        required: false
+        transport_parameter: false
+  wave_generator_ramp:
+    transport: {}
+    parameters:
+      v0:
+        kind: range
+        required: false
+        transport_parameter: false
+      v1:
+        kind: range
+        required: false
+        transport_parameter: false
+      freq:
+        kind: range
+        required: false
+        transport_parameter: false
+      symmetry:
+        kind: range
+        required: false
+        transport_parameter: false
+  wave_generator_pulse:
+    transport: {}
+    parameters:
+      v0:
+        kind: range
+        required: false
+        transport_parameter: false
+      v1:
+        kind: range
+        required: false
+        transport_parameter: false
+      period:
+        kind: range
+        required: false
+        transport_parameter: false
+      pulse_width:
+        kind: range
+        required: false
+        transport_parameter: false
+  wave_generator_dc:
+    transport: {}
+    parameters:
+      offset:
+        kind: range
+        required: false
+        transport_parameter: false
+  wave_generator_noise:
+    transport: {}
+    parameters:
+      v0:
+        kind: range
+        required: false
+        transport_parameter: false
+      v1:
+        kind: range
+        required: false
+        transport_parameter: false
+      offset:
+        kind: range
+        required: false
+        transport_parameter: false
+  fft_read:
+    transport: {}
+    parameters:
+      channel:
+        kind: range
+        required: false
+        min: 1
+        max: 4
+        transport_parameter: false
+      window:
+        kind: open_string
+        required: false
+        transport_parameter: false
+      timeout_ms:
+        kind: range
+        required: false
+        min: 1
+        transport_parameter: false
 scpi:
     commands:
+        set_channel_coupling:
+          template: :CHANnel{channel}:COUPling {coupling}
+          validators:
+            channel:
+              min: 1
+              max: 4
+        probe_set:
+          template: :CHANnel{channel}:PROBe {scale}
+          validators:
+            channel:
+              min: 1
+              max: 4
+        channel_bandwidth:
+          template: CHANnel{channel}:BANDwidth {bandwidth}
+          validators:
+            channel:
+              min: 1
+              max: 4
+        reset: {template: "*RST"}
+        clear: {template: "*CLS"}
+        opc: {template: "*OPC"}
         set_time_axis:
             sequence:
                 - ":TIMebase:SCALe {scale}"
@@ -152,8 +1303,29 @@ scpi:
                 - ":TRIGger:MODE {mode}"
             validators:
                 channel: { min: 1, max: 4 }
+            enums:
+                mode:
+                    edge: EDGE
+                    glitch: GLITch
+                    pattern: PATTern
+                    shold: SHOLd
+                    transition: TRANsition
+                    tv: TV
+                    sbus1: SBUS1
         set_trigger_coupling:
             template: ":TRIGger:{mode}:COUPling {coupling}"
+            enums:
+                mode:
+                    edge: EDGE
+                    glitch: GLITch
+                    pattern: PATTern
+                    shold: SHOLd
+                    transition: TRANsition
+                    tv: TV
+                    sbus1: SBUS1
+                coupling:
+                    ac: AC
+                    dc: DC
         display_channel:
             template: "CHANnel{channel}:DISPlay {state}"
             validators:
@@ -245,6 +1417,10 @@ scpi:
             template: ":WGEN:FUNCtion:PULSe:WIDTh {width}"
 
     queries:
+        identify: {template: "*IDN?", response: {type: str}}
+        opc_query: {template: "*OPC?", response: {type: str}}
+        esr_query: {template: "*ESR?", response: {type: str}}
+        get_error: {template: ":SYSTem:ERRor?", response: {type: str}}
         get_timebase_scale:
             template: ":TIMebase:SCALe?"
             response:
@@ -293,6 +1469,12 @@ scpi:
                 type: str
         measure_vpp:
             template: "MEAS:VPP? CHAN{channel}"
+            validators:
+                channel: { min: 1, max: 4 }
+            response:
+                type: float
+        measure_phase:
+            template: "MEAS:PHAS? CHAN{channel}"
             validators:
                 channel: { min: 1, max: 4 }
             response:
@@ -403,6 +1585,7 @@ simulation:
 
     # `scpi` maps SCPI command patterns to responses and state changes.
     scpi:
+        "*IDN?": "Simulated,Keysight,DSOX1204G,SIM1.0"
         # Reset command sets the live state back to `initial_state`.
         "*RST":
             set: { "": "py:state.clear(); state.update(initial_state)" }

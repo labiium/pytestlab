@@ -24,7 +24,7 @@ Synchronous backend for VISA-compatible instruments (e.g., GPIB, USB, TCPIP, RS2
 
 ### `LambBackend`
 
-Backend for instruments accessible via the [Lamb](https://github.com/e-a-olowe/lamb) remote instrument server protocol. Uses synchronous HTTP requests to communicate with Lamb daemons.
+Client backend for an existing compatible remote instrument transport. It uses synchronous HTTP and sends instrument addresses in the `resource_string` field. For explicit GPIB bindings it registers the exact resource string and rejects responses that do not confirm it. Ordinary requests do not send local script paths. Research attribution is enabled only by the TIM harness context or by explicitly setting `PYTESTLAB_TIM_ATTRIBUTION=1`; when enabled, attribution can include a local script path and line number in a header sent to the configured LAMB server.
 
 ::: pytestlab.instruments.backends.lamb.LambBackend
 
@@ -66,11 +66,15 @@ Backend that wraps real instrument backends to record all interactions for later
 
 PyTestLab chooses the backend automatically based on:
 
-- The `simulate` flag (in code or `bench.yaml`)
-- The instrument's `address` (e.g., `"sim"` triggers simulation)
-- The `backend` or `backend_defaults` fields in your configuration
-
-You can override backend selection by specifying `backend_type_hint` when creating an instrument.
+- Set `simulate=True` in the factory, or set `simulate: true` in the bench or
+  its device entry, to use a compatible simulator. A device setting can override
+  the bench's default. The `address` string alone does not enable simulation.
+- For live I/O, set the backend type and address explicitly on the bench
+  entry or device profile. Direct factory calls can supply `backend_type_hint`
+  and `address_override`.
+- For an offline CLI run with PyTestLab-managed transports, use
+  `ptl run --simulate`. It rejects unsupported devices or hooks and does not
+  sandbox your Python script.
 
 ---
 

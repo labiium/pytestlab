@@ -35,11 +35,20 @@ To run the test suite, use pytest:
 pytest
 ```
 
-Ensure all tests pass before submitting a pull request. New features should include new tests.
+By default, pytest only collects `tests/` and skips tests marked
+`requires_real_hw`. Install ngspice to run the circuit-simulation tests. On
+a configured lab bench, explicitly opt in to hardware tests with
+`pytest -m requires_real_hw`.
+
+Keep teaching scripts in `examples/` and prose or notebook walkthroughs
+in `docs/`. Put assertions about public behavior and regressions in
+`tests/`. Prefer a test that catches a distinct failure over another smoke
+test for the same behavior. Keep generated output out of the repository;
+check in only small fixtures that are needed for an example or named test.
 
 ## Code Style
 
-*   PyTestLab uses **Ruff** for linting and formatting, and **MyPy** for type checking. These are enforced by pre-commit hooks.
+*   PyTestLab uses **Ruff** for linting and formatting, and **ty** for type checking. These are enforced by pre-commit hooks.
 *   Commits should follow the **Conventional Commits** specification (e.g., `feat: add new oscilloscope feature`). `commitizen` (`cz c`) is configured to help with this.
 
 ## Using Pre-commit Hooks

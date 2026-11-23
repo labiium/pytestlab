@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import pytest
 
@@ -5,7 +7,7 @@ from pytestlab import AutoInstrument
 from pytestlab.errors import InstrumentParameterError
 
 # Use the built-in Keysight EDU33212A AWG profile for testing
-AWG_PROFILE_KEY = "keysight/EDU33212A"
+AWG_PROFILE_KEY = os.getenv("PYTESTLAB_INSTRUMENT_TEST_PROFILE", "keysight/EDU33212A")
 
 
 def check_hardware_available():
@@ -27,7 +29,7 @@ def test_awg_basic_idn_and_connect():
     awg = AutoInstrument.from_config(config_source=AWG_PROFILE_KEY, debug_mode=True)
     awg.connect_backend()
     idn = awg.id()
-    assert "EDU33212A" in idn
+    assert awg.config.model.upper() in idn.upper()
     awg.close()
 
 
@@ -87,11 +89,8 @@ def test_awg_set_square_wave_and_duty_cycle():
         pytest.skip(f"AWG hardware not available: {error_msg}")
     awg = AutoInstrument.from_config(config_source=AWG_PROFILE_KEY, debug_mode=True)
     awg.connect_backend()
-    ch = 2
-    awg.set_function(ch, "SQUARE", duty_cycle=25.0)
-    awg.set_frequency(ch, 500)
-    awg.set_amplitude(ch, 1.0)
-    awg.set_offset(ch, 0.0)
+    ch = min(2, awg.channel_count)
+    awg.channel(ch).setup_square(500, 1.0, offset=0.0, duty_cycle=25.0)
     duty = awg.get_square_duty_cycle(ch)
     assert isinstance(duty, float)
     awg.close()
@@ -125,9 +124,9 @@ def test_awg_error_handling_on_invalid_channel():
         pytest.skip(f"AWG hardware not available: {error_msg}")
     awg = AutoInstrument.from_config(config_source=AWG_PROFILE_KEY, debug_mode=True)
     awg.connect_backend()
-    # The EDU33212A has 2 channels; channel 3 should be invalid
+    invalid_channel = awg.channel_count + 1
     with pytest.raises(InstrumentParameterError):
-        awg.set_frequency(3, 1000)
+        awg.set_frequency(invalid_channel, 1000)
     awg.close()
 
 
@@ -139,11 +138,12 @@ def test_awg_facade_chain_methods():
         pytest.skip(f"AWG hardware not available: {error_msg}")
     awg = AutoInstrument.from_config(config_source=AWG_PROFILE_KEY, debug_mode=True)
     awg.connect_backend()
-    ch2 = awg.channel(2)
+    channel = min(2, awg.channel_count)
+    ch2 = awg.channel(channel)
     # Test method chaining for a ramp waveform
     ch2.setup_ramp(frequency=5000, amplitude=2.0, offset=0.0, symmetry=60.0).enable()
 
-    state = awg.get_output_state(2)
+    state = awg.get_output_state(channel)
     assert state.value == "ON"
     ch2.disable()  # Disable channel 2
     awg.close()

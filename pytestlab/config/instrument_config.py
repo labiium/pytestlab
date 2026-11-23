@@ -6,30 +6,13 @@ from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
 
-from .accuracy import AccuracySpec
+from ..uncertainty.metrology import CalibrationCertificate
+from ..uncertainty.specs import AccuracyModel
+from .device_config import DeviceConfig
+from .operation_options import ProfileOperationOptions
+from .scpi_schema import SCPIParameterSpec as CanonicalSCPIParameterSpec
 
-
-class SCPIParameterSpec(BaseModel):
-    """Specification for a single SCPI command parameter."""
-
-    model_config = ConfigDict(validate_assignment=True, extra="forbid")
-
-    name: str = Field(..., description="Parameter name")
-    type: str = Field(..., description="Parameter type (e.g., 'int', 'float', 'str', 'enum')")
-    required: bool = Field(True, description="Whether this parameter is required")
-    description: str | None = Field(None, description="Parameter description")
-
-    # Validation rules
-    min_value: float | int | None = Field(None, description="Minimum allowed value")
-    max_value: float | int | None = Field(None, description="Maximum allowed value")
-    allowed_values: list[Any] | None = Field(None, description="Allowed values for enum types")
-
-    # Default value
-    default: Any = Field(None, description="Default parameter value")
-
-    # Units and formatting
-    units: str | None = Field(None, description="Parameter units")
-    format: str | None = Field(None, description="Parameter format specification")
+SCPIParameterSpec = CanonicalSCPIParameterSpec
 
 
 class SCPICommandSpec(BaseModel):
@@ -41,8 +24,8 @@ class SCPICommandSpec(BaseModel):
     sequence: list[str] | None = Field(None, description="Sequence of SCPI commands")
 
     # Parameter specifications
-    parameters: dict[str, SCPIParameterSpec] | None = Field(
-        None, description="Parameter specifications for this command"
+    parameters: dict[str, CanonicalSCPIParameterSpec] | None = Field(
+        None, description="Canonical parameter metadata for this command"
     )
 
     # Legacy fields (kept for backward compatibility)
@@ -86,8 +69,15 @@ class SCPISection(BaseModel):
     )
 
 
-class InstrumentConfig(BaseModel):
-    model_config = ConfigDict(validate_assignment=True, extra="ignore")  # Added model_config
+class InstrumentConfig(DeviceConfig):
+    """Shared profile contract for SCPI-controlled measurement instruments.
+
+    Adds declarative SCPI mappings, measurement-accuracy models, calibration
+    certificates, and strict uncertainty handling to :class:`DeviceConfig`.
+    Unknown profile fields are ignored for compatibility with vendor metadata.
+    """
+
+    model_config = ConfigDict(validate_assignment=True, extra="ignore")
 
     manufacturer: str = Field(..., description="Manufacturer of the instrument")
     model: str = Field(..., description="Model number of the instrument")
@@ -98,8 +88,28 @@ class InstrumentConfig(BaseModel):
     address: str | None = Field(
         None, description="Instrument connection address (e.g., VISA resource string)"
     )  # Example common field
-    measurement_accuracy: dict[str, AccuracySpec] | None = Field(
+    measurement_accuracy: dict[str, AccuracyModel] | None = Field(
         default_factory=dict, description="Measurement accuracy specifications"
+    )
+    calibration_certificates: list[CalibrationCertificate] = Field(
+        default_factory=list,
+        description=(
+            "Structured calibration certificates used to resolve metrological "
+            "traceability for uncertainty atoms. Missing or non-matching entries "
+            "leave results explicitly non-report-grade."
+        ),
+    )
+    capabilities: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Optional generic capability flags and metadata from the instrument profile.",
+    )
+    uncertainty_strict: bool = Field(
+        True,
+        description=(
+            "Raise uncertainty model evaluation errors from drivers. Set false only for "
+            "explicit exploratory sessions that prefer nominal-only reads over fail-loud "
+            "profile validation."
+        ),
     )
     # further complex yaml
     # ------------------------- NEW  (SCPI) ------------------------------ #
@@ -111,6 +121,11 @@ class InstrumentConfig(BaseModel):
         ),
     )
 
+    capabilities: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Transport and capability metadata interpreted by generic drivers.",
+    )
+
     scpi_variant: str | None = Field(
         None,
         description=(
@@ -118,3 +133,18 @@ class InstrumentConfig(BaseModel):
             "instrument.  Leave empty if not using the multi-variant feature."
         ),
     )
+
+    operation_options: ProfileOperationOptions = Field(
+        default_factory=ProfileOperationOptions,
+        description=(
+            "Semantic, profile-backed options for high-level operation parameters. "
+            "Transport mappings are private and are consumed by the shared resolver."
+        ),
+    )
+
+    def model_dump_internal(self, **kwargs: Any) -> dict[str, Any]:
+        """Serialize private profile mappings for replay/simulation persistence."""
+
+        result = self.model_dump(**kwargs)
+        result["operation_options"] = self.operation_options.model_dump_internal()
+        return result

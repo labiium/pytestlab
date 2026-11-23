@@ -180,7 +180,9 @@ def _collect_scpi_requirement_groups(obj: Any, prefix: str = "") -> list[tuple[s
             elif isinstance(value, list):
                 for index, item in enumerate(value):
                     if isinstance(item, BaseModel):
-                        groups.extend(_collect_scpi_requirement_groups(item, f"{group_name}[{index}]"))
+                        groups.extend(
+                            _collect_scpi_requirement_groups(item, f"{group_name}[{index}]")
+                        )
     return groups
 
 
@@ -275,7 +277,7 @@ def _run_health_checks(context: VerificationContext) -> list[VerificationResult]
 
 def _run_scpi_presence_checks(context: VerificationContext) -> list[VerificationResult]:
     results: list[VerificationResult] = []
-    engine = getattr(context.instrument, "scpi_engine", None)
+    engine = getattr(context.instrument, "_scpi_engine", None)
     if engine is None:
         return [
             _result(
@@ -312,7 +314,9 @@ def _run_scpi_presence_checks(context: VerificationContext) -> list[Verification
                 )
             )
 
-    feature_mappings = getattr(getattr(context.config, "scpi", None), "feature_mappings", None) or {}
+    feature_mappings = (
+        getattr(getattr(context.config, "scpi", None), "feature_mappings", None) or {}
+    )
     for feature_name, mapping in sorted(feature_mappings.items()):
         required = list((mapping or {}).get("required_scpi", []) or [])
         if not required:
@@ -344,7 +348,7 @@ def _run_scpi_presence_checks(context: VerificationContext) -> list[Verification
 
 def _run_generic_query_smoke_checks(context: VerificationContext) -> list[VerificationResult]:
     results: list[VerificationResult] = []
-    engine = getattr(context.instrument, "scpi_engine", None)
+    engine = getattr(context.instrument, "_scpi_engine", None)
     if engine is None:
         return results
 
@@ -356,7 +360,9 @@ def _run_generic_query_smoke_checks(context: VerificationContext) -> list[Verifi
                 seen.add(alias)
                 candidate_names.append(alias)
 
-    for feature_mapping in (getattr(getattr(context.config, "scpi", None), "feature_mappings", None) or {}).values():
+    for feature_mapping in (
+        getattr(getattr(context.config, "scpi", None), "feature_mappings", None) or {}
+    ).values():
         for alias in list((feature_mapping or {}).get("required_scpi", []) or []):
             if alias not in seen:
                 seen.add(alias)
@@ -450,9 +456,7 @@ def _plugin_multimeter(context: VerificationContext) -> list[VerificationResult]
                     details=str(exc),
                 )
             )
-    if context.probe_mode == "safe-write" and hasattr(context.instrument, "set_measurement_function"):
-        from pytestlab.config.multimeter_config import DMMFunction
-
+    if context.probe_mode == "safe-write" and hasattr(context.instrument, "configure_measurement"):
         current_mode = getattr(snapshot, "measurement_mode", None)
         if current_mode is None:
             return [
@@ -465,29 +469,42 @@ def _plugin_multimeter(context: VerificationContext) -> list[VerificationResult]
                 ),
             ]
 
-        try:
-            current_function = DMMFunction(current_mode)
-        except Exception:
+        functions = getattr(context.config, "measurement_functions", None)
+        matches = (
+            [
+                function_id
+                for function_id, spec in functions.function_specs()
+                if current_mode in (function_id, spec.label)
+            ]
+            if functions is not None
+            else []
+        )
+        current_function = matches[0] if len(matches) == 1 else None
+        range_value = getattr(snapshot, "range_value", None)
+        resolution = getattr(snapshot, "resolution", None)
+        if current_function is None or range_value is None or resolution in (None, "", "N/A"):
             results.append(
                 _result(
                     VerificationStatus.SKIP,
                     "Plugin",
                     "plugin.multimeter.set-function",
-                    "Skipped measurement function write probe because current mode is unsupported.",
+                    "Skipped measurement function write probe because the current profile function or settings are unknown.",
                     observed=current_mode,
                 )
             )
             return results
 
         try:
-            context.instrument.set_measurement_function(current_function)
+            context.instrument.configure_measurement(
+                current_function, range_val=range_value, resolution=resolution
+            )
             results.append(
                 _result(
                     VerificationStatus.PASS,
                     "Plugin",
                     "plugin.multimeter.set-function",
                     "Measurement function write probe reapplied the current mode.",
-                    observed=current_function.value,
+                    observed=current_function,
                 )
             )
         except Exception as exc:
@@ -719,7 +736,9 @@ def _plugin_waveform_generator(context: VerificationContext) -> list[Verificatio
                 )
 
     if context.probe_mode == "safe-write":
-        if hasattr(context.instrument, "get_frequency") and hasattr(context.instrument, "set_frequency"):
+        if hasattr(context.instrument, "get_frequency") and hasattr(
+            context.instrument, "set_frequency"
+        ):
             if context.allow_output_enable:
                 try:
                     freq = context.instrument.get_frequency(channel)
@@ -753,7 +772,9 @@ def _plugin_waveform_generator(context: VerificationContext) -> list[Verificatio
                     )
                 )
 
-        if hasattr(context.instrument, "get_amplitude") and hasattr(context.instrument, "set_amplitude"):
+        if hasattr(context.instrument, "get_amplitude") and hasattr(
+            context.instrument, "set_amplitude"
+        ):
             if context.allow_output_enable:
                 try:
                     amp = context.instrument.get_amplitude(channel)
@@ -841,7 +862,7 @@ def verify_instrument_profile(
     fail_fast: bool = False,
 ) -> VerificationReport:
     probe_mode = _validate_probe_mode(probe_mode)
-    config = load_profile(profile_source)
+    config = cast(InstrumentConfig, load_profile(profile_source))
     report = VerificationReport(
         profile_source=profile_source,
         device_type=config.device_type,
@@ -903,7 +924,10 @@ def verify_instrument_profile(
             block = block_factory()
             for result in block:
                 report.add(result)
-                if fail_fast and result.status in {VerificationStatus.FAIL, VerificationStatus.ERROR}:
+                if fail_fast and result.status in {
+                    VerificationStatus.FAIL,
+                    VerificationStatus.ERROR,
+                }:
                     return report
     except Exception as exc:
         status = VerificationStatus.ERROR if not connected else VerificationStatus.FAIL

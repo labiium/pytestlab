@@ -1,4 +1,6 @@
 # pytestlab/instruments/backends/session_recording_backend.py
+import base64
+import hashlib
 import logging
 import os
 import time
@@ -76,14 +78,16 @@ class SessionRecordingBackend(InstrumentIO):
         except TypeError:
             response = self.original_backend.query_raw(cmd)
 
-        # Note: Storing raw bytes in YAML is tricky. Consider base64 encoding for robustness.
-        # For simplicity here, we'll decode assuming it's representable as a string.
-        try:
-            response_str = response.decode("utf-8", errors="ignore")
-        except Exception:
-            response_str = f"<binary data of length {len(response)}>"
-
-        self._log_event({"type": "query_raw", "command": cmd.strip(), "response": response_str})
+        self._log_event(
+            {
+                "type": "query_raw",
+                "command": cmd.strip(),
+                "response_encoding": "base64",
+                "response_base64": base64.b64encode(response).decode("ascii"),
+                "response_sha256": hashlib.sha256(response).hexdigest(),
+                "response_len": len(response),
+            }
+        )
         return response
 
     def save_session(self, profile_key: str):
@@ -92,20 +96,17 @@ class SessionRecordingBackend(InstrumentIO):
             # No file output configured, session is stored in the list
             return
 
-        # Map profile keys to instrument types for test compatibility
-        instrument_key = self._get_instrument_key(profile_key)
+        session_key = self.profile_key or profile_key
+        session_data = {session_key: {"profile": profile_key, "log": self._command_log}}
 
-        session_data = {instrument_key: {"profile": profile_key, "log": self._command_log}}
-
-        # Load existing session data if file exists
         existing_data: dict[str, Any] = {}
         if os.path.exists(self.output_file):
-            try:
-                with open(self.output_file) as f:
-                    existing_data = yaml.safe_load(f) or {}
-            except Exception:
-                # If file is corrupted or empty, start fresh
-                existing_data = {}
+            with open(self.output_file) as f:
+                loaded_data = yaml.safe_load(f)
+            if loaded_data is not None:
+                if not isinstance(loaded_data, dict):
+                    raise ValueError("Existing session file must contain a mapping")
+                existing_data = loaded_data
 
         # Merge with existing data
         existing_data.update(session_data)
@@ -119,18 +120,6 @@ class SessionRecordingBackend(InstrumentIO):
         # Write to file
         with open(self.output_file, "w") as f:
             yaml.dump(existing_data, f, default_flow_style=False)
-
-    def _get_instrument_key(self, profile_key: str) -> str:
-        """Map profile keys to instrument type keys for test compatibility."""
-        if "EDU36311A" in profile_key or "psu" in profile_key.lower():
-            return "psu"
-        elif "DSOX1204G" in profile_key or "osc" in profile_key.lower():
-            return "osc"
-        elif "dmm" in profile_key.lower():
-            return "dmm"
-        else:
-            # For other profiles, use 'psu' as default for test compatibility
-            return "psu"
 
     def close(self):
         # The file writing is now handled by save_session or CLI command

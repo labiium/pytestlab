@@ -1,6 +1,6 @@
 # Simulation Mode
 
-PyTestLab features a powerful, YAML-driven simulation backend (`SimBackend`) that provides realistic and deterministic behavior for your instruments.
+PyTestLab’s YAML-driven simulation backend (`SimBackend`) returns fixture-defined instrument responses without hardware. Use circuit simulation or a recorded trace when the outcome must depend on a circuit or on measured behavior.
 
 ## How Simulation Works
 
@@ -8,38 +8,36 @@ The behavior of a simulated instrument is defined in the `simulation` section of
 
 ### Example: Profile with Simulation Logic
 
-```yaml title="pytestlab/profiles/pytestlab/virtual_instrument.yaml"
-manufacturer: PyTestLab
-model: Virtual-Instrument-1
-device_type: virtual_instrument
+Save the following simulator fixture as `sim_supply.yaml`. It holds one
+voltage setting in memory and reads it back. It is not a profile of a real
+supply.
 
+```yaml
+manufacturer: example
+model: SimulatedSupply
+device_type: power_supply
 simulation:
   initial_state:
-    voltage: 0.0
-    current: 0.0
-    counter: 0
-
+    voltage: "0.0"
   scpi:
-    # Simple query with a static response
-    "*IDN?": "PyTestLab,Virtual-Instrument-1,0,1.0"
-
-    # Command that changes state using regex capture group ($1)
-    "SET:VOLT ([-+]?[0-9]*\\.?[0-9]+)":
+    "*IDN?": "Example,SimulatedSupply,SIM,1.0"
+    'SET:VOLT ([-+]?[0-9]*\.?[0-9]+)':
       set:
-        voltage: "py:float(g1)" # Use a python expression to cast
-
-    # Query that retrieves a value from the state
+        voltage: "$1"
     "MEAS:VOLT?":
-      get: "voltage"
+      get: voltage
+```
 
-    # Command with state manipulation
-    "COUNT:INC":
-      inc:
-        counter: 1
+```python
+from pytestlab.instruments.backends.sim_backend import SimBackend
 
-    # Query with a dynamic Python lambda expression
-    "DYNAMIC:RAND?":
-      response: "lambda: str(random.randint(1, 100))"
+sim = SimBackend("sim_supply.yaml")
+try:
+    sim.connect()
+    sim.write("SET:VOLT 2.5")
+    print(sim.query("MEAS:VOLT?"))  # 2.5
+finally:
+    sim.close()
 ```
 
 ## Enabling Simulation
@@ -48,12 +46,12 @@ There are several ways to enable simulation mode:
 
 1. **Globally in `bench.yaml`**: Set `simulate: true` at the top level of your bench file.
 2. **Per-instrument in `bench.yaml`**: Add `simulate: true` to a specific instrument's definition.
-3. **In `AutoInstrument`**: Pass `simulate=True` when creating an instrument instance.
-    ```python
-    import pytestlab
-    scope = pytestlab.AutoInstrument.from_config("keysight/DSOX1204G", simulate=True)
-    scope.connect_backend()
-    ```
+3. **In `AutoInstrument`**: Pass `simulate=True` with a profile that defines a compatible simulator.
+
+Not every hardware profile defines simulation behaviour. PyTestLab rejects explicit
+simulation if no suitable fixture is available rather than connecting to hardware.
+The [simulated multimeter quickstart](getting_started.md#2-your-first-measurement-simulated)
+uses a regular instrument profile with simulator behavior already defined.
 
 ## Recording a Simulation Profile
 
@@ -82,7 +80,7 @@ See the [CLI Reference](cli.md) for more `sim-profile` commands like `edit`, `re
 - **Stateful Simulation:** The simulation backend can maintain internal state (e.g., voltages, counters) and update it in response to commands.
 - **Python Expressions:** Use `py:` or `lambda:` in responses to compute dynamic values.
 - **Regex Matching:** SCPI command patterns can use regular expressions for flexible matching and parameter extraction.
-- **Deterministic Testing:** Simulation ensures repeatable results for CI/CD and development.
+- **Deterministic Testing:** Fixed responses and deterministic state transitions make tests repeatable.
 
 ---
 

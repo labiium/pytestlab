@@ -4,9 +4,9 @@ PyTestLab Simple Bench Example
 
 This example demonstrates:
   - Loading a bench from a YAML configuration file
-  - Accessing instruments by name
+  - Accessing devices by name
   - Using the bench context manager for automatic cleanup
-  - Running basic operations on multiple instruments
+  - Running basic operations on multiple devices
 
 The bench uses simulation mode - no hardware required.
 """
@@ -32,10 +32,10 @@ def main():
     with Bench.open(bench_path) as bench:
         print(f"✓ Bench loaded: {bench.name}")
         print(f"  Simulation mode: {bench.simulate}")
-        print(f"  Number of instruments: {len(bench.instruments)}")
+        print(f"  Number of devices: {len(bench.devices)}")
 
-        # Access instruments by their alias
-        print("\n--- Accessing Instruments ---")
+        # Access devices by their alias
+        print("\n--- Accessing Devices ---")
 
         # Access the power supply
         psu = bench.psu
@@ -66,19 +66,19 @@ def main():
         # In simulation mode, this demonstrates the API without real hardware
         print("\n2. Multimeter ready for measurements")
         print("   Available measurement functions:")
-        print("   - DMMFunction.VOLTAGE_DC - DC voltage")
-        print("   - DMMFunction.VOLTAGE_AC - AC voltage")
-        print("   - DMMFunction.CURRENT_DC - DC current")
-        print("   - DMMFunction.RESISTANCE - 2-wire resistance")
+        print('   - "dc_voltage" - DC voltage')
+        print('   - "ac_voltage" - AC voltage')
+        print('   - "dc_current" - DC current')
+        print('   - "resistance" - 2-wire resistance')
 
         # Turn off output
         psu.output(1, False)
         print("\n3. Power supply output turned off")
 
-    # The context manager automatically closes all instruments
+    # The context manager automatically closes all devices
     print("\n" + "=" * 60)
     print("Bench example completed successfully!")
-    print("All instruments cleaned up automatically.")
+    print("All devices cleaned up automatically.")
     print("=" * 60)
 
 

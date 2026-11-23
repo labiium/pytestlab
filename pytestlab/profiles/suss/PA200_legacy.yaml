@@ -1,0 +1,87 @@
+manufacturer: suss
+model: PA200
+device_type: instrument
+driver: pytestlab.instruments.profile_instrument:ProfileInstrument
+role: fixture
+protocol: SUSS PA200 prober text protocol
+
+capabilities:
+  identity: false
+  error_queue: false
+  message_io:
+    read_termination: "\n"
+  status_byte:
+    enabled: true
+    flags:
+      data_ready:
+        mask: 16
+        severity: info
+        description: Response or data is ready.
+
+scpi:
+  queries:
+    read_prober_status:
+      template: ReadProberStatus
+      response: {type: str}
+
+    read_chuck_position:
+      template: ReadChuckPosition
+      response: {type: str}
+    read_chuck_status:
+      template: ReadChuckStatus
+      response: {type: str}
+    set_external_mode:
+      template: SetExternalMode {mode}
+      parameters:
+        mode:
+          kind: enum
+          strict: true
+          choices: [{token: R}, {token: L}]
+      response: {type: str}
+    stop_all_movements:
+      template: StopAllMovements
+      response: {type: str}
+
+simulation:
+  scpi:
+    ReadProberStatus: 0:ready:contact:remote
+    ReadChuckPosition: 0:0:0:0
+    ReadChuckStatus: 0:ready
+    SetExternalMode R: 0:remote
+    SetExternalMode L: 0:local
+    StopAllMovements: 0:stopped
+
+operation_options:
+  operations:
+    read_prober_status:
+      mode: query
+      transport: {query: read_prober_status}
+      response_pattern: '^0[: ]'
+    read_chuck_position:
+      mode: query
+      transport: {query: read_chuck_position}
+      response_pattern: '^0[: ]'
+    read_chuck_status:
+      mode: query
+      transport: {query: read_chuck_status}
+      response_pattern: '^0[: ]'
+    set_external_mode:
+      mode: query
+      safety_class: state-changing
+      transport: {query: set_external_mode}
+      response_pattern: '^0[: ]'
+      parameters:
+        mode:
+          kind: enum
+          options:
+          - {value: remote, label: Remote, aliases: [R], transport: {value: R}}
+          - {value: local, label: Local, aliases: [L], transport: {value: L}}
+          bindings: [{alias: query, parameter: mode}]
+    stop_all_movements:
+      mode: query
+      safety_class: state-changing
+      transport: {query: stop_all_movements}
+      response_pattern: '^0[: ]'
+    status_byte:
+      mode: native
+      backend_method: read_status_byte

@@ -153,7 +153,7 @@ def _verify_signature(
         public_key: Any = serialization.load_pem_public_key(pub_key_path.read_bytes())
         signature_bytes = base64.b64decode(sig.value)
         # Verify signature over canonical JSON bytes
-        public_key.verify(signature_bytes, canonical, ec.ECDSA(hashes.SHA256()))  # type: ignore
+        public_key.verify(signature_bytes, canonical, ec.ECDSA(hashes.SHA256()))
         return True
     except Exception as e:  # noqa: BLE001
         issues.append(f"Signature verification failed: {e}")

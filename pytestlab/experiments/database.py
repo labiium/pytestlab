@@ -11,9 +11,13 @@ from __future__ import annotations
 import contextlib
 import datetime as dt
 import hashlib
+import json
 import lzma
+import math
 import pickle
+import re
 import sqlite3
+import struct
 import threading
 import time
 from pathlib import Path
@@ -24,20 +28,45 @@ import polars as pl
 
 from .experiments import Experiment
 from .results import MeasurementResult
+from .results import NativeMeasurementResult
+from .results import SupportsMeasurementResult
+from .results import coerce_measurement_result
+from .uncertainty_serialization import deserialize_uncertain_value
+from .uncertainty_serialization import serialize_uncertain_value
 
 
-# --- DUMMY DatabaseBackup for mkdocstrings compatibility ---
 class DatabaseBackup:
-    """
-    Dummy DatabaseBackup class for documentation compatibility.
-    This is not used in runtime code, but allows mkdocstrings to resolve
-    'pytestlab.experiments.DatabaseBackup' for API docs.
+    """Create consistent SQLite snapshots of a measurement database.
+
+    The destination is normalized to a ``.db`` path and must differ from the
+    source. Parent directories are created automatically. SQLite's online backup
+    API copies a transactionally consistent view of the active connection.
     """
 
-    pass
+    def __init__(self, database: MeasurementDatabase) -> None:
+        self.database = database
+
+    def create(self, destination: str | Path) -> Path:
+        """Write the snapshot and return the normalized destination path."""
+        destination_path = Path(destination).with_suffix(".db")
+        if destination_path.resolve() == self.database.db_path.resolve():
+            raise ValueError("Backup destination must differ from the source database")
+        destination_path.parent.mkdir(parents=True, exist_ok=True)
+        source = self.database._get_connection()
+        with sqlite3.connect(destination_path) as target:
+            source.backup(target)
+        return destination_path
 
 
 __all__ = ["Database", "MeasurementDatabase"]
+
+
+_NUMPY_BLOB_PREFIX = b"PYTESTLAB:NUMPY:\x00"
+_POLARS_BLOB_PREFIX = b"PYTESTLAB:POLARS:\x00"
+_SCALAR_BLOB_PREFIX = b"PYTESTLAB:SCALAR:\x00"
+_LEGACY_SCALAR_PATTERN = re.compile(
+    rb"[+-]?(?:(?:[0-9]+(?:\.[0-9]*)?)|(?:\.[0-9]+))(?:[eE][+-]?[0-9]+)?\Z"
+)
 
 
 def _generate_codename(prefix: str = "ITEM") -> str:
@@ -74,7 +103,8 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
         """
         self.db_path = Path(str(db_path)).with_suffix(".db")
         self._conn_lock = threading.Lock()
-        self._conn: sqlite3.Connection | None = None
+        self._thread_connections = threading.local()
+        self._connections: set[sqlite3.Connection] = set()
 
         # Register custom adapters for NumPy/Polars
         sqlite3.register_adapter(np.ndarray, self._adapt_numpy)
@@ -97,22 +127,36 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
 
     # Connection management
     def _get_connection(self) -> sqlite3.Connection:
-        """Get thread-safe database connection."""
+        """Get the calling thread's database connection."""
+        conn = getattr(self._thread_connections, "connection", None)
         with self._conn_lock:
-            if self._conn is None:
-                self._conn = sqlite3.connect(
-                    self.db_path, detect_types=sqlite3.PARSE_DECLTYPES, check_same_thread=False
-                )
-                self._conn.execute("PRAGMA foreign_keys = ON")
-                self._conn.execute("PRAGMA journal_mode = WAL")  # Better concurrency
-            return self._conn
+            if conn is not None and conn in self._connections:
+                return conn
+
+            conn = sqlite3.connect(
+                self.db_path,
+                detect_types=sqlite3.PARSE_DECLTYPES,
+                check_same_thread=False,
+                timeout=30.0,
+            )
+            try:
+                conn.execute("PRAGMA foreign_keys = ON")
+                conn.execute("PRAGMA busy_timeout = 30000")
+                conn.execute("PRAGMA journal_mode = WAL")
+            except Exception:
+                conn.close()
+                raise
+            self._connections.add(conn)
+            self._thread_connections.connection = conn
+            return conn
 
     def close(self) -> None:
-        """Close database connection."""
+        """Close every connection owned by this database instance."""
         with self._conn_lock:
-            if self._conn is not None:
-                self._conn.close()
-                self._conn = None
+            for conn in self._connections:
+                conn.close()
+            self._connections.clear()
+            self._thread_connections.connection = None
 
     # Binary serialization
     @staticmethod
@@ -127,13 +171,32 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
         metadata_bytes = pickle.dumps(metadata)
 
         # Format: [metadata_length:4][metadata][data]
-        return sqlite3.Binary(
-            len(metadata_bytes).to_bytes(4, "little") + metadata_bytes + data_bytes
-        )
+        payload = len(metadata_bytes).to_bytes(4, "little") + metadata_bytes + data_bytes
+        return sqlite3.Binary(_NUMPY_BLOB_PREFIX + payload)
 
     @staticmethod
-    def _convert_numpy(blob: bytes) -> np.ndarray:
-        """Deserialize binary data back to NumPy array."""
+    def _convert_numpy(blob: bytes) -> np.ndarray | pl.DataFrame | float:
+        """Deserialize tagged and legacy NumPy or Polars binary data."""
+        if blob.startswith(_POLARS_BLOB_PREFIX):
+            return MeasurementDatabase._convert_polars(blob)
+        if blob.startswith(_SCALAR_BLOB_PREFIX):
+            payload = blob[len(_SCALAR_BLOB_PREFIX) :]
+            if len(payload) != 8:
+                raise ValueError("Failed to deserialize scalar measurement: invalid payload length")
+            scalar = struct.unpack(">d", payload)[0]
+            if not math.isfinite(scalar):
+                raise ValueError("Failed to deserialize scalar measurement: value must be finite")
+            return scalar
+        if blob.startswith(_NUMPY_BLOB_PREFIX):
+            blob = blob[len(_NUMPY_BLOB_PREFIX) :]
+
+        # Earlier releases stored SQLite numeric values directly in the NPBLOB
+        # column. Accept only the numeric text SQLite emits for those scalars.
+        if _LEGACY_SCALAR_PATTERN.fullmatch(blob):
+            scalar = float(blob)
+            if math.isfinite(scalar):
+                return scalar
+
         # Check if this is an LZMA file (XZ signature)
         if blob[:7] == b"\xfd\x37\x7a\x58\x5a\x00\x00":
             try:
@@ -142,10 +205,9 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
                 # Try to read as a pickled numpy array
                 return pickle.loads(decompressed)
             except Exception:
-                # If that fails, try polars DataFrame and convert to NumPy
+                # If that fails, try a legacy Polars Arrow IPC payload
                 try:
-                    df = pl.read_ipc(decompressed)
-                    return df.to_numpy()
+                    return pl.read_ipc(decompressed)
                 except Exception:
                     pass
 
@@ -181,11 +243,16 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
         """Serialize Polars DataFrame using Arrow IPC + compression."""
         ipc_data = df.write_ipc(None).getvalue()
         compressed = lzma.compress(ipc_data)
-        return sqlite3.Binary(compressed)
+        return sqlite3.Binary(_POLARS_BLOB_PREFIX + compressed)
 
     @staticmethod
     def _convert_polars(blob: bytes) -> pl.DataFrame:
         """Deserialize compressed Arrow IPC back to Polars DataFrame."""
+        if blob.startswith(_POLARS_BLOB_PREFIX):
+            blob = blob[len(_POLARS_BLOB_PREFIX) :]
+        elif blob.startswith(_NUMPY_BLOB_PREFIX):
+            blob = blob[len(_NUMPY_BLOB_PREFIX) :]
+
         # Check if this is an LZMA file (XZ signature)
         if blob[:7] == b"\xfd\x37\x7a\x58\x5a\x00\x00":
             try:
@@ -264,28 +331,13 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
                     codename, name, description, notes,
                     content='experiments'
                 );
-
-                -- FTS triggers for auto-sync
-                CREATE TRIGGER IF NOT EXISTS experiments_fts_insert AFTER INSERT ON experiments
-                BEGIN
-                    INSERT INTO experiments_fts(codename, name, description, notes)
-                    VALUES (new.codename, new.name, new.description, new.notes);
-                END;
-
-                CREATE TRIGGER IF NOT EXISTS experiments_fts_delete AFTER DELETE ON experiments
-                BEGIN
-                    DELETE FROM experiments_fts WHERE codename = old.codename;
-                END;
-
-                CREATE TRIGGER IF NOT EXISTS experiments_fts_update AFTER UPDATE ON experiments
-                BEGIN
-                    UPDATE experiments_fts SET
-                        name = new.name,
-                        description = new.description,
-                        notes = new.notes
-                    WHERE codename = new.codename;
-                END;
             """)
+            self._ensure_fts_sync(
+                conn,
+                table="experiments",
+                fts_table="experiments_fts",
+                columns=("codename", "name", "description", "notes"),
+            )
 
             # Experiment parameters
             conn.execute("""
@@ -324,27 +376,14 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
                     codename, measurement_type, notes,
                     content='measurements'
                 );
-
-                -- FTS triggers for measurements
-                CREATE TRIGGER IF NOT EXISTS measurements_fts_insert AFTER INSERT ON measurements
-                BEGIN
-                    INSERT INTO measurements_fts(codename, measurement_type, notes)
-                    VALUES (new.codename, new.measurement_type, new.notes);
-                END;
-
-                CREATE TRIGGER IF NOT EXISTS measurements_fts_delete AFTER DELETE ON measurements
-                BEGIN
-                    DELETE FROM measurements_fts WHERE codename = old.codename;
-                END;
-
-                CREATE TRIGGER IF NOT EXISTS measurements_fts_update AFTER UPDATE ON measurements
-                BEGIN
-                    UPDATE measurements_fts SET
-                        measurement_type = new.measurement_type,
-                        notes = new.notes
-                    WHERE codename = new.codename;
-                END;
             """)
+            self._ensure_fts_sync(
+                conn,
+                table="measurements",
+                fts_table="measurements_fts",
+                columns=("codename", "measurement_type", "notes"),
+            )
+            self._migrate_measurements_table(conn)
 
             # Indices for performance
             conn.execute("CREATE INDEX IF NOT EXISTS idx_exp_created ON experiments(created_at);")
@@ -355,21 +394,87 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
                 "CREATE INDEX IF NOT EXISTS idx_meas_type ON measurements(measurement_type);"
             )
 
+    @staticmethod
+    def _migrate_measurements_table(conn: sqlite3.Connection) -> None:
+        """Add columns required by newer measurement serializers to existing DBs."""
+
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(measurements)")}
+        if "metadata" not in columns:
+            conn.execute("ALTER TABLE measurements ADD COLUMN metadata TEXT")
+
+    @staticmethod
+    def _ensure_fts_sync(
+        conn: sqlite3.Connection,
+        *,
+        table: str,
+        fts_table: str,
+        columns: tuple[str, ...],
+    ) -> None:
+        """Install rowid-aware FTS triggers and rebuild legacy indexes once."""
+
+        trigger_names = {
+            action: f"{fts_table}_{action}" for action in ("insert", "delete", "update")
+        }
+        trigger_sql = {
+            row[0]: (row[1] or "").lower()
+            for row in conn.execute(
+                "SELECT name, sql FROM sqlite_master WHERE type = 'trigger' AND tbl_name = ?",
+                (table,),
+            )
+        }
+        is_current = (
+            "new.rowid" in trigger_sql.get(trigger_names["insert"], "")
+            and "'delete'" in trigger_sql.get(trigger_names["delete"], "")
+            and "old.rowid" in trigger_sql.get(trigger_names["delete"], "")
+            and "'delete'" in trigger_sql.get(trigger_names["update"], "")
+            and "old.rowid" in trigger_sql.get(trigger_names["update"], "")
+            and "new.rowid" in trigger_sql.get(trigger_names["update"], "")
+        )
+        if is_current:
+            return
+
+        for trigger_name in trigger_names.values():
+            conn.execute(f"DROP TRIGGER IF EXISTS {trigger_name}")
+
+        column_list = ", ".join(columns)
+        new_values = ", ".join(f"new.{column}" for column in columns)
+        old_values = ", ".join(f"old.{column}" for column in columns)
+        conn.executescript(f"""
+            CREATE TRIGGER {trigger_names["insert"]} AFTER INSERT ON {table}
+            BEGIN
+                INSERT INTO {fts_table}(rowid, {column_list})
+                VALUES (new.rowid, {new_values});
+            END;
+
+            CREATE TRIGGER {trigger_names["delete"]} AFTER DELETE ON {table}
+            BEGIN
+                INSERT INTO {fts_table}({fts_table}, rowid, {column_list})
+                VALUES ('delete', old.rowid, {old_values});
+            END;
+
+            CREATE TRIGGER {trigger_names["update"]} AFTER UPDATE ON {table}
+            BEGIN
+                INSERT INTO {fts_table}({fts_table}, rowid, {column_list})
+                VALUES ('delete', old.rowid, {old_values});
+                INSERT INTO {fts_table}(rowid, {column_list})
+                VALUES (new.rowid, {new_values});
+            END;
+        """)
+        conn.execute(f"INSERT INTO {fts_table}({fts_table}) VALUES ('rebuild')")
+
     # Instrument management
     def _get_or_create_instrument_id(self, conn: sqlite3.Connection, instrument_name: str) -> int:
-        """Get or create instrument ID."""
-        cursor = conn.execute(
-            "SELECT instrument_id FROM instruments WHERE name = ?", (instrument_name,)
+        """Atomically get or create an instrument ID."""
+        conn.execute(
+            "INSERT INTO instruments (name) VALUES (?) ON CONFLICT(name) DO NOTHING",
+            (instrument_name,),
         )
-        row = cursor.fetchone()
-        if row:
-            return row[0]
-
-        cursor = conn.execute("INSERT INTO instruments (name) VALUES (?)", (instrument_name,))
-        rowid = cursor.lastrowid
-        if rowid is None:
-            raise RuntimeError("Failed to obtain lastrowid after INSERT")
-        return int(rowid)
+        row = conn.execute(
+            "SELECT instrument_id FROM instruments WHERE name = ?", (instrument_name,)
+        ).fetchone()
+        if row is None:
+            raise RuntimeError("Failed to create instrument")
+        return int(row[0])
 
     # Experiment operations
     def store_experiment(
@@ -400,27 +505,40 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
 
         conn = self._get_connection()
         with conn:
-            # Check for existing entry
-            cursor = conn.execute("SELECT 1 FROM experiments WHERE codename = ?", (codename,))
-            if cursor.fetchone() and not overwrite:
-                raise ValueError(f"Experiment '{codename}' already exists")
-
             # Store experiment
-            conn.execute(
-                """
-                INSERT OR REPLACE INTO experiments
-                (codename, name, description, notes, data, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """,
-                (
-                    codename,
-                    experiment.name,
-                    experiment.description,
-                    notes,
-                    experiment.data,
-                    dt.datetime.now(),
-                ),
-            )
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO experiments
+                    (codename, name, description, notes, data, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(codename) DO UPDATE SET
+                        name = excluded.name,
+                        description = excluded.description,
+                        notes = excluded.notes,
+                        data = excluded.data,
+                        created_at = excluded.created_at,
+                        metadata = NULL
+                    """
+                    if overwrite
+                    else """
+                    INSERT INTO experiments
+                    (codename, name, description, notes, data, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        codename,
+                        experiment.name,
+                        experiment.description,
+                        notes,
+                        experiment.data,
+                        dt.datetime.now(),
+                    ),
+                )
+            except sqlite3.IntegrityError as exc:
+                if overwrite:
+                    raise
+                raise ValueError(f"Experiment '{codename}' already exists") from exc
 
             # Store parameters
             conn.execute("DELETE FROM experiment_parameters WHERE codename = ?", (codename,))
@@ -534,7 +652,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
     def store_measurement(
         self,
         codename: str | None,
-        measurement: MeasurementResult,
+        measurement: MeasurementResult | SupportsMeasurementResult,
         *,
         overwrite: bool = True,
         notes: str = "",
@@ -544,7 +662,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
 
         Args:
             codename: Unique identifier (auto-generated if None)
-            measurement: MeasurementResult to store
+            measurement: MeasurementResult or native instrument result to store
             overwrite: Whether to allow overwriting existing measurements
             notes: Additional notes
 
@@ -554,36 +672,77 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
         Raises:
             ValueError: If codename exists and overwrite=False
         """
+        native = not isinstance(measurement, MeasurementResult)
+        result = coerce_measurement_result(measurement)
+        if result is None:
+            raise TypeError("Expected MeasurementResult or a native instrument result.")
+        measurement = result
+        enriched = isinstance(measurement, NativeMeasurementResult)
+
         if codename is None:
             codename = _generate_codename("MEAS")
 
         conn = self._get_connection()
         with conn:
-            # Check for existing entry
-            cursor = conn.execute("SELECT 1 FROM measurements WHERE codename = ?", (codename,))
-            if cursor.fetchone() and not overwrite:
-                raise ValueError(f"Measurement '{codename}' already exists")
-
             # Get instrument ID
             instrument_id = self._get_or_create_instrument_id(conn, measurement.instrument)
 
+            value_data, metadata = serialize_uncertain_value(measurement.values)
+            if isinstance(value_data, (int, float, np.integer, np.floating)):
+                scalar_value = float(value_data)
+                if not math.isfinite(scalar_value):
+                    raise ValueError("Scalar measurement value must be finite")
+                value_data = sqlite3.Binary(_SCALAR_BLOB_PREFIX + struct.pack(">d", scalar_value))
+            envelope = getattr(measurement, "envelope", None)
+            if envelope:
+                metadata = dict(metadata)
+                metadata["measurement_envelope"] = envelope
+            if enriched:
+                metadata["native_capture"] = True
+            if native or enriched or (envelope and "timestamp_kind" in envelope):
+                # Store the original epoch separately from the legacy local-time SQL field.
+                metadata["native_result_timing"] = {
+                    "timestamp": float(measurement.timestamp),
+                    "sampling_rate": measurement.sampling_rate,
+                }
+
             # Store measurement
-            conn.execute(
-                """
-                INSERT OR REPLACE INTO measurements
-                (codename, instrument_id, timestamp, value_data, units, measurement_type, notes)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-                (
-                    codename,
-                    instrument_id,
-                    dt.datetime.fromtimestamp(measurement.timestamp),
-                    measurement.values,
-                    measurement.units,
-                    measurement.measurement_type,
-                    notes,
-                ),
-            )
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO measurements
+                    (codename, instrument_id, timestamp, value_data, units, measurement_type, notes, metadata)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(codename) DO UPDATE SET
+                        instrument_id = excluded.instrument_id,
+                        timestamp = excluded.timestamp,
+                        value_data = excluded.value_data,
+                        units = excluded.units,
+                        measurement_type = excluded.measurement_type,
+                        notes = excluded.notes,
+                        metadata = excluded.metadata
+                    """
+                    if overwrite
+                    else """
+                    INSERT INTO measurements
+                    (codename, instrument_id, timestamp, value_data, units, measurement_type, notes, metadata)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        codename,
+                        instrument_id,
+                        dt.datetime.fromtimestamp(measurement.timestamp),
+                        value_data,
+                        measurement.units,
+                        measurement.measurement_type,
+                        notes,
+                        json.dumps(metadata) if metadata else None,
+                    ),
+                )
+            except sqlite3.IntegrityError as exc:
+                if overwrite:
+                    raise
+                raise ValueError(f"Measurement '{codename}' already exists") from exc
 
         return codename
 
@@ -603,7 +762,7 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
         conn = self._get_connection()
         cursor = conn.execute(
             """
-            SELECT i.name, m.timestamp, m.value_data, m.units, m.measurement_type
+            SELECT i.name, m.timestamp, m.value_data, m.units, m.measurement_type, m.metadata
             FROM measurements m
             JOIN instruments i ON m.instrument_id = i.instrument_id
             WHERE m.codename = ?
@@ -615,14 +774,32 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
         if not row:
             raise ValueError(f"Measurement '{codename}' not found")
 
-        instrument, timestamp, value_data, units, measurement_type = row
+        instrument, timestamp, value_data, units, measurement_type, metadata_raw = row
+        envelope = {}
+        timing: dict[str, Any] = {}
+        enriched = False
+        if metadata_raw:
+            try:
+                metadata = json.loads(metadata_raw)
+            except json.JSONDecodeError:
+                metadata = {}
+            envelope = metadata.pop("measurement_envelope", {}) or {}
+            timing = metadata.pop("native_result_timing", {}) or {}
+            enriched = metadata.pop("native_capture", False) is True
+            value_data = deserialize_uncertain_value(value_data, metadata, unit=units or "")
 
-        return MeasurementResult(
+        result_type = NativeMeasurementResult if enriched else MeasurementResult
+        return result_type(
             values=value_data,
             instrument=instrument,
             units=units,
             measurement_type=measurement_type,
-            timestamp=timestamp.timestamp() if hasattr(timestamp, "timestamp") else time.time(),
+            timestamp=timing.get(
+                "timestamp",
+                timestamp.timestamp() if hasattr(timestamp, "timestamp") else time.time(),
+            ),
+            envelope=envelope,
+            sampling_rate=timing.get("sampling_rate"),
         )
 
     def list_measurements(
@@ -742,6 +919,10 @@ class MeasurementDatabase(contextlib.AbstractContextManager):
         """Optimize database file size and performance."""
         conn = self._get_connection()
         conn.execute("VACUUM")
+
+    def backup(self, destination: str | Path) -> Path:
+        """Create a consistent SQLite backup and return its path."""
+        return DatabaseBackup(self).create(destination)
 
     def __repr__(self) -> str:
         stats = self.get_stats()

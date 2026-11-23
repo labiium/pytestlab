@@ -1,0 +1,49 @@
+# Synthetic replies, not measurements from physical equipment.
+impedance:
+  profile: hioki/IM3570
+  log:
+  - type: query
+    command: ':MODE?'
+    response: ':MODE ANALYZER'
+  - type: query
+    command: ':CORR:OPEN:RET?'
+    response: ':CORRECTION:OPEN ALL'
+  - type: query
+    command: ':CORR:SHOR:RET?'
+    response: ':CORRECTION:SHORT ALL'
+  - type: query
+    command: ':MODE?'
+    response: ':MODE ANALYZER'
+  - type: query
+    command: ':SWE:MAIN:SOUR?'
+    response: ':SWEEP:MAIN:SOURCE FREQ'
+  - type: query
+    command: ':SWE:TRIG?'
+    response: ':SWEEP:TRIGGER SEQUENTIAL'
+  - type: query
+    command: ':FORM:DATA?'
+    response: ':FORMAT:DATA ASCII'
+  - type: query
+    command: ':MEAS:VAL?'
+    response: ':MEASURE:VALID 22'
+  - type: query
+    command: ':HEAD?'
+    response: ':HEADER ON'
+  - type: query
+    command: ':MEAS:OUTP:AUTO?'
+    response: ':MEASURE:OUTPUT:AUTO OFF'
+  - type: query
+    command: ':SEGM?'
+    response: ':SEGMENT OFF'
+  - type: query
+    command: ':LIST:STAR:STOP?'
+    response: ':LIST:START:STOP 1000,49000,3,LOG'
+  - type: query
+    command: ':MEAS:POIN? 1'
+    response: '0,1000,Z 3.605551275,PHASE -56.309932474'
+  - type: query
+    command: ':MEAS:POIN? 2'
+    response: '0,15600,Z 1,PHASE 0'
+  - type: query
+    command: ':MEAS:POIN? 3'
+    response: '0,49000,Z 3.605551275,PHASE 56.309932474'

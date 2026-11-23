@@ -1,34 +1,62 @@
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import Iterator
+from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import Any
+from typing import Protocol
+from typing import TypeGuard
 from typing import cast
 from typing import overload
 
 import numpy as np
 import polars as pl
 from numpy.typing import NDArray
-from uncertainties.core import UFloat
+
+from ..uncertainty import Quantity as MeasurementQuantity
+from ..uncertainty import QuantityArray as MeasurementQuantityArray
+from .uncertainty_serialization import deserialize_uncertain_value
+from .uncertainty_serialization import serialize_uncertain_value
 
 if TYPE_CHECKING:
     from ..plotting import PlotSpec
 
 
-# NOTE:
-#   The real implementation is *replaced at runtime* by the compliance layer.
-#   The stub class below is kept so that static type-checkers still see a
-#   definition when users import MeasurementResult directly.
+def _is_quantity_array(value: Any) -> TypeGuard[np.ndarray]:
+    return (
+        isinstance(value, np.ndarray)
+        and value.size > 0
+        and all(isinstance(item, MeasurementQuantity) for item in value.flat)
+    )
+
+
+def _is_quantity_list(value: Any) -> TypeGuard[list[MeasurementQuantity]]:
+    return (
+        isinstance(value, list)
+        and bool(value)
+        and all(isinstance(item, MeasurementQuantity) for item in value)
+    )
+
+
 class MeasurementResult:  # noqa: D101
-    """A class to represent a collection of measurement values.
+    """Measurement values plus instrument identity, units, provenance, and timing.
+
+    Python and NumPy numeric scalars are normalized to ``np.float64``. Arrays,
+    Polars data frames, uncertainty-aware quantities, quantity arrays, and lists
+    remain structured. ``envelope`` carries serializable provenance metadata;
+    ``sampling_rate`` is required by :meth:`perform_fft`. Additional keyword
+    arguments are retained as attributes for driver-specific metadata.
 
     Attributes:
-        values (Union[np.ndarray, pl.DataFrame, np.float64, TypingList[Any], UFloat]): The measurement data.
-        units (str): The units of the measurements.
-        instrument (str): The name of the instrument used for the measurements.
-        measurement_type (str): The type of measurement.
-        timestamp (float): Timestamp of when the result was created.
+        values: Scalar, array, frame, sequence, or uncertainty-aware measurement data.
+        units: Unit string for the measurement values.
+        instrument: Instrument alias or identity that produced the result.
+        measurement_type: Profile/driver measurement operation identifier.
+        timestamp: Unix timestamp at result creation unless explicitly supplied.
+        envelope: Serializable provenance and uncertainty metadata.
+        sampling_rate: Samples per second for time-domain data, when known.
     """
 
     @overload
@@ -46,7 +74,12 @@ class MeasurementResult:  # noqa: D101
     @overload
     def __init__(
         self,
-        values: np.ndarray | pl.DataFrame | np.float64 | list[Any] | UFloat,
+        values: np.ndarray
+        | pl.DataFrame
+        | np.float64
+        | list[Any]
+        | MeasurementQuantity
+        | MeasurementQuantityArray,
         instrument: str,
         units: str,
         measurement_type: str,
@@ -57,7 +90,13 @@ class MeasurementResult:  # noqa: D101
     ) -> None: ...
     def __init__(
         self,
-        values: np.ndarray | pl.DataFrame | np.float64 | list[Any] | UFloat | float,
+        values: np.ndarray
+        | pl.DataFrame
+        | np.float64
+        | list[Any]
+        | MeasurementQuantity
+        | MeasurementQuantityArray
+        | float,
         instrument: str,
         units: str,
         measurement_type: str,
@@ -65,12 +104,25 @@ class MeasurementResult:  # noqa: D101
         envelope: dict[str, Any] | None = None,  # Add envelope as an explicit argument
         sampling_rate: float | None = None,  # Add sampling_rate for FFT
         **kwargs: Any,
-    ) -> None:  # Added **kwargs and type hint
-        if isinstance(values, float) and not isinstance(values, np.floating):
-            # Normalize plain Python float to numpy float64 for internal consistency
+    ) -> None:
+        if isinstance(values, int | float | np.integer | np.floating):
+            # Normalize Python and NumPy numeric scalars for one extraction contract.
             values = np.float64(values)
-        self.values: np.ndarray | pl.DataFrame | np.float64 | list[Any] | UFloat = cast(
-            np.ndarray | pl.DataFrame | np.float64 | list[Any] | UFloat, values
+        self.values: (
+            np.ndarray
+            | pl.DataFrame
+            | np.float64
+            | list[Any]
+            | MeasurementQuantity
+            | MeasurementQuantityArray
+        ) = cast(
+            np.ndarray
+            | pl.DataFrame
+            | np.float64
+            | list[Any]
+            | MeasurementQuantity
+            | MeasurementQuantityArray,
+            values,
         )
         self.units: str = units
         self.instrument: str = instrument
@@ -90,15 +142,34 @@ class MeasurementResult:  # noqa: D101
         for key, value in kwargs.items():
             setattr(self, key, value)
 
+    @property
+    def uncertainty(self) -> MeasurementQuantity | MeasurementQuantityArray | None:
+        """Return the native uncertain values, including those beside a sample table.
+
+        A nominal capture or a datasheet accuracy bound alone has no evaluated
+        uncertainty. Use the result envelope for the source, conditions, and
+        limitations of any supplied model.
+        """
+        if isinstance(self.values, MeasurementQuantity | MeasurementQuantityArray):
+            return self.values
+        serialized = self.envelope.get("uncertainty")
+        if isinstance(serialized, dict):
+            kind = serialized.get("kind")
+            if kind == "quantity":
+                return MeasurementQuantity.from_dict(serialized["payload"])
+            if kind == "quantity_array":
+                return MeasurementQuantityArray.from_dict(serialized["payload"])
+        return None
+
     def __str__(self) -> str:
         """String representation of the measurement result.
 
         For backward compatibility with tests, returns a newline-separated list for arrays.
         For other types, uses a more descriptive representation.
         """
-        if isinstance(self.values, UFloat):
-            return f"{self.values} {self.units}"
-        elif isinstance(self.values, np.float64):
+        if isinstance(self.values, MeasurementQuantity | MeasurementQuantityArray):
+            return f"{self.values}"
+        if isinstance(self.values, np.float64):
             return f"{self.values} {self.units}"
         elif isinstance(self.values, pl.DataFrame):
             return str(self.values)
@@ -130,6 +201,52 @@ class MeasurementResult:  # noqa: D101
         """
         return self.__str__()
 
+    def _scalar_nominal(self) -> float:
+        """Return one nominal scalar or reject an ambiguous result shape."""
+        nominal = self.nominal
+        if isinstance(nominal, int | float | np.integer | np.floating):
+            return float(nominal)
+        raise TypeError(
+            "numeric conversion of MeasurementResult requires a scalar result; "
+            "use .values or .nominal for non-scalar measurements"
+        )
+
+    def __float__(self) -> float:
+        """Return the nominal value when this result contains one scalar."""
+
+        return self._scalar_nominal()
+
+    def __int__(self) -> int:
+        """Return the scalar nominal value as an integer."""
+
+        return int(self._scalar_nominal())
+
+    def __format__(self, spec: str) -> str:
+        """Format a scalar result without discarding explicit uncertainty formats."""
+
+        if "u" in spec and isinstance(self.values, MeasurementQuantity):
+            return format(self.values, spec)
+        return format(self._scalar_nominal(), spec)
+
+    def __round__(self, ndigits: int | None = None) -> int | float:
+        """Round the scalar nominal value."""
+
+        return round(self._scalar_nominal(), ndigits)
+
+    def __abs__(self) -> float:
+        """Return the absolute scalar nominal value."""
+
+        return abs(self._scalar_nominal())
+
+    def to_json_value(self) -> float:
+        """Return a JSON-compatible scalar nominal value.
+
+        Use :meth:`to_dict` instead when units and uncertainty metadata must be
+        retained.
+        """
+
+        return self._scalar_nominal()
+
     # Add this method to convert MeasurementResult to a dict for Polars DataFrame
     def to_dict(self) -> dict[str, Any]:
         """Convert MeasurementResult to a dict for DataFrame conversion.
@@ -145,7 +262,19 @@ class MeasurementResult:  # noqa: D101
         elif isinstance(self.values, np.ndarray | list):
             # Convert array or list to a dict with a 'values' key
             return {"values": self.values}
-        elif isinstance(self.values, np.float64 | UFloat):
+        elif isinstance(self.values, MeasurementQuantity):
+            return {
+                "value": self.values.nominal,
+                "unit": self.values.unit,
+                "uncertainty": self.values.to_dict(),
+            }
+        elif isinstance(self.values, MeasurementQuantityArray):
+            return {
+                "values": self.values.nominal,
+                "unit": self.values.unit,
+                "uncertainty": self.values.to_dict(),
+            }
+        elif isinstance(self.values, np.float64 | MeasurementQuantity):
             # Convert scalar value to a dict with a 'value' key
             return {"value": self.values}
         else:
@@ -159,12 +288,20 @@ class MeasurementResult:  # noqa: D101
 
     def __getitem__(self, key):
         """Allow dictionary-style access or integer indexing into values."""
+        if isinstance(self.values, MeasurementQuantityArray) and isinstance(key, int | slice):
+            return self.values[key]
         if isinstance(key, int):
             if isinstance(self.values, np.ndarray | list):
                 return self.values[key]
             if isinstance(self.values, pl.DataFrame):
                 return self.values[key]
-            if isinstance(self.values, (np.float64 | UFloat)) and key == 0:
+            if (
+                isinstance(
+                    self.values,
+                    (np.float64 | MeasurementQuantity),
+                )
+                and key == 0
+            ):
                 return self.values
             raise IndexError(
                 f"Index {key} out of range or type {type(self.values)} not directly indexable."
@@ -178,21 +315,58 @@ class MeasurementResult:  # noqa: D101
     def save(self, path: str) -> None:
         """Saves the measurement data to a file.
 
+        Uncertain values use a self-describing NPZ representation that retains
+        the complete uncertainty model, provenance, units, and result metadata.
         If the data is a numpy array, it will be saved as a .npy file.
         If the data is a Polars DataFrame, it will be saved as a .parquet file.
         Other list-like data will be converted to numpy array and saved as .npy.
         np.float64 will be saved as a 0-D numpy array.
-        UFloat objects will be saved as a two-element numpy array [nominal, std_dev] in a .npy file.
         """
-        default_ext = ".npy"
+        serialized_values, uncertainty_metadata = serialize_uncertain_value(self.values)
+        default_ext = ".npz" if uncertainty_metadata else ".npy"
         if isinstance(self.values, pl.DataFrame):
             default_ext = ".parquet"
 
-        if not path.endswith((".npy", ".parquet")):
+        if not path.endswith((".npy", ".parquet", ".npz")):
             path += default_ext
             print(f"Warning: File extension not specified. Saving as {path}")
 
-        if isinstance(self.values, np.ndarray):
+        if uncertainty_metadata:
+            if not path.endswith(".npz"):
+                raise ValueError(
+                    "Uncertain MeasurementResult values must be saved as .npz "
+                    "so metrology metadata is not discarded."
+                )
+            metadata = {
+                "schema_version": "1.0",
+                "instrument": self.instrument,
+                "units": self.units,
+                "measurement_type": self.measurement_type,
+                "timestamp": self.timestamp,
+                "envelope": self.envelope,
+                "sampling_rate": self.sampling_rate,
+                "uncertainty": uncertainty_metadata,
+                "extra_attributes": {
+                    key: value
+                    for key, value in self.__dict__.items()
+                    if key
+                    not in {
+                        "values",
+                        "instrument",
+                        "units",
+                        "measurement_type",
+                        "timestamp",
+                        "envelope",
+                        "sampling_rate",
+                    }
+                },
+            }
+            np.savez_compressed(
+                path,
+                values=np.asarray(serialized_values),
+                metadata_json=np.asarray(json.dumps(metadata, sort_keys=True)),
+            )
+        elif isinstance(self.values, np.ndarray):
             np.save(path, self.values)
         elif isinstance(self.values, pl.DataFrame):
             if not path.endswith(".parquet"):
@@ -200,10 +374,6 @@ class MeasurementResult:  # noqa: D101
                     f"Warning: Saving Polars DataFrame to non-parquet file '{path}'. Consider using .parquet for DataFrames."
                 )
             self.values.write_parquet(path)
-        elif isinstance(self.values, UFloat):
-            if not path.endswith(".npy"):
-                print(f"Warning: Saving UFloat to non-npy file '{path}'. Consider using .npy.")
-            np.save(path, np.array([self.values.nominal_value, self.values.std_dev]))
         elif isinstance(self.values, list | np.float64):  # Convert list or float64 to ndarray
             if not path.endswith(".npy"):
                 print(
@@ -212,46 +382,74 @@ class MeasurementResult:  # noqa: D101
             np.save(path, np.array(self.values))
         else:
             raise TypeError(
-                f"Unsupported data type for saving: {type(self.values)}. Can save np.ndarray, pl.DataFrame, list, np.float64, or UFloat."
+                f"Unsupported data type for saving: {type(self.values)}. Can save np.ndarray, pl.DataFrame, list, np.float64, MeasurementQuantity, or MeasurementQuantityArray."
             )
         print(f"Measurement saved to {path}")
+
+    @classmethod
+    def load(cls, path: str | Path) -> MeasurementResult:
+        """Load a self-describing uncertain result written by :meth:`save`."""
+
+        path = Path(path)
+        if path.suffix != ".npz":
+            raise ValueError("MeasurementResult.load() requires a self-describing .npz file.")
+        with np.load(path, allow_pickle=False) as archive:
+            if "metadata_json" not in archive:
+                raise ValueError("NPZ file does not contain MeasurementResult metadata.")
+            metadata = json.loads(str(archive["metadata_json"].item()))
+            values = deserialize_uncertain_value(
+                np.asarray(archive["values"]),
+                metadata.get("uncertainty", {}),
+                unit=metadata.get("units", ""),
+            )
+        return cls(
+            values=values,
+            instrument=metadata["instrument"],
+            units=metadata["units"],
+            measurement_type=metadata["measurement_type"],
+            timestamp=float(metadata["timestamp"]),
+            envelope=metadata.get("envelope") or {},
+            sampling_rate=metadata.get("sampling_rate"),
+            **metadata.get("extra_attributes", {}),
+        )
 
     @property
     def nominal(
         self,
     ) -> float | np.ndarray | pl.DataFrame:  # return type explicitly includes built-in float
-        if isinstance(self.values, UFloat):
-            return self.values.nominal_value
-        # Handle np.ndarray of UFloats if that's a possibility
-        elif (
-            isinstance(self.values, np.ndarray)
-            and self.values.size > 0
-            and isinstance(self.values.flat[0], UFloat)
-        ):
-            return np.array([x.nominal_value for x in self.values.flat]).reshape(self.values.shape)
-        # Handle Polars DataFrame with UFloat columns (see Polars serialization)
-        # For now, assume if it's a DataFrame, it might already be split or handled by Polars part
+        if isinstance(self.values, MeasurementQuantity):
+            return self.values.nominal
+        if isinstance(self.values, MeasurementQuantityArray):
+            return self.values.nominal
+        if _is_quantity_array(self.values):
+            values = self.values
+            return np.array([x.nominal for x in values.flat]).reshape(values.shape)
         if isinstance(self.values, pl.DataFrame | np.ndarray):
             return self.values
         if isinstance(self.values, np.float64):
             return float(self.values)
+        if isinstance(self.values, list):
+            if _is_quantity_list(self.values):
+                return np.asarray([value.nominal for value in self.values])
+            if all(isinstance(value, int | float | np.number) for value in self.values):
+                return np.asarray(self.values)
         raise TypeError(f"Unsupported type for nominal: {type(self.values)}")
 
     @property
     def sigma(
         self,
     ) -> float | np.ndarray | pl.DataFrame | None:  # return type explicitly includes built-in float
-        if isinstance(self.values, UFloat):
-            return self.values.std_dev
-        elif (
-            isinstance(self.values, np.ndarray)
-            and self.values.size > 0
-            and isinstance(self.values.flat[0], UFloat)
-        ):
-            return np.array([x.std_dev for x in self.values.flat]).reshape(self.values.shape)
+        if isinstance(self.values, MeasurementQuantity):
+            return self.values.u
+        if isinstance(self.values, MeasurementQuantityArray):
+            return self.values.u
+        if _is_quantity_array(self.values):
+            values = self.values
+            return np.array([x.u for x in values.flat]).reshape(values.shape)
+        if _is_quantity_list(self.values):
+            values = self.values
+            return np.asarray([value.u for value in values])
         return None  # Or handle DataFrame case
-
-    # Removed duplicate __repr__ (original definition earlier retained)
 
     def add(self, value: Any) -> None:
         """Adds a new value to the collection. Behavior depends on self.values type."""
@@ -264,11 +462,10 @@ class MeasurementResult:  # noqa: D101
             # Convert to list or ndarray if adding to a single float
             self.values = np.array([self.values, value])
             print("Warning: Added value to np.float64, converted 'values' to np.ndarray.")
-        elif isinstance(self.values, UFloat):
-            # If current value is UFloat, adding another value implies creating a list/array of UFloats
+        elif isinstance(self.values, MeasurementQuantity):
             self.values = [self.values, value]
             print(
-                "Warning: Added value to UFloat, converted 'values' to a list. Consider using a list of UFloats initially."
+                "Warning: Added value to MeasurementQuantity, converted 'values' to a list. Consider using a list initially."
             )
         elif isinstance(self.values, pl.DataFrame):
             # Appending to Polars DataFrame is complex; typically done by creating a new DF and vstacking.
@@ -280,28 +477,54 @@ class MeasurementResult:  # noqa: D101
             raise TypeError(f"Cannot 'add' to type {type(self.values)}")
 
     def set_values(
-        self, values: np.ndarray | pl.DataFrame | np.float64 | list[Any] | UFloat | float
+        self,
+        values: np.ndarray
+        | pl.DataFrame
+        | np.float64
+        | list[Any]
+        | MeasurementQuantity
+        | MeasurementQuantityArray
+        | float,
     ) -> None:
         """Sets the MeasurementValues in the collection."""
         if isinstance(values, float) and not isinstance(values, np.floating):
             values = np.float64(values)
-        self.values = cast(np.ndarray | pl.DataFrame | np.float64 | list[Any] | UFloat, values)
+        self.values = cast(
+            np.ndarray
+            | pl.DataFrame
+            | np.float64
+            | list[Any]
+            | MeasurementQuantity
+            | MeasurementQuantityArray,
+            values,
+        )
 
     def get(self, index: int) -> Any:
         """Gets the MeasurementValue at a specified index. Assumes indexable values."""
+        if isinstance(self.values, MeasurementQuantityArray):
+            return self.values[index]
         if isinstance(self.values, np.ndarray | list):
             return self.values[index]
         elif isinstance(self.values, pl.DataFrame):
             # For DataFrame, 'get' by index might mean row.
             # This returns a new DataFrame with one row.
             return self.values[index]
-        elif isinstance(self.values, (np.float64 | UFloat)) and index == 0:
+        elif isinstance(self.values, (np.float64 | MeasurementQuantity)) and index == 0:
             return self.values
         raise IndexError(
             f"Index {index} out of range or type {type(self.values)} not directly indexable by single int."
         )
 
-    def get_all(self) -> np.ndarray | pl.DataFrame | np.float64 | list[Any] | UFloat:
+    def get_all(
+        self,
+    ) -> (
+        np.ndarray
+        | pl.DataFrame
+        | np.float64
+        | list[Any]
+        | MeasurementQuantity
+        | MeasurementQuantityArray
+    ):
         """Returns all the MeasurementValues in the collection."""
         return self.values
 
@@ -309,10 +532,8 @@ class MeasurementResult:  # noqa: D101
         """Clears all the MeasurementValues from the collection, resetting to an empty/default state."""
         if isinstance(self.values, np.ndarray):
             self.values = np.array([])
-        elif isinstance(
-            self.values, (np.float64 | UFloat)
-        ):  # Reset UFloat to a default float or ufloat(0,0)
-            self.values = np.float64(0.0)  # Or ufloat(0,0) if preferred default for UFloat
+        elif isinstance(self.values, (np.float64 | MeasurementQuantity)):
+            self.values = np.float64(0.0)
         elif isinstance(self.values, pl.DataFrame):
             self.values = pl.DataFrame()
         elif isinstance(self.values, list):
@@ -326,26 +547,26 @@ class MeasurementResult:  # noqa: D101
     def _to_numpy(self) -> np.ndarray:
         """
         Converts the measurement values to a numpy array if possible.
-        For UFloat, it converts to a [nominal, std_dev] array.
-        For list/array of UFloats, it converts to an array of [nominal, std_dev] pairs.
+        For native uncertain values, it converts to [nominal, standard-uncertainty]
+        pairs.
         """
         if isinstance(self.values, np.ndarray):
-            if self.values.size > 0 and isinstance(self.values.flat[0], UFloat):
-                # Array of UFloats
-                return np.array([[x.nominal_value, x.std_dev] for x in self.values.flat]).reshape(
+            if _is_quantity_array(self.values):
+                return np.array([[x.nominal, x.u] for x in self.values.flat]).reshape(
                     self.values.shape + (2,)
                 )
             return self.values
         elif isinstance(self.values, pl.DataFrame):
-            # This needs careful consideration if DataFrame contains UFloat objects.
-            # For now, standard conversion. Database serialization handles UFloats in DFs.
+            # DataFrames are converted directly; native uncertainty metadata is
+            # retained by the structured MeasurementResult persistence path.
             return self.values.to_numpy()
-        elif isinstance(self.values, UFloat):
-            return np.array([self.values.nominal_value, self.values.std_dev])
+        elif isinstance(self.values, MeasurementQuantity):
+            return np.array([self.values.nominal, self.values.u])
+        elif isinstance(self.values, MeasurementQuantityArray):
+            return np.column_stack((self.values.nominal, self.values.u))
         elif isinstance(self.values, list):
-            if self.values and isinstance(self.values[0], UFloat):
-                vals = cast(list[UFloat], self.values)
-                return np.array([[x.nominal_value, x.std_dev] for x in vals])
+            if _is_quantity_list(self.values):
+                return np.array([[x.nominal, x.u] for x in self.values])
             return np.array(self.values)
         elif isinstance(self.values, np.float64):
             return np.array(self.values)
@@ -353,23 +574,23 @@ class MeasurementResult:  # noqa: D101
             raise TypeError(f"Cannot convert type {type(self.values)} to NumPy array.")
 
     def __len__(self) -> int:
-        if isinstance(self.values, np.ndarray | list):
+        if isinstance(self.values, np.ndarray | list | MeasurementQuantityArray):
             return len(self.values)
-        elif isinstance(self.values, np.float64 | UFloat):
+        elif isinstance(self.values, np.float64 | MeasurementQuantity):
             return 1
         elif isinstance(self.values, pl.DataFrame):
             return self.values.height  # Number of rows
         return 0  # Default for unknown types
 
-    # Removed duplicate __getitem__ (logic merged into earlier __getitem__)
-
     def __iter__(self) -> Iterator[Any]:
         """Allows iteration over the 'values' attribute."""
+        if isinstance(self.values, MeasurementQuantityArray):
+            return (self.values[index] for index in range(len(self.values)))
         if isinstance(self.values, np.ndarray | list):
             return iter(self.values)
         elif isinstance(self.values, pl.DataFrame):
             return iter(self.values.iter_rows())
-        elif isinstance(self.values, np.float64 | UFloat):
+        elif isinstance(self.values, np.float64 | MeasurementQuantity):
             return iter([self.values])
         raise TypeError(f"Iteration not supported for type {type(self.values)}")
 
@@ -400,7 +621,7 @@ class MeasurementResult:  # noqa: D101
             raise TypeError(f"FFT requires numpy array, got {type(self.values)}")
 
         # Ensure we're working with a 1D array
-        values_arr = cast(NDArray[np.generic], self.values)
+        values_arr = cast(NDArray[np.float64], self.values)
         values = values_arr.flatten() if values_arr.ndim > 1 else values_arr
 
         # Perform FFT
@@ -425,7 +646,7 @@ class MeasurementResult:  # noqa: D101
 
     # ------------------------------------------------------------------
     # Plotting convenience
-    def plot(self, spec: PlotSpec | None = None, **kwargs):
+    def plot(self, spec: PlotSpec | None = None, **kwargs: Any) -> Any:
         """
         Plot this measurement result.
 
@@ -492,3 +713,46 @@ class MeasurementResult:  # noqa: D101
             grid=pspec.grid,
         )
         return plot_ndarray(arr, pspec, sampling_rate=self.sampling_rate, units=self.units)
+
+
+class SupportsMeasurementResult(Protocol):
+    """A native acquisition result that can enter PyTestLab's result pipelines."""
+
+    def to_measurement_result(self) -> MeasurementResult: ...
+
+
+class NativeMeasurementResult(MeasurementResult):
+    """An enriched instrument result that must retain its envelope as one trial."""
+
+
+def is_native_measurement_result(value: object) -> bool:
+    """Recognize enriched results and instrument adapters, but not legacy results."""
+    return isinstance(value, NativeMeasurementResult) or (
+        not isinstance(value, MeasurementResult)
+        and callable(getattr(value, "to_measurement_result", None))
+    )
+
+
+def coerce_measurement_result(value: object) -> MeasurementResult | None:
+    """Adapt a native result, or return None for ordinary non-result values."""
+    if isinstance(value, NativeMeasurementResult):
+        result = value
+    elif isinstance(value, MeasurementResult):
+        return value
+    else:
+        adapter = getattr(value, "to_measurement_result", None)
+        if not callable(adapter):
+            return None
+        result = adapter()
+        if not isinstance(result, MeasurementResult):
+            raise TypeError(
+                f"{type(value).__name__}.to_measurement_result() must return a MeasurementResult."
+            )
+    # Session and standalone database must agree on the metadata representation.
+    try:
+        json.dumps(result.envelope, allow_nan=False)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"{type(value).__name__} result envelope must be JSON-serializable."
+        ) from exc
+    return result
