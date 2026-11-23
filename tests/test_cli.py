@@ -3,6 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 import yaml
+from rich.text import Text
 from typer.testing import CliRunner
 
 from pytestlab.cli import app
@@ -418,7 +419,7 @@ def test_instrument_check_operation_contract_strict_accepts_34460a_profile():
 def test_instrument_describe_operation_has_no_transport_diagnostics_flag():
     help_result = runner.invoke(app, ["instrument", "describe-operation", "--help"])
     assert help_result.exit_code == 0
-    assert "--include-scpi" not in help_result.stdout
+    assert "--include-scpi" not in Text.from_ansi(help_result.stdout).plain
 
     result = runner.invoke(
         app,
@@ -618,10 +619,11 @@ def test_instrument_full_test_help_explains_live_write_option():
     result = runner.invoke(app, ["instrument", "full-test", "--help"])
 
     assert result.exit_code == 0, result.output
-    assert "--include-writes" in result.stdout
-    assert "--yes" not in result.stdout
-    assert "--bench" in result.stdout
-    assert "consume" in result.stdout and "Unsafe" in result.stdout
+    help_text = Text.from_ansi(result.stdout).plain
+    assert "--include-writes" in help_text
+    assert "--yes" not in help_text
+    assert "--bench" in help_text
+    assert "consume" in help_text and "Unsafe" in help_text
 
 
 def test_instrument_full_test_requires_address_for_visa():

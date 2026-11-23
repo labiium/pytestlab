@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from rich.text import Text
 
 import pytestlab.cli as cli
 
@@ -189,9 +190,10 @@ def test_record_and_replay_entrypoint_help_never_opens_devices(
     argv = ["ptl", *route, *(arguments if full_command else []), "--help"]
     result, captured = _run_main(monkeypatch, argv, capsys)
     assert result == 0
-    assert "Usage:" in captured.out
-    assert f"{' '.join(route)} [OPTIONS]" in captured.out
-    assert flag in captured.out
+    help_text = Text.from_ansi(captured.out).plain
+    assert "Usage:" in help_text
+    assert f"{' '.join(route)} [OPTIONS]" in help_text
+    assert flag in help_text
 
 
 def test_cli_module_attribute_bridge():
